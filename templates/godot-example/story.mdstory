@@ -1,0 +1,65 @@
+---
+plotflow: "0.1"
+title: "{{title}}"
+author: "{{author}}"
+engine: "godot"
+vars:
+  courage: int
+  has_lantern: bool
+  route: enum[village, cave, shrine]
+---
+
+# Godot 示例
+
+## 节点：Start
+The player stands at the edge of a quiet village.
+[选项] Talk to the elder -> 节点：Elder
+  效果: (route='village')
+[选项] Enter the cave -> 节点：CaveGate
+  条件: $courage >= 1
+  效果: (route='cave')
+
+## 节点：Elder
+The elder offers a lantern and points toward the old shrine.
+[选项] Accept the lantern -> 节点：ShrinePath
+  效果: (has_lantern=true, courage+1)
+[选项] Ask about the cave -> 节点：CaveGate
+
+## 节点：CaveGate
+Cold air rolls out of the cave mouth.
+[选项] Light the lantern and enter -> 节点：CaveDepths
+  条件: $has_lantern == true
+[选项] Return to the village -> 节点：Elder
+
+## 节点：ShrinePath
+Stone markers lead into a cedar grove.
+[选项] Follow the markers -> 节点：Shrine
+  效果: (route='shrine')
+[选项] Cut across the ridge -> 节点：CaveDepths
+
+## 节点：Shrine
+A sealed bell waits beneath the roof beams.
+[选项] Ring the bell -> 节点：Signal
+  条件: $courage >= 2
+[选项] Leave quietly -> 节点：Start
+
+## 节点：CaveDepths
+Crystals pulse with a rhythm that matches the player's steps.
+[选项] Take a crystal shard -> 节点：Signal
+  效果: (courage+1)
+[选项] Retreat -> 节点：CaveGate
+
+## 节点：Signal
+The bell and the crystal answer each other across the valley.
+[选项] Return to the elder -> 节点：Resolve
+
+## 节点：Resolve
+The elder marks the player's map with the next destination.
+[选项] Save the result -> 节点：ExportHook
+
+## 节点：ExportHook
+This node is meant for the Godot runtime loader demo.
+[选项] Finish sample -> 节点：End
+
+## 节点：End
+The sample story ends here.

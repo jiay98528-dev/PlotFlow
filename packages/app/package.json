@@ -1,0 +1,29 @@
+{
+  "name": "@plotflow/app",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^1.0.0",
+    "@monaco-editor/react": "^4.6.0",
+    "@plotflow/core": "workspace:*",
+    "@xyflow/react": "^12.0.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "lucide-react": "^1.18.0",
+    "monaco-editor": "^0.45.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "electron": "^28.2.0",
+    "electron-vite": "^2.0.0",
+    "vite": "^5.0.0"
+  }
+}

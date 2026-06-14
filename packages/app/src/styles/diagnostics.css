@@ -1,0 +1,59 @@
+/* ========================================================================
+   Diagnostics — 诊断侧边栏标记点（Gutter Glyphs）样式
+   关联: M3-14, spec/design-brief-editor-ux.md
+   ======================================================================== */
+
+/* ── 错误波浪线：红色 wavy underline ── */
+.diagnostic-error-underline {
+  border-bottom: 2px wavy var(--color-diagnostic-error);
+  padding-bottom: 0;
+  cursor: pointer;
+}
+
+/* ── 警告波浪线：黄色 wavy underline ── */
+.diagnostic-warning-underline {
+  border-bottom: 2px wavy var(--color-diagnostic-warning);
+  padding-bottom: 0;
+  cursor: pointer;
+}
+
+/* ── 建议下划线：蓝色 solid underline ── */
+.diagnostic-info-underline {
+  border-bottom: 2px solid var(--color-diagnostic-info);
+  padding-bottom: 0;
+  cursor: pointer;
+}
+
+/* ── 错误标记：红色方块 ── */
+.diagnostic-error-glyph {
+  color: var(--color-diagnostic-error);
+  font-weight: bold;
+}
+
+.diagnostic-error-glyph::before {
+  content: '\25A0';  /* ■ 实心方块 */
+  font-size: 0.8em;
+  line-height: 1;
+}
+
+/* ── 警告标记：黄色三角 ── */
+.diagnostic-warning-glyph {
+  color: var(--color-diagnostic-warning);
+}
+
+.diagnostic-warning-glyph::before {
+  content: '\25B2';  /* ▲ 实心三角 */
+  font-size: 0.8em;
+  line-height: 1;
+}
+
+/* ── 建议标记：蓝色圆点 ── */
+.diagnostic-info-glyph {
+  color: var(--color-diagnostic-info);
+}
+
+.diagnostic-info-glyph::before {
+  content: '\25CF';  /* ● 实心圆点 */
+  font-size: 0.8em;
+  line-height: 1;
+}

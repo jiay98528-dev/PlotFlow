@@ -1,0 +1,322 @@
+.app-shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(circle at top left, var(--color-accent-subtle), transparent 30%),
+    linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-primary));
+  font-family: var(--font-ui);
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.app-logo {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.app-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.app-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-control-group-bg);
+}
+
+.button,
+.toolbar-button,
+.icon-button,
+.toolbar-select,
+.language-select,
+.form-field input {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  background: transparent;
+  font: inherit;
+  transition:
+    border-color var(--motion-fast) var(--ease-out-quart),
+    background var(--motion-fast) var(--ease-out-quart),
+    color var(--motion-fast) var(--ease-out-quart),
+    box-shadow var(--motion-fast) var(--ease-out-quart),
+    transform var(--motion-fast) var(--ease-out-quart);
+}
+
+.button,
+.toolbar-button,
+.icon-button,
+.toolbar-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.button svg,
+.toolbar-button svg,
+.icon-button svg,
+.toolbar-select svg {
+  flex: 0 0 auto;
+}
+
+.button,
+.toolbar-button {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.toolbar-button {
+  color: var(--color-text-secondary);
+}
+
+.toolbar-button.is-active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-control-bg-active);
+}
+
+.toolbar-button__meta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  font-size: var(--text-2xs);
+  font-weight: 800;
+}
+
+.button--primary {
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.button--primary:hover {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.button--secondary {
+  border-color: var(--color-control-border);
+  background: var(--color-control-bg);
+}
+
+.icon-button {
+  width: 32px;
+  padding: 0;
+  color: var(--color-text-secondary);
+}
+
+.toolbar-select {
+  position: relative;
+  padding: 0 var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.language-select {
+  min-height: 30px;
+  padding: 0 var(--space-1);
+  border: 0;
+  color: currentcolor;
+  background: transparent;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.language-select:focus {
+  outline: 0;
+}
+
+.toolbar-button:hover,
+.icon-button:hover,
+.toolbar-select:hover,
+.button--secondary:hover {
+  border-color: var(--color-control-border);
+  color: var(--color-text-primary);
+  background: var(--color-control-bg-hover);
+}
+
+.toolbar-button:active,
+.icon-button:active,
+.toolbar-select:active,
+.button:active {
+  transform: translateY(1px);
+}
+
+.button:disabled,
+.toolbar-button:disabled,
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  transform: none;
+}
+
+.app-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-editor);
+}
+
+.graph-pane {
+  min-width: 250px;
+  width: 40vw;
+  max-width: 640px;
+  overflow: hidden;
+  border-left: 1px solid var(--color-border-default);
+  background: var(--color-bg-primary);
+}
+
+.minimap-shell {
+  position: fixed;
+  right: var(--space-4);
+  bottom: 40px;
+  width: 220px;
+  height: 160px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-popover);
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-1) var(--space-4);
+  border-top: 1px solid var(--color-border-default);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  font-size: var(--text-xs);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 650;
+}
+
+.status-pill--saved {
+  color: var(--color-success);
+}
+
+.status-pill--saving {
+  color: var(--color-text-muted);
+}
+
+.status-pill--unsaved {
+  color: var(--color-warning);
+}
+
+.status-pill--error {
+  color: var(--color-error);
+}
+
+.status-spacer {
+  flex: 1;
+}
+
+@media (width <= 900px) {
+  .app-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-toolbar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .graph-pane {
+    display: none;
+  }
+
+  .minimap-shell {
+    width: 180px;
+    height: 132px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .toolbar-button,
+  .icon-button,
+  .toolbar-select,
+  .language-select,
+  .form-field input {
+    transition: none;
+  }
+}

@@ -1,0 +1,6 @@
+; Minimal placeholder project for the PlotFlow Godot runtime loader example.
+config_version=5
+
+[application]
+config/name="PlotFlow Runtime Loader Example"
+run/main_scene="res://main.tscn"

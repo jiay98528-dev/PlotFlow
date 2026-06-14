@@ -1,0 +1,269 @@
+/* ========================================================================
+   Branch Graph Styles — 分支图节点卡片样式
+   关联: M2-04, StoryNodeCard.tsx, spec/design-brief-editor-ux.md
+   约束: 所有颜色引用 Design Token CSS 变量 (CLAUDE.md §6.1)
+   ======================================================================== */
+
+/* ── 节点卡片基类 ── */
+.story-node-card {
+  width: 220px;
+  min-height: 120px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-border-default);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+/* ── 状态：正常（绿色边框） ── */
+.node-status-normal {
+  border-color: var(--color-success);
+}
+
+/* ── 状态：孤立（黄色边框） ── */
+.node-status-orphan {
+  border-color: var(--color-warning);
+}
+
+/* ── 状态：死胡同（灰色边框） ── */
+.node-status-deadend {
+  border-color: var(--color-text-muted);
+}
+
+/* ── 状态：错误（红色边框） ── */
+.node-status-error {
+  border-color: var(--color-error);
+}
+
+/* ── 状态：选中（蓝色光晕） ── */
+.node-status-selected {
+  box-shadow:
+    0 0 0 3px var(--color-accent),
+    var(--shadow-sm);
+}
+
+/* ── 状态：根节点（蓝色加粗边框） ── */
+.node-status-root {
+  border-color: var(--color-accent);
+  border-width: 3px;
+}
+
+/* ── 错误图标 ── */
+.story-node-error-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.story-node-error-icon::after {
+  content: '!';
+}
+
+/* ── 头部区域 ── */
+.story-node-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+/* ── 状态标签 ── */
+.story-node-status-label {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── 节点标题 ── */
+.story-node-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ── 选项数量徽章 ── */
+.story-node-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  flex-shrink: 0;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ── 正文预览 ── */
+.story-node-preview {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+/* ── 空节点占位提示 ── */
+.story-node-empty-hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-style: italic;
+  opacity: 0.6;
+  line-height: 1.4;
+}
+
+/* ── React Flow Handle（隐藏默认连线端口） ── */
+.story-node-handle {
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ── 可拖拽连线端口（每个选项一个） ── */
+.story-node-connect-handle {
+  visibility: visible !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px;
+  min-height: 12px;
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-accent);
+  border-radius: 50%;
+  cursor: crosshair;
+  z-index: 5;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.story-node-connect-handle:hover {
+  background: var(--color-accent);
+  transform: scale(1.4);
+  box-shadow: 0 0 0 3px var(--color-info-subtle);
+}
+
+/* 连接器容器（确保 Handle 定位基准正确） */
+.story-node-connectors {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+}
+
+/* ── 内联重命名编辑状态 (M2-08) ── */
+.node-status-editing {
+  box-shadow:
+    0 0 0 3px var(--color-accent),
+    0 0 12px var(--color-info-subtle);
+  z-index: 10;
+}
+
+/* ── 内联重命名输入框 ── */
+.story-node-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1.5;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-info-subtle);
+}
+
+.story-node-rename-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-info-subtle);
+}
+
+/* ========================================================================
+   Collapse Node Styles — 同层折叠虚拟节点 (M2-15)
+   ======================================================================== */
+
+/* ── 折叠节点卡片基类 ── */
+.collapse-node-card {
+  width: 160px;
+  min-height: 64px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-primary);
+  border: 2px dashed var(--color-border-default);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  user-select: none;
+}
+
+.collapse-node-card:hover {
+  border-color: var(--color-accent);
+  border-style: solid;
+  background: var(--color-bg-secondary);
+  box-shadow:
+    0 0 0 2px var(--color-info-subtle),
+    var(--shadow-sm);
+}
+
+/* ── 折叠图标 ── */
+.collapse-node-icon {
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-node-card:hover .collapse-node-icon {
+  color: var(--color-accent);
+}
+
+/* ── 折叠计数标签 ── */
+.collapse-node-label {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.collapse-node-card:hover .collapse-node-label {
+  color: var(--color-accent);
+}

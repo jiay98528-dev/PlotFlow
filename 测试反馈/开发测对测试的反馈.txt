@@ -1,0 +1,96 @@
+● 最后验证全部修复：
+
+● Bash(cd "D:/VibeCoding/PlotFlow" && echo "=== L1 ===" && npx tsc --noEmit 2>&1 && echo "✅ tsc" && npx eslint
+      packages/ --ext .ts,.tsx -c .eslintrc.cjs 2>&1 && echo "…)
+  ⎿  === L1 ===
+     npm warn Unknown project config "shamefully-hoist". This will stop working in the next major version of npm. S
+     ee `npm help npmrc` for supported config options.
+     … +13 lines (ctrl+o to expand)
+  ⎿  (timeout 2m)
+  ⎿  Allowed by auto mode classifier
+
+  Thought for 5s, read 1 file (ctrl+o to expand)
+
+● 还有 1 个占位代码残留——修复 ProblemPanel 的菜单切换：
+
+  Thought for 5s, read 1 file (ctrl+o to expand)
+
+● Update(packages\app\src\hooks\useMenuEvents.ts)
+  ⎿  Added 1 line, removed 2 lines
+      154      });
+      155
+      156      menu.onEvent('menu:view:toggleProblems', () => {
+      157 -      // 问题面板切换：预留，使用 useEditorStore.diagnostics 渲染
+      158 -      useUIStore.getState().setStatusMessage('问题面板 — 待 M3 实现');
+      157 +      useUIStore.getState().toggleProblemPanel();
+      158      });
+      159
+      160      menu.onEvent('menu:view:toggleTheme', () => {
+
+  Thought for 4s (ctrl+o to expand)
+
+● Bash(cd "D:/VibeCoding/PlotFlow" && npx tsc --noEmit 2>&1 && echo "✅" && grep -rn "待 M[0-9]" packages/app/src/
+      2>/dev/null || echo "✅ 零占位代码")
+  ⎿  npm warn Unknown project config "shamefully-hoist". This will stop working in the next major version of npm. S
+     ee `npm help npmrc` for supported config options.
+     ✅
+     ✅ 零占位代码
+  ⎿  (timeout 1m)
+  ⎿  Allowed by auto mode classifier
+
+  Thought for 4s (ctrl+o to expand)
+
+● ✅ 修复完成
+
+  L1: tsc ✅ | eslint ✅
+  L2: vitest 746 PASS
+  L3: playwright 2/2 PASS
+  L3.5: 零占位代码
+
+  本次修复的 7 个文件
+
+  ┌──────────────────┬───────────────────────────────────────────────────────────────┬─────────┐
+  │       文件       │                           修复内容                            │ 严重度  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ main.ts:145      │ 'preload.js' → '../preload/preload.js'                        │  🔴 P0  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ ExportDialog.tsx │ 浏览器模式 Blob 下载降级 + mimeType()                         │  🔴 P0  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ useMenuEvents.ts │ 导出菜单对接 ExportDialog + ProblemPanel 切换                 │  🟡 P1  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+● ✅ 修复完成
+
+  L1: tsc ✅ | eslint ✅
+  L2: vitest 746 PASS
+  L3: playwright 2/2 PASS
+  L3.5: 零占位代码
+
+  本次修复的 7 个文件
+
+  ┌──────────────────┬───────────────────────────────────────────────────────────────┬─────────┐
+  │       文件       │                           修复内容                            │ 严重度  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ main.ts:145      │ 'preload.js' → '../preload/preload.js'                        │  🔴 P0  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ ExportDialog.tsx │ 浏览器模式 Blob 下载降级 + mimeType()                         │  🔴 P0  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ useMenuEvents.ts │ 导出菜单对接 ExportDialog + ProblemPanel 切换                 │  🟡 P1  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ index.html       │ CSP 添加 img-src data: + worker-src blob:                     │  🟡 P1  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ App.tsx          │ ProblemPanel 挂载渲染                                         │  🟡 P1  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ setupEditor.ts   │ GhostText 导入预留（引擎实例懒加载）                          │  🟡 P1  │
+  ├──────────────────┼───────────────────────────────────────────────────────────────┼─────────┤
+  │ CLAUDE.md        │ 新增 §10.6 (集成边界 V4Pro)、§10.7 (验收标准)、§11 (质量防线) │ 📋 流程 │
+  └──────────────────┴───────────────────────────────────────────────────────────────┴─────────┘
+
+  剩余 P2（非阻塞，M7 打包前修）
+
+  - fileService.ts: 用户取消返回 null 不 throw
+  - autoSaveService.ts: 新建文件提示另存为
+  - StoryEdge.tsx / ExportDialog.tsx: 裸 hex → CSS 变量
+  - progress.md: 总览与细项对齐
+  - Monaco Worker: 恢复配置
+
+  当前进度：M0-M6 主要 BUG 清零，preload 路径已修正，Electron IPC 应可正常工作。 M7 打包发布前需做一次完整的 Electron 桌面 smoke test。

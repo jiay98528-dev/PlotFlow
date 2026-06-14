@@ -1,0 +1,114 @@
+/* PlotFlow design tokens — dark theme. Hex values are allowed only in token files. */
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg-primary: #1a1b1e;
+  --color-bg-secondary: #202126;
+  --color-bg-tertiary: #2a2c32;
+  --color-bg-elevated: #212327;
+  --color-bg-inverse: #ffffff;
+  --color-bg-editor: #1e1e1e;
+
+  --color-text-primary: #e1e2e4;
+  --color-text-secondary: #b4b6bc;
+  --color-text-muted: #8d9099;
+  --color-text-inverse: #1e1e1e;
+  --color-text-on-accent: #0d1321;
+
+  --color-border-subtle: #303033;
+  --color-border-light: #363638;
+  --color-border-default: #404040;
+  --color-border-strong: #606060;
+  --color-border-focus: var(--color-accent);
+
+  --color-syntax-heading: #569cd6;
+  --color-syntax-option: #6a9955;
+  --color-syntax-condition: #ce9178;
+  --color-syntax-effect: #dcdcaa;
+  --color-syntax-variable: #c586c0;
+  --color-syntax-target: #4ec9b0;
+  --color-syntax-comment: #6a6a6a;
+
+  --color-diagnostic-error: #f44747;
+  --color-diagnostic-warning: #ffd54f;
+  --color-diagnostic-info: #64b5f6;
+
+  --color-accent: #60a5fa;
+  --color-accent-hover: #93c5fd;
+  --color-accent-subtle: rgba(96, 165, 250, 0.14);
+  --color-accent-surface: rgba(96, 165, 250, 0.20);
+
+  --color-control-bg: #202126;
+  --color-control-bg-hover: #2d3440;
+  --color-control-bg-active: rgba(96, 165, 250, 0.16);
+  --color-control-group-bg: rgba(26, 27, 30, 0.78);
+  --color-control-border: #363a43;
+
+  --color-success: #73c991;
+  --color-warning: #ffd54f;
+  --color-error: #f44747;
+  --color-info: #64b5f6;
+  --color-success-subtle: rgba(115, 201, 145, 0.12);
+  --color-warning-subtle: rgba(255, 213, 79, 0.14);
+  --color-error-subtle: rgba(244, 71, 71, 0.12);
+  --color-info-subtle: rgba(100, 181, 246, 0.12);
+  --color-overlay-modal: rgba(0, 0, 0, 0.58);
+
+  --color-node-normal: #73c991;
+  --color-node-orphan: #ffd54f;
+  --color-node-deadend: #8a8a8a;
+  --color-node-error: #f44747;
+  --color-node-selected: #64b5f6;
+
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-editor-padding: 16px;
+  --space-panel-padding: 12px;
+  --space-gutter: 8px;
+
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.30);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.40);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.50);
+
+  --font-sans: 'Inter', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-editor: var(--font-mono);
+  --font-ui: var(--font-sans);
+
+  --text-2xs: 0.625rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.25rem;
+
+  --motion-fast: 150ms;
+  --motion-normal: 300ms;
+  --motion-slow: 500ms;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --z-popover: 800;
+  --z-modal: 1000;
+  --z-toast: 1200;
+}

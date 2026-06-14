@@ -1,0 +1,22 @@
+{
+  "base": "vs-dark",
+  "inherit": true,
+  "rules": [
+    { "token": "heading", "foreground": "#569CD6" },
+    { "token": "option", "foreground": "#6A9955" },
+    { "token": "condition", "foreground": "#CE9178" },
+    { "token": "effect", "foreground": "#DCDCAA" },
+    { "token": "variable", "foreground": "#C586C0" },
+    { "token": "target", "foreground": "#4EC9B0" },
+    { "token": "comment", "foreground": "#6A6A6A" }
+  ],
+  "colors": {
+    "editor.background": "#1E1E1E",
+    "editor.foreground": "#D4D4D4",
+    "editor.lineHighlightBackground": "#2A2D2E",
+
+    "editorError.foreground": "#F44747",
+    "editorWarning.foreground": "#FFD54F",
+    "editorInfo.foreground": "#64B5F6"
+  }
+}

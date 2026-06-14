@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Branch lines -->
+  <path d="M24 17 L10 37" stroke="#A0703A" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M24 17 L24 37" stroke="#A0703A" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M24 17 L38 37" stroke="#A0703A" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- Central (root) node -->
+  <circle cx="24" cy="9" r="6" fill="#A0703A"/>
+  <!-- Child nodes -->
+  <circle cx="10" cy="40" r="4.5" fill="#1E1E1E" stroke="#A0703A" stroke-width="2"/>
+  <circle cx="24" cy="40" r="4.5" fill="#1E1E1E" stroke="#A0703A" stroke-width="2"/>
+  <circle cx="38" cy="40" r="4.5" fill="#1E1E1E" stroke="#A0703A" stroke-width="2"/>
+</svg>
