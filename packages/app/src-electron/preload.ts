@@ -30,6 +30,29 @@ contextBridge.exposeInMainWorld('plotflow', {
       ipcRenderer.invoke('file:saveAs', { content }),
     saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }> }) =>
       ipcRenderer.invoke('file:export', options),
+
+    // ── 系统文件打开 (M7-08) ──
+    /**
+     * 获取系统（双击 .mdstory / open-file 事件）传递的待打开文件。
+     * 窗口挂载后调用，返回 { filePath, content } 或 null。
+     */
+    getPendingOpenFile: () =>
+      ipcRenderer.invoke('file:getPendingOpenFile'),
+
+    /**
+     * 监听系统文件打开通知（当应用已运行且用户双击 .mdstory 时触发）。
+     * macOS 的 open-file 事件可随时发生，此回调用于窗口感知新文件。
+     * 返回一个清理函数（组件卸载时调用）。
+     */
+    onSystemOpenFile: (callback: (filePath: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, filePath: string): void => {
+        callback(filePath);
+      };
+      ipcRenderer.on('file:system-open-notify', listener);
+      return () => {
+        ipcRenderer.removeListener('file:system-open-notify', listener);
+      };
+    },
   },
 
   // ── 菜单事件 — M1-17 ──

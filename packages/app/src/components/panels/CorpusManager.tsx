@@ -760,7 +760,7 @@ const actionBarStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = {
   border: 'none',
   background: 'var(--color-accent, #A0703A)',
-  color: '#FFFFFF',
+  color: 'var(--color-text-on-accent, #FFFFFF)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,
@@ -1019,7 +1019,7 @@ const cancelButtonStyle: React.CSSProperties = {
 
 const confirmButtonStyle: React.CSSProperties = {
   border: 'none',
-  color: '#FFFFFF',
+  color: 'var(--color-text-on-accent, #FFFFFF)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,

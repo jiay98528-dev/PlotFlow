@@ -250,6 +250,8 @@
   z-index: var(--z-popover);
 }
 
+/* V0.1.1: 状态栏已迁移至 StatusBar 组件内联样式，以下 CSS 保留兼容 */
+
 .status-bar {
   display: flex;
   align-items: center;

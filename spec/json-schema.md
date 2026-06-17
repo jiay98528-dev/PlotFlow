@@ -431,7 +431,7 @@ PlotFlow 支持 6 种变量类型：
 ```json
     "Option": {
       "type": "object",
-      "required": ["index", "text", "targetNodeId", "targetFullId", "conditions", "sideEffects"],
+      "required": ["index", "text", "conditions", "sideEffects"],
       "properties": {
         "index": {
           "type": "integer",
@@ -444,14 +444,12 @@ PlotFlow 支持 6 种变量类型：
           "description": "Display text for this choice."
         },
         "targetNodeId": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Target node ID (without chapter prefix) that this option navigates to."
+          "type": ["string", "null"],
+          "description": "Target node ID (without chapter prefix). null if option has no target."
         },
         "targetFullId": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Globally unique target node fullId."
+          "type": ["string", "null"],
+          "description": "Globally unique target node fullId. null if option has no target."
         },
         "conditions": {
           "description": "Condition expression that must be satisfied for this option to appear. null means always available.",

@@ -268,7 +268,8 @@ export class NGramEngine {
 
     for (let n = maxGram; n >= 1; n--) {
       // 取最后 (n-1) 个 token 作为上下文
-      const contextTokens = tokens.slice(-(n - 1));
+      // n=1 时显式返回空数组，避免 JS slice(-0) === slice(0) 返回完整数组的陷阱
+      const contextTokens = n === 1 ? [] : tokens.slice(-(n - 1));
       const contextKey = contextTokens.join(' ');
 
       const store = this.ngramStore.get(n);
@@ -312,7 +313,7 @@ export class NGramEngine {
     const maxGram = Math.min(MAX_N, tokens.length + 1);
 
     for (let n = maxGram; n >= 1; n--) {
-      const contextTokens = tokens.slice(-(n - 1));
+      const contextTokens = n === 1 ? [] : tokens.slice(-(n - 1));
       const contextKey = contextTokens.join(' ');
 
       const store = this.ngramStore.get(n);

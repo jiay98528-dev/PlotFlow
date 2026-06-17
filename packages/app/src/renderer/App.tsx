@@ -22,31 +22,13 @@ import { useUIStore, type Language } from '../stores/uiStore';
 import { useMenuEvents } from '../hooks/useMenuEvents';
 import { useOutlineSync } from '../hooks/useOutlineSync';
 import { ExportDialog } from '../components/panels/ExportDialog';
+import { ConditionEditor } from '../components/panels/ConditionEditor';
+import { StatusBar } from '../components/layout/StatusBar';
 import { ProblemPanel } from '../components/panels/ProblemPanel';
 import { CorpusManager } from '../components/panels/CorpusManager';
 import { clearPendingSave } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
-
-interface SaveIndicator {
-  readonly label: string;
-  readonly status: 'saved' | 'saving' | 'unsaved' | 'error';
-}
-
-function getSaveIndicator(statusMessage: string, isDirty: boolean): SaveIndicator {
-  if (statusMessage.startsWith('save:saving')) {
-    return { label: t('statusBar.saving'), status: 'saving' };
-  }
-  if (statusMessage.startsWith('save:success')) {
-    return { label: t('statusBar.saved'), status: 'saved' };
-  }
-  if (statusMessage.startsWith('save:failed')) {
-    return { label: statusMessage.replace('save:failed', '').trim(), status: 'error' };
-  }
-  if (isDirty) {
-    return { label: t('statusBar.unsaved'), status: 'unsaved' };
-  }
-  return { label: t('statusBar.saved'), status: 'saved' };
-}
+import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 
 /**
  * PlotFlow Application Root
@@ -59,13 +41,13 @@ export function App(): React.ReactElement {
 
   const { navigateToNode } = useOutlineSync();
 
-  const isDirty = useEditorStore((state) => state.isDirty);
-  const statusMessage = useUIStore((state) => state.statusMessage);
   const theme = useUIStore((state) => state.theme);
   const language = useUIStore((state) => state.language);
   const openNewFileDialog = useUIStore((state) => state.openNewFileDialog);
   const closeNewFileDialog = useUIStore((state) => state.closeNewFileDialog);
   const isNewFileDialogOpen = useUIStore((state) => state.isNewFileDialogOpen);
+  const isConditionEditorOpen = useUIStore((state) => state.isConditionEditorOpen);
+  const toggleConditionEditor = useUIStore((state) => state.toggleConditionEditor);
   const openExportDialog = useUIStore((state) => state.openExportDialog);
   const openCorpusManager = useUIStore((state) => state.openCorpusManager);
   const toggleTheme = useUIStore((state) => state.toggleTheme);
@@ -75,8 +57,6 @@ export function App(): React.ReactElement {
 
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
-  const nodeCount = useGraphStore((state) => state.nodes.length);
-  const zoomLevel = useGraphStore((state) => state.zoomLevel);
 
   // storyStore → graphStore 安全网（parsePipeline 已直接调用 syncFromAST，
   // 此处仅处理直接调用 setPlotFlowData 的旁路路径）
@@ -92,6 +72,33 @@ export function App(): React.ReactElement {
     );
 
     return () => { unsubscribe(); };
+  }, []);
+
+  // P0-1: graphStore.selectedNodeId → editorStore 单向同步
+  // 分支图节点选中时自动联动大纲高亮与光标位置
+  // 订阅放在 App.tsx 全局层确保不受 GraphCanvas 条件渲染（minimap/split 切换）影响
+  useEffect(() => {
+    const unsubscribe = useGraphStore.subscribe(
+      (state, prevState) => {
+        if (state.selectedNodeId === prevState.selectedNodeId) return;
+        if (state.isEditing) return; // 连线拖拽等操作中跳过
+
+        const nodeId = state.selectedNodeId;
+        if (!nodeId) {
+          useEditorStore.getState().setActiveNodeId(null);
+          return;
+        }
+
+        const node = state.nodes.find((n) => n.id === nodeId);
+        const nodeData = node?.data as StoryFlowNodeData | undefined;
+        if (nodeData?.fullId && nodeData?.lineNumber) {
+          useEditorStore.getState().setActiveNodeId(nodeData.fullId);
+          useEditorStore.getState().setCursorPosition(nodeData.lineNumber, 1);
+        }
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
   const handleTemplateSelected = useCallback(
@@ -118,7 +125,6 @@ export function App(): React.ReactElement {
     [setLanguage],
   );
 
-  const saveIndicator = getSaveIndicator(statusMessage, isDirty);
   const showSplitGraph = activeRightPanel === 'graph' && viewMode === 'split';
   const showMinimap = activeRightPanel === 'graph' && viewMode === 'minimap';
   const graphModeLabel =
@@ -225,6 +231,9 @@ export function App(): React.ReactElement {
           </div>
         )}
 
+        {isConditionEditorOpen && (
+          <ConditionEditor onClose={toggleConditionEditor} />
+        )}
         <ExportDialog />
         <ProblemPanel />
         <CorpusManager />
@@ -236,19 +245,7 @@ export function App(): React.ReactElement {
           />
         )}
 
-        <footer className="status-bar">
-          <span className={`status-pill status-pill--${saveIndicator.status}`}>
-            {saveIndicator.label}
-          </span>
-          <span>
-            {t('statusBar.nodes')}: {nodeCount}
-          </span>
-          <span>
-            {t('statusBar.zoom')}: {Math.round(zoomLevel * 100)}%
-          </span>
-          <span className="status-spacer" />
-          <span>{statusMessage.startsWith('save:') ? '' : statusMessage}</span>
-        </footer>
+        <StatusBar />
       </div>
     </ThemeProvider>
   );

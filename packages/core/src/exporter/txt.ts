@@ -16,6 +16,10 @@ import type { PlotFlowData, Chapter, StoryNode, Option } from '../types/ast.js';
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
 
+/** CJK + Japanese character class for variable name matching */
+const CJK_KANA_CHARS = '぀-ゟ゠-ヿ㐀-䶿一-鿿豈-﫿';
+const VAR_NAME_RE = new RegExp(`\\$([\\w${CJK_KANA_CHARS}.（）()]+)`, 'g');
+
 // ============================================================================
 // Markdown 剥离工具
 // ============================================================================
@@ -63,7 +67,7 @@ function stripMarkdown(text: string): string {
   result = result.replace(/<!--[\s\S]*?-->/g, '');
 
   // 变量引用 $ 前缀（保留变量名/路径）
-  result = result.replace(/\$([\w一-鿿.（）()]+)/g, '$1');
+  result = result.replace(VAR_NAME_RE, '$1');
 
   // 无序列表标记（行首的 - * + 后跟空格）
   result = result.replace(/^[ \t]*[-*+]\s+/gm, '');
@@ -127,7 +131,7 @@ function formatCondition(raw: string | null): string | null {
   }
 
   // 剥离 $ 前缀
-  inner = inner.replace(/\$([\w一-鿿.（）()]+)/g, '$1');
+  inner = inner.replace(VAR_NAME_RE, '$1');
 
   return inner;
 }

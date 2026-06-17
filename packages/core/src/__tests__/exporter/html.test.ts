@@ -212,8 +212,8 @@ describe('exportHTML', () => {
     expect(html).toContain('<strong>$1</strong>');
     // 验证所有用户文本在 innerHTML 插入时都经过 esc() 包裹
     expect(html).toContain('esc(o.text)');
-    expect(html).toContain('esc(node.title)');
-    expect(html).toContain('esc(c.title)');
+    expect(html).toContain('esc(node.title||');
+    expect(html).toContain('esc(c.title||');
     // 验证源代码中不含未转义的 HTML 标签（运行时 JSON 中的文本不算，那是 JS 上下文）
     // body 文本包含的 <script> 在 JSON 字符串中，不会执行
   });

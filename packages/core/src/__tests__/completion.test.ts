@@ -195,12 +195,13 @@ describe('NGramEngine', () => {
       expect(completions).toContain('来');
     });
 
-    it('should return empty array when no match exists', () => {
+    it('should return unigram candidates when no higher-order match exists', () => {
       engine.train(['A', 'B', 'C']);
 
-      // Predict with unknown prefix
+      // Predict with unknown prefix — unigram backoff provides high-frequency candidates
       const completions = engine.predict('XYZ', 5);
-      expect(completions).toEqual([]);
+      expect(completions.length).toBeGreaterThan(0);
+      expect(completions).toContain('A');
     });
 
     it('should respect topN limit', () => {

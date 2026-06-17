@@ -14,7 +14,7 @@
     "package": "electron-vite build && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test",
+
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
@@ -30,7 +30,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "prettier": "^3.0.0",
     "vitest": "^1.0.0",
-    "@playwright/test": "^1.40.0",
+
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
     "@commitlint/cli": "^18.0.0",

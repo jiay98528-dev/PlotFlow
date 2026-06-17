@@ -49,7 +49,7 @@
 | M0-04  | TypeScript strict mode                | 全项目 `tsconfig.json`，`tsc --noEmit` 零错误                     |
 | M0-05  | ESLint + Prettier 配置                 | `.eslintrc.cjs`、`.prettierrc`，`eslint src/` 零警告              |
 | M0-06  | Vitest 单元测试框架                    | `vitest.config.ts`，示例测试 PASS                                 |
-| M0-07  | Playwright E2E 框架                    | `playwright.config.ts`（三引擎就绪），示例测试 PASS               |
+| M0-07  | Playwright E2E 框架                    | ❌ V0.1.1 移除（`playwright.config.ts`、`e2e/` 已删除）             |
 | M0-08  | GitHub Actions CI 骨架                 | `.github/workflows/ci.yml`，L1 自动运行（lint + typecheck + test）|
 | M0-09  | Git Hooks（pre-commit + commit-msg）   | `lint-staged` + `commitlint`                                      |
 | M0-10  | 目录结构全量建立                       | `src/components/`、`src/stores/`、`src/services/`、`src/types/`   |
@@ -65,7 +65,6 @@
 - [ ] `npx tsc --noEmit` 零错误
 - [ ] `npx eslint src/` 零警告
 - [ ] `npx vitest run` 全量 PASS
-- [ ] `npx playwright test` 示例测试 PASS
 - [ ] CI（GitHub Actions）绿色
 - [ ] `pnpm-workspace.yaml` 正确，`@plotflow/core` 可被 `@plotflow/app` 引用
 - [ ] Git commit 触发 pre-commit hook（lint-staged 运行）
@@ -939,7 +938,7 @@ L1 ⚡ 工具链 → L2 🧪 单元测试 → L3 🔗 集成测试 → L3.5 🔍
 **里程碑准入条件**：
 - L1 绿（lint + typecheck + build）
 - L2 绿（该里程碑单元测试全量 PASS）
-- L3 绿（E2E 冒烟测试全量 PASS — 从 M1 开始）
+- L3 绿（占位代码扫描 + 入口可达性 + 人工走查 — 从 M1 开始）
 - 产出物与交付物清单逐项对照完整
 
 ---

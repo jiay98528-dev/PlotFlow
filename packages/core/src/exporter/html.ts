@@ -228,7 +228,7 @@ function generateJS(): string {
 'var S=JSON.parse(JSON.stringify(STORY));' +
 'var st={vars:S.vars,cur:S.rootId||Object.keys(S.nodes)[0],crumb:[]};' +
 'var root=S.nodes[st.cur];' +
-'if(root)st.crumb.push({id:st.cur,title:root.title});' +
+'if(root)st.crumb.push({id:st.cur,title:root.title||\'\'});' +
 'function $(id){return document.getElementById(id)}' +
 'var el=$(\'content\'),bc=$(\'breadcrumb\'),vct=$(\'var-content\'),vt=$(\'var-toggle\'),vp=$(\'var-panel\');' +
 'function esc(s){var d=document.createElement(\'div\');d.textContent=s;return d.innerHTML}' +
@@ -262,9 +262,9 @@ function generateJS(): string {
 'if(cond.type===\'logical\'){if(cond.operator===\'NOT\')return\'NOT (\'+serCond(cond.operands[0])+\')\';' +
 'return cond.operands.map(function(c){return\'(\'+serCond(c)+\')\'}).join(\' \'+cond.operator+\' \')}return\'?\'}' +
 'function render(){var node=S.nodes[st.cur];if(!node){el.innerHTML=\'<p class="error-msg">\\u8282\\u70b9\\u672a\\u627e\\u5230</p>\';renderBC();renderVars();return}' +
-'if(st.cur===S.rootId&&st.crumb.length===1){el.innerHTML=\'<div class="start-screen"><h2>\'+esc(node.title)+\'</h2>\'+mdh(node.body)+\'<button class="start-btn" id="start-btn">\\u5f00\\u59cb\\u5192\\u9669</button></div>\';var sb=$(\'start-btn\');if(sb)sb.onclick=function(){renderNode(node)};renderBC();renderVars();return}' +
+'if(st.cur===S.rootId&&st.crumb.length===1){el.innerHTML=\'<div class="start-screen"><h2>\'+esc(node.title||\'\')+\'</h2>\'+mdh(node.body||\'\')+\'<button class="start-btn" id="start-btn">\\u5f00\\u59cb\\u5192\\u9669</button></div>\';var sb=$(\'start-btn\');if(sb)sb.onclick=function(){renderNode(node)};renderBC();renderVars();return}' +
 'renderNode(node)}' +
-'function renderNode(node){el.innerHTML=\'<h2 style="font-size:1.3em;margin-bottom:16px;color:#e6edf3">\'+esc(node.title)+\'</h2><div id="node-body">\'+mdh(node.body)+\'</div><div id="options">\'+renderOpts(node)+\'</div>\';' +
+'function renderNode(node){el.innerHTML=\'<h2 style="font-size:1.3em;margin-bottom:16px;color:#e6edf3">\'+esc(node.title||\'\')+\'</h2><div id="node-body">\'+mdh(node.body||\'\')+\'</div><div id="options">\'+renderOpts(node)+\'</div>\';' +
 'el.querySelectorAll(\'.option-btn:not([disabled])\').forEach(function(btn){btn.onclick=function(){var idx=parseInt(this.dataset.index);var opt=node.options[idx];if(opt)choose(opt)}});' +
 'renderBC();renderVars();el.scrollIntoView({behavior:\'smooth\',block:\'start\'})}' +
 'function renderOpts(node){if(!node.options||node.options.length===0)return\'<p class="dead-end">\\u2014\\u2014 \\u6545\\u4e8b\\u7ed3\\u675f \\u2014\\u2014</p>\';' +
@@ -278,8 +278,8 @@ function generateJS(): string {
 'var tn=S.nodes[opt.target];if(tn)st.crumb.push({id:opt.target,title:tn.title});render()}' +
 'function renderBC(){var h=\'\';for(var i=0;i<st.crumb.length;i++){var c=st.crumb[i];' +
 'if(i>0)h+=\'<span class="crumb-sep">\\u203a</span>\';' +
-'if(i===st.crumb.length-1){h+=\'<span class="crumb-current">\'+esc(c.title)+\'</span>\'}' +
-'else{h+=\'<a class="crumb-link" data-idx="\'+i+\'">\'+esc(c.title)+\'</a>\'}}' +
+'if(i===st.crumb.length-1){h+=\'<span class="crumb-current">\'+esc(c.title||\'\')+\'</span>\'}' +
+'else{h+=\'<a class="crumb-link" data-idx="\'+i+\'">\'+esc(c.title||\'\')+\'</a>\'}}' +
 'bc.innerHTML=h;bc.querySelectorAll(\'.crumb-link\').forEach(function(el){el.onclick=function(){goCrumb(parseInt(this.dataset.idx))}})}' +
 'function goCrumb(idx){if(idx<0||idx>=st.crumb.length)return;st.cur=st.crumb[idx].id;st.crumb=st.crumb.slice(0,idx+1);render()}' +
 'function renderVars(){var h=\'<table class="var-table"><tbody>\';' +
@@ -317,28 +317,43 @@ function generateJS(): string {
  * @throws 不抛异常，所有错误通过返回值 ok: false 表示
  */
 export function exportHTML(data: PlotFlowData): ParseResult<string> {
-  // 验证是否有可导出的节点
-  const totalNodes = data.chapters.reduce((sum, ch) => sum + ch.nodes.length, 0);
-  if (totalNodes === 0) {
+  try {
+    // 验证是否有可导出的节点
+    const chapters = data?.chapters ?? [];
+    const totalNodes = chapters.reduce((sum, ch) => sum + (ch?.nodes?.length ?? 0), 0);
+    if (totalNodes === 0) {
+      return failure([
+        {
+          id: 'E005@export-html',
+          code: 'E005',
+          severity: 'error',
+          message: '没有可导出的故事节点',
+          detail: '故事中至少需要包含一个节点才能导出为 HTML。请先添加章节和节点内容。',
+          range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+        },
+      ]);
+    }
+
+    // 构建运行时 JSON
+    const runtimeJson: string = buildRuntimeJson(data);
+
+    // 生成 HTML
+    const html: string = generateHTML(data?.meta?.title ?? 'Untitled', runtimeJson);
+
+    return success(html);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return failure([
       {
-        id: 'E005@export-html',
+        id: 'E005@export-html-error',
         code: 'E005',
         severity: 'error',
-        message: '没有可导出的故事节点',
-        detail: '故事中至少需要包含一个节点才能导出为 HTML。请先添加章节和节点内容。',
+        message: 'HTML 导出失败',
+        detail: message,
         range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
       },
     ]);
   }
-
-  // 构建运行时 JSON
-  const runtimeJson: string = buildRuntimeJson(data);
-
-  // 生成 HTML
-  const html: string = generateHTML(data.meta.title, runtimeJson);
-
-  return success(html);
 }
 
 /**

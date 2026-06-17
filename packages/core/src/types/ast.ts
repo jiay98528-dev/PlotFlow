@@ -80,6 +80,9 @@ export interface VariableDeclaration {
   /** 默认值 */
   readonly defaultValue: VariableValue;
 
+  /** 变量作用域（global | chapter），可选 */
+  readonly scope?: VariableScope;
+
   /** 描述（可选） */
   readonly description?: string;
 
@@ -98,6 +101,9 @@ export type VariableType = 'int' | 'float' | 'bool' | 'string' | 'enum' | 'objec
 
 /** 变量值联合类型 */
 export type VariableValue = number | boolean | string | Record<string, unknown>;
+
+/** 变量作用域 */
+export type VariableScope = 'global' | 'chapter';
 
 // ============================================================================
 // 章节

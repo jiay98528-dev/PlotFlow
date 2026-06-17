@@ -40,6 +40,25 @@ export interface FileAPI {
     defaultPath: string;
     filters: Array<{ name: string; extensions: string[] }>;
   }) => Promise<{ filePath: string } | null>;
+
+  /**
+   * 获取系统（双击 .mdstory / open-file 事件）传递的待打开文件 (M7-08)。
+   *
+   * 窗口挂载后调用，返回 { filePath, content } 或 null。
+   * 返回后 pending 状态被清除，避免重复打开。
+   */
+  getPendingOpenFile: () => Promise<{ filePath: string; content: string } | null>;
+
+  /**
+   * 监听系统文件打开通知（当应用已运行且用户双击 .mdstory 时触发）。
+   *
+   * macOS 的 open-file 事件可随时发生，此回调用于窗口感知新文件。
+   * 返回一个清理函数（组件卸载时调用）。
+   *
+   * @param callback - 文件路径回调
+   * @returns 清理函数，用于移除事件监听器
+   */
+  onSystemOpenFile: (callback: (filePath: string) => void) => () => void;
 }
 
 /** Electron 版本信息 */

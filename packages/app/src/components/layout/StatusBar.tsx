@@ -14,6 +14,7 @@ import React from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useGraphStore } from '../../stores/graphStore';
+import { useUIStore } from '../../stores/uiStore';
 
 export function StatusBar(): React.ReactElement {
   // --- editorStore ---
@@ -27,6 +28,9 @@ export function StatusBar(): React.ReactElement {
 
   // --- graphStore ---
   const zoomLevel = useGraphStore((s) => s.zoomLevel);
+
+  // --- uiStore ---
+  const statusMessage = useUIStore((s) => s.statusMessage);
 
   // ==========================================================================
   // Derived state
@@ -61,7 +65,7 @@ export function StatusBar(): React.ReactElement {
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
   return (
-    <div style={barStyle}>
+    <div className="status-bar" style={barStyle}>
       {/* -------- 左侧：保存状态 + 文件路径 -------- */}
       <span style={sectionStyle}>
         <span style={{ flexShrink: 0 }}>{saveIcon}</span>
@@ -91,6 +95,19 @@ export function StatusBar(): React.ReactElement {
         </span>
         <span style={separatorStyle}>{'  '}</span>
         <span>{zoomPercent}</span>
+        {statusMessage && !statusMessage.startsWith('save:') && (
+          <>
+            <span style={{ flex: 1, minWidth: 8 }} />
+            <span style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 300,
+            }}>
+              {statusMessage}
+            </span>
+          </>
+        )}
       </span>
     </div>
   );

@@ -17,6 +17,27 @@ module.exports = {
     buildResources: 'build',
   },
 
+  /* ── 文件关联 (M7-07) ──
+   *
+   * .mdstory 文件关联到 PlotFlow 应用。
+   * Windows 安装时自动注册到注册表，macOS 写入 Info.plist，Linux 写入 .desktop。
+   *
+   * 注意: 图标路径依赖 build/ 目录下的对应格式文件:
+   *   - Windows: build/icon.ico
+   *   - macOS:   build/icon.icns
+   *   - Linux:   build/icon.png
+   */
+  fileAssociations: [
+    {
+      ext: 'mdstory',
+      name: 'PlotFlow Story',
+      description: 'PlotFlow 叙事分支文件',
+      icon: 'build/icon.ico',
+      role: 'Editor',
+      isPackage: false,
+    },
+  ],
+
   /* ── 打包内容 ── */
   files: [
     'out/**/*',

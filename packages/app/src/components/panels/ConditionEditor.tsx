@@ -1015,7 +1015,7 @@ function ConditionGroupView({
             style={{
               ...operatorToggleBtnStyle,
               ...(group.operator === 'AND'
-                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.AND, color: '#FFFFFF' }
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.AND, color: 'var(--color-text-on-accent, #FFFFFF)' }
                 : {}),
             }}
             onClick={() => onUpdate({ ...group, operator: 'AND' })}
@@ -1027,7 +1027,7 @@ function ConditionGroupView({
             style={{
               ...operatorToggleBtnStyle,
               ...(group.operator === 'OR'
-                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.OR, color: '#FFFFFF' }
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.OR, color: 'var(--color-text-on-accent, #FFFFFF)' }
                 : {}),
             }}
             onClick={() => onUpdate({ ...group, operator: 'OR' })}
@@ -1577,7 +1577,7 @@ const operatorToggleBtnStyle: React.CSSProperties = {
 };
 
 const operatorToggleActiveStyle: React.CSSProperties = {
-  color: '#FFFFFF',
+  color: 'var(--color-text-on-accent, #FFFFFF)',
 };
 
 const removeGroupButtonStyle: React.CSSProperties = {

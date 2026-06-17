@@ -48,9 +48,22 @@ import type { Diagnostic, DiagnosticSeverity } from '../types/diagnostic.js';
  */
 export function exportJSON(data: PlotFlowData): ParseResult<string> {
   try {
+    const totalNodes = data?.chapters?.reduce((sum, ch) => sum + (ch?.nodes?.length ?? 0), 0) ?? 0;
+    const warnings: Diagnostic[] = [];
+    if (totalNodes === 0) {
+      warnings.push({
+        id: 'WARN@export-json-empty',
+        code: 'W004',
+        severity: 'warning' as DiagnosticSeverity,
+        message: '导出无节点故事',
+        detail: '当前故事不包含任何节点。JSON 输出是合法 JSON 但不满足规范要求的 minItems: 1。',
+        range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+      });
+    }
+
     const exported = serializeStory(data);
     const json = JSON.stringify(exported, null, 2) + '\n';
-    return success(json);
+    return success(json, warnings);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const diagnostic: Diagnostic = {
@@ -264,8 +277,8 @@ function serializeOption(opt: Option, index: number): Record<string, unknown> {
   return {
     index,
     text: opt.description,
-    targetNodeId: opt.targetNodeId ?? '',
-    targetFullId: opt.targetFullId ?? '',
+    targetNodeId: opt.targetNodeId ?? null,
+    targetFullId: opt.targetFullId ?? null,
     conditions: serializeCondition(opt.condition, opt.conditionRaw),
     sideEffects: opt.sideEffects.map(serializeSideEffect),
   };

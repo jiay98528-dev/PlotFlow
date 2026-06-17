@@ -54,7 +54,7 @@
 | Markdown 解析 | **unified + remark + 自定义插件** | 成熟 AST 生态，自定义语法通过插件实现 |
 | YAML 解析 | **js-yaml** | 解析 Frontmatter |
 | 状态管理 | **Zustand** | 轻量，适合编辑器细粒度状态 |
-| 测试 | **Vitest**（单元）+ **Playwright**（E2E） | Vite 生态兼容 |
+| 测试 | **Vitest**（单元） | Vite 生态兼容 |
 | 桌面搜索 | **本地文件遍历**（MVP 不引入 tantivy） | 单文件模式下无需全文索引 |
 
 ### 2.2 明确禁用的技术
@@ -110,21 +110,27 @@
 
 详见 `spec/milestones.md` 和 `spec/progress.md`。
 
-**当前进度（2026-06-13）**：M0-M6 已完成，M7 Electron 打包发布待启动；总进度 125/142（88%）。
+**当前进度（2026-06-15）**：M0-M6 基础完成，M7 工程准备就绪；总进度 93/142（65%），36 项延后至 V0.2。
 
 ### V0.1 核心交付范围
 
 | 模块 | 内容 |
 |------|------|
-| 编辑器 | Monaco 编辑器 + PlotFlow 语法高亮 + 大纲视图 |
-| 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线，点击跳转） |
+| 编辑器 | Monaco 编辑器 + PlotFlow 语法高亮 + 大纲视图 + 自动保存 |
+| 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线，点击跳转，小地图） |
 | 条件编辑 | 内联图形化条件编辑器（Airtable 风格），双向文本同步 |
-| 错误检测 | 三级错误标记（红色错误/黄色警告/蓝色建议波浪线） |
-| 补全 | 四维幽灵补全 + 本地语料学习 + 用户导入 |
+| 错误检测 | 三级错误标记（8E/6W/3I 波浪线）+ 问题面板 |
 | 导出 | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
-| 插件 | Godot 编辑器插件+运行时库完整实现 |
-| 项目 | 独立单文件模式（A）+ 插件模式（C）+ 4个内置模板 |
-| UI | 暗色/亮色主题 + 中英双语 + 实时自动保存 |
+| 模板 | 4 个内置模板（RPG/视觉小说/解谜/Godot 示例）+ 新建文件对话框 |
+| UI | 暗色/亮色双主题 + 海洋蓝/暖金双强调色 + 中英双语 |
+
+### V0.2 延后交付
+
+| 模块 | 内容 |
+|------|------|
+| 补全 | 幽灵补全 UI（引擎核心已完成，Tab/Esc/Ctrl+Space 交互延后） |
+| 引擎插件 | Godot 编辑器插件+运行时库、Unity/Unreal 接口定义 |
+| 学习 | N-gram 增量学习器 + 权重衰减 + 语料导入面板 |
 
 ---
 
@@ -163,7 +169,7 @@
 
 ### 5.1 CI 自动检查
 
-L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元 + Playwright E2E）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
+L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元测试）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
 
 ### 5.2 里程碑复审
 
@@ -287,7 +293,6 @@ PlotFlow/
 │   │   │   └── utils/             ← 工具函数
 │   │   ├── src-electron/          ← Electron 主进程
 │   │   ├── public/
-│   │   ├── e2e/                   ← Playwright E2E 测试
 │   │   └── package.json
 │   │
 │   └── parser/                    ← @plotflow/parser（独立解析器包，待创建）
@@ -300,8 +305,7 @@ PlotFlow/
 │
 ├── tests/                         ← 测试根目录
 │   ├── fixtures/                  ← 测试用 .mdstory 文件
-│   ├── unit/                      ← 单元测试
-│   └── e2e/                       ← E2E 测试
+│   └── unit/                      ← 单元测试
 │
 ├── scripts/                       ← 脚本
 │   └── train-corpus.ts            ← 补全语料训练管道（待创建）
@@ -444,10 +448,9 @@ PlotFlow/
 | L1 | TypeScript 编译零错误 | `tsc --noEmit` |
 | L1 | ESLint 零错误 | `eslint` |
 | L2 | 单元测试全部 PASS | `vitest run` |
-| L3 | E2E 冒烟测试全部 PASS | `playwright test` |
-| L3.5 | 占位代码扫描零结果 | `grep -r "待 M[0-9]" packages/` |
-| L3.5 | 入口可达性检查 | 每个组件必须被 App.tsx 或 setupEditor.ts 引用 |
-| L3.5 | progress.md 总览=细项校验 | 脚本比较总览计数 vs 细项 ✅ 计数 |
+| L3 | 占位代码扫描零结果 | `grep -r "待 M[0-9]" packages/` |
+| L3 | 入口可达性检查 | 每个组件必须被 App.tsx 或 setupEditor.ts 引用 |
+| L3 | progress.md 总览=细项校验 | 脚本比较总览计数 vs 细项 ✅ 计数 |
 | L4 | 人工端到端复审 | 打开 `.mdstory` → 编辑 → 看分支图 → 导出 → 引擎加载 |
 
 ---

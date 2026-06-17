@@ -100,6 +100,7 @@ async function performSave(content: string, path: string): Promise<void> {
 
   isSaving = true;
   updateStatusMessage('saving');
+  let succeeded = false;
 
   try {
     const result: FileSaveResult = await window.plotflow.file.save(path, content);
@@ -109,6 +110,7 @@ async function performSave(content: string, path: string): Promise<void> {
       lastSavedContent = content;
       useEditorStore.getState().markSaved();
       updateStatusMessage('success');
+      succeeded = true;
     } else {
       updateStatusMessage('failed', '文件写入返回异常');
     }
@@ -117,8 +119,24 @@ async function performSave(content: string, path: string): Promise<void> {
     updateStatusMessage('failed', message);
   } finally {
     isSaving = false;
-    pendingContent = null;
-    pendingPath = null;
+
+    if (succeeded) {
+      // P0-2: 保存成功 → 检查期间是否有新内容到达（防竞态数据丢失）
+      if (pendingContent !== null && pendingPath !== null && pendingContent !== content) {
+        // 级联保存新内容（不丢弃保存期间到达的用户输入）
+        const nextContent = pendingContent;
+        const nextPath = pendingPath;
+        pendingContent = null;
+        pendingPath = null;
+        performSave(nextContent, nextPath).catch(() => {
+          // performSave 内部已处理错误
+        });
+      } else {
+        pendingContent = null;
+        pendingPath = null;
+      }
+    }
+    // 保存失败 → 保留 pendingContent/pendingPath，等待下次触发重试
   }
 }
 
@@ -137,11 +155,12 @@ async function performSave(content: string, path: string): Promise<void> {
  * @param path    - 当前文件的绝对路径
  */
 export function debouncedSave(content: string, path: string | null): void {
-  // 新建未保存文件时无法保存
-  if (!path) return;
-
+  // P0-3: 始终缓存最新内容（即使无文件路径，供 saveOrSaveAs 回退使用）
   pendingContent = content;
   pendingPath = path;
+
+  // 新建未保存文件时无法自动保存，但内容已缓存
+  if (!path) return;
 
   // 清除上一次的定时器，重新计时
   if (saveTimer !== null) {
@@ -182,6 +201,36 @@ export async function forceSave(): Promise<void> {
   const editorState = useEditorStore.getState();
   if (editorState.isDirty && editorState.filePath !== null) {
     await performSave(editorState.content, editorState.filePath);
+  }
+}
+
+/**
+ * 智能保存：已有文件路径则直接保存，新文件则弹出另存为对话框。
+ *
+ * P0-3: 解决新建文件 Ctrl+S 被静默忽略的问题。
+ * 供 Ctrl+S 快捷键和 File > Save 菜单使用。
+ */
+export async function saveOrSaveAs(): Promise<void> {
+  await forceSave();
+
+  const editorState = useEditorStore.getState();
+  // forceSave 未处理的情况：新文件（有脏内容但无文件路径）
+  if (editorState.isDirty && editorState.filePath === null && editorState.content.length > 0) {
+    // 动态导入 FileService 避免循环依赖
+    const { FileService } = await import('./fileService');
+    const fileService = new FileService();
+    try {
+      const newPath = await fileService.saveFileAs(editorState.content);
+      editorState.setFilePath(newPath);
+      editorState.markSaved();
+      // 更新模块级缓存，使后续 debouncedSave 能正常工作
+      pendingPath = newPath;
+      pendingContent = null;
+      lastSavedContent = editorState.content;
+      useUIStore.getState().setStatusMessage(`已保存至: ${newPath}`);
+    } catch {
+      // 用户取消另存为对话框 → 正常行为，静默处理
+    }
   }
 }
 

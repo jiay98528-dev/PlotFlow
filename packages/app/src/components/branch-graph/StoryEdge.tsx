@@ -45,8 +45,8 @@ export type StoryEdgeType = Edge<StoryEdgeData>;
 
 /** 连线类型 → 颜色映射 */
 const EDGE_COLORS = {
-  default: '#4EC9B0',    // 青色：无条件连线
-  conditional: '#CE9178', // 橙色：条件连线
+  default: 'var(--color-syntax-target, #4EC9B0)',
+  conditional: 'var(--color-syntax-condition, #CE9178)',
 } as const;
 
 /** 条件标签最长字符数（超出截断加 "..."） */

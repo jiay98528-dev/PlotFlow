@@ -20,7 +20,7 @@
  * @module components/branch-graph/GraphCanvas
  */
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -82,9 +82,6 @@ function ZoomResetShortcut(): null {
 // 常量
 // ============================================================================
 
-/** 图→编辑器跳转后，阻止反向同步的冷却毫秒数 */
-const GRAPH_NAVIGATION_COOLDOWN_MS = 600;
-
 // ============================================================================
 // GraphCanvas 主组件
 // ============================================================================
@@ -107,16 +104,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const editorContent = useEditorStore((state) => state.content);
   const setContent = useEditorStore((state) => state.setContent);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
-  const setActiveNodeId = useEditorStore((state) => state.setActiveNodeId);
-  const setCursorPosition = useEditorStore((state) => state.setCursorPosition);
 
   // StoryStore — 用于查找 AST 节点信息（选项行号、targetNodeId 等）
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
-
-  // ---- 防止循环更新标记 ----
-  // 当从分支图点击节点跳转编辑器时，设置此标记阻止 editor→graph 方向的反向覆盖
-  const isNavigatingFromGraph = useRef(false);
-  const navigationCooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ==========================================================================
   // 连线连接处理 (M2-09)
@@ -336,33 +326,19 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const nodeData = node.data as StoryFlowNodeData | undefined;
       if (!nodeData) return;
 
-      const { fullId, lineNumber } = nodeData;
+      const { lineNumber } = nodeData;
 
-      // 1. 设置分支图选中状态
+      // 1. 设置分支图选中状态 → App.tsx 中的订阅自动同步 editorStore
       selectNode(node.id);
 
-      // 2. 设置编辑器 store 状态（大纲高亮 + 光标位置）
-      setActiveNodeId(fullId);
-      setCursorPosition(lineNumber, 1);
-
-      // 3. 设置反向同步阻止标记（防循环更新）
-      isNavigatingFromGraph.current = true;
-      if (navigationCooldownTimer.current !== null) {
-        clearTimeout(navigationCooldownTimer.current);
-      }
-      navigationCooldownTimer.current = setTimeout(() => {
-        isNavigatingFromGraph.current = false;
-        navigationCooldownTimer.current = null;
-      }, GRAPH_NAVIGATION_COOLDOWN_MS);
-
-      // 4. 如果编辑器实例可用，执行编程式跳转
+      // 2. 如果编辑器实例可用，执行编程式跳转（必须直接操作 Monaco 实例）
       if (editorInstance) {
         editorInstance.revealLine(lineNumber);
         editorInstance.setPosition({ lineNumber, column: 1 });
         editorInstance.focus();
       }
     },
-    [selectNode, setActiveNodeId, setCursorPosition, editorInstance, renamingNodeId],
+    [selectNode, editorInstance, renamingNodeId],
   );
 
   /** 画布点击空白处：取消选中 */
@@ -415,18 +391,6 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
   /** 当前显示的连线（已折叠过滤后的） */
   const displayedEdges = collapsedResult.edges;
-
-  // ==========================================================================
-  // 清理：组件卸载时清除防循环冷却定时器
-  // ==========================================================================
-
-  useEffect(() => {
-    return () => {
-      if (navigationCooldownTimer.current !== null) {
-        clearTimeout(navigationCooldownTimer.current);
-      }
-    };
-  }, []);
 
   /** 是否显示空状态 */
   const isEmpty = nodes.length === 0;

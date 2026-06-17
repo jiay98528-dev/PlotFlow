@@ -492,7 +492,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               background: danger
                 ? 'var(--color-error, #C62828)'
                 : 'var(--color-accent, #A0703A)',
-              color: '#FFFFFF',
+              color: 'var(--color-text-on-accent, #FFFFFF)',
               fontSize: 'var(--text-xs, 12px)',
               fontFamily: 'var(--font-ui, system-ui, sans-serif)',
               cursor: 'pointer',

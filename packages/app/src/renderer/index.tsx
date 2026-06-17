@@ -8,6 +8,7 @@ import '../styles/app-shell.css';
 import '../styles/new-file-dialog.css';
 import '../styles/diagnostics.css';
 import '../styles/branch-graph.css';
+import '../styles/tokens-accent-gold.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element not found');

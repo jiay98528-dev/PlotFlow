@@ -21,7 +21,7 @@ import { useEffect } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { useStoryStore } from '../stores/storyStore';
-import { forceSave, clearPendingSave } from '../services/autoSaveService';
+import { clearPendingSave, saveOrSaveAs } from '../services/autoSaveService';
 import { FileService } from '../services/fileService';
 
 // ============================================================================
@@ -98,7 +98,8 @@ export function useMenuEvents(): void {
 
     menu.onEvent('menu:file:save', async () => {
       try {
-        await forceSave();
+        // P0-3: 使用 saveOrSaveAs 替代 forceSave，新文件自动弹出另存为对话框
+        await saveOrSaveAs();
       } catch (error) {
         handleError('保存失败', error);
       }
@@ -185,7 +186,7 @@ export function useMenuEvents(): void {
 
     menu.onEvent('menu:help:docs', () => {
       // M7 启用：使用 shell.openExternal 或 shell.openPath 打开文档
-      useUIStore.getState().setStatusMessage('文档 — 待编写');
+      useUIStore.getState().setStatusMessage('帮助文档 — 请访问 PlotFlow GitHub 仓库');
     });
 
     // ── 组件卸载时清理所有监听器 ──

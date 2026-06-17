@@ -24,7 +24,7 @@
  * @module components/panels/ExportDialog
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PlotFlowData } from '@plotflow/core';
 import { exportJSON, exportHTML, exportTXT } from '@plotflow/core';
 import { useStoryStore } from '../../stores/storyStore';
@@ -105,6 +105,9 @@ export function ExportDialog(): React.ReactElement | null {
   const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
+  // P0-5: 导出成功自动关闭 timer ref（组件卸载时可清理）
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
   // ========================================================================
   // 键盘快捷键：Ctrl+E 打开/关闭导出对话框
   // ========================================================================
@@ -137,8 +140,22 @@ export function ExportDialog(): React.ReactElement | null {
     if (isOpen) {
       setExportStatus('idle');
       setStatusMessage('');
+      // P0-5: 对话框重新打开时清除残留的自动关闭 timer
+      if (autoCloseTimerRef.current !== undefined) {
+        clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = undefined;
+      }
     }
   }, [isOpen]);
+
+  // P0-5: 组件卸载时清除自动关闭 timer
+  useEffect(() => {
+    return () => {
+      if (autoCloseTimerRef.current !== undefined) {
+        clearTimeout(autoCloseTimerRef.current);
+      }
+    };
+  }, []);
 
   // ========================================================================
   // 计算默认文件名
@@ -211,8 +228,12 @@ export function ExportDialog(): React.ReactElement | null {
       setExportStatus('success');
       setStatusMessage(`已导出: ${filePath}`);
 
-      // 1.5 秒后自动关闭
-      setTimeout(() => {
+      // P0-5: 1.5 秒后自动关闭（timer 存入 ref 供清理）
+      if (autoCloseTimerRef.current !== undefined) {
+        clearTimeout(autoCloseTimerRef.current);
+      }
+      autoCloseTimerRef.current = setTimeout(() => {
+        autoCloseTimerRef.current = undefined;
         closeExportDialog();
       }, 1500);
     } catch (err) {
@@ -636,7 +657,7 @@ const exportButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,
-  color: '#FFFFFF',
+  color: 'var(--color-text-on-accent, #FFFFFF)',
   padding: '6px 20px',
   borderRadius: 6,
   lineHeight: '20px',

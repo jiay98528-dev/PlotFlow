@@ -54,7 +54,7 @@
 | Markdown 解析 | **unified + remark + 自定义插件** | 成熟 AST 生态，自定义语法通过插件实现 |
 | YAML 解析 | **js-yaml** | 解析 Frontmatter |
 | 状态管理 | **Zustand** | 轻量，适合编辑器细粒度状态 |
-| 测试 | **Vitest**（单元）+ **Playwright**（E2E） | Vite 生态兼容 |
+| 测试 | **Vitest**（单元） | Vite 生态兼容 |
 | 桌面搜索 | **本地文件遍历**（MVP 不引入 tantivy） | 单文件模式下无需全文索引 |
 
 ### 2.2 明确禁用的技术
@@ -163,7 +163,7 @@
 
 ### 5.1 CI 自动检查
 
-L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元 + Playwright E2E）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
+L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元测试）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
 
 ### 5.2 里程碑复审
 
@@ -287,7 +287,6 @@ PlotFlow/
 │   │   │   └── utils/             ← 工具函数
 │   │   ├── src-electron/          ← Electron 主进程
 │   │   ├── public/
-│   │   ├── e2e/                   ← Playwright E2E 测试
 │   │   └── package.json
 │   │
 │   └── parser/                    ← @plotflow/parser（独立解析器包，待创建）
@@ -300,8 +299,7 @@ PlotFlow/
 │
 ├── tests/                         ← 测试根目录
 │   ├── fixtures/                  ← 测试用 .mdstory 文件
-│   ├── unit/                      ← 单元测试
-│   └── e2e/                       ← E2E 测试
+│   └── unit/                      ← 单元测试
 │
 ├── scripts/                       ← 脚本
 │   └── train-corpus.ts            ← 补全语料训练管道（待创建）
@@ -444,10 +442,9 @@ PlotFlow/
 | L1 | TypeScript 编译零错误 | `tsc --noEmit` |
 | L1 | ESLint 零错误 | `eslint` |
 | L2 | 单元测试全部 PASS | `vitest run` |
-| L3 | E2E 冒烟测试全部 PASS | `playwright test` |
-| L3.5 | 占位代码扫描零结果 | `grep -r "待 M[0-9]" packages/` |
-| L3.5 | 入口可达性检查 | 每个组件必须被 App.tsx 或 setupEditor.ts 引用 |
-| L3.5 | progress.md 总览=细项校验 | 脚本比较总览计数 vs 细项 ✅ 计数 |
+| L3 | 占位代码扫描零结果 | `grep -r "待 M[0-9]" packages/` |
+| L3 | 入口可达性检查 | 每个组件必须被 App.tsx 或 setupEditor.ts 引用 |
+| L3 | progress.md 总览=细项校验 | 脚本比较总览计数 vs 细项 ✅ 计数 |
 | L4 | 人工端到端复审 | 打开 `.mdstory` → 编辑 → 看分支图 → 导出 → 引擎加载 |
 
 ---
