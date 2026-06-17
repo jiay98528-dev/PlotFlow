@@ -20,8 +20,8 @@ import * as monaco from 'monaco-editor';
 
 import { registerPlotFlowTokenizer, PLOTFLOW_LANGUAGE_ID } from './monaco-tokenizer';
 import { registerFoldingProvider } from './foldingProvider';
-// GhostTextPlugin (M5): 引擎实例由 CorpusLoader 初始化后懒加载注册
-// import { registerGhostTextProvider } from './GhostTextPlugin';
+import { NGramEngine, InvertedIndex, CorpusLoader } from '@plotflow/core';
+import { registerGhostTextProvider } from './GhostTextPlugin';
 
 // M3-13/M3-14: 诊断装饰器集成连接点
 // 完整集成（在 App.tsx 中订阅 storyStore diagnostics 并调用 applyDiagnostics）将在 M3 阶段完成
@@ -119,8 +119,24 @@ export async function setupPlotFlowEditor(): Promise<void> {
     // 折叠范围提供者（foldingProvider.ts）
     registerFoldingProvider();
 
-    // 幽灵补全提供者（GhostTextPlugin.ts — M5）
-    // 引擎实例由 CorpusLoader 初始化，此处延迟到首次补全触发时懒加载
+    // M5: 幽灵补全提供者（GhostTextPlugin.ts）
+    // 初始化 NGramEngine，通过 CorpusLoader 单例加载英文预置语料，
+    // 注册 InlineCompletionProvider + CompletionItemProvider。
+    // 语料加载失败不影响编辑器启动 — 补全仅无预置语料，学习器仍可从用户输入学习。
+    try {
+      const engine = new NGramEngine();
+      const index = new InvertedIndex();
+      const loader = CorpusLoader.getInstance();
+
+      // 加载预置英文语料到 NGramEngine（中文语料 V02-062 待构建）
+      await loader.loadToEngine(engine, 'en');
+
+      registerGhostTextProvider(engine, index);
+    } catch (err) {
+      // 语料加载或补全注册失败是非致命的 — 编辑器仍可正常使用
+      // eslint-disable-next-line no-console
+      console.warn('[PlotFlow] GhostTextPlugin 初始化失败，补全不可用:', err);
+    }
 
     // 主题
     registerThemes();

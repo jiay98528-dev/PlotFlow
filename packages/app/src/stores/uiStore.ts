@@ -51,6 +51,10 @@ export interface UIState {
 
   /** 条件编辑器面板是否打开 */
   readonly isConditionEditorOpen: boolean;
+  /** 条件编辑器当前编辑的节点 ID（null 表示无上下文） */
+  readonly conditionEditorNodeId: string | null;
+  /** 条件编辑器当前编辑的选项索引（null 表示无上下文） */
+  readonly conditionEditorOptionIndex: number | null;
   readonly isOutlinePanelOpen: boolean;
 
   /** 问题面板是否打开（M3-16） */
@@ -85,6 +89,8 @@ export interface UIState {
   /** 切换条件编辑器面板的打开/关闭状态 */
   toggleOutlinePanel: () => void;
   toggleConditionEditor: () => void;
+  /** 打开条件编辑器并指定编辑上下文 */
+  openConditionEditor: (nodeId: string, optionIndex: number) => void;
 
   /** 切换问题面板的打开/关闭状态 */
   toggleProblemPanel: () => void;
@@ -169,11 +175,13 @@ const initialState = {
   isOutlinePanelOpen: true,
   statusMessage: '',
   isConditionEditorOpen: false,
+  conditionEditorNodeId: null,
+  conditionEditorOptionIndex: null,
   isProblemPanelOpen: false,
   isExportDialogOpen: false,
   isCorpusManagerOpen: false,
   isNewFileDialogOpen: false,
-} as const satisfies Omit<UIState, 'toggleTheme' | 'setAccent' | 'setLanguage' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog'>;
+} as const satisfies Omit<UIState, 'toggleTheme' | 'setAccent' | 'setLanguage' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog'>;
 
 // ============================================================================
 // Store
@@ -244,9 +252,22 @@ export const useUIStore = create<UIState>()(
         set(
           (state) => ({
             isConditionEditorOpen: !state.isConditionEditorOpen,
+            // 关闭时清除上下文
+            ...(state.isConditionEditorOpen ? { conditionEditorNodeId: null, conditionEditorOptionIndex: null } : {}),
           }),
           false,
           'ui/toggleConditionEditor',
+        ),
+
+      openConditionEditor: (nodeId: string, optionIndex: number) =>
+        set(
+          {
+            isConditionEditorOpen: true,
+            conditionEditorNodeId: nodeId,
+            conditionEditorOptionIndex: optionIndex,
+          },
+          false,
+          'ui/openConditionEditor',
         ),
 
       toggleProblemPanel: () =>

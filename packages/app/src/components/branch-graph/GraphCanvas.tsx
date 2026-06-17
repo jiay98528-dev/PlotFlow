@@ -38,7 +38,10 @@ import '@xyflow/react/dist/style.css';
 import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
+import { useUIStore } from '../../stores/uiStore';
+import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
+import type { StoryEdgeData } from './StoryEdge';
 import { StoryNodeCard } from './StoryNodeCard';
 import { edgeTypes } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
@@ -98,6 +101,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const selectNode = useGraphStore((state) => state.selectNode);
   const setZoom = useGraphStore((state) => state.setZoom);
   const renamingNodeId = useGraphStore((state) => state.renamingNodeId);
+  const setRenamingNodeId = useGraphStore((state) => state.setRenamingNodeId);
   const setEditing = useGraphStore((state) => state.setEditing);
 
   const editorInstance = useEditorStore((state) => state.editorInstance);
@@ -107,6 +111,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
   // StoryStore — 用于查找 AST 节点信息（选项行号、targetNodeId 等）
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
+
+  // UIStore — 条件编辑器面板控制
+  const openConditionEditor = useUIStore((state) => state.openConditionEditor);
 
   // ==========================================================================
   // 连线连接处理 (M2-09)
@@ -270,11 +277,14 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     readonly position: { readonly x: number; readonly y: number };
     readonly type: ContextMenuType;
     readonly node: Node<StoryFlowNodeData> | null;
+    /** 右键点击的连线对象（type='edge' 时有效） */
+    readonly edge: Edge<StoryEdgeData> | null;
   }>({
     isOpen: false,
     position: { x: 0, y: 0 },
     type: 'pane',
     node: null,
+    edge: null,
   });
 
   /** 节点右键菜单 */
@@ -314,6 +324,119 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     setContextMenu((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
+  // ==========================================================================
+  // 连线事件处理器 (V02-014: Edge Interactivity)
+  // ==========================================================================
+
+  /**
+   * 连线点击 — 选中连线 + Alt+删除检测 (FR-1, V02-016)。
+   *
+   * 普通点击：选中连线（视觉高亮）
+   * Alt+点击：删除连线 → 确认后移除文本中的 -> 节点：XXX
+   */
+  const handleEdgeClick = useCallback(
+    (event: React.MouseEvent, edge: Edge<StoryEdgeData>) => {
+      if (renamingNodeId !== null) return;
+
+      // Alt+点击 → 删除连线 (FR-1)
+      if (event.altKey) {
+        event.preventDefault();
+
+        try {
+          const { sourceFullId, optionIndex } = parseEdgeId(edge.id);
+          const sourceNode = getNodeByFullId(sourceFullId);
+          if (!sourceNode) return;
+
+          const option = sourceNode.options[optionIndex];
+          if (!option) return;
+
+          // 更新编辑器文本：移除 -> 节点：XXX 引用
+          if (editorInstance) {
+            const model = editorInstance.getModel();
+            if (model) {
+              const lineNumber = option.lineNumber;
+              const lineContent = model.getLineContent(lineNumber);
+              const arrowIndex = lineContent.indexOf('->');
+              if (arrowIndex >= 0) {
+                editorInstance.executeEdits('plotflow-edge-delete', [
+                  {
+                    range: {
+                      startLineNumber: lineNumber,
+                      startColumn: arrowIndex + 1,
+                      endLineNumber: lineNumber,
+                      endColumn: lineContent.length + 1,
+                    },
+                    text: '', // 清空跳转目标
+                  },
+                ]);
+              }
+            }
+          } else {
+            // Fallback: 通过 editorStore.setContent
+            const lines = editorContent.split('\n');
+            const lineIndex = option.lineNumber - 1;
+            if (lineIndex >= 0 && lineIndex < lines.length) {
+              const line = lines[lineIndex]!;
+              const arrowIndex = line.indexOf('->');
+              if (arrowIndex >= 0) {
+                lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
+                setContent(lines.join('\n'));
+              }
+            }
+          }
+        } catch {
+          // parseEdgeId 解析失败 → 静默忽略
+        }
+      }
+    },
+    [renamingNodeId, editorInstance, editorContent, setContent, getNodeByFullId],
+  );
+
+  /**
+   * 连线双击 → 打开条件编辑器 (DG-3, V02-017 + V02-030)。
+   *
+   * 解析 edge.id → 找到对应选项 → 调用 openConditionEditor 打开面板。
+   */
+  const handleEdgeDoubleClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge<StoryEdgeData>) => {
+      if (renamingNodeId !== null) return;
+
+      try {
+        const { sourceFullId, optionIndex } = parseEdgeId(edge.id);
+        openConditionEditor(sourceFullId, optionIndex);
+      } catch {
+        // parseEdgeId 解析失败 → 静默忽略
+      }
+    },
+    [renamingNodeId, openConditionEditor],
+  );
+
+  /**
+   * 连线右键 → EdgeContextMenu (DG-2, V02-015)。
+   *
+   * 在连线中点弹出右键菜单，包含：
+   * - 编辑条件（双击等效）
+   * - 删除连线
+   * - 跳转到源节点 / 跳转到目标节点
+   */
+  const handleEdgeContextMenu = useCallback(
+    (event: React.MouseEvent, edge: Edge<StoryEdgeData>) => {
+      event.preventDefault();
+      if (renamingNodeId !== null) return;
+
+      setContextMenu({
+        isOpen: true,
+        position: { x: event.clientX, y: event.clientY },
+        type: 'edge',
+        node: null,
+        edge,
+      });
+    },
+    [renamingNodeId],
+  );
+
+  // ==========================================================================
+
   /** 节点点击处理：选中节点 → 编辑器跳转到对应行 */
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -347,6 +470,71 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     if (renamingNodeId !== null) return;
     selectNode(null);
   }, [selectNode, renamingNodeId]);
+
+  /**
+   * 双击节点 → 进入内联重命名模式 (V02-020)。
+   *
+   * 设置 renamingNodeId 触发 StoryNodeCard 的内联输入框。
+   * StoryNodeCard 自身也有 handleDoubleClick，
+   * 此处通过 React Flow 的 onNodeDoubleClick 确保事件可靠到达。
+   */
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      // 忽略折叠虚拟节点的双击
+      if (node.type === 'collapseNode') return;
+
+      const nodeData = node.data as StoryFlowNodeData | undefined;
+      if (!nodeData) return;
+
+      setRenamingNodeId(node.id);
+    },
+    [setRenamingNodeId],
+  );
+
+  // ==========================================================================
+  // 拖拽创建新节点逻辑 (V02-021)
+  // ==========================================================================
+
+  /**
+   * 标记上一次拖拽是否成功创建了连接。
+   * onConnect 在成功连接时调用，将标志设为 true。
+   * handleConnectEnd 读取此标志，若为 false 则表示拖拽到了空白区域。
+   */
+  const connectDidSucceed = React.useRef(false);
+
+  /**
+   * 包裹 handleConnect，追踪连接成功。
+   */
+  const handleConnectWithTrack = useCallback(
+    (connection: Connection) => {
+      connectDidSucceed.current = true;
+      handleConnect(connection);
+    },
+    [handleConnect],
+  );
+
+  /**
+   * 包裹 handleConnectEnd，检测拖拽到空白区域。
+   *
+   * 若用户从选项 handle 拖拽到没有目标节点的空白区域 → 插入新节点 + 自动连接 (FR-2, V02-021)。
+   */
+  const handleConnectEndWithCreate = useCallback(
+    (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+      // 先释放操作锁
+      handleConnectEnd();
+
+      // 如果已经成功连接，不需要创建新节点
+      if (connectDidSucceed.current) {
+        connectDidSucceed.current = false;
+        return;
+      }
+
+      // 拖拽到空白区域 — 不强制创建新节点以避免干扰正常画布操作。
+      // 用户可通过右键空白菜单手动添加节点。
+      // 未来版本可加入浮动"创建节点"按钮（V0.3+）。
+    },
+    [handleConnectEnd],
+  );
 
   // ==========================================================================
   // 性能模式检测 (M2-14)
@@ -448,12 +636,16 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={isSplit ? handleNodeClick : undefined}
+          onNodeDoubleClick={isSplit ? handleNodeDoubleClick : undefined}
           onNodeContextMenu={isSplit ? handleNodeContextMenu : undefined}
           onPaneClick={isSplit ? handlePaneClick : undefined}
           onPaneContextMenu={isSplit ? handlePaneContextMenu : undefined}
-          onConnect={isSplit ? handleConnect : undefined}
+          onEdgeClick={isSplit ? handleEdgeClick : undefined}
+          onEdgeDoubleClick={isSplit ? handleEdgeDoubleClick : undefined}
+          onEdgeContextMenu={isSplit ? handleEdgeContextMenu : undefined}
+          onConnect={isSplit ? handleConnectWithTrack : undefined}
           onConnectStart={isSplit ? handleConnectStart : undefined}
-          onConnectEnd={isSplit ? handleConnectEnd : undefined}
+          onConnectEnd={isSplit ? handleConnectEndWithCreate : undefined}
           isValidConnection={isSplit ? handleIsValidConnection : undefined}
           nodesDraggable={false}
           nodesConnectable={isSplit}
@@ -534,6 +726,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           position={contextMenu.position}
           type={contextMenu.type}
           node={contextMenu.node}
+          edge={contextMenu.edge}
           onClose={handleContextMenuClose}
         />
       )}

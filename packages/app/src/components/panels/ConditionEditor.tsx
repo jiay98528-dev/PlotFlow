@@ -1133,12 +1133,33 @@ export function ConditionEditor({
   );
 
   // ==========================================================================
+  // 从 AST 中解析当前选项的已有条件（text → panel 同步）
+  // ==========================================================================
+
+  /** 当 nodeId + optionIndex 提供时，从 AST 查找已有条件 */
+  const resolvedCondition = useMemo<ConditionNode | null>(() => {
+    if (nodeId === undefined || optionIndex === undefined || !plotFlowData) {
+      return null;
+    }
+    for (const chapter of plotFlowData.chapters) {
+      for (const node of chapter.nodes) {
+        if (node.fullId === nodeId) {
+          const option = node.options[optionIndex];
+          return option?.condition ?? null;
+        }
+      }
+    }
+    return null;
+  }, [nodeId, optionIndex, plotFlowData]);
+
+  // ==========================================================================
   // Builder 内部状态
   // ==========================================================================
 
   const [rootGroup, setRootGroup] = useState<ConditionGroup>(() => {
-    if (initialCondition) {
-      return conditionNodeToBuilder(initialCondition, 0);
+    const seed = initialCondition ?? resolvedCondition;
+    if (seed) {
+      return conditionNodeToBuilder(seed, 0);
     }
     return {
       id: nextId(),

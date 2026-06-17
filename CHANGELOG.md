@@ -5,6 +5,34 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本遵循 [Semantic Versioning](https://semver.org/)。
 
+## [0.2.0] — 2026-06-17
+
+### Added
+- **连线交互基础设施**：StoryEdge 从纯渲染组件升级为全交互组件
+  - Alt+点击连线删除连接（移除 `-> 节点：XXX` 文本）
+  - 双击连线打开条件编辑器（自动加载已有条件）
+  - 右键连线菜单：编辑条件 / 删除连线 / 跳转源节点 / 跳转目标节点
+  - 连线悬停高亮（线宽 2→3，12px 透明交互区域）
+- **双击节点内联重命名**：双击节点卡片进入编辑模式，Enter 确认，Esc 取消
+- **GhostText 幽灵补全接线**：NGramEngine + 英文语料（152 句）注册到 Monaco InlineCompletionsProvider
+  - 四维触发：节点标题 / 选项句式 / 正文描述 / 变量名
+  - Tab 接受 / Esc 忽略 / Ctrl+Space 多候选下拉 / <100ms 频率抑制
+- **条件编辑器集成**：连线双击或 `[🔧条件]` 图标触发，自动从 AST 加载已有条件
+- **Edge ID 编码加固**：encodeURIComponent 编码 fullId，parseEdgeId() 确定性解码
+- **edgeStore 工具模块**：encodeEdgeId / parseEdgeId 公共 API
+- **条件编辑器上下文状态**：uiStore 新增 openConditionEditor(nodeId, optionIndex)
+
+### Fixed
+- **章节标题正则 bug**：`/^#\s*章节[：:].*$/` 改为 `/^#\s+.+$/`，匹配任意章节标题
+- **GhostText CorpusLoader API**：修正为 `CorpusLoader.getInstance()` + `loadToEngine()`
+- **条件编辑器初始状态**：添加 `resolvedCondition` 从 AST 加载已有条件
+- **Edge ID 可逆性**：fullId 中 `#`/`->` 字符不再破坏 edge.id 解析
+
+### Security
+- `.gitignore` 增强：新增 `.tmp/`、OS 文件、IDE 文件、构建产物
+
+---
+
 ## [0.1.0] — 2026-06-14
 
 ### Added

@@ -1,5 +1,5 @@
 /**
- * StoryEdge — 自定义 React Flow 连线组件
+ * StoryEdge — 自定义 React Flow 连线组件（V0.2 交互升级）
  *
  * 两种连线类型（由 adapter.ts 中的 edge.type 决定）：
  * - type='default': 无条件连线 → 青色 #4EC9B0 实线 + 贝塞尔曲线
@@ -12,12 +12,19 @@
  *   此处直接使用指定的语义色值：#4EC9B0（无条件）、#CE9178（条件）。
  * - 箭头通过 MarkerType.ArrowClosed 渲染，颜色自动继承连线 stroke。
  *
+ * V0.2 新增交互能力（DG-1~5, FR-1）：
+ * - onClick: 连线点击 → 视觉选中态 / Alt+点击删除
+ * - onDoubleClick: 双击 → 打开条件编辑器
+ * - onContextMenu: 右键 → EdgeContextMenu
+ * - hover: 光标悬停 → 加粗 + 高亮
+ *
  * @module components/branch-graph/StoryEdge
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   BaseEdge,
+  EdgeLabelRenderer,
   getBezierPath,
   MarkerType,
   type EdgeProps,
@@ -58,6 +65,15 @@ const LABEL_WIDTH = 160;
 /** 条件标签高度 */
 const LABEL_HEIGHT = 24;
 
+/** 连线默认线宽 */
+const DEFAULT_STROKE_WIDTH = 2;
+
+/** hover 时线宽 */
+const HOVER_STROKE_WIDTH = 3;
+
+/** 交互点击区域宽度（比视觉线宽更宽，便于点击） */
+const INTERACTION_WIDTH = 12;
+
 // ============================================================================
 // 子组件：EdgeLabel
 // ============================================================================
@@ -66,7 +82,8 @@ const LABEL_HEIGHT = 24;
  * EdgeLabel — 条件标签子组件
  *
  * 在连线中点显示简短的条件表达式文本。
- * 使用纯 SVG 元素（rect + text）渲染，确保在 React Flow SVG 容器内正常工作。
+ * 使用 EdgeLabelRenderer + HTML 元素渲染，确保在 React Flow 画布内
+ * 正确显示且不受 SVG 限制。
  *
  * @param props.labelX - 标签中心 X 坐标（由 getBezierPath 返回）
  * @param props.labelY - 标签中心 Y 坐标（由 getBezierPath 返回）
@@ -82,31 +99,26 @@ const EdgeLabel: React.FC<{
     : text;
 
   return (
-    <g>
-      {/* 标签背景 — 半透明白底 + 橙色边框 */}
-      <rect
-        x={labelX - LABEL_WIDTH / 2}
-        y={labelY - LABEL_HEIGHT / 2}
-        width={LABEL_WIDTH}
-        height={LABEL_HEIGHT}
-        rx={4}
-        fill="rgba(255, 255, 255, 0.92)"
-        stroke={EDGE_COLORS.conditional}
-        strokeWidth={1}
-      />
-      {/* 标签文字 — 等宽字体橙色居中 */}
-      <text
-        x={labelX}
-        y={labelY + 4} // 微调垂直居中
-        fill={EDGE_COLORS.conditional}
-        fontSize={11}
-        fontFamily="'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace"
-        textAnchor="middle"
-        dominantBaseline="middle"
+    <EdgeLabelRenderer>
+      <div
+        style={{
+          position: 'absolute',
+          transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+          background: 'rgba(255, 255, 255, 0.92)',
+          border: `1px solid ${EDGE_COLORS.conditional}`,
+          borderRadius: 4,
+          padding: '1px 6px',
+          fontSize: 11,
+          fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace",
+          color: EDGE_COLORS.conditional,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'all',
+        }}
+        className="nodrag nopan"
       >
         {displayText}
-      </text>
-    </g>
+      </div>
+    </EdgeLabelRenderer>
   );
 };
 
@@ -115,15 +127,20 @@ const EdgeLabel: React.FC<{
 // ============================================================================
 
 /**
- * StoryEdge — 自定义连线主组件。
+ * StoryEdge — 自定义连线主组件（V0.2 交互升级）。
  *
  * 根据 edge.type 自动切换样式：
- * - 'default'     → 青色 #4EC9B0 实线贝塞尔曲线 + ArrowClosed 箭头
- * - 'conditional' → 橙色 #CE9178 虚线(strokeDasharray="5,5") + ArrowClosed 箭头 + 条件标签
+ * - 'default'     → 青色实线贝塞尔曲线 + ArrowClosed 箭头
+ * - 'conditional' → 橙色虚线(strokeDasharray="5,5") + ArrowClosed 箭头 + 条件标签
  *
- * 若 type 非上述值，回退到 'default' 样式（青色实线）。
+ * 交互能力（V02-012 / V02-013 / FR-1）：
+ * - hover: 线宽从 2→3，光标变为 pointer
+ * - selected: 线宽加粗，颜色变亮
+ * - onClick: 若按住了 Alt 键 → 触发 Alt+click 删除（通过 data 属性传播）
+ * - onDoubleClick: 触发条件编辑器打开
+ * - onContextMenu: 触发 EdgeContextMenu
  *
- * @param props - React Flow EdgeProps（含 sourceX/Y, targetX/Y, source/targetPosition 等）
+ * 所有交互事件通过 React Flow 的 EdgeProps 透传至 GraphCanvas 层处理。
  */
 const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
   id,
@@ -135,11 +152,17 @@ const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
   targetPosition,
   data,
   type,
+  selected,
 }) => {
+  const [hovered, setHovered] = useState(false);
+
   const isConditional = type === 'conditional';
   const strokeColor = isConditional
     ? EDGE_COLORS.conditional
     : EDGE_COLORS.default;
+
+  // 选中或悬停时加粗线宽
+  const strokeWidth = (selected || hovered) ? HOVER_STROKE_WIDTH : DEFAULT_STROKE_WIDTH;
 
   // 计算贝塞尔曲线路径，同时获取路径中点坐标（用于标签定位）
   const [edgePath, labelX, labelY] = getBezierPath({
@@ -153,8 +176,33 @@ const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
 
   const conditionText = data?.conditionText;
 
+  // --- 事件处理器 ---
+
+  const handleMouseEnter = useCallback(() => {
+    setHovered(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHovered(false);
+  }, []);
+
   return (
     <>
+      {/*
+       * 不可见宽交互路径 — 比视觉线宽更宽的点击区域，
+       * 降低用户精确定位连线的难度。使用透明填充。
+       */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={INTERACTION_WIDTH}
+        style={{ cursor: 'pointer' }}
+        className="edge-interaction-path"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+
       {/*
        * BaseEdge — React Flow 内置基础连线渲染器。
        * 通过 style 注入颜色、线宽和虚线阵列。
@@ -165,8 +213,11 @@ const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
         path={edgePath}
         style={{
           stroke: strokeColor,
-          strokeWidth: 2,
+          strokeWidth,
           strokeDasharray: isConditional ? '5,5' : undefined,
+          cursor: 'pointer',
+          transition: 'stroke-width 0.12s ease',
+          pointerEvents: 'none',
         }}
         markerEnd={MarkerType.ArrowClosed}
       />

@@ -48,6 +48,8 @@ export function App(): React.ReactElement {
   const isNewFileDialogOpen = useUIStore((state) => state.isNewFileDialogOpen);
   const isConditionEditorOpen = useUIStore((state) => state.isConditionEditorOpen);
   const toggleConditionEditor = useUIStore((state) => state.toggleConditionEditor);
+  const conditionEditorNodeId = useUIStore((state) => state.conditionEditorNodeId);
+  const conditionEditorOptionIndex = useUIStore((state) => state.conditionEditorOptionIndex);
   const openExportDialog = useUIStore((state) => state.openExportDialog);
   const openCorpusManager = useUIStore((state) => state.openCorpusManager);
   const toggleTheme = useUIStore((state) => state.toggleTheme);
@@ -232,7 +234,11 @@ export function App(): React.ReactElement {
         )}
 
         {isConditionEditorOpen && (
-          <ConditionEditor onClose={toggleConditionEditor} />
+          <ConditionEditor
+            onClose={toggleConditionEditor}
+            nodeId={conditionEditorNodeId ?? undefined}
+            optionIndex={conditionEditorOptionIndex ?? undefined}
+          />
         )}
         <ExportDialog />
         <ProblemPanel />

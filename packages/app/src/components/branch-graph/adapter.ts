@@ -35,6 +35,7 @@ import type { PlotFlowData, StoryNode } from '@plotflow/core';
 import type { NodeStatus } from './adapter-helpers';
 import { getNodeStatus } from './adapter-helpers';
 import { layoutNodes } from './layout';
+import { encodeEdgeId } from '../../stores/edgeStore';
 
 // ============================================================================
 // 类型定义
@@ -115,8 +116,9 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
       // O(1) 验证目标节点存在（替代 O(n) 的 Array.find）
       if (!nodeMap.has(option.targetFullId)) continue;
 
+      // 使用 encodeEdgeId 确保 Edge ID 可逆解析（V02-008 加固）。
       flowEdges.push({
-        id: `${node.fullId}->${option.targetFullId}#${i}`,
+        id: encodeEdgeId(node.fullId, option.targetFullId!, i),
         source: node.fullId,
         target: option.targetFullId,
         sourceHandle: `option-${i}`,

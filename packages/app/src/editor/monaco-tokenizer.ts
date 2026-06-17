@@ -64,9 +64,9 @@ const PLOTFLOW_MONARCH = {
         { token: 'comment', next: '@frontmatter' },
       ],
 
-      // ── Chapter 标题：# 章节：XXX（蓝色 + 粗体） ──
+      // ── Chapter 标题：# 标题文本（蓝色 + 粗体） ──
       [
-        /^#\s*章节[：:].*$/,
+        /^#\s+.+$/,
         { token: 'heading', fontStyle: 'bold' },
       ],
 

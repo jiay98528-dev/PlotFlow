@@ -23,12 +23,14 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import type { Node } from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react';
 import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
+import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
+import type { StoryEdgeData } from './StoryEdge';
 import { layoutNodes } from './layout';
 import type { StoryNode } from '@plotflow/core';
 
@@ -37,7 +39,7 @@ import type { StoryNode } from '@plotflow/core';
 // ============================================================================
 
 /** 右键菜单类型 */
-export type ContextMenuType = 'node' | 'pane';
+export type ContextMenuType = 'node' | 'pane' | 'edge';
 
 /** 右键菜单位置（屏幕坐标） */
 export interface ContextMenuPosition {
@@ -51,10 +53,12 @@ export interface GraphContextMenuProps {
   readonly isOpen: boolean;
   /** 菜单位置（clientX/clientY 屏幕坐标） */
   readonly position: ContextMenuPosition;
-  /** 菜单类型：node = 节点右键，pane = 空白区域右键 */
+  /** 菜单类型：node = 节点右键，pane = 空白区域右键，edge = 连线右键 */
   readonly type: ContextMenuType;
   /** 右键点击的节点对象（type='node' 时有效，否则为 null） */
   readonly node: Node<StoryFlowNodeData> | null;
+  /** 右键点击的连线对象（type='edge' 时有效，否则为 null） */
+  readonly edge: Edge | null;
   /** 关闭菜单回调 */
   readonly onClose: () => void;
 }
@@ -527,6 +531,7 @@ export function GraphContextMenu({
   position,
   type,
   node,
+  edge,
   onClose,
 }: GraphContextMenuProps): React.ReactElement | null {
   // ==========================================================================
@@ -735,14 +740,99 @@ export function GraphContextMenu({
   }, [setStatusMessage, onClose]);
 
   // ==========================================================================
+  // 事件处理器：连线右键菜单 (V02-015)
+  // ==========================================================================
+
+  /** 解析 edge prop 为 sourceFullId + targetFullId + optionIndex */
+  const edgeParsed = useMemo(() => {
+    if (type !== 'edge' || !edge) return null;
+    try {
+      return parseEdgeId(edge.id);
+    } catch {
+      return null;
+    }
+  }, [type, edge]);
+
+  /** 连线 → 编辑条件：滚动到选项行并聚焦编辑器 */
+  const handleEdgeEditCondition = useCallback(() => {
+    if (!edgeParsed) { onClose(); return; }
+    const sourceNode = getNodeByFullId(edgeParsed.sourceFullId);
+    if (!sourceNode || !editorInstance) { onClose(); return; }
+
+    const option = sourceNode.options[edgeParsed.optionIndex];
+    if (option) {
+      editorInstance.revealLineInCenter(option.lineNumber);
+      editorInstance.setPosition({ lineNumber: option.lineNumber, column: 1 });
+      editorInstance.focus();
+      setCursorPosition(option.lineNumber, 1);
+      setStatusMessage(`已跳转到选项 → ${option.description.slice(0, 20)}`);
+    }
+    onClose();
+  }, [edgeParsed, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+
+  /** 连线 → 删除连线：移除 -> 节点：XXX 文本 */
+  const handleEdgeDelete = useCallback(() => {
+    if (!edgeParsed || !plotFlowData) { onClose(); return; }
+    const sourceNode = getNodeByFullId(edgeParsed.sourceFullId);
+    if (!sourceNode) { onClose(); return; }
+
+    const option = sourceNode.options[edgeParsed.optionIndex];
+    if (!option) { onClose(); return; }
+
+    const lines = editorContent.split('\n');
+    const lineIndex = option.lineNumber - 1;
+    if (lineIndex >= 0 && lineIndex < lines.length) {
+      const line = lines[lineIndex]!;
+      const arrowIndex = line.indexOf('->');
+      if (arrowIndex >= 0) {
+        lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
+        setEditorContent(lines.join('\n'));
+        setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeParsed.optionIndex + 1}`);
+      }
+    }
+    onClose();
+  }, [edgeParsed, plotFlowData, editorContent, getNodeByFullId, setEditorContent, setStatusMessage, onClose]);
+
+  /** 连线 → 跳转到源节点 */
+  const handleEdgeJumpToSource = useCallback(() => {
+    if (!edgeParsed || !editorInstance) { onClose(); return; }
+    const sourceNode = getNodeByFullId(edgeParsed.sourceFullId);
+    if (sourceNode) {
+      editorInstance.revealLineInCenter(sourceNode.lineNumber);
+      editorInstance.setPosition({ lineNumber: sourceNode.lineNumber, column: 1 });
+      editorInstance.focus();
+      setCursorPosition(sourceNode.lineNumber, 1);
+      setStatusMessage(`已跳转到源节点: ${sourceNode.title}`);
+    }
+    onClose();
+  }, [edgeParsed, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+
+  /** 连线 → 跳转到目标节点 */
+  const handleEdgeJumpToTarget = useCallback(() => {
+    if (!edgeParsed || !editorInstance) { onClose(); return; }
+    const targetNode = getNodeByFullId(edgeParsed.targetFullId);
+    if (targetNode) {
+      editorInstance.revealLineInCenter(targetNode.lineNumber);
+      editorInstance.setPosition({ lineNumber: targetNode.lineNumber, column: 1 });
+      editorInstance.focus();
+      setCursorPosition(targetNode.lineNumber, 1);
+      setStatusMessage(`已跳转到目标节点: ${targetNode.title}`);
+    }
+    onClose();
+  }, [edgeParsed, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+
+  // ==========================================================================
   // 菜单位置微调：防止溢出视口边缘
   // ==========================================================================
 
   const adjustedPosition = useMemo(() => {
     const nodeMenuItemsCount = 4; // 跳转、重命名、添加选项、删除 + 2 分隔线
     const paneMenuItemsCount = 3; // 添加、布局、导出
-    const itemsCount =
-      type === 'node' ? nodeMenuItemsCount : paneMenuItemsCount;
+    const edgeMenuItemsCount = 4; // 编辑条件、删除连线、跳转源节点、跳转目标节点
+    let itemsCount: number;
+    if (type === 'node') itemsCount = nodeMenuItemsCount;
+    else if (type === 'edge') itemsCount = edgeMenuItemsCount;
+    else itemsCount = paneMenuItemsCount;
     const menuHeight = itemsCount * MENU_ITEM_HEIGHT + 2 * DIVIDER_HEIGHT + 8; // ±4px padding
 
     return {
@@ -808,24 +898,54 @@ export function GraphContextMenu({
             showDividerBefore: true, // 在删除前加分隔线
           },
         ]
-      : [
-          {
-            key: 'addNode',
-            label: '添加节点',
-            onClick: handleAddNode,
-          },
-          {
-            key: 'relayout',
-            label: '重新布局',
-            disabled: graphNodes.length === 0,
-            onClick: handleRelayout,
-          },
-          {
-            key: 'exportPng',
-            label: '导出 PNG',
-            onClick: handleExportPNG,
-          },
-        ];
+      : type === 'edge'
+        ? [
+            {
+              key: 'editCondition',
+              label: '编辑条件',
+              shortcut: '双击',
+              disabled: !edgeParsed || !edgeParsed.sourceFullId,
+              onClick: handleEdgeEditCondition,
+            },
+            {
+              key: 'deleteEdge',
+              label: '删除连线',
+              shortcut: 'Alt+点击',
+              danger: true,
+              disabled: !edgeParsed,
+              onClick: handleEdgeDelete,
+            },
+            {
+              key: 'jumpToSource',
+              label: '跳转到源节点',
+              disabled: !edgeParsed || !editorInstance,
+              onClick: handleEdgeJumpToSource,
+            },
+            {
+              key: 'jumpToTarget',
+              label: '跳转到目标节点',
+              disabled: !edgeParsed || !editorInstance,
+              onClick: handleEdgeJumpToTarget,
+            },
+          ]
+        : [
+            {
+              key: 'addNode',
+              label: '添加节点',
+              onClick: handleAddNode,
+            },
+            {
+              key: 'relayout',
+              label: '重新布局',
+              disabled: graphNodes.length === 0,
+              onClick: handleRelayout,
+            },
+            {
+              key: 'exportPng',
+              label: '导出 PNG',
+              onClick: handleExportPNG,
+            },
+          ];
 
   // ==========================================================================
   // Render
