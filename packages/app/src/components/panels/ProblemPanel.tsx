@@ -54,6 +54,13 @@ const SEVERITY_ICON: Readonly<Record<DiagnosticSeverity, string>> = {
   info: '🔵',
 };
 
+/** 诊断严重级别 → 图标颜色（单行 var() 确保 CI 颜色扫描兼容）*/
+const SEVERITY_ICON_COLOR: Readonly<Record<DiagnosticSeverity, string>> = {
+  error: 'var(--color-diagnostic-error, #D32F2F)',
+  warning: 'var(--color-diagnostic-warning, #F9A825)',
+  info: 'var(--color-diagnostic-info, #1976D2)',
+};
+
 /** 面板最小高度 (px) */
 const PANEL_MIN_HEIGHT = 100;
 
@@ -296,13 +303,7 @@ export function ProblemPanel(): React.ReactElement {
                     <span
                       style={{
                         ...severityIconStyle,
-                        color: `var(--color-diagnostic-${diagnostic.severity}, ${
-                          diagnostic.severity === 'error'
-                            ? '#D32F2F'
-                            : diagnostic.severity === 'warning'
-                              ? '#F9A825'
-                              : '#1976D2'
-                        })`,
+                        color: SEVERITY_ICON_COLOR[diagnostic.severity],
                       }}
                     >
                       {icon}

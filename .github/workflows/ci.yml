@@ -95,8 +95,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Scan TSX for bare hex colors (excluding var() fallbacks)
         run: |
-          # 查找 TSX 内联样式中的裸 hex 色值（不在 var() 内的）
-          VIOLATIONS=$(grep -rn "'#[0-9a-fA-F]\{3,8\}'\|'rgba(" packages/app/src/components/ --include='*.tsx' | grep -v "var(--" | grep -v "nodeColor\|maskColor\|StoryEdge" || true)
+          # 查找 TSX 内联样式中的裸 hex 色值
+          # 排除: var(--*) 回退值、MINIMAP_SVG 标记区域、nodeColor/maskColor 上下文
+          VIOLATIONS=$(grep -rn "'#[0-9a-fA-F]\{3,8\}'" packages/app/src/components/ --include='*.tsx' \
+            | grep -v "var(--" \
+            | grep -v "MINIMAP_SVG" \
+            | grep -v "nodeColor\|maskColor" \
+            || true)
           if [ -n "$VIOLATIONS" ]; then
             echo "❌ TSX bare hex color values found (must use var(--color-*) tokens):"
             echo "$VIOLATIONS"

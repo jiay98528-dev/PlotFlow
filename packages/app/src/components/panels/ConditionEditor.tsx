@@ -1325,24 +1325,37 @@ export function ConditionEditor({
     const expression = hasValidCondition ? builderToExpression(rootGroup) : '';
 
     // M3-07: 面板 → 编辑器文本同步
-    if (nodeId && optionIndex !== undefined && plotFlowData) {
+    if (nodeId && optionIndex !== undefined) {
       // 查找目标节点和选项
       let targetNodeTitle = '';
       let targetOptionLineNumber = 0;
 
-      for (const chapter of plotFlowData.chapters) {
-        const node = chapter.nodes.find((n) => n.fullId === nodeId);
-        if (node) {
-          targetNodeTitle = node.title;
-          const option = node.options[optionIndex];
-          if (option) {
-            targetOptionLineNumber = option.lineNumber;
+      // Phase 1: AST 查找（主路径）
+      if (plotFlowData) {
+        for (const chapter of plotFlowData.chapters) {
+          const node = chapter.nodes.find((n) => n.fullId === nodeId);
+          if (node) {
+            targetNodeTitle = node.title;
+            const option = node.options[optionIndex];
+            if (option) {
+              targetOptionLineNumber = option.lineNumber;
+            }
+            break;
           }
-          break;
         }
       }
 
-      if (targetNodeTitle && targetOptionLineNumber > 0) {
+      // Phase 2: 文本扫描回退（AST 查找失败时，与 resolvedCondition 对称）
+      if (!targetNodeTitle && editorContent) {
+        const fallbackTitle = getNodeTitleFromNodeId(nodeId);
+        if (fallbackTitle) {
+          targetNodeTitle = fallbackTitle;
+          // optionIndex 由 updateEditorConditionText 的 findOptionLineIndexByOrdinal 处理
+          targetOptionLineNumber = 0;
+        }
+      }
+
+      if (targetNodeTitle) {
         const newContent = updateEditorConditionText(
           editorContent,
           targetNodeTitle,

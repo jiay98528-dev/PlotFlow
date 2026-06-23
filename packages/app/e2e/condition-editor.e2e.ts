@@ -162,15 +162,14 @@ async function waitForConditionEditorPanel(page: Page, timeout = 5_000): Promise
 // 节点 ID 映射（与测试夹具对应）
 // ============================================================================
 //
-// 夹具中的节点 fullId 由 parser 自动生成，格式为 chapterSimpleId--nodeSimpleId。
-// 章节 "第一章" -> "ch1"
-// 节点 "村口" -> "node-村口"
-// fullId = "ch1--node-村口"
+// Parser 生成 fullId 格式为 `${chapterTitle}-${nodeTitle}`（parser.ts L348-350）。
+// 章节标题 "# 第一章" → "第一章"，节点标题 "## 节点：村口" → "村口"。
+// fullId = "第一章-村口"
 
 const NODE_IDS = {
-  village: 'ch1--node-村口',     // 村口（有 2 个选项，均无条件）
-  tavern: 'ch1--node-酒馆',     // 酒馆（选项 0 有条件，选项 1 无条件）
-  forest: 'ch1--node-森林',     // 森林（无选项）
+  village: '第一章-村口',     // 村口（有 2 个选项，均无条件）
+  tavern: '第一章-酒馆',     // 酒馆（选项 0 有条件，选项 1 无条件）
+  forest: '第一章-森林',     // 森林（无选项）
 } as const;
 
 const OPTION_INDEX = {

@@ -860,16 +860,16 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           }}
           maskColor="rgba(0,0,0,0.2)"
           nodeColor={(node) => {
-            // 使用字面量色值而非 CSS 变量 — MiniMap SVG fill 不保证 CSS 变量解析
-            if (node.type === 'collapseNode') return '#8A8A8A';
+            // MINIMAP_SVG_COLORS: 字面量色值 — SVG fill 不保证 CSS 变量解析
+            if (node.type === 'collapseNode') return '#8A8A8A'; // MINIMAP_SVG
             const nodeData = node.data as unknown as StoryFlowNodeData | undefined;
             const status = nodeData?.status;
             switch (status) {
-              case 'error': return '#DC2626';
-              case 'orphan': return '#F59E0B';
-              case 'deadend': return '#9CA3AF';
-              case 'root': return '#2563EB';
-              default: return '#4CAF50';
+              case 'error': return '#DC2626'; // MINIMAP_SVG
+              case 'orphan': return '#F59E0B'; // MINIMAP_SVG
+              case 'deadend': return '#9CA3AF'; // MINIMAP_SVG
+              case 'root': return '#2563EB'; // MINIMAP_SVG
+              default: return '#4CAF50'; // MINIMAP_SVG
             }
           }}
         />

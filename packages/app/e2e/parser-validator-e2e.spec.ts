@@ -149,7 +149,12 @@ async function getGraphNodeStatuses(page: Page): Promise<Record<string, string>>
       const classList = Array.from(node.classList);
       const statusClass = classList.find((c) => c.startsWith('node-status-'));
       const status = statusClass ? statusClass.replace('node-status-', '') : 'unknown';
-      const dataId = node.getAttribute('data-id') ?? '';
+      // React Flow v12 使用 data-id；回退到 id 属性或 aria-label
+      const dataId =
+        node.getAttribute('data-id') ??
+        node.getAttribute('id') ??
+        node.getAttribute('aria-label') ??
+        '';
       if (dataId) {
         statusMap[dataId] = status;
       }
