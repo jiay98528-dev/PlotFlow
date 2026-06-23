@@ -17,6 +17,15 @@ module.exports = {
     buildResources: 'build',
   },
 
+  /* ── 下载镜像 (国内网络加速) ── */
+  electronDownload: {
+    mirror: 'https://npmmirror.com/mirrors/electron/',
+  },
+
+  /* ── 打包优化 ── */
+  npmRebuild: false,
+  asar: true,
+
   /* ── 文件关联 (M7-07) ──
    *
    * .mdstory 文件关联到 PlotFlow 应用。
@@ -32,7 +41,7 @@ module.exports = {
       ext: 'mdstory',
       name: 'PlotFlow Story',
       description: 'PlotFlow 叙事分支文件',
-      icon: 'build/icon.ico',
+      icon: 'build/file-icon.ico',
       role: 'Editor',
       isPackage: false,
     },
