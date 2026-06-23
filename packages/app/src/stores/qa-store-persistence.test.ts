@@ -16,9 +16,6 @@
 // 0. Mocks & Global Setup (runs before any imports due to vi.mock hoisting)
 // ============================================================================
 
-/** localStorage 共享存储对象 (供 vi.mock factory 引用) */
-const _sharedLocalStorage: Record<string, string> = {};
-
 /**
  * 适配器 mock — plotFlowDataToFlow 在 graphStore.syncFromAST 中被调用。
  * 该 mock 会在 graphStore 模块导入前安装，确保 store 初始化时引用 mock 版本。
@@ -86,6 +83,8 @@ import { useStoryStore } from './storyStore';
 import { useGraphStore, ZOOM_CONSTRAINTS } from './graphStore';
 import { useUIStore } from './uiStore';
 import type { PlotFlowData, Diagnostic } from '@plotflow/core';
+import { parsePipelineNow } from '../services/parsePipeline';
+import { forceSave, clearPendingSave } from '../services/autoSaveService';
 
 // ============================================================================
 // 2. Helpers & Mock Data
@@ -93,12 +92,6 @@ import type { PlotFlowData, Diagnostic } from '@plotflow/core';
 
 /** localStorage 实例引用 (每个测试前重置) */
 let localStorageStore: Record<string, string> = {};
-
-const _LOCALSTORAGE_KEYS = {
-  theme: 'plotflow:theme',
-  language: 'plotflow:language',
-  accent: 'plotflow:accent',
-} as const;
 
 /**
  * 模拟的 mockPlotFlowData — 3 节点线性故事
@@ -956,6 +949,8 @@ describe('跨 store 一致性 (ST-05)', () => {
     const data = useStoryStore.getState().plotFlowData;
     useGraphStore.getState().syncFromAST(data);
     expect(useGraphStore.getState().nodes.length).toBeGreaterThan(0);
+    useGraphStore.getState().toggleGroupCollapse('old-file-group');
+    useGraphStore.getState().setEditing(true);
 
     // Act: syncFromAST(null)
     useGraphStore.getState().syncFromAST(null);
@@ -964,6 +959,8 @@ describe('跨 store 一致性 (ST-05)', () => {
     expect(useGraphStore.getState().nodes).toHaveLength(0);
     expect(useGraphStore.getState().edges).toHaveLength(0);
     expect(useGraphStore.getState().selectedNodeId).toBeNull();
+    expect(useGraphStore.getState().collapsedGroups).toEqual({});
+    expect(useGraphStore.getState().isEditing).toBe(false);
   });
 
   // --------------------------------------------------------------------------
@@ -981,5 +978,114 @@ describe('跨 store 一致性 (ST-05)', () => {
     expect(useStoryStore.getState().parseError).toBeNull();
     expect(useStoryStore.getState().isParsing).toBe(false);
     expect(useStoryStore.getState().plotFlowData).not.toBeNull();
+  });
+});
+
+// ============================================================================
+// 数据完整性集成测试
+// ============================================================================
+
+describe('数据完整性集成测试', () => {
+  /** 被 forceSave 捕获的文本内容 */
+  let capturedContent = '';
+
+  beforeAll(() => {
+    // 为 window 添加 plotflow.file.save mock，捕获保存的内容供后续 reload
+    const win = globalThis.window as unknown as Record<string, unknown>;
+    win['plotflow'] = {
+      file: {
+        save: vi.fn(async (_path: string, content: string) => {
+          capturedContent = content;
+          return { success: true, timestamp: Date.now() };
+        }),
+      },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  });
+
+  // --------------------------------------------------------------------------
+  // 完整编辑-保存-关闭-重开周期验证 AST 完整性
+  // --------------------------------------------------------------------------
+  it('[DATA-INTEGRITY-01] Full edit-save-close-reopen cycle preserves AST integrity', async () => {
+    // 1. 创建包含 variables / chapters / nodes / options / conditions 的 .mdstory
+    const sample = [
+      '---',
+      'plotflow: "0.1"',
+      'title: 数据完整性测试',
+      'author: 集成测试',
+      'vars:',
+      '  hp: int',
+      '  has_key: bool',
+      '',
+      '---',
+      '',
+      '# 第一章',
+      '',
+      '## 节点：起点',
+      '',
+      '故事从这里开始。',
+      '',
+      '[选项] 继续前进 -> 节点：中途',
+      '  条件: ($hp > 50)',
+      '',
+      '## 节点：中途',
+      '',
+      '你在路途中间。',
+      '',
+      '[选项] 向左走 -> 节点：终点',
+      '',
+      '## 节点：终点',
+      '',
+      '故事结束。',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：第二章开始',
+      '',
+      '新的篇章。',
+      '',
+      '[选项] 查看结局 -> 节点：第二章结局',
+      '',
+      '## 节点：第二章结局',
+      '',
+      '全剧终。',
+    ].join('\n');
+
+    // 2. editorStore.setContent(sample), parsePipelineNow(sample)
+    useEditorStore.getState().setContent(sample);
+    useEditorStore.getState().setFilePath('/test/integration-test.mdstory');
+    parsePipelineNow(sample);
+
+    // 3. JSON.stringify(storyStore.plotFlowData) 作为快照
+    const ast = useStoryStore.getState().plotFlowData;
+    expect(ast).not.toBeNull();
+    const snapshot = JSON.stringify(ast);
+
+    // 4. Mock window.plotflow.file.save 以捕获内容（已在 beforeAll 中完成）
+
+    // 5. 调用 forceSave()
+    await forceSave();
+    expect(capturedContent.length).toBeGreaterThan(0);
+
+    // 6. 重置所有 store
+    resetAllStores();
+    clearPendingSave();
+
+    // 7. 重新加载捕获的内容并重新解析
+    useEditorStore.getState().setContent(capturedContent);
+    useEditorStore.getState().setFilePath('/test/integration-test.mdstory');
+    parsePipelineNow(capturedContent);
+
+    // 8. 断言新 AST JSON 与快照一致
+    const newAst = useStoryStore.getState().plotFlowData;
+    expect(newAst).not.toBeNull();
+    expect(JSON.stringify(newAst)).toBe(snapshot);
+
+    // 手动同步 graphStore（测试环境中无 App.tsx 订阅，需显式调用）
+    useGraphStore.getState().syncFromAST(newAst);
+
+    // 9. 断言 graphStore 中有节点和连线
+    expect(useGraphStore.getState().nodes.length).toBeGreaterThan(0);
+    expect(useGraphStore.getState().edges.length).toBeGreaterThan(0);
   });
 });

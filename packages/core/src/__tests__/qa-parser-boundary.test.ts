@@ -138,9 +138,10 @@ describe('P-03: 节点边界', () => {
 第二个重复节点。
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      const hasE007 = result.errors.some((d) => d.code === 'E007');
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const hasE007 = result.diagnostics.filter((d) => d.severity === 'error').some((d) => d.code === 'E007');
       expect(hasE007).toBe(true);
     }
   });
@@ -313,9 +314,10 @@ vars:
   金币: float
 ---`;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      const hasE008 = result.errors.some((d) => d.code === 'E008');
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const hasE008 = result.diagnostics.filter((d) => d.severity === 'error').some((d) => d.code === 'E008');
       expect(hasE008).toBe(true);
     }
   });

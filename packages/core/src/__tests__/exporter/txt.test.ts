@@ -190,6 +190,45 @@ describe('TXT 导出 — Markdown 剥离', () => {
 // ==========================================================================
 
 describe('TXT 导出 — 选项', () => {
+  it('正文中的 PlotFlow 选项语法不重复泄漏到纯文本', () => {
+    const data = makeData({
+      chapters: [{
+        id: 'ch1',
+        title: '章',
+        isAnonymous: false,
+        lineNumber: 1,
+        nodes: [{
+          id: 'n1',
+          fullId: 'ch1-n1',
+          title: '岔路',
+          body: '你站在岔路口。\n\n[选项] **向左走** -> 节点：左路\n  条件: ($勇气 > 1)',
+          chapterId: 'ch1',
+          options: [{
+            description: '**向左走**',
+            indentLevel: 0,
+            targetNodeId: '左路',
+            targetFullId: 'ch1-左路',
+            condition: null,
+            sideEffects: [],
+            conditionRaw: '($勇气 > 1)',
+            effectsRaw: null,
+            lineNumber: 4,
+          }],
+          diagnostics: { isRoot: true, isOrphan: false, isDeadEnd: false, diagnosticIds: [] },
+          lineNumber: 2,
+        }],
+      }],
+    });
+
+    const result = exportTXT(data);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toContain('选项: 向左走 → ch1-左路');
+      expect(result.data).not.toContain('[选项]');
+      expect(result.data).not.toContain('**');
+    }
+  });
+
   it('选项带跳转目标', () => {
     const data = makeData({
       chapters: [

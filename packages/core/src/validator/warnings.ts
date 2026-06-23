@@ -9,7 +9,7 @@
  * @version 0.1.0
  */
 
-import type { PlotFlowData, Option } from '../types/ast.js';
+import type { PlotFlowData, Option, VariableDeclaration } from '../types/ast.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
 
@@ -137,14 +137,15 @@ export function checkUnusedVariables(data: PlotFlowData): Diagnostic[] {
     }
   }
 
-  // 找出声明的但未被引用的变量
-  for (const variable of data.variables) {
-    if (!referencedVariables.has(variable.name)) {
+  // 扁平化变量声明（含嵌套对象字段），找出声明的但未被引用的变量
+  const declaredVars = flattenVars(data.variables);
+  for (const [fullName, info] of declaredVars) {
+    if (!referencedVariables.has(fullName)) {
       diagnostics.push(
         createDiagnostic(
           'W003',
-          rangeAtLine(variable.lineNumber),
-          `变量「${variable.name}」在故事中未使用，建议移除或添加引用`,
+          rangeAtLine(info.lineNumber),
+          `变量「${fullName}」在故事中未使用，建议移除或添加引用`,
           undefined,
         ),
       );
@@ -152,6 +153,27 @@ export function checkUnusedVariables(data: PlotFlowData): Diagnostic[] {
   }
 
   return diagnostics;
+}
+
+/**
+ * 扁平化变量声明（含嵌套对象字段），构建完整路径名映射。
+ * 与 validator.ts 中 collectDeclaredVariables 的递归模式一致。
+ */
+function flattenVars(
+  variables: VariableDeclaration[],
+): Map<string, { lineNumber: number }> {
+  const map = new Map<string, { lineNumber: number }>();
+  function walk(vars: VariableDeclaration[], prefix: string) {
+    for (const v of vars) {
+      const fullName = prefix ? `${prefix}.${v.name}` : v.name;
+      map.set(fullName, { lineNumber: v.lineNumber });
+      if (v.type === 'object' && v.fields) {
+        walk(v.fields, fullName);
+      }
+    }
+  }
+  walk(variables, '');
+  return map;
 }
 
 /**

@@ -105,6 +105,13 @@ function stripMarkdown(text: string): string {
   return cleaned.join('\n');
 }
 
+/** AST body retains option syntax; TXT output emits options separately. */
+function extractNarrativeBody(body: string): string {
+  const normalized = body.replace(/\r\n/g, '\n');
+  const firstOption = normalized.search(/(?:^|\n)[ \t]*\[选项\]/u);
+  return firstOption >= 0 ? normalized.slice(0, firstOption).trim() : normalized.trim();
+}
+
 // ============================================================================
 // 条件文本格式化
 // ============================================================================
@@ -153,7 +160,7 @@ function formatCondition(raw: string | null): string | null {
  * @returns 格式化后的选项文本
  */
 function formatOption(option: Option): string {
-  let result = `选项: ${option.description}`;
+  let result = `选项: ${stripMarkdown(option.description)}`;
 
   // 跳转目标
   const target = option.targetFullId ?? option.targetNodeId;
@@ -188,7 +195,7 @@ function formatNode(node: StoryNode): string {
   parts.push(title);
 
   // 节点正文（Markdown 已剥离）
-  const body = stripMarkdown(node.body);
+  const body = stripMarkdown(extractNarrativeBody(node.body));
   if (body) {
     parts.push(body);
   }

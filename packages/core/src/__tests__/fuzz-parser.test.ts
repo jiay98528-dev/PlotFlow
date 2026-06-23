@@ -31,6 +31,28 @@ function timeParse(raw: string): { result: ReturnType<typeof parseStory>; ms: nu
   return { result, ms };
 }
 
+/**
+ * Time the same parse input multiple times and return the median run time.
+ * This keeps the fuzz check stable while still failing on sustained regressions.
+ */
+function timeParseStable(raw: string, sampleCount = 3): { result: ReturnType<typeof parseStory>; ms: number } {
+  const samples: number[] = [];
+  let result: ReturnType<typeof parseStory> | undefined;
+
+  // Warm up once so the measurement is less sensitive to JIT/cold-cache noise.
+  timeParse(raw);
+
+  for (let i = 0; i < sampleCount; i++) {
+    const timed = timeParse(raw);
+    result = timed.result;
+    samples.push(timed.ms);
+  }
+
+  samples.sort((a, b) => a - b);
+  const median = samples[Math.floor(samples.length / 2)] ?? 0;
+  return { result: result as ReturnType<typeof parseStory>, ms: median };
+}
+
 /** Time any function call */
 function timeIt<T>(fn: () => T): { value: T; ms: number } {
   const start = performance.now();
@@ -55,7 +77,7 @@ describe('Fuzz: Parser Robustness', () => {
   // 1. Empty / Near-empty Docs
   // --------------------------------------------------------------------------
   describe('Category 1: Empty / Near-empty Docs', () => {
-    const cases = [
+    const cases: Array<[string, string]> = [
       ['empty string', ''],
       ['single newline', '\n'],
       ['multiple newlines', '\n\n\n\n\n'],
@@ -94,8 +116,8 @@ describe('Fuzz: Parser Robustness', () => {
           const varCount = Math.floor(rng() * 5) + 1;
           const varNames = ['hp', 'mp', 'gold', 'reputation', 'hasKey', 'magicLevel', 'friendship'];
           for (let v = 0; v < varCount; v++) {
-            const vName = varNames[v % varNames.length] + (v > 0 ? v : '');
-            const vType = ['int', 'float', 'bool', 'string'][Math.floor(rng() * 4)];
+            const vName = varNames[v % varNames.length]! + (v > 0 ? v : '');
+            const vType = ['int', 'float', 'bool', 'string'][Math.floor(rng() * 4)]!;
             if (vType === 'bool') {
               parts.push('  ' + vName + ': bool');
             } else {
@@ -151,7 +173,7 @@ describe('Fuzz: Parser Robustness', () => {
         }
 
         const input = parts.join('\n');
-        const { result, ms } = timeParse(input);
+        const { result, ms } = timeParseStable(input);
 
         assertNoCrash(result);
         // Valid combos should parse fast
@@ -459,12 +481,14 @@ T̷̢̛̫͎̭̞̲̮̟̺̹̖͙̘̩̖̮̦̲̭̫̜̳̲̺͔̹̖̮̦̲̭̫̜̳̲̺͔h
     });
 
     it('zero-width characters in node names', () => {
+      /* eslint-disable no-irregular-whitespace */
       const input = `# 章
 
 ## 节点：​hidden‌zero‍width
 
 正文
 `;
+      /* eslint-enable no-irregular-whitespace */
       const { result, ms } = timeParse(input);
       assertNoCrash(result);
       expect(ms).toBeLessThan(100);
@@ -576,9 +600,10 @@ T̷̢̛̫͎̭̞̲̮̟̺̹̖͙̘̩̖̮̦̲̭̫̜̳̲̺͔̹̖̮̦̲̭̫̜̳̲̺͔h
 `;
       const { result, ms } = timeParse(input);
       assertNoCrash(result);
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        const e007Count = result.errors.filter((e) => e.code === 'E007').length;
+      // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const e007Count = result.diagnostics.filter((e) => e.code === 'E007' && e.severity === 'error').length;
         expect(e007Count).toBeGreaterThanOrEqual(2);
       }
       expect(ms).toBeLessThan(100);

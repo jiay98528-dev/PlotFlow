@@ -206,13 +206,12 @@ const inlineProvider: monaco.languages.InlineCompletionsProvider = {
     if (now - lastTriggerTime < MIN_TRIGGER_INTERVAL_MS) {
       return { items: [] };
     }
-    lastTriggerTime = now;
-
     if (token.isCancellationRequested) return { items: [] };
 
     // --- 触发检测 ---
     const trigger = detectTriggerDimension(model, position);
     if (!trigger) return { items: [] };
+    lastTriggerTime = now;
 
     if (token.isCancellationRequested) return { items: [] };
 

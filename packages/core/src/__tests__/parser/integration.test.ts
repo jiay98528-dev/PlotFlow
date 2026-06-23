@@ -285,11 +285,13 @@ vars:
 ## 节点：A
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
       // E008 (重复变量) + E007 (节点重名) + W005 (空正文 x2) + I003 (匿名 x2)
-      expect(result.errors.length).toBeGreaterThanOrEqual(2);
-      const codes = result.errors.map((e) => e.code);
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.length).toBeGreaterThanOrEqual(2);
+      const codes = result.diagnostics.map((e) => e.code);
       expect(codes).toContain('E008');
       expect(codes).toContain('E007');
     }
@@ -308,11 +310,14 @@ vars:
 正文。
 `;
     const result = parseStory(input);
-    // Frontmatter 有错误（intt 不是合法类型），但仍应尝试解析章节
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      const codes = result.errors.map((e) => e.code);
-      expect(codes).toContain('E005'); // Frontmatter 错误
+    // V02-033: Frontmatter 错误不中断章节解析——AST 中仍包含正常章节和节点
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true); // Frontmatter 错误
+      // 章节节点正常解析
+      expect(result.data.chapters.length).toBeGreaterThanOrEqual(1);
+      expect(result.data.chapters[0]!.nodes.length).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -328,12 +333,14 @@ vars:
 正常内容。
 `;
     const result = parseStory(input);
-    // 节点 A 的选项有错误，但节点 B 仍应被解析
-    expect(result.ok).toBe(false); // E005 from option
-    if (!result.ok) {
-      // 检查是否同时解析了两个节点（通过错误行号判断）
-      const e005Errors = result.errors.filter((e) => e.code === 'E005');
+    // V02-033: 节点 A 的选项有错误（E005），但节点 A 和 B 都被正常解析
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // 检查错误诊断
+      const e005Errors = result.diagnostics.filter((e) => e.code === 'E005' && e.severity === 'error');
       expect(e005Errors.length).toBeGreaterThanOrEqual(1);
+      // 两个节点都被解析（节点A虽选项报错但节点本身存在）
+      expect(result.data.chapters[0]!.nodes.length).toBeGreaterThanOrEqual(2);
     }
   });
 

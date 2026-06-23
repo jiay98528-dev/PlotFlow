@@ -814,18 +814,6 @@ export function validate(data: PlotFlowData): ValidationResult {
 // ============================================================================
 
 /**
- * 可变的节点诊断（内部使用，绕过 readonly）。
- * 解析器创建节点时用 place-holder 值初始化 diagnostics，
- * 验证器在此 fill in 实际的 isOrphan / isDeadEnd / diagnosticIds。
- */
-interface MutableNodeDiagnostics {
-  isRoot: boolean;
-  isOrphan: boolean;
-  isDeadEnd: boolean;
-  diagnosticIds: string[];
-}
-
-/**
  * 根据验证结果更新每个 StoryNode 的 diagnostics 元数据。
  *
  * 更新内容：
@@ -864,7 +852,7 @@ function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[])
   let foundRoot = false;
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
-      const nd = node.diagnostics as unknown as MutableNodeDiagnostics;
+      const nd = node.diagnostics;
       const hasEntry = allTargetIds.has(node.fullId);
 
       // isRoot: 第一个没有入口的节点标记为根节点

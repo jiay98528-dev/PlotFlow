@@ -112,7 +112,17 @@ function buildRuntimeJson(data: PlotFlowData): string {
     nodes,
   };
 
-  return JSON.stringify(runtime);
+  return serializeForInlineScript(runtime);
+}
+
+/** Serialize data for a script block without allowing HTML parser breakout. */
+function serializeForInlineScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003C')
+    .replace(/>/g, '\\u003E')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
 /** 将 StoryNode 转为运行时节点 */

@@ -38,18 +38,29 @@ function runFullPipeline(mdstory: string): {
 } {
   const parseResult = parseStory(mdstory);
 
-  if (!parseResult.ok) {
-    // 解析失败：返回解析错误中的代码
-    return { parseOk: false, codes: extractCodes(parseResult.errors) };
-  }
-
-  // 解析成功：收集解析器的非致命诊断 + 验证器诊断
-  const parserCodes: string[] = parseResult.diagnostics
+  // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递。
+  // 收集所有诊断代码（含 error 级）并传递给验证器。
+  const parserCodes: string[] = parseResult.ok
     ? extractCodes(parseResult.diagnostics)
-    : [];
-  const validationResult = validateAll(parseResult.data);
+    : extractCodes(parseResult.errors);
+
+  // parseOk 反映是否存在 error 级的诊断（不管来自 parser 还是 validator）
+  const hasParseErrors = parseResult.ok
+    ? parseResult.diagnostics.some((d) => d.severity === 'error')
+    : true;
+
+  const validationResult = validateAll(parseResult.ok ? parseResult.data : {
+    sourcePath: null,
+    meta: { plotflow: '0.1', title: 'Untitled', author: 'Unknown' },
+    variables: [],
+    chapters: [],
+  });
   const validatorCodes = extractCodes(validationResult.diagnostics);
-  return { parseOk: true, codes: [...parserCodes, ...validatorCodes] };
+  const allCodes = [...parserCodes, ...validatorCodes];
+
+  // parseOk = false 当 parser 诊断中含 error 级诊断时
+  // 这样现有测试的 expect(parseOk).toBe(false) 语义保持不变
+  return { parseOk: !hasParseErrors, codes: allCodes };
 }
 
 // ============================================================================
@@ -772,7 +783,7 @@ describe('W006 - 格式不规范', () => {
 
 正文。
 `;
-    const { parseOk: _parseOk, codes } = runFullPipeline(input);
+    const { codes } = runFullPipeline(input);
     // 标题 > 128 在解析器阶段会报 E005 还是产生 W006？
     // 查看 parser.ts: 节点名长度 > 128 会报 E005 (错误)
     // 实际上是解析器限制？让我检查... 在 549 行附近
@@ -807,7 +818,7 @@ describe('W006 - 格式不规范', () => {
 
 [选项] 正常选项 -> 节点：结果
 `;
-    const { parseOk: _parseOk, codes } = runFullPipeline(input);
+    const { codes } = runFullPipeline(input);
     expect(codes).not.toContain('W006');
   });
 });
@@ -1047,7 +1058,7 @@ describe('综合测试 - 17 种诊断集体触发', () => {
     ];
 
     for (const { mdstory, expectedCodes } of testCases) {
-      const { parseOk: _parseOk, codes } = runFullPipeline(mdstory);
+      const { codes } = runFullPipeline(mdstory);
       for (const code of expectedCodes) {
         expect(codes).toContain(code);
       }

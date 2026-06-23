@@ -170,16 +170,16 @@ export interface StoryNode {
  */
 export interface NodeDiagnostics {
   /** 是否为根节点（无入口选项指向它） */
-  readonly isRoot: boolean;
+  isRoot: boolean;
 
   /** 是否为孤立节点（无入口，非根节点） */
-  readonly isOrphan: boolean;
+  isOrphan: boolean;
 
   /** 是否为死胡同节点（无出口选项） */
-  readonly isDeadEnd: boolean;
+  isDeadEnd: boolean;
 
   /** 关联的验证诊断 ID 列表 */
-  readonly diagnosticIds: string[];
+  diagnosticIds: string[];
 }
 
 // ============================================================================

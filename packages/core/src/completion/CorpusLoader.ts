@@ -43,6 +43,8 @@
 
 import type { CorpusEntry, CorpusData } from './types.js';
 import { NGramEngine } from './NGramEngine.js';
+import enCorpus from '../../corpus/en.json';
+import zhCorpus from '../../corpus/zh.json';
 
 // ============================================================================
 // 常量
@@ -52,6 +54,11 @@ import { NGramEngine } from './NGramEngine.js';
 const CORPUS_FILE_PATHS: Record<string, string> = {
   zh: '../../corpus/zh.json',
   en: '../../corpus/en.json',
+};
+
+const BUNDLED_CORPORA: Readonly<Record<string, readonly CorpusEntry[]>> = {
+  [CORPUS_FILE_PATHS['zh']!]: zhCorpus,
+  [CORPUS_FILE_PATHS['en']!]: enCorpus,
 };
 
 /** 默认语言 */
@@ -237,9 +244,8 @@ export class CorpusLoader {
    * 实际执行加载操作。
    *
    * 加载策略（按优先级）：
-   * 1. 自定义 fileReader（通过构造函数注入，用于测试或浏览器环境）
-   * 2. 动态 import JSON (ESM, 适用于 Vite/浏览器)
-   * 3. Node.js fs.readFileSync (CommonJS 降级)
+   * 1. 自定义 fileReader（通过构造函数注入，用于测试）
+   * 2. 构建时静态打包的 JSON（浏览器、Electron 和 Node 测试一致）
    *
    * @param language - 语言标识
    * @returns CorpusData 实例
@@ -283,47 +289,18 @@ export class CorpusLoader {
   }
 
   /**
-   * 从文件加载语料数据。
-   *
-   * 优先使用动态 import（ESM 环境），降级使用 fs.readFileSync。
+   * 从构建产物中加载语料数据。
    *
    * @param filePath - 相对于包的 JSON 文件路径
    * @returns 语料条目数组
    */
   private async loadFromFile(filePath: string): Promise<CorpusEntry[]> {
-    // 尝试 1: 动态 import JSON (Vite/ESM)
-    try {
-      const module = await import(/* @vite-ignore */ filePath, {
-        assert: { type: 'json' },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
-      return (module.default ?? module) as CorpusEntry[];
-    } catch {
-      // 尝试 2: Node.js fs
-      try {
-        const fs = await import('node:fs');
-        const path = await import('node:path');
-        const { fileURLToPath } = await import('node:url');
-
-        // 尝试从当前模块路径解析
-        let resolvedPath: string;
-        try {
-          const currentPath = fileURLToPath(import.meta.url);
-          resolvedPath = path.resolve(path.dirname(currentPath), filePath);
-        } catch {
-          // fallback: 从 cwd 解析
-          resolvedPath = path.resolve(process.cwd(), 'packages/core/corpus', path.basename(filePath));
-        }
-
-        const raw = fs.readFileSync(resolvedPath, 'utf-8');
-        return JSON.parse(raw) as CorpusEntry[];
-      } catch (err) {
-        throw new Error(
-          `无法加载语料文件: "${filePath}"。请确保语料文件存在且格式正确。` +
-          (err instanceof Error ? ` (${err.message})` : ''),
-        );
-      }
+    const entries = BUNDLED_CORPORA[filePath];
+    if (!entries) {
+      throw new Error(`无法加载语料文件: "${filePath}"。该语料未包含在构建产物中。`);
     }
+
+    return entries.map((entry) => ({ ...entry, tokens: [...entry.tokens] }));
   }
 
   /**

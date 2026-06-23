@@ -17,7 +17,6 @@ import { NGramEngine } from '../../completion/NGramEngine.js';
 import {
   incrementalLearn,
   incrementalLearnAsync,
-  createEmptyDecayStore as _createEmptyDecayStore,
 } from '../../completion/Learner.js';
 
 // ============================================================================
@@ -325,6 +324,7 @@ describe('NGramEngine QA Suite', () => {
     it('should handle all 100 distinct first-word prefixes', () => {
       // Test that each distinct starting word yields predictions
       let predictableCount = 0;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       let unpredictableCount = 0;
 
       const firstWords = new Set<string>();
@@ -340,6 +340,7 @@ describe('NGramEngine QA Suite', () => {
         if (results.length > 0) {
           predictableCount++;
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           unpredictableCount++;
         }
       }

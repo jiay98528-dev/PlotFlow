@@ -14,7 +14,7 @@
  * @version 0.1.0
  */
 
-import { success, failure } from '../result.js';
+import { success } from '../result.js';
 import type { ParseResult } from '../result.js';
 import type {
   PlotFlowData,
@@ -172,6 +172,11 @@ interface ChapterBuilder {
 export function parseStory(raw: string): ParseResult<PlotFlowData> {
   resetErrorSeq();
 
+  // Strip UTF-8 BOM if present (U+FEFF at file start breaks /^---/ regex)
+  if (raw.length > 0 && raw.charCodeAt(0) === 0xFEFF) {
+    raw = raw.slice(1);
+  }
+
   // 步骤 1：解析 Frontmatter
   const fmResult = parseFrontmatter(raw);
 
@@ -212,14 +217,10 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
     allDiagnostics.push(...cnResult.errors);
   }
 
-  // 步骤 6：判断是否有错误级诊断
-  const hasErrors = allDiagnostics.some((d) => d.severity === 'error');
-
-  if (hasErrors) {
-    return failure(allDiagnostics as readonly Diagnostic[]);
-  }
-
-  // 步骤 7：组装 PlotFlowData
+  // 步骤 6：组装 PlotFlowData（始终返回 AST，错误通过 diagnostics 传递）
+  // V02-033: 删除 hasErrors → failure 的全有或全无策略。
+  // 解析器内部遵循"解析不中断"原则——一个节点/选项的错误不影响其他节点。
+  // 错误级诊断由编辑器波浪线 + 分支图横幅 + 状态栏消息共同呈现。
   const meta: StoryMeta = {
     plotflow: '0.1',
     title: fmMeta.title ?? DEFAULT_TITLE,
@@ -393,6 +394,16 @@ export function parseChaptersAndNodes(
     }
 
     // W005: 空正文检测
+    // 计算纯叙事正文（过滤语法标记行，BUG6 修复）
+    const narrativeBodyLines = currentNodeBodyLines.filter((l) => {
+      const t = l.trimStart();
+      return !t.startsWith('[选项]') && !t.startsWith('条件:') && !t.startsWith('效果:');
+    });
+    const narrativeBody = narrativeBodyLines
+      .map((l) => l.trimEnd())
+      .join('\n')
+      .trim();
+
     if (body.length === 0) {
       const diag = createDiagnostic(
         'W005',
@@ -431,7 +442,7 @@ export function parseChaptersAndNodes(
       id: currentNodeId,
       fullId,
       title: currentNodeTitle,
-      body,
+      body: narrativeBody,
       chapterId,
       options: nodeOptions,
       diagnostics,
@@ -672,13 +683,9 @@ export function parseChaptersAndNodes(
   // 回填 targetFullId（M2: 跨章节引用解析）
   resolveTargetFullIds(chapterBuilders);
 
-  // 判定是否有错误级诊断
-  const hasErrors = allErrors.some((d) => d.severity === 'error');
-
-  if (hasErrors) {
-    return failure(allErrors as readonly Diagnostic[]);
-  }
-
+  // V02-033: 始终返回 success 含部分解析结果。
+  // 错误通过 diagnostics（severity === 'error'）传递给上游。
+  // 单个选项/节点的 E005 等错误不影响其他节点的正常解析。
   return success({ chapters, nodes }, allErrors);
 }
 

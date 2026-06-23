@@ -32,6 +32,8 @@ export type Language = Locale;
 /** 右侧面板内容 */
 export type RightPanel = 'graph' | 'none';
 
+export type ExportFormat = 'json' | 'html' | 'txt';
+
 /** UI 全局状态 */
 export interface UIState {
   /** 当前主题（亮色 / 暗色） */
@@ -62,6 +64,7 @@ export interface UIState {
 
   /** 导出对话框是否打开（M4） */
   readonly isExportDialogOpen: boolean;
+  readonly exportDialogFormat: ExportFormat;
 
   /** 语料管理器是否打开（M5-19） */
   readonly isCorpusManagerOpen: boolean;
@@ -99,7 +102,7 @@ export interface UIState {
   setProblemPanelOpen: (open: boolean) => void;
 
   /** 打开导出对话框 */
-  openExportDialog: () => void;
+  openExportDialog: (format?: ExportFormat) => void;
 
   /** 关闭导出对话框 */
   closeExportDialog: () => void;
@@ -179,6 +182,7 @@ const initialState = {
   conditionEditorOptionIndex: null,
   isProblemPanelOpen: false,
   isExportDialogOpen: false,
+  exportDialogFormat: 'json' as ExportFormat,
   isCorpusManagerOpen: false,
   isNewFileDialogOpen: false,
 } as const satisfies Omit<UIState, 'toggleTheme' | 'setAccent' | 'setLanguage' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog'>;
@@ -286,9 +290,12 @@ export const useUIStore = create<UIState>()(
           'ui/setProblemPanelOpen',
         ),
 
-      openExportDialog: () =>
+      openExportDialog: (format?: ExportFormat) =>
         set(
-          { isExportDialogOpen: true },
+          (state) => ({
+            isExportDialogOpen: true,
+            exportDialogFormat: format ?? state.exportDialogFormat,
+          }),
           false,
           'ui/openExportDialog',
         ),

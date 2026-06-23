@@ -117,8 +117,8 @@ for (let seed = 0; seed < 20; seed++) {
     const varCount = Math.floor(rng() * 5) + 1;
     const varNames = ['hp', 'mp', 'gold', 'reputation', 'hasKey', 'magicLevel', 'friendship'];
     for (let v = 0; v < varCount; v++) {
-      const vName = varNames[v % varNames.length] + (v > 0 ? v : '');
-      const vType = ['int', 'float', 'bool', 'string'][Math.floor(rng() * 4)];
+      const vName = varNames[v % varNames.length]! + (v > 0 ? v : '');
+      const vType = ['int', 'float', 'bool', 'string'][Math.floor(rng() * 4)]!;
       parts.push('  ' + vName + ': ' + vType);
     }
     parts.push('---');

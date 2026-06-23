@@ -349,10 +349,12 @@ describe('parseStory - E007 节点 ID 重名', () => {
 ## 节点：森林
 
 正文B。`));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E007')).toBe(true);
-      const e007 = result.errors.find((e) => e.code === 'E007')!;
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E007')).toBe(true);
+      const e007 = errors.find((e) => e.code === 'E007')!;
       expect(e007.message).toContain('第一章-森林');
     }
   });
@@ -395,9 +397,11 @@ describe('parseStory - E007 节点 ID 重名', () => {
 ## 节点：测试
 
 正文B。`));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E007')).toBe(true);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E007')).toBe(true);
     }
   });
 });
@@ -687,9 +691,11 @@ describe('parseStory - 错误处理', () => {
 
 正文。`));
     // E005 是错误级诊断，ParseResult 返回 ok: false
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E005')).toBe(true);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
     }
   });
 
@@ -702,9 +708,11 @@ describe('parseStory - 错误处理', () => {
 
 正文。`));
     // E005 是错误级诊断，ParseResult 返回 ok: false
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E005')).toBe(true);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
     }
   });
 
@@ -715,9 +723,11 @@ describe('parseStory - 错误处理', () => {
 ## 节点：${longName}
 
 正文。`));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E005')).toBe(true);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
     }
   });
 
@@ -727,9 +737,11 @@ describe('parseStory - 错误处理', () => {
 ## 节点：包含/斜杠
 
 正文。`));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E005')).toBe(true);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
     }
   });
 
@@ -739,9 +751,11 @@ describe('parseStory - 错误处理', () => {
 ## 节点：包含\\反斜杠
 
 正文。`));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.code === 'E005')).toBe(true);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
     }
   });
 

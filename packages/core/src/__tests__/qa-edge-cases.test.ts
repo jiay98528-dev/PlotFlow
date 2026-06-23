@@ -219,8 +219,8 @@ ${longBody}
         .flatMap((c) => c.nodes)
         .find((n) => n.id === '长正文节点');
       expect(bodyNode).toBeDefined();
-      // body 包含: 正文 + 新行 + [选项] 行 (parseOptions 从 body 提取选项但不移除它们)
-      expect(bodyNode!.body.length).toBeGreaterThan(10000);
+      // body 为纯叙事正文（不含 [选项] 语法行，BUG6 修复）
+      expect(bodyNode!.body.length).toBeGreaterThanOrEqual(10000);
       expect(bodyNode!.body).toContain(longBody);
     }
   });
@@ -293,9 +293,10 @@ ${longBody}
 `;
     const result = parseStory(content);
     // 解析器应返回错误（E005: 节点名过长）
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      const e005Diags = result.errors.filter((d) => d.code === 'E005');
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const e005Diags = result.diagnostics.filter((d) => d.code === 'E005' && d.severity === 'error');
       expect(e005Diags.length).toBeGreaterThanOrEqual(1);
     }
   });
