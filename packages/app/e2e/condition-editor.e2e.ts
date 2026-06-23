@@ -304,7 +304,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // 验证面板包含上下文徽标（显示节点 ID 和选项索引）
     await expect(
-      page.locator('text=ch1--node-村口').first(),
+      page.locator(`text=${NODE_IDS.village}`).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // 验证底部按钮

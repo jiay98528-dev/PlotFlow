@@ -276,7 +276,9 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(4) W001 orphan node shows yellow wave + yellow graph border', async () => {
     const content = readFixture('w001-orphan-node.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
-    await page.waitForTimeout(RENDER_WAIT_MS);
+    // 显式等待 React Flow 节点渲染完成（防止测试隔离导致的状态污染）
+    await page.waitForSelector('.react-flow__node', { timeout: 10_000 });
+    await page.waitForTimeout(RENDER_WAIT_MS + 500);
 
     // Check ProblemPanel for W001
     await openProblemPanel(page);

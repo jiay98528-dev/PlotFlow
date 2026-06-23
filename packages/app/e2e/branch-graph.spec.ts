@@ -46,7 +46,7 @@ async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
   }
 
   const app: ElectronApplication = await electron.launch({
-    args: [PROJECT_ROOT],
+    args: [MAIN_JS],
     env: {
       NODE_ENV: 'test',
     } as Record<string, string>,

@@ -23,6 +23,22 @@ jobs:
       - name: ESLint check
         run: pnpm lint
 
+  stylelint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with: { version: 9 }
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'pnpm' }
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Stylelint CSS check
+        run: pnpm lint:css
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
