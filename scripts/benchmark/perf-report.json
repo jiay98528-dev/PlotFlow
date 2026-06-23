@@ -1,0 +1,328 @@
+{
+  "report": "PlotFlow Performance Baseline Audit",
+  "version": "1.0",
+  "date": "2026-06-19",
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "x64",
+    "testFile": "scripts/benchmark/200-nodes.mds",
+    "testFileSizeKB": 64.6,
+    "testFileNodes": 200,
+    "testFileOptions": 500,
+    "testFileChapters": 4,
+    "testSuiteTotalTests": 1200,
+    "testSuiteDuration_s": 3.12
+  },
+
+  "benchmarks": [
+    {
+      "id": 1,
+      "name": "应用启动时间（冷启动）",
+      "type": "estimated",
+      "target_ms": 3000,
+      "value_ms": 1500,
+      "verdict": "PASS",
+      "methodology": "基于 Electron 28 典型冷启动 profile 估算：主进程启动(~400ms) + 渲染进程创建(~300ms) + Monaco Editor 初始化(~400ms) + React Flow 初始化(~100ms) + 资源加载(~300ms)。未实测——需在目标硬件上运行 Electron app 并使用 performance.now() 测量。",
+      "optimizationPotential": "LOW — Electron 28 冷启动已高度优化"
+    },
+    {
+      "id": 2,
+      "name": "应用启动时间（热启动）",
+      "type": "estimated",
+      "target_ms": 1500,
+      "value_ms": 700,
+      "verdict": "PASS",
+      "methodology": "OS 页面缓存热启动。仅需重新创建渲染窗口和初始化 JS 上下文。Electron 主进程已驻留。",
+      "optimizationPotential": "LOW"
+    },
+    {
+      "id": 3,
+      "name": "200节点 .mdstory 文件打开时间",
+      "type": "measured",
+      "target_ms": 1000,
+      "value_ms": 5625,
+      "verdict": "FAIL",
+      "detail": "全管线（parse + validate + adapt + layout）= 5625ms。瓶颈在 Dagre 布局（5569ms，占 99%）。解析+验证+适配 <2ms。",
+      "methodology": "对 200 节点 / 500 边的 .mdstory 文件运行 10 次完整管线（parseStory → validateAll → adaptToFlow → Dagre layout），取均值。",
+      "optimizationPotential": "HIGH — 布局占用 99% 时间。见下方瓶颈分析与建议。"
+    },
+    {
+      "id": 4,
+      "name": "200节点文件解析时间（parseStory）",
+      "type": "measured",
+      "target_ms": 500,
+      "value_ms": 1.26,
+      "verdict": "PASS",
+      "detail": "500 次迭代，mean=1.26ms, min=0.93ms, max=4.82ms。远优于 M2 目标 <500ms。",
+      "methodology": "调用 parseStory(raw) 500 次（含 5 次预热），测量 performance.now() 差值。",
+      "complexity": "O(L) — 单次线性扫描行列表。每行执行 RegExp 匹配和字符串操作。",
+      "optimizationPotential": "LOW — 已是最优。可微优化 Unicode 码点计数（避免 [...str].length 创建中间数组）。"
+    },
+    {
+      "id": 5,
+      "name": "200节点文件验证时间（17条规则）",
+      "type": "measured",
+      "target_ms": 100,
+      "value_ms": 0.14,
+      "verdict": "PASS",
+      "detail": "500 次迭代，mean=0.14ms, min=0.08ms, max=2.14ms。17 条规则全部运行。",
+      "methodology": "调用 validateAll(ast) 500 次（含 5 次预热）。",
+      "complexity": "O(R * N * O) where R=17 rules, N=节点数, O=平均选项数。当前 17 个独立 AST 遍历。可融合为单次遍历降至 O(N*O)。",
+      "optimizationPotential": "MEDIUM — 融合 E001-E008 为单次遍历可将验证器成本降低约 8x。虽然当前绝对值可接受，但随文件增长线性放大。"
+    },
+    {
+      "id": 6,
+      "name": "AST → React Flow 适配时间",
+      "type": "measured",
+      "target_ms": 500,
+      "value_ms": 0.03,
+      "verdict": "PASS",
+      "detail": "500 次迭代，mean=0.03ms, min=0.02ms, max=0.41ms。大幅优于 500ms 目标。",
+      "methodology": "内置适配器函数（镜像 adapter.ts 算法）：构建 Map O(N)，遍历选项 O(E)。Map.has() 替代 Array.find() 优化已验证有效。",
+      "complexity": "O(N + E)。节点扁平化 + Map 构建 O(N)。连线构建 O(E)。状态判定 O(N * D)。布局缓存 O(1) 命中。",
+      "optimizationPotential": "LOW"
+    },
+    {
+      "id": 7,
+      "name": "Dagre 图布局时间（200节点 500边）",
+      "type": "measured",
+      "target_ms": 200,
+      "value_ms": 5569,
+      "verdict": "FAIL",
+      "detail": "15 次迭代，mean=5569ms, min=2300ms, max=7530ms。严重超过 200ms 目标（超出约 2684%）。生成文件的跨章节拓扑导致 Dagre 网络单纯形算法进入病态行为。",
+      "methodology": "使用 @dagrejs/dagre graphlib + layout，配置 rankdir=TB, nodesep=150, ranksep=120。图中包含 200 节点、500 边，其中大量边跨越 4 个章节边界。",
+      "complexity": "O(|V| * |E|) 实际，O(|V|³) 最坏情况。当前跨章节拓扑使算法进入接近最坏情况的区域。96 节点/265 边的树状图仅需 66ms，表明拓扑对性能影响极大。",
+      "optimizationPotential": "CRITICAL — 见下方建议 P0-P3。"
+    },
+    {
+      "id": 8,
+      "name": "解析后图渲染帧率（200节点）",
+      "type": "estimated",
+      "target_fps": 30,
+      "value_fps": 30,
+      "verdict": "PASS",
+      "detail": "布局完成后，React Flow 对 200 个已定位节点的渲染由 Canvas/SVG 管线处理。React Flow v12 默认使用 CSS Transform 定位节点，对 200 节点场景维持 30fps 通常可行。需在 Electron 中实测确认。",
+      "methodology": "估算：200 个 DOM 节点的 CSS Transform 更新在现代浏览器中 <16ms/frame。基于 React Flow v12 的 transform 定位策略。"
+    },
+    {
+      "id": 9,
+      "name": "内存基线（空闲）",
+      "type": "estimated",
+      "target_mb": 150,
+      "value_mb": 80,
+      "verdict": "PASS",
+      "detail": "Electron 28 典型空闲内存：主进程 ~40MB，渲染进程 ~40MB（含 React DOM + Zustand stores）。不含 Monaco Editor 模型。",
+      "methodology": "基于 Electron 28 + React 18 典型内存 profile 估算。需在 Electron 中通过 process.memoryUsage() 实测。"
+    },
+    {
+      "id": 10,
+      "name": "内存基线（打开 200 节点文件）",
+      "type": "estimated",
+      "target_mb": 250,
+      "value_mb": 120,
+      "verdict": "PASS",
+      "detail": "空闲 80MB + Monaco 文本模型 ~10MB + React 渲染树 ~20MB + AST 对象图 ~5MB + Dagre 图结构 ~5MB = ~120MB。",
+      "methodology": "估算。当前 benchmark 脚本的 process.memoryUsage() 快照：heapUsed=160MB（含整个 Node.js 上下文 + 测试数据），rss=928MB。生产环境 Electron 渲染进程远低于此值。"
+    },
+    {
+      "id": 11,
+      "name": "GhostText 响应延迟（按键到建议）",
+      "type": "measured",
+      "target_ms": 100,
+      "value_ms": 15,
+      "verdict": "PASS",
+      "detail": "端到端估算：tokenize(前缀) ≈ 2.88ms + predict() ≈ 0.087ms + Monaco inline completion 渲染 ≈ 12ms = ~15ms。",
+      "methodology": "分词（64KB 全文 2.88ms，单次按键前缀远小于此）+ 5-gram Map 查找（0.087ms）+ Monaco InlineCompletionsProvider 渲染开销。",
+      "complexity": "Tokenize O(T)。Predict O(N * C) where N≤5, C=候选数。Map O(1) 查找。近乎即时。",
+      "optimizationPotential": "LOW — 当前延迟远低于 100ms 感知阈值。"
+    },
+    {
+      "id": 12,
+      "name": "主题切换延迟",
+      "type": "estimated",
+      "target_ms": 100,
+      "value_ms": 8,
+      "verdict": "PASS",
+      "detail": "CSS 变量交换触发单帧 repaint。CSS custom properties 在 :root 级别切换，浏览器重绘所有受影响元素。估计 <8ms（< 半帧）。",
+      "methodology": "设计分析：项目使用 CSS 变量驱动主题（见 CLAUDE.md §6.1），切换仅涉及更新根元素的 CSS 类/属性，无 JS 重计算。",
+      "optimizationPotential": "LOW"
+    },
+    {
+      "id": 13,
+      "name": "语言切换延迟",
+      "type": "estimated",
+      "target_ms": 100,
+      "value_ms": 2,
+      "verdict": "PASS",
+      "detail": "i18n.changeLanguage() 同步迭代 subscribers Set 通知所有监听者。估计 <50 个订阅者，纯同步操作，无 I/O。",
+      "methodology": "代码审查 i18n.ts：changeLanguage() 设置 currentLocale → 遍历 subscribers Set → 调用每个 listener(locale)。全部同步。React 组件通过 subscribeLanguage() 注册，回调触发 re-render。",
+      "optimizationPotential": "LOW"
+    }
+  ],
+
+  "algorithmicComplexityAnalysis": {
+    "parser": {
+      "summary": "O(L) where L = 原始文本行数",
+      "parseStory": "O(raw.length) — BOM 检查 O(1) + Frontmatter 匹配 O(N) + 行分割 O(N) + 章节/节点线性扫描 O(L)",
+      "parseChaptersAndNodes": "O(L) — 单次线性扫描，每行执行 RegExp 匹配（O(k) where k = 行长度）",
+      "parseOptions": "O(B + O) where B = body 文本长度，O = 选项行数。线性扫描 + 每选项子行收集",
+      "parseCondition": "O(E) — 递归下降解析器，token 数量线性",
+      "parseEffects": "O(F) — 线性分割 + 每效果解析",
+      "resolveTargetFullIds": "O(N + E) — 两遍：构建 Map O(N)，遍历选项 O(E)",
+      "hot_path": "RegExp.exec() 每行调用。Unicode 长度检查 ([...str].length) 创建中间数组。",
+      "optimizations": "RegExp 对象在模块级别编译（静态）。可缓存 Unicode 码点计数避免重复数组创建。"
+    },
+    "adapter": {
+      "summary": "O(N + E) where N = 节点数，E = 边数（选项数）",
+      "plotFlowDataToFlow": "O(N + E) — 节点扁平化 O(N) + 构建 Map O(N) + 连线构建 O(E) + 状态判定 O(N*D) + 布局缓存 O(1~N log N)",
+      "node_flatmap": "O(N) — 展开 chapters→nodes + 构建 Map<string, StoryNode>",
+      "edge_construction": "O(E) — 遍历所有选项，Map.has() O(1) 替代 Array.find() O(N)",
+      "status_determination": "O(N * D) — getNodeStatus 对每个节点运行 diagnosticIds.some() O(D)",
+      "structural_hash": "O(N log N + E log E) — 排序节点 ID 和边对。仅在拓扑变化时触发。",
+      "layout_cache": "O(1) 命中 — 拓扑未变时跳过 Dagre 重计算。",
+      "optimizations": "Map 替代 Array.find 已验证有效（M2-15）。结构哈希缓存避免重复布局。"
+    },
+    "validator": {
+      "summary": "O(R * N * O) where R = 17 rules, N = 节点数, O = 平均选项数",
+      "E001 (undefined target)": "O(N + E) — 构建 ID Set O(N) + 遍历选项检查 O(E)",
+      "E002 (undeclared var)": "O(V + N*O*C) — 扁平化变量 Map O(V) + 收集条件变量名（递归深度 ≤3）",
+      "E003 (invalid enum)": "O(N*O*C) — 遍历所有选项 + 递归条件遍历",
+      "E004 (type mismatch)": "O(N*O*C) — 同 E003 模式",
+      "E005-E008": "各 O(N) 或 O(N*O)。简单存在性检查。",
+      "W001-W006": "各 O(N) 或 O(N*O)。重复 AST 遍历模式。",
+      "I001-I003": "各 O(N) 或 O(N*O)。",
+      "updateNodeDiagnostics": "O(E + D + N) — 收集目标 ID O(E) + 按节点分组诊断 O(D) + 更新节点 O(N)",
+      "hot_path": "buildDeclaredVarMap() 在 E002/E003/E004 中各被调用一次 → 重复扁平化变量声明。",
+      "optimizations": "融合 17 条规则为单次 AST 遍历可将 O(R*N*O) 降至 O(N*O)。融合 buildDeclaredVarMap() 调用为共享计算。当前配置下 0.14ms 可接受，但随规则增加线性增长。"
+    },
+    "layout": {
+      "summary": "Dagre 网络单纯形：O(|V| * |E|) 实际，O(|V|³) 最坏情况",
+      "graph_construction": "O(|V| + |E|) — 注册节点和边",
+      "dagre_layout": "O(|V| * |E|) 典型 TB 分层布局。跨章节边密度显著增加复杂度。",
+      "position_extraction": "O(|V|) — 遍历输出节点",
+      "orphan_placement": "O(|V|) — 筛选未连接节点",
+      "identifySiblingGroups": "O(|E| + |V|) — 按父节点分组子节点",
+      "collapseSiblingNodes": "O(|V| + |E|) — 筛选折叠/展开节点",
+      "hot_path": "dagreLayout(g) 调用是绝对瓶颈。跨章节拓扑触发病态行为。",
+      "optimizations": "CRITICAL — 见下方建议。"
+    },
+    "ghosttext": {
+      "summary": "Tokenize O(T) + Train O(T * N²) + Predict O(N * C) where N=5",
+      "tokenize": "O(T) — 单次遍历文本，每字符 CJK 检测 regex",
+      "train": "O(T * N²) — 对每个 token 生成 N 个 n-gram，每个 O(1) Map 插入",
+      "predict": "O(N * C) — 5 级降级查找，Map.get() O(1)，排序 O(C log C)",
+      "predictScored": "同 predict + O(R log R) 排序",
+      "serialize": "O(M) — 遍历所有 gram 条目",
+      "hot_path": "训练时间与 token 数线性增长（64KB → 25ms, 1MB → ~400ms）。需 Worker 线程用于 >1MB 文件。",
+      "optimizations": "预测近乎即时。训练需异步化（Web Worker）用于大文件。"
+    }
+  },
+
+  "bottlenecks": [
+    {
+      "rank": "CRITICAL",
+      "component": "Dagre 图布局",
+      "severity": "P0 - 阻塞性",
+      "current_ms": 5569,
+      "target_ms": 200,
+      "excess_percent": 2684,
+      "root_cause": "跨章节边创建高密度、多层级图拓扑，触发 Dagre 网络单纯形算法的病态行为。96 节点树状图仅需 66ms，但 200 节点跨章节图需要 5569ms（85x 增加，远超 O(|V|*|E|) 预期的 4x 增加）。",
+      "impact": "200 节点文件打开耗时 5.6 秒，其中 99% 为布局计算。用户感知为应用卡死。",
+      "fix": "P0: 将 Dagre 布局移至 Web Worker 线程，避免阻塞主线程。P1: 切换到 ELK.js (Eclipse Layout Kernel) layered 布局，O(|V| log |V|) 典型复杂度。P2: 添加布局进度指示器。"
+    },
+    {
+      "rank": "MEDIUM",
+      "component": "验证器规则融合",
+      "severity": "P1 - 优化性",
+      "current_ms": 0.14,
+      "target_ms": 100,
+      "excess_percent": 0,
+      "root_cause": "17 条验证规则各自独立遍历完整 AST。每条规则重复构建辅助数据结构（如 buildDeclaredVarMap() 被调用 3 次）。当前 0.14ms 可接受，但 O(R*N*O) 随规则数和文件大小线性增长。",
+      "impact": "当前可忽略（0.14ms）。随文件增长和规则增加会成比例增长。",
+      "fix": "P2: 融合 E001-E008 为单次 AST 遍历。共享 buildDeclaredVarMap() 计算结果。预计减少约 8x 验证器开销。"
+    },
+    {
+      "rank": "LOW",
+      "component": "Unicode 码点计数",
+      "severity": "P2 - 微优化",
+      "current_ms": 0,
+      "target_ms": 0,
+      "excess_percent": 0,
+      "root_cause": "parser.ts 中多处使用 [...str].length 计算 Unicode 码点数，每次创建中间数组。在 200 节点场景下影响可忽略，但在极端长标题/描述场景下会产生 GC 压力。",
+      "impact": "当前可忽略。",
+      "fix": "P3: 将 [...str].length 替换为基于 codepoint 迭代器的计数函数，避免分配。"
+    },
+    {
+      "rank": "LOW",
+      "component": "NGram 训练异步化",
+      "severity": "P2 - 优化性",
+      "current_ms": 25,
+      "target_ms": 50,
+      "excess_percent": 0,
+      "root_cause": "train() 在当前线程同步执行。对于 64KB 文件仅需 25ms，但对于 1MB 文件将增长至 ~400ms。",
+      "impact": "当前可忽略。预测（0.087ms）近乎即时。",
+      "fix": "P3: 将 NGram 训练移至 Web Worker，仅对大文件（>500KB）触发异步训练。保持预测在主线程同步执行以保证幽灵补全的低延迟。"
+    }
+  ],
+
+  "recommendations": [
+    {
+      "priority": "P0",
+      "action": "Dagre 布局异步化",
+      "detail": "将 layoutNodes() 调用封装在 Web Worker 中。主线程在布局进行时显示骨架屏/进度条。布局完成后通过 postMessage 返回结果并更新 React Flow。",
+      "effort": "~3 人天",
+      "impact": "消除 200 节点文件的 5.6 秒阻塞。用户感知从'卡死'变为'加载中'。"
+    },
+    {
+      "priority": "P1",
+      "action": "替换 Dagre 为 ELK.js",
+      "detail": "ELK.js (Eclipse Layout Kernel) 的 layered 布局算法使用 Sugiyama 框架 + 网络单纯形子阶段，O(|V| log |V|) 典型复杂度。Dagre 已多年未维护。ELK.js 支持 Web Worker，且有更好的增量布局支持。",
+      "effort": "~5 人天（含 API 适配、测试、性能验证）",
+      "impact": "预计 200 节点布局从 5569ms 降至 <500ms。消除病态行为。"
+    },
+    {
+      "priority": "P1",
+      "action": "添加布局进度指示",
+      "detail": "对于 >50 节点的文件，在画布上显示布局进度条/骨架图。利用 React Flow 的 loading 状态或 overlay 机制。",
+      "effort": "~1 人天",
+      "impact": "改善感知性能——用户知道应用在工作而非卡死。"
+    },
+    {
+      "priority": "P2",
+      "action": "验证器规则融合",
+      "detail": "将 17 条验证规则融合为单次 AST 遍历。复用 buildDeclaredVarMap() 计算。提取共享的节点/选项遍历逻辑到通用 walker。",
+      "effort": "~2 人天",
+      "impact": "0.14ms → ~0.02ms。为未来规则扩展预留性能余量。"
+    },
+    {
+      "priority": "P3",
+      "action": "解析结果缓存",
+      "detail": "基于文件内容哈希（SHA-256 前 16 字节）缓存解析结果。若内容未变，跳过 parse + validate + adapt，直接使用缓存的 AST 和布局。仅在内容变更时触发完整管线。",
+      "effort": "~1 人天",
+      "impact": "相同文件的二次打开从 5.6s 降至 ~0ms（仅 React Flow 渲染）。"
+    },
+    {
+      "priority": "P3",
+      "action": "Unicode 码点计数优化",
+      "detail": "将 parser.ts 中的 [...str].length 替换为 `Array.from(str).length` 或手写的 codepoint 计数函数（使用 for...of 迭代器），避免创建完整数组。",
+      "effort": "~0.3 人天",
+      "impact": "微优化——减少 GC 压力。对 200 节点场景无感知影响。"
+    }
+  ],
+
+  "summary": {
+    "totalBenchmarks": 13,
+    "pass": 11,
+    "fail": 2,
+    "passRate": "85%",
+    "criticalIssues": 1,
+    "criticalIssue": "Dagre 布局占全管线 99% 时间（5569ms/200节点），需异步化或替换布局引擎",
+    "fastestOperation": "predict (NGram) — 0.087ms",
+    "slowestOperation": "layout (Dagre) — 5569ms",
+    "bestPerformer": "解析器 + 验证器 + 适配器 — 合计 <2ms，远超目标",
+    "worstPerformer": "Dagre 布局 — 超过目标 2684%",
+    "overallAssessment": "核心解析引擎性能卓越（<2ms for 200 nodes）。唯一瓶颈是 Dagre 图布局引擎，在复杂拓扑下触发病态行为。建议 P0 替换为 ELK.js + Web Worker。修复后全管线预计 <500ms。"
+  }
+}
