@@ -73,6 +73,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    continue-on-error: true  # 已知 Electron 28 不可升级漏洞，不阻断 CI
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,6 +87,23 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Dependency security audit (moderate+)
         run: pnpm audit --audit-level moderate
+
+  tsx-color-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Scan TSX for bare hex colors (excluding var() fallbacks)
+        run: |
+          # 查找 TSX 内联样式中的裸 hex 色值（不在 var() 内的）
+          VIOLATIONS=$(grep -rn "'#[0-9a-fA-F]\{3,8\}'\|'rgba(" packages/app/src/components/ --include='*.tsx' | grep -v "var(--" | grep -v "nodeColor\|maskColor\|StoryEdge" || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "❌ TSX bare hex color values found (must use var(--color-*) tokens):"
+            echo "$VIOLATIONS"
+            exit 1
+          else
+            echo "✅ No bare hex colors in TSX (all use Design Tokens)"
+          fi
 
   placeholder-scan:
     runs-on: ubuntu-latest

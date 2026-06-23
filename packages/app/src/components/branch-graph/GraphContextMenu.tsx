@@ -809,12 +809,6 @@ export function GraphContextMenu({
     onClose();
   }, [graphNodes, graphEdges, setNodes, setStatusMessage, onClose]);
 
-  /** 导出 PNG — 将在后续版本中集成 html2canvas */
-  const handleExportPNG = useCallback(() => {
-    setStatusMessage('导出 PNG 功能即将推出');
-    onClose();
-  }, [setStatusMessage, onClose]);
-
   // ==========================================================================
   // 事件处理器：连线右键菜单 (V02-015)
   // ==========================================================================
@@ -1026,11 +1020,6 @@ export function GraphContextMenu({
               label: '重新布局',
               disabled: graphNodes.length === 0,
               onClick: handleRelayout,
-            },
-            {
-              key: 'exportPng',
-              label: '导出 PNG',
-              onClick: handleExportPNG,
             },
           ];
 

@@ -47,13 +47,6 @@ interface CapturedExport {
 
 type CaptureGlobal = typeof globalThis & { __e2e_capture?: CapturedExport | null };
 
-/**
- * 菜单 IPC 通道 — 与 menu.ts + preload.ts 定义的菜单事件通道一致
- * @see packages/app/src-electron/menu.ts L201-L215
- * @see packages/app/src-electron/preload.ts L82-L99
- */
-const MENU_EXPORT_JSON_CHANNEL = 'menu:export:json';
-
 // ============================================================================
 // 测试夹具级变量（每个 describe 共享）
 // ============================================================================
@@ -463,7 +456,7 @@ test.describe('导出系统 E2E (M4) — 5 项测试用例', () => {
     await electronApp.evaluate(({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
-        win.webContents.send(MENU_EXPORT_JSON_CHANNEL);
+        win.webContents.send('menu:export:json');
       }
     });
 

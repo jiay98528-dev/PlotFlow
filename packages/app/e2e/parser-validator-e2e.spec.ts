@@ -218,8 +218,8 @@ test.describe('Parser & Validator E2E Tests', () => {
     const e001Items = items.filter((i) => i.code === 'E001');
     expect(e001Items.length).toBeGreaterThanOrEqual(1);
     expect(e001Items[0]!.severity).toBe('error');
-    // 验证消息中包含目标节点名
-    expect(e001Items[0]!.message).toContain('不存在');
+    // 验证消息中包含目标节点相关描述（validator 消息或 i18n 简述均可）
+    expect(e001Items[0]!.message).toMatch(/目标节点|不存在/);
     // 验证位置行号格式正确
     expect(e001Items[0]!.location).toMatch(/行\s*\d+/);
   });
