@@ -21,7 +21,6 @@ import fs from 'fs';
 // ============================================================================
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
-const DEBOUNCE_WAIT_MS = 2500;
 const RENDER_WAIT_MS = 1000;
 
 // ============================================================================
@@ -34,40 +33,53 @@ function readFixture(name: string): string {
 }
 
 /**
- * 将文本内容加载到 Monaco 编辑器中。
+ * 将文本内容加载到编辑器中。
  *
- * 策略：通过 Electron 主进程 clipboard API 写入剪贴板，
- * 然后在渲染进程中用 Ctrl+A → Ctrl+V 粘贴。
- * 这模拟了用户的粘贴操作，会触发 Monaco 的 onDidChangeModelContent 事件，
- * 进而触发 parsePipeline。
+ * 通过 __test_store__ 直接设置编辑器内容（绕过剪贴板），
+ * 内部调用 parsePipelineNow 同步触发解析管线。
+ * 相比剪贴板粘贴方案，此方案不依赖 OS 剪贴板或 Monaco 焦点状态，
+ * 且每次加载前自动清除前次测试的诊断/节点/图表残留。
  *
- * @param page   - Playwright Page 对象
+ * @param page    - Playwright Page 对象
  * @param content - 要加载的 .mdstory 文本
- * @param electronApp - ElectronApplication 引用（用于主进程 clipboard 操作）
+ * @param _electronApp - 保留签名兼容（不再用于剪贴板操作）
  */
+
+interface TestStoreBridge {
+  setEditorContent: (content: string) => void;
+  getEditorContent: () => string;
+}
+
+type TestWindow = Window & { __test_store__?: TestStoreBridge };
+
 async function loadContentIntoEditor(
   page: Page,
   content: string,
-  electronApp: ElectronApplication,
+  _electronApp: ElectronApplication,
 ): Promise<void> {
-  // 1. 通过 Electron 主进程设置剪贴板内容
-  //    (playwright page.evaluate 可能缺少用户激活标记导致 clipboard API 失败)
-  await electronApp.evaluate(async ({ clipboard }, text: string) => {
-    clipboard.writeText(text);
+  // 1. 通过 __test_store__ 直接设置编辑器内容
+  await page.evaluate((text: string) => {
+    const s = (window as TestWindow).__test_store__;
+    if (!s?.setEditorContent) {
+      throw new Error(
+        '__test_store__.setEditorContent 不可用。请确认 Electron 启动时设置了 NODE_ENV=test',
+      );
+    }
+    s.setEditorContent(text);
   }, content);
 
-  // 2. 聚焦 Monaco 编辑器
-  const editorContainer = page.locator('.monaco-editor');
-  await editorContainer.waitFor({ state: 'visible', timeout: 15_000 });
-  await editorContainer.click();
+  // 2. 主动轮询等待内容同步到 store（不依赖固定延迟）
+  await page.waitForFunction(
+    (text: string) => {
+      const s = (window as TestWindow).__test_store__;
+      return s?.getEditorContent?.() === text;
+    },
+    content,
+    { timeout: 10_000 },
+  );
 
-  // 3. 全选 + 粘贴
-  await page.keyboard.press('Control+a');
-  await page.waitForTimeout(300);
-  await page.keyboard.press('Control+v');
-
-  // 4. 等待解析管线完成 (500ms debounce + 解析/验证/渲染)
-  await page.waitForTimeout(DEBOUNCE_WAIT_MS);
+  // 3. 等待 React Flow 渲染节点
+  await page.waitForSelector('.react-flow__node', { timeout: 10_000 });
   await page.waitForTimeout(RENDER_WAIT_MS);
 }
 
@@ -185,9 +197,13 @@ test.describe('Parser & Validator E2E Tests', () => {
 
     electronApp = await electron.launch({
       args: electronArgs,
-      env: process.env['ELECTRON_RENDERER_URL']
-        ? { ELECTRON_RENDERER_URL: process.env['ELECTRON_RENDERER_URL'] }
-        : undefined,
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        ...(process.env['ELECTRON_RENDERER_URL']
+          ? { ELECTRON_RENDERER_URL: process.env['ELECTRON_RENDERER_URL'] }
+          : {}),
+      } as Record<string, string>,
     });
 
     page = await electronApp.firstWindow();
@@ -276,9 +292,6 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(4) W001 orphan node shows yellow wave + yellow graph border', async () => {
     const content = readFixture('w001-orphan-node.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
-    // 显式等待 React Flow 节点渲染完成（防止测试隔离导致的状态污染）
-    await page.waitForSelector('.react-flow__node', { timeout: 10_000 });
-    await page.waitForTimeout(RENDER_WAIT_MS + 500);
 
     // Check ProblemPanel for W001
     await openProblemPanel(page);
