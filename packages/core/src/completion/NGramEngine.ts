@@ -458,10 +458,29 @@ export class NGramEngine {
    */
   static fromModel(model: NGramModel): NGramEngine {
     const engine = new NGramEngine();
+    engine.loadModel(model);
+    return engine;
+  }
 
+  /**
+   * 用序列化模型数据替换当前引擎的内部状态。
+   *
+   * 供 Learner 等外部模块安全更新引擎状态，避免通过 `as any` 突破
+   * 封装访问私有属性。每次调用会先清空旧数据再导入新模型。
+   *
+   * @param model - NGramModel 快照
+   */
+  loadModel(model: NGramModel): void {
+    // 清空旧数据
+    for (let n = 1; n <= MAX_N; n++) {
+      this.ngramStore.set(n, new Map());
+    }
+    this._totalTokens = 0;
+
+    // 导入模型数据
     for (const [nStr, levelData] of Object.entries(model.store)) {
       const n = Number(nStr);
-      const store = engine.ngramStore.get(n);
+      const store = this.ngramStore.get(n);
       if (!store) continue;
 
       for (const [contextKey, candidates] of Object.entries(levelData)) {
@@ -473,8 +492,7 @@ export class NGramEngine {
       }
     }
 
-    engine._totalTokens = model.totalTokens;
-    return engine;
+    this._totalTokens = model.totalTokens;
   }
 
   /**
