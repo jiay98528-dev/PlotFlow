@@ -104,7 +104,11 @@ async function getCssVar(page: Page, varName: string): Promise<string> {
  */
 async function toggleThemeViaMenuIpc(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getFocusedWindow();
+    // 使用 getAllWindows()[0] 而非 getFocusedWindow()：
+    // 完整套件中第 5 个 Electron 进程启动时窗口可能尚未获得 OS 级键盘焦点，
+    // getFocusedWindow() 返回 null 会导致 IPC 消息静默丢弃、主题不变。
+    const windows = BrowserWindow.getAllWindows();
+    const win = windows[0];
     if (win && !win.isDestroyed()) {
       win.webContents.send('menu:view:toggleTheme');
     }

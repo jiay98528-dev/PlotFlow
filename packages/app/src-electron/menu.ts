@@ -39,7 +39,7 @@ const IS_MAC = process.platform === 'darwin';
  * 如果无聚焦窗口，静默忽略。
  */
 function sendToRenderer(channel: string, ...args: unknown[]): void {
-  const win = BrowserWindow.getFocusedWindow();
+  const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
   if (win?.webContents && !win.webContents.isDestroyed()) {
     win.webContents.send(channel, ...args);
   }

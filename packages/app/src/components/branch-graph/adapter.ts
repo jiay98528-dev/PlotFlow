@@ -117,11 +117,27 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     return { nodes: [], edges: [] };
   }
 
-  // 步骤 2: 构建连线列表
+  // 步骤 2: 计算唯一 Node ID（防止 E007 重复 fullId 损坏 React Flow 内部状态）
+  // React Flow 内部使用 Map<string, Node> 存储节点，重复 id 会导致状态不一致。
+  // 当检测到重复 fullId 时，首节点保持原名，后续节点追加 #2、#3… 后缀。
+  const uniqueIds: string[] = [];
+  const fullIdCount = new Map<string, number>();
+  const firstUniqueId = new Map<string, string>();
+  for (const node of allNodes) {
+    const count = fullIdCount.get(node.fullId) ?? 0;
+    fullIdCount.set(node.fullId, count + 1);
+    const uid = count === 0 ? node.fullId : `${node.fullId}#${count + 1}`;
+    uniqueIds.push(uid);
+    if (count === 0) firstUniqueId.set(node.fullId, uid);
+  }
+
+  // 步骤 3: 构建连线列表
   // 使用 nodeMap 进行 O(1) 目标节点存在性检查
   const flowEdges: Edge[] = [];
 
-  for (const node of allNodes) {
+  for (let nodeIdx = 0; nodeIdx < allNodes.length; nodeIdx++) {
+    const node = allNodes[nodeIdx]!;
+    const srcId = uniqueIds[nodeIdx]!;
     for (let i = 0; i < node.options.length; i++) {
       const option = node.options[i]!;
       if (!option.targetFullId) continue;
@@ -129,11 +145,13 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
       // O(1) 验证目标节点存在（替代 O(n) 的 Array.find）
       if (!nodeMap.has(option.targetFullId)) continue;
 
+      const tgtId = firstUniqueId.get(option.targetFullId) ?? option.targetFullId;
+
       // 使用 encodeEdgeId 确保 Edge ID 可逆解析（V02-008 加固）。
       flowEdges.push({
-        id: encodeEdgeId(node.fullId, option.targetFullId!, i),
-        source: node.fullId,
-        target: option.targetFullId,
+        id: encodeEdgeId(srcId, tgtId, i),
+        source: srcId,
+        target: tgtId,
         sourceHandle: `option-${i}`,
         type: option.condition ? 'conditional' : 'default',
         data: {
@@ -145,15 +163,15 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     }
   }
 
-  // 步骤 3: 判定节点状态（委托给 adapter-helpers.ts 的 getNodeStatus）
+  // 步骤 4: 判定节点状态（委托给 adapter-helpers.ts 的 getNodeStatus）
   // 通过 M3 验证器填充的 NodeDiagnostics（isOrphan/isDeadEnd/diagnosticIds）判定。
   // targetedNodeIds/sourceNodeIds 保留仅供后续可能使用，状态判定不再依赖它们。
 
-  // 步骤 4: 构建 React Flow 节点（初始 position 为 {0,0}，由 layoutNodes 计算）
-  const flowNodes: Node<StoryFlowNodeData>[] = allNodes.map((node) => {
+  // 步骤 5: 构建 React Flow 节点（初始 position 为 {0,0}，由 layoutNodes 计算）
+  const flowNodes: Node<StoryFlowNodeData>[] = allNodes.map((node, idx) => {
     const status = getNodeStatus(node);
     return {
-      id: node.fullId,
+      id: uniqueIds[idx]!,
       type: 'storyNode',
       position: { x: 0, y: 0 },
       width: NODE_DIMENSIONS.width,
@@ -170,7 +188,7 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     };
   });
 
-  // 步骤 5: 结构缓存检查 —— 若拓扑未变则复用上次 Dagre 位置，跳过重布局
+  // 步骤 6: 结构缓存检查 —— 若拓扑未变则复用上次 Dagre 位置，跳过重布局
   const structuralHash = computeStructuralHash(flowNodes, flowEdges);
   if (layoutCache && layoutCache.hash === structuralHash) {
     for (const node of flowNodes) {
@@ -182,7 +200,7 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     return { nodes: flowNodes, edges: flowEdges };
   }
 
-  // 步骤 6: 调用 Dagre 布局计算位置并缓存结果
+  // 步骤 7: 调用 Dagre 布局计算位置并缓存结果
   const result = layoutNodes(flowNodes, flowEdges);
   layoutCache = {
     hash: structuralHash,
