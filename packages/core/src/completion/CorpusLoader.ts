@@ -300,7 +300,7 @@ export class CorpusLoader {
       throw new Error(`无法加载语料文件: "${filePath}"。该语料未包含在构建产物中。`);
     }
 
-    return entries.map((entry) => ({ ...entry, tokens: [...entry.tokens] }));
+    return entries as CorpusEntry[];
   }
 
   /**

@@ -43,6 +43,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { parsePipelineNow } from '../../services/parsePipeline';
 import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
+import { findTargetArrowIndex, closeUnclosedBrackets } from './adapter-helpers';
 import type { StoryEdgeData } from './StoryEdge';
 import { StoryNodeCard } from './StoryNodeCard';
 import { edgeTypes } from './StoryEdge';
@@ -86,27 +87,6 @@ function ZoomResetShortcut(): null {
 // ============================================================================
 // 常量
 // ============================================================================
-
-/** V02-034: Find the last -> target reference on a line.
- *  Uses lastIndexOf to avoid false matches when option description
- *  text itself contains "->". Returns -1 if no target reference found. */
-function findTargetArrowIndex(line: string): number {
-  let idx = line.lastIndexOf('-> 节点：');
-  if (idx < 0) idx = line.lastIndexOf('-> 节点:');
-  return idx;
-}
-
-/** 补齐选项行末尾的未闭合括号，防止追加 -> 节点：后产生语法冗余（BUG5 修复） */
-function closeUnclosedBrackets(line: string): string {
-  const opens = (line.match(/\[/g) || []).length;
-  const closes = (line.match(/\]/g) || []).length;
-  const parenOpens = (line.match(/\(/g) || []).length;
-  const parenCloses = (line.match(/\)/g) || []).length;
-  let result = line.trimEnd();
-  for (let i = closes; i < opens; i++) result += ']';
-  for (let i = parenCloses; i < parenOpens; i++) result += ')';
-  return result;
-}
 
 // ============================================================================
 // GraphCanvas 主组件

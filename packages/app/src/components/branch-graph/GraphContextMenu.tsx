@@ -30,6 +30,7 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
+import { findTargetArrowIndex } from './adapter-helpers';
 
 import { layoutNodes } from './layout';
 import type { StoryNode } from '@plotflow/core';
@@ -86,13 +87,6 @@ const TEMPLATE_NEW_NODE =
 /** 新选项行模板文本 */
 // V02-032: 同 TEMPLATE_NEW_NODE — 使用 ASCII "-> 节点：" 确保 parser 正常解析
 const TEMPLATE_NEW_OPTION = '[选项] 新选项 -> 节点：选择目标节点';
-
-/** V02-034: Find the last -> target reference on a line. */
-function findTargetArrowIndex(line: string): number {
-  let idx = line.lastIndexOf('-> 节点：');
-  if (idx < 0) idx = line.lastIndexOf('-> 节点:');
-  return idx;
-}
 
 // ============================================================================
 // 辅助函数：编辑器文本操作

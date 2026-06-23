@@ -43,7 +43,6 @@ export function MonacoEditor(): React.ReactElement {
 
   // 追踪内容变更来源：true=用户编辑器中输入，false=外部（文件打开/模板新建）
   const isUserEditRef = useRef(false);
-  const contentRef = useRef(content);
 
   useEffect(() => {
     filePathRef.current = filePath;
@@ -72,7 +71,6 @@ export function MonacoEditor(): React.ReactElement {
         const newContent = editor.getValue();
         // 标记为编辑器内用户操作（阻止 useEffect 覆盖为旧内容）
         isUserEditRef.current = true;
-        contentRef.current = newContent;
         setContent(newContent);
 
         debouncedSave(newContent, filePathRef.current);

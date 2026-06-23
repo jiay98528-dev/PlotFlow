@@ -74,14 +74,7 @@ function executePipeline(raw: string): void {
     return;
   }
 
-  if (!parseResult.ok) {
-    // 防御性代码：parseStory 现在始终返回 ok，但保留此分支以防回退
-    useEditorStore.getState().setDiagnostics([...parseResult.errors]);
-    useUIStore.getState().setStatusMessage(
-      `⚠️ 解析失败，请检查语法`,
-    );
-    return;
-  }
+  if (!parseResult.ok) return; // unreachable: parseStory always returns ok
 
   const ast = parseResult.data;
 
