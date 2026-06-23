@@ -30,7 +30,7 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
-import type { StoryEdgeData } from './StoryEdge';
+
 import { layoutNodes } from './layout';
 import type { StoryNode } from '@plotflow/core';
 
@@ -77,11 +77,22 @@ const MENU_ITEM_HEIGHT = 32;
 const DIVIDER_HEIGHT = 1;
 
 /** 新节点模板文本 */
+// V02-032: 使用 ASCII "-> 节点：" 而非 Unicode "→"，
+// 否则 parser 的 OPTION_LINE_RE 正则无法匹配，生成 E005 错误，
+// 导致 parseStory 返回 failure → executePipeline 不更新 AST → 分支图不渲染。
 const TEMPLATE_NEW_NODE =
-  '## 节点：新节点\n\n新节点的描述内容\n\n[选项] 继续 → ';
+  '## 节点：新节点\n\n新节点的描述内容\n\n[选项] 继续 -> 节点：选择目标节点';
 
 /** 新选项行模板文本 */
-const TEMPLATE_NEW_OPTION = '[选项] 新选项 → ';
+// V02-032: 同 TEMPLATE_NEW_NODE — 使用 ASCII "-> 节点：" 确保 parser 正常解析
+const TEMPLATE_NEW_OPTION = '[选项] 新选项 -> 节点：选择目标节点';
+
+/** V02-034: Find the last -> target reference on a line. */
+function findTargetArrowIndex(line: string): number {
+  let idx = line.lastIndexOf('-> 节点：');
+  if (idx < 0) idx = line.lastIndexOf('-> 节点:');
+  return idx;
+}
 
 // ============================================================================
 // 辅助函数：编辑器文本操作
@@ -271,7 +282,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.25)',
+        background: 'var(--color-overlay-modal, rgba(0,0,0,0.25))',
       }}
       onClick={handleBackdropClick}
     >
@@ -421,7 +432,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.25)',
+        background: 'var(--color-overlay-modal, rgba(0,0,0,0.25))',
       }}
       onClick={handleBackdropClick}
     >
@@ -548,6 +559,7 @@ export function GraphContextMenu({
   const graphEdges = useGraphStore((s) => s.edges);
   const setNodes = useGraphStore((s) => s.setNodes);
   const setStatusMessage = useUIStore((s) => s.setStatusMessage);
+  const openConditionEditor = useUIStore((s) => s.openConditionEditor);
 
   // ==========================================================================
   // 内部状态
@@ -648,16 +660,37 @@ export function GraphContextMenu({
     (newTitle: string) => {
       if (!storyNode) return;
 
-      const lines = editorContent.split('\n');
-      const titleIndex = storyNode.lineNumber - 1;
-      if (titleIndex >= 0 && titleIndex < lines.length) {
-        lines[titleIndex] = `## 节点：${newTitle}`;
-        setEditorContent(lines.join('\n'));
-        setStatusMessage(`节点已重命名为: ${newTitle}`);
+      if (editorInstance) {
+        const model = editorInstance.getModel();
+        if (model) {
+          const titleLine = storyNode.lineNumber;
+          const oldLine = model.getLineContent(titleLine);
+          const prefixMatch = oldLine.match(/^(##\s+节点[：:]).*/);
+          if (prefixMatch) {
+            editorInstance.executeEdits('context-menu-rename', [{
+              range: {
+                startLineNumber: titleLine,
+                startColumn: 1,
+                endLineNumber: titleLine,
+                endColumn: oldLine.length + 1
+              },
+              text: prefixMatch[1] + newTitle
+            }]);
+            setStatusMessage(`节点已重命名为: ${newTitle}`);
+          }
+        }
+      } else {
+        const lines = editorContent.split('\n');
+        const titleIndex = storyNode.lineNumber - 1;
+        if (titleIndex >= 0 && titleIndex < lines.length) {
+          lines[titleIndex] = `## 节点：${newTitle}`;
+          setEditorContent(lines.join('\n'));
+          setStatusMessage(`节点已重命名为: ${newTitle}`);
+        }
       }
       setShowRenameDialog(false);
     },
-    [storyNode, editorContent, setEditorContent, setStatusMessage],
+    [storyNode, editorInstance, editorContent, setEditorContent, setStatusMessage],
   );
 
   /** 关闭重命名对话框 */
@@ -672,15 +705,31 @@ export function GraphContextMenu({
       return;
     }
 
-    const lines = editorContent.split('\n');
-    const endIndex = findNodeEndLineIndex(lines, storyNode.lineNumber - 1);
+    if (editorInstance) {
+      const lines = editorContent.split('\n');
+      const endIndex = findNodeEndLineIndex(lines, storyNode.lineNumber - 1);
+      const insertionLine = endIndex + 1; // Monaco 1-based
+      editorInstance.executeEdits('context-menu-add-option', [{
+        range: {
+          startLineNumber: insertionLine,
+          startColumn: 1,
+          endLineNumber: insertionLine,
+          endColumn: 1
+        },
+        text: TEMPLATE_NEW_OPTION + '\n'
+      }]);
+      setStatusMessage(`已为「${storyNode.title}」添加新选项`);
+    } else {
+      const lines = editorContent.split('\n');
+      const endIndex = findNodeEndLineIndex(lines, storyNode.lineNumber - 1);
 
-    // 在节点内容末尾插入新选项行
-    lines.splice(endIndex, 0, TEMPLATE_NEW_OPTION);
-    setEditorContent(lines.join('\n'));
-    setStatusMessage(`已为「${storyNode.title}」添加新选项`);
+      // 在节点内容末尾插入新选项行
+      lines.splice(endIndex, 0, TEMPLATE_NEW_OPTION);
+      setEditorContent(lines.join('\n'));
+      setStatusMessage(`已为「${storyNode.title}」添加新选项`);
+    }
     onClose();
-  }, [storyNode, editorContent, setEditorContent, setStatusMessage, onClose]);
+  }, [storyNode, editorInstance, editorContent, setEditorContent, setStatusMessage, onClose]);
 
   /** 打开删除确认对话框 */
   const handleOpenDelete = useCallback(() => {
@@ -693,13 +742,27 @@ export function GraphContextMenu({
   const handleDeleteConfirm = useCallback(() => {
     if (!storyNode) return;
 
-    const { startLine, endLine } = getNodeLineRange(editorContent, storyNode);
-    const lines = editorContent.split('\n');
-    lines.splice(startLine, endLine - startLine);
-    setEditorContent(lines.join('\n'));
-    setStatusMessage(`节点「${storyNode.title}」已删除`);
+    if (editorInstance) {
+      const { startLine, endLine } = getNodeLineRange(editorContent, storyNode);
+      editorInstance.executeEdits('context-menu-delete-node', [{
+        range: {
+          startLineNumber: startLine + 1,
+          startColumn: 1,
+          endLineNumber: endLine + 1,
+          endColumn: 1
+        },
+        text: ''
+      }]);
+      setStatusMessage(`节点「${storyNode.title}」已删除`);
+    } else {
+      const { startLine, endLine } = getNodeLineRange(editorContent, storyNode);
+      const lines = editorContent.split('\n');
+      lines.splice(startLine, endLine - startLine);
+      setEditorContent(lines.join('\n'));
+      setStatusMessage(`节点「${storyNode.title}」已删除`);
+    }
     setShowDeleteDialog(false);
-  }, [storyNode, editorContent, setEditorContent, setStatusMessage]);
+  }, [storyNode, editorInstance, editorContent, setEditorContent, setStatusMessage]);
 
   /** 关闭删除对话框 */
   const handleDeleteCancel = useCallback(() => {
@@ -712,13 +775,32 @@ export function GraphContextMenu({
 
   /** 在编辑器末尾插入新节点模板 */
   const handleAddNode = useCallback(() => {
-    const newContent = editorContent
-      ? `${editorContent}\n\n${TEMPLATE_NEW_NODE}`
-      : TEMPLATE_NEW_NODE;
-    setEditorContent(newContent);
-    setStatusMessage('已添加新节点');
+    if (editorInstance) {
+      const model = editorInstance.getModel();
+      if (model) {
+        const lastLine = model.getLineCount();
+        const lastCol = model.getLineMaxColumn(lastLine);
+        const prefix = editorContent ? '\n\n' : '';
+        editorInstance.executeEdits('context-menu-add-node', [{
+          range: {
+            startLineNumber: lastLine,
+            startColumn: lastCol,
+            endLineNumber: lastLine,
+            endColumn: lastCol
+          },
+          text: prefix + TEMPLATE_NEW_NODE
+        }]);
+        setStatusMessage('已添加新节点');
+      }
+    } else {
+      const newContent = editorContent
+        ? `${editorContent}\n\n${TEMPLATE_NEW_NODE}`
+        : TEMPLATE_NEW_NODE;
+      setEditorContent(newContent);
+      setStatusMessage('已添加新节点');
+    }
     onClose();
-  }, [editorContent, setEditorContent, setStatusMessage, onClose]);
+  }, [editorInstance, editorContent, setEditorContent, setStatusMessage, onClose]);
 
   /** 重新调用 Dagre 布局 */
   const handleRelayout = useCallback(() => {
@@ -733,9 +815,9 @@ export function GraphContextMenu({
     onClose();
   }, [graphNodes, graphEdges, setNodes, setStatusMessage, onClose]);
 
-  /** 导出 PNG（占位实现 — 待 html2canvas 集成） */
+  /** 导出 PNG — 将在后续版本中集成 html2canvas */
   const handleExportPNG = useCallback(() => {
-    setStatusMessage('导出 PNG — 待 html2canvas 集成后实现');
+    setStatusMessage('导出 PNG 功能即将推出');
     onClose();
   }, [setStatusMessage, onClose]);
 
@@ -753,22 +835,12 @@ export function GraphContextMenu({
     }
   }, [type, edge]);
 
-  /** 连线 → 编辑条件：滚动到选项行并聚焦编辑器 */
+  /** 连线 → 编辑条件：打开 ConditionEditor 面板 (Fix 8) */
   const handleEdgeEditCondition = useCallback(() => {
     if (!edgeParsed) { onClose(); return; }
-    const sourceNode = getNodeByFullId(edgeParsed.sourceFullId);
-    if (!sourceNode || !editorInstance) { onClose(); return; }
-
-    const option = sourceNode.options[edgeParsed.optionIndex];
-    if (option) {
-      editorInstance.revealLineInCenter(option.lineNumber);
-      editorInstance.setPosition({ lineNumber: option.lineNumber, column: 1 });
-      editorInstance.focus();
-      setCursorPosition(option.lineNumber, 1);
-      setStatusMessage(`已跳转到选项 → ${option.description.slice(0, 20)}`);
-    }
+    openConditionEditor(edgeParsed.sourceFullId, edgeParsed.optionIndex);
     onClose();
-  }, [edgeParsed, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+  }, [edgeParsed, openConditionEditor, onClose]);
 
   /** 连线 → 删除连线：移除 -> 节点：XXX 文本 */
   const handleEdgeDelete = useCallback(() => {
@@ -779,19 +851,40 @@ export function GraphContextMenu({
     const option = sourceNode.options[edgeParsed.optionIndex];
     if (!option) { onClose(); return; }
 
-    const lines = editorContent.split('\n');
-    const lineIndex = option.lineNumber - 1;
-    if (lineIndex >= 0 && lineIndex < lines.length) {
-      const line = lines[lineIndex]!;
-      const arrowIndex = line.indexOf('->');
-      if (arrowIndex >= 0) {
-        lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
-        setEditorContent(lines.join('\n'));
-        setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeParsed.optionIndex + 1}`);
+    if (editorInstance) {
+      const model = editorInstance.getModel();
+      if (model) {
+        const lineIdx = option.lineNumber;
+        const lineContent = model.getLineContent(lineIdx);
+        const arrowIndex = findTargetArrowIndex(lineContent);
+        if (arrowIndex >= 0) {
+          editorInstance.executeEdits('context-menu-delete-edge', [{
+            range: {
+              startLineNumber: lineIdx,
+              startColumn: arrowIndex + 1,
+              endLineNumber: lineIdx,
+              endColumn: lineContent.length + 1
+            },
+            text: ''
+          }]);
+          setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeParsed.optionIndex + 1}`);
+        }
+      }
+    } else {
+      const lines = editorContent.split('\n');
+      const lineIndex = option.lineNumber - 1;
+      if (lineIndex >= 0 && lineIndex < lines.length) {
+        const line = lines[lineIndex]!;
+        const arrowIndex = findTargetArrowIndex(line);
+        if (arrowIndex >= 0) {
+          lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
+          setEditorContent(lines.join('\n'));
+          setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeParsed.optionIndex + 1}`);
+        }
       }
     }
     onClose();
-  }, [edgeParsed, plotFlowData, editorContent, getNodeByFullId, setEditorContent, setStatusMessage, onClose]);
+  }, [edgeParsed, plotFlowData, editorInstance, editorContent, getNodeByFullId, setEditorContent, setStatusMessage, onClose]);
 
   /** 连线 → 跳转到源节点 */
   const handleEdgeJumpToSource = useCallback(() => {

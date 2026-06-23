@@ -59,12 +59,6 @@ const EDGE_COLORS = {
 /** 条件标签最长字符数（超出截断加 "..."） */
 const MAX_LABEL_LENGTH = 30;
 
-/** 条件标签宽度 */
-const LABEL_WIDTH = 160;
-
-/** 条件标签高度 */
-const LABEL_HEIGHT = 24;
-
 /** 连线默认线宽 */
 const DEFAULT_STROKE_WIDTH = 2;
 
@@ -104,7 +98,7 @@ const EdgeLabel: React.FC<{
         style={{
           position: 'absolute',
           transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-          background: 'rgba(255, 255, 255, 0.92)',
+          background: 'var(--color-bg-elevated)',
           border: `1px solid ${EDGE_COLORS.conditional}`,
           borderRadius: 4,
           padding: '1px 6px',

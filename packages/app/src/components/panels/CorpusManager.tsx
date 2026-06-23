@@ -26,7 +26,7 @@
  * @module components/panels/CorpusManager
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CorpusImporter,
   PreprocessingPipeline,
@@ -168,6 +168,18 @@ export function CorpusManager(): React.ReactElement | null {
 
   // ── 导入导入状态 ──
   const [isImporting, setIsImporting] = useState(false);
+
+  // 重新处理定时器引用（用于组件卸载时清理）
+  const reprocessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 卸载时清理重新处理定时器，防止 unmount 后 setState 警告
+  useEffect(() => {
+    return () => {
+      if (reprocessTimerRef.current !== null) {
+        clearTimeout(reprocessTimerRef.current);
+      }
+    };
+  }, []);
 
   // ── 总计信息 ──
   const totalInfo = useMemo(() => {
@@ -364,13 +376,14 @@ export function CorpusManager(): React.ReactElement | null {
     );
 
     // 模拟重新处理（1 秒后完成）
-    setTimeout(() => {
+    reprocessTimerRef.current = setTimeout(() => {
       setSources((prev) =>
         prev.map((s) =>
           s.id === item.id ? { ...s, status: 'active' as CorpusEntryStatus } : s,
         ),
       );
       setStatusMessage(`已重新处理: ${item.fileName}`);
+      reprocessTimerRef.current = null;
     }, 1000);
   }, [setStatusMessage]);
 
@@ -661,7 +674,7 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0, 0, 0, 0.4)',
+  background: 'var(--color-overlay-modal, rgba(0,0,0,0.4))',
   zIndex: 1000,
   backdropFilter: 'blur(2px)',
 };
@@ -934,7 +947,7 @@ const confirmOverlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0, 0, 0, 0.3)',
+  background: 'var(--color-overlay-modal, rgba(0,0,0,0.3))',
   zIndex: 1100,
 };
 

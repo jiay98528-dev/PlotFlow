@@ -142,16 +142,23 @@
   line-height: 1.4;
 }
 
-/* ── React Flow Handle（隐藏默认连线端口） ── */
+/* ── React Flow Handle（隐藏默认连线端口，但保持可检测性） ── */
 .story-node-handle {
-  visibility: hidden !important;
-  width: 0 !important;
-  height: 0 !important;
+  opacity: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  top: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  pointer-events: all !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 /* ── 可拖拽连线端口（每个选项一个） ── */
 .story-node-connect-handle {
   visibility: visible !important;
+  opacity: 1 !important;
   width: 12px !important;
   height: 12px !important;
   min-width: 12px;
@@ -161,6 +168,7 @@
   border-radius: 50%;
   cursor: crosshair;
   z-index: 5;
+  pointer-events: all !important;
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 

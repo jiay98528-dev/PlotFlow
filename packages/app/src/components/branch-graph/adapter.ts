@@ -32,22 +32,35 @@
 
 import type { Node, Edge } from '@xyflow/react';
 import type { PlotFlowData, StoryNode } from '@plotflow/core';
-import type { NodeStatus } from './adapter-helpers';
-import { getNodeStatus } from './adapter-helpers';
-import { layoutNodes } from './layout';
+import { getNodeStatus, STATUS_TO_CLASS_MAP } from './adapter-helpers';
+import { layoutNodes, NODE_DIMENSIONS } from './layout';
 import { encodeEdgeId } from '../../stores/edgeStore';
+
+// ============================================================================
+// 结构缓存（避免 Dagre 布局重复计算）
+// ============================================================================
+
+interface LayoutCache {
+  hash: string;
+  positions: Record<string, { x: number; y: number }>;
+}
+
+let layoutCache: LayoutCache | null = null;
+
+/**
+ * 计算结构哈希值，用于判断图谱拓扑是否发生变化。
+ * 基于节点数、边数、排过序的节点 ID 列表和边（source→target）列表生成，
+ * 确保相同结构产生相同哈希，而节点插入顺序不影响结果。
+ */
+function computeStructuralHash(nodes: Node<StoryFlowNodeData>[], edges: Edge[]): string {
+  const sortedNodeIds = nodes.map((n) => n.id).sort();
+  const sortedEdgePairs = edges.map((e) => `${e.source}:${e.target}`).sort();
+  return JSON.stringify([nodes.length, edges.length, sortedNodeIds, sortedEdgePairs]);
+}
 
 // ============================================================================
 // 类型定义
 // ============================================================================
-
-/** 节点状态 → React Flow Node className 映射（CLAUDE.md §6.3） */
-const STATUS_TO_CLASS_MAP: Record<NodeStatus, string> = {
-  normal: 'node-status-normal',
-  orphan: 'node-status-orphan',
-  deadend: 'node-status-deadend',
-  error: 'node-status-error',
-};
 
 /** React Flow 自定义节点数据类型 */
 export type StoryFlowNodeData = Record<string, unknown> & {
@@ -143,6 +156,8 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
       id: node.fullId,
       type: 'storyNode',
       position: { x: 0, y: 0 },
+      width: NODE_DIMENSIONS.width,
+      height: NODE_DIMENSIONS.height,
       className: STATUS_TO_CLASS_MAP[status],
       data: {
         fullId: node.fullId,
@@ -155,6 +170,23 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     };
   });
 
-  // 步骤 5: 调用 Dagre 布局计算位置
-  return layoutNodes(flowNodes, flowEdges);
+  // 步骤 5: 结构缓存检查 —— 若拓扑未变则复用上次 Dagre 位置，跳过重布局
+  const structuralHash = computeStructuralHash(flowNodes, flowEdges);
+  if (layoutCache && layoutCache.hash === structuralHash) {
+    for (const node of flowNodes) {
+      const pos = layoutCache.positions[node.id];
+      if (pos) {
+        node.position = { ...pos };
+      }
+    }
+    return { nodes: flowNodes, edges: flowEdges };
+  }
+
+  // 步骤 6: 调用 Dagre 布局计算位置并缓存结果
+  const result = layoutNodes(flowNodes, flowEdges);
+  layoutCache = {
+    hash: structuralHash,
+    positions: Object.fromEntries(result.nodes.map((n) => [n.id, { ...n.position }])),
+  };
+  return result;
 }

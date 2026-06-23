@@ -33,12 +33,14 @@ import {
   type Edge,
   type Connection,
   type OnConnectStartParams,
+  reconnectEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
+import { parsePipelineNow } from '../../services/parsePipeline';
 import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
 import type { StoryEdgeData } from './StoryEdge';
@@ -85,6 +87,27 @@ function ZoomResetShortcut(): null {
 // 常量
 // ============================================================================
 
+/** V02-034: Find the last -> target reference on a line.
+ *  Uses lastIndexOf to avoid false matches when option description
+ *  text itself contains "->". Returns -1 if no target reference found. */
+function findTargetArrowIndex(line: string): number {
+  let idx = line.lastIndexOf('-> 节点：');
+  if (idx < 0) idx = line.lastIndexOf('-> 节点:');
+  return idx;
+}
+
+/** 补齐选项行末尾的未闭合括号，防止追加 -> 节点：后产生语法冗余（BUG5 修复） */
+function closeUnclosedBrackets(line: string): string {
+  const opens = (line.match(/\[/g) || []).length;
+  const closes = (line.match(/\]/g) || []).length;
+  const parenOpens = (line.match(/\(/g) || []).length;
+  const parenCloses = (line.match(/\)/g) || []).length;
+  let result = line.trimEnd();
+  for (let i = closes; i < opens; i++) result += ']';
+  for (let i = parenCloses; i < parenOpens; i++) result += ')';
+  return result;
+}
+
 // ============================================================================
 // GraphCanvas 主组件
 // ============================================================================
@@ -103,17 +126,22 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const renamingNodeId = useGraphStore((state) => state.renamingNodeId);
   const setRenamingNodeId = useGraphStore((state) => state.setRenamingNodeId);
   const setEditing = useGraphStore((state) => state.setEditing);
+  const setEdges = useGraphStore((state) => state.setEdges);
 
   const editorInstance = useEditorStore((state) => state.editorInstance);
   const editorContent = useEditorStore((state) => state.content);
   const setContent = useEditorStore((state) => state.setContent);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
 
+  // V02-033: 解析器错误诊断 — 驱动分支图错误横幅和空状态提示
+  const diagnostics = useEditorStore((s) => s.diagnostics);
+
   // StoryStore — 用于查找 AST 节点信息（选项行号、targetNodeId 等）
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
 
   // UIStore — 条件编辑器面板控制
   const openConditionEditor = useUIStore((state) => state.openConditionEditor);
+  const setStatusMessage = useUIStore((state) => state.setStatusMessage);
 
   // ==========================================================================
   // 连线连接处理 (M2-09)
@@ -124,13 +152,36 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 操作锁阻止编辑器侧的 debounce 文本→图同步覆盖此次更改。
    */
   const handleConnectStart = useCallback(
-    (_event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+    (_event: MouseEvent | TouchEvent, _params: OnConnectStartParams) => {
       if (renamingNodeId !== null) return; // M2-08 锁：重命名期间禁止连线操作
       setEditing(true);
-      // 记录源节点 ID（后续用于连接验证/无效节点高亮）
-      void params.nodeId;
     },
     [renamingNodeId, setEditing],
+  );
+
+  /**
+   * 连线重连开始事件 — 设置操作锁。
+   * React Flow v12: 当用户拖拽已有连线的端点时触发。
+   */
+  const handleReconnectStart = useCallback(
+    (_event: unknown, _edge: Edge, _handleType: unknown) => {
+      if (renamingNodeId !== null) return;
+      setEditing(true);
+    },
+    [renamingNodeId, setEditing],
+  );
+
+  /**
+   * 连线重连结束事件 — 释放操作锁 + 触发重新解析。
+   * React Flow v12: 在 onReconnect 之后触发。
+   */
+  const handleReconnectEnd = useCallback(
+    (_event: unknown, _edge: Edge, _handleType: unknown) => {
+      setEditing(false);
+      const editor = useEditorStore.getState().editorInstance;
+      if (editor) { parsePipelineNow(editor.getValue()); }
+    },
+    [setEditing],
   );
 
   /**
@@ -158,9 +209,13 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         return false;
       }
 
-      // 验证 2: 不允许重复连接（同一 source → 同一 target 已存在）
+      // 验证 2: 不允许重复连接（需区分 sourceHandle — 同一节点的不同选项可指向同一目标）
+      const connSourceHandle = connection.sourceHandle ?? '';
       const duplicate = edges.some(
-        (e) => e.source === connection.source && e.target === connection.target,
+        (e) =>
+          e.source === connection.source &&
+          e.target === connection.target &&
+          (e.sourceHandle ?? '') === connSourceHandle,
       );
       if (duplicate) {
         return false;
@@ -217,7 +272,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         if (model) {
           const lineNumber = option.lineNumber;
           const lineContent = model.getLineContent(lineNumber);
-          const arrowIndex = lineContent.indexOf('->');
+          const arrowIndex = findTargetArrowIndex(lineContent);
 
           if (arrowIndex >= 0) {
             // 已有目标 → 替换
@@ -234,17 +289,34 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             ]);
           } else {
             // 无目标（死胡同选项首次连线）→ 追加
-            editorInstance.executeEdits('plotflow-reconnect', [
-              {
-                range: {
-                  startLineNumber: lineNumber,
-                  startColumn: lineContent.length + 1,
-                  endLineNumber: lineNumber,
-                  endColumn: lineContent.length + 1,
+            // BUG5 修复：先补齐未闭合括号再追加
+            const fixedLine = closeUnclosedBrackets(lineContent);
+            if (fixedLine !== lineContent) {
+              // 行尾有未闭合括号 → 先替换整行为补全后的行，再追加目标
+              editorInstance.executeEdits('plotflow-reconnect', [
+                {
+                  range: {
+                    startLineNumber: lineNumber,
+                    startColumn: 1,
+                    endLineNumber: lineNumber,
+                    endColumn: lineContent.length + 1,
+                  },
+                  text: `${fixedLine} ${newTargetText}`,
                 },
-                text: ` ${newTargetText}`,
-              },
-            ]);
+              ]);
+            } else {
+              editorInstance.executeEdits('plotflow-reconnect', [
+                {
+                  range: {
+                    startLineNumber: lineNumber,
+                    startColumn: lineContent.length + 1,
+                    endLineNumber: lineNumber,
+                    endColumn: lineContent.length + 1,
+                  },
+                  text: ` ${newTargetText}`,
+                },
+              ]);
+            }
           }
         }
       } else {
@@ -253,7 +325,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const lineIndex = option.lineNumber - 1;
         if (lineIndex >= 0 && lineIndex < lines.length) {
           const line = lines[lineIndex]!;
-          const arrowIndex = line.indexOf('->');
+          const arrowIndex = findTargetArrowIndex(line);
           if (arrowIndex >= 0) {
             // 已有目标 → 替换
             lines[lineIndex] = line.slice(0, arrowIndex) + newTargetText;
@@ -266,6 +338,84 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       }
     },
     [editorInstance, editorContent, setContent, getNodeByFullId],
+  );
+
+  /**
+   * 连线重连事件 — React Flow v12 edge reconnection 核心处理。
+   *
+   * 当用户将已有连线的端点拖拽到新目标节点时触发。
+   * 执行流程：
+   * 1. 解析旧 edge.id → sourceFullId + optionIndex
+   * 2. 查找新目标节点 → 更新 -> 节点：XXX 文本
+   * 3. 调用 reconnectEdge() + setEdges() 实现即时视觉反馈
+   */
+  const handleReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      try {
+        // 步骤 1: 解析旧连线 ID
+        const { sourceFullId, optionIndex } = parseEdgeId(oldEdge.id);
+        const sourceNode = getNodeByFullId(sourceFullId);
+        if (!sourceNode) return;
+
+        const option = sourceNode.options[optionIndex];
+        if (!option) return;
+
+        // 步骤 2: 查找新目标节点
+        const targetNode = getNodeByFullId(newConnection.target);
+        if (!targetNode) return;
+
+        const newTargetText = `-> 节点：${targetNode.id}`;
+
+        // 步骤 3: 更新编辑器文本
+        if (editorInstance) {
+          const model = editorInstance.getModel();
+          if (model) {
+            const lineNumber = option.lineNumber;
+            const lineContent = model.getLineContent(lineNumber);
+            const arrowIndex = findTargetArrowIndex(lineContent);
+
+            if (arrowIndex >= 0) {
+              // 已有目标 → 替换
+              editorInstance.executeEdits('plotflow-edge-reconnect', [
+                {
+                  range: {
+                    startLineNumber: lineNumber,
+                    startColumn: arrowIndex + 1,
+                    endLineNumber: lineNumber,
+                    endColumn: lineContent.length + 1,
+                  },
+                  text: newTargetText,
+                },
+              ]);
+            }
+          }
+        } else {
+          // Fallback: 通过 editorStore.setContent
+          const lines = editorContent.split('\n');
+          const lineIndex = option.lineNumber - 1;
+          if (lineIndex >= 0 && lineIndex < lines.length) {
+            const line = lines[lineIndex]!;
+            const arrowIndex = findTargetArrowIndex(line);
+            if (arrowIndex >= 0) {
+              lines[lineIndex] = line.slice(0, arrowIndex) + newTargetText;
+              setContent(lines.join('\n'));
+            }
+          }
+        }
+
+        // 步骤 4: 即时视觉反馈 — reconnectEdge + setEdges
+        const currentEdges = useGraphStore.getState().edges;
+        const reconnected = reconnectEdge(oldEdge, newConnection, currentEdges, {
+          shouldReplaceId: true,
+        });
+        setEdges(reconnected);
+      } catch {
+        // parseEdgeId 解析失败或任何异常 → 日志记录
+        // eslint-disable-next-line no-console
+        console.warn('[GraphCanvas] handleReconnect failed for edge:', oldEdge.id);
+      }
+    },
+    [editorInstance, editorContent, setContent, getNodeByFullId, setEdges],
   );
 
   // ==========================================================================
@@ -298,6 +448,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         position: { x: event.clientX, y: event.clientY },
         type: 'node',
         node: node as Node<StoryFlowNodeData>,
+        edge: null,
       });
     },
     [renamingNodeId],
@@ -314,6 +465,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         position: { x: event.clientX, y: event.clientY },
         type: 'pane',
         node: null,
+        edge: null,
       });
     },
     [renamingNodeId],
@@ -356,7 +508,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             if (model) {
               const lineNumber = option.lineNumber;
               const lineContent = model.getLineContent(lineNumber);
-              const arrowIndex = lineContent.indexOf('->');
+              const arrowIndex = findTargetArrowIndex(lineContent);
               if (arrowIndex >= 0) {
                 editorInstance.executeEdits('plotflow-edge-delete', [
                   {
@@ -377,7 +529,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             const lineIndex = option.lineNumber - 1;
             if (lineIndex >= 0 && lineIndex < lines.length) {
               const line = lines[lineIndex]!;
-              const arrowIndex = line.indexOf('->');
+              const arrowIndex = findTargetArrowIndex(line);
               if (arrowIndex >= 0) {
                 lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
                 setContent(lines.join('\n'));
@@ -385,7 +537,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             }
           }
         } catch {
-          // parseEdgeId 解析失败 → 静默忽略
+          // parseEdgeId 解析失败 → 记录日志，不崩溃
+          // eslint-disable-next-line no-console
+          console.warn('[GraphCanvas] Alt+click edge delete failed — invalid edge id:', edge.id);
         }
       }
     },
@@ -405,7 +559,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const { sourceFullId, optionIndex } = parseEdgeId(edge.id);
         openConditionEditor(sourceFullId, optionIndex);
       } catch {
-        // parseEdgeId 解析失败 → 静默忽略
+        // parseEdgeId 解析失败 → 记录日志，不崩溃
+        // eslint-disable-next-line no-console
+        console.warn('[GraphCanvas] Edge double-click failed — invalid edge id:', edge.id);
       }
     },
     [renamingNodeId, openConditionEditor],
@@ -519,21 +675,24 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 若用户从选项 handle 拖拽到没有目标节点的空白区域 → 插入新节点 + 自动连接 (FR-2, V02-021)。
    */
   const handleConnectEndWithCreate = useCallback(
-    (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+    (_event: globalThis.MouseEvent | globalThis.TouchEvent) => {
       // 先释放操作锁
       handleConnectEnd();
 
       // 如果已经成功连接，不需要创建新节点
       if (connectDidSucceed.current) {
         connectDidSucceed.current = false;
+        const editor = useEditorStore.getState().editorInstance;
+        if (editor) { parsePipelineNow(editor.getValue()); }
         return;
       }
 
       // 拖拽到空白区域 — 不强制创建新节点以避免干扰正常画布操作。
       // 用户可通过右键空白菜单手动添加节点。
       // 未来版本可加入浮动"创建节点"按钮（V0.3+）。
+      setStatusMessage('拖拽到空白 — 右键菜单"添加节点"创建新卡片');
     },
-    [handleConnectEnd],
+    [handleConnectEnd, setStatusMessage],
   );
 
   // ==========================================================================
@@ -583,6 +742,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   /** 是否显示空状态 */
   const isEmpty = nodes.length === 0;
 
+  // V02-033: 解析器错误诊断 — 区分"无文件"和"解析失败"两种空状态
+  const errorDiagnostics = diagnostics.filter((d) => d.severity === 'error');
+  const hasParseErrors = errorDiagnostics.length > 0;
+
   // --- 空状态渲染 ---
   if (isEmpty) {
     return (
@@ -616,10 +779,23 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           <line x1="24" y1="22" x2="12" y2="26" stroke="currentColor" strokeWidth="2" />
           <line x1="24" y1="22" x2="36" y2="26" stroke="currentColor" strokeWidth="2" />
         </svg>
-        <span>打开 .mdstory 文件以查看分支图</span>
-        <span style={{ fontSize: 'var(--text-xs, 12px)', opacity: 0.7 }}>
-          编写 Markdown 分支剧情后，分支图将在此处自动生成
-        </span>
+        {hasParseErrors ? (
+          <>
+            <span style={{ color: 'var(--color-diagnostic-error, #D32F2F)' }}>
+              解析遇到 {errorDiagnostics.length} 个错误
+            </span>
+            <span style={{ fontSize: 'var(--text-xs, 12px)', opacity: 0.7 }}>
+              请修复编辑器中的错误以生成完整分支图
+            </span>
+          </>
+        ) : (
+          <>
+            <span>打开 .mdstory 文件以查看分支图</span>
+            <span style={{ fontSize: 'var(--text-xs, 12px)', opacity: 0.7 }}>
+              编写 Markdown 分支剧情后，分支图将在此处自动生成
+            </span>
+          </>
+        )}
       </div>
     );
   }
@@ -628,7 +804,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   return (
     <>
     <ReactFlowProvider>
-      <div style={{ width: '100%', height: '100%' }}>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
         <ZoomResetShortcut />
         <ReactFlow
           nodes={displayedNodes}
@@ -647,7 +823,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           onConnectStart={isSplit ? handleConnectStart : undefined}
           onConnectEnd={isSplit ? handleConnectEndWithCreate : undefined}
           isValidConnection={isSplit ? handleIsValidConnection : undefined}
-          nodesDraggable={false}
+          edgesReconnectable={isSplit}
+          onReconnect={isSplit ? handleReconnect : undefined}
+          onReconnectStart={isSplit ? handleReconnectStart : undefined}
+          onReconnectEnd={isSplit ? handleReconnectEnd : undefined}
+          nodesDraggable={true}
           nodesConnectable={isSplit}
           elementsSelectable={isSplit}
           panOnDrag={[1, 2]}
@@ -698,19 +878,18 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             background: 'var(--color-bg-primary, #FFFFFF)',
             border: '1px solid var(--color-border-default, #E0E0E0)',
           }}
+          maskColor="rgba(0,0,0,0.2)"
           nodeColor={(node) => {
-            // 折叠虚拟节点使用灰色
-            if (node.type === 'collapseNode') {
-              return 'var(--color-text-muted, #8A8A8A)';
-            }
+            // 使用字面量色值而非 CSS 变量 — MiniMap SVG fill 不保证 CSS 变量解析
+            if (node.type === 'collapseNode') return '#8A8A8A';
             const nodeData = node.data as unknown as StoryFlowNodeData | undefined;
             const status = nodeData?.status;
             switch (status) {
-              case 'error': return 'var(--color-error, #C62828)';
-              case 'orphan': return 'var(--color-warning, #F9A825)';
-              case 'deadend': return 'var(--color-text-muted, #8A8A8A)';
-              case 'root': return 'var(--color-accent, #1976D2)';
-              default: return 'var(--color-success, #2E7D32)';
+              case 'error': return '#DC2626';
+              case 'orphan': return '#F59E0B';
+              case 'deadend': return '#9CA3AF';
+              case 'root': return '#2563EB';
+              default: return '#4CAF50';
             }
           }}
         />
@@ -718,6 +897,35 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       </ReactFlow>
     </div>
     </ReactFlowProvider>
+
+      {/* ── 解析错误警告横幅 (V02-033) ── */}
+      {hasParseErrors && isSplit && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            padding: '6px 16px',
+            background: 'var(--color-diagnostic-error, #D32F2F)',
+            color: 'var(--color-text-inverse, #FFFFFF)',
+            fontSize: '12px',
+            fontFamily: 'var(--font-ui, system-ui, sans-serif)',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            opacity: 0.95,
+          }}
+        >
+          <span>⚠️</span>
+          <span>
+            编辑器中有 {errorDiagnostics.length} 个语法错误，分支图可能不完整
+          </span>
+        </div>
+      )}
 
       {/* 右键菜单 — 仅 split 模式 */}
       {isSplit && (

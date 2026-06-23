@@ -17,14 +17,15 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useStoryStore, useEditorStore, useUIStore } from '../../stores';
-import type {
-  ConditionNode,
-  ComparisonExpression,
-  Operand,
-  VariableDeclaration,
-  VariableType,
-  ComparisonOperator,
-  LogicalOperator,
+import {
+  parseCondition,
+  type ConditionNode,
+  type ComparisonExpression,
+  type Operand,
+  type VariableDeclaration,
+  type VariableType,
+  type ComparisonOperator,
+  type LogicalOperator,
 } from '@plotflow/core';
 
 // ============================================================================
@@ -58,8 +59,6 @@ export interface ConditionEditorProps {
   readonly optionIndex?: number;
   /** 关闭面板回调 */
   readonly onClose: () => void;
-  /** 初始条件 AST（从解析器获取，用于初始化面板） */
-  readonly initialCondition?: ConditionNode | null;
 }
 
 // ============================================================================
@@ -375,6 +374,70 @@ function mergeGroup(target: ConditionGroup, source: ConditionGroup): void {
   target.groups.push(...source.groups);
 }
 
+function createEmptyConditionGroup(): ConditionGroup {
+  return {
+    id: nextId(),
+    operator: 'AND',
+    rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
+    groups: [],
+  };
+}
+
+function getNodeTitleFromNodeId(nodeId: string): string | null {
+  const marker = '--node-';
+  const idx = nodeId.indexOf(marker);
+  if (idx === -1) return null;
+  const title = nodeId.slice(idx + marker.length);
+  return title || null;
+}
+
+function findConditionExpressionInContent(
+  content: string,
+  nodeTitle: string,
+  optionIndex: number,
+): string | null {
+  if (!content || optionIndex < 0) return null;
+
+  const lines = content.split('\n');
+  const headingRe = new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`);
+  const nextHeadingRe = /^##\s+节点：/;
+  let inTargetNode = false;
+  let currentOptionIndex = -1;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+
+    if (headingRe.test(line)) {
+      inTargetNode = true;
+      currentOptionIndex = -1;
+      continue;
+    }
+
+    if (inTargetNode && nextHeadingRe.test(line)) {
+      break;
+    }
+
+    if (!inTargetNode || !/^\[选项\]/.test(line)) {
+      continue;
+    }
+
+    currentOptionIndex += 1;
+    if (currentOptionIndex !== optionIndex) {
+      continue;
+    }
+
+    const nextLine = lines[i + 1]?.trimStart();
+    if (!nextLine || !nextLine.startsWith('条件:')) {
+      return null;
+    }
+
+    const expression = nextLine.replace(/^条件:\s*/, '').trim();
+    return expression || null;
+  }
+
+  return null;
+}
+
 // ============================================================================
 // 辅助函数：表达式预览字符串生成
 // ============================================================================
@@ -424,32 +487,28 @@ function builderToExpression(group: ConditionGroup): string {
 function findOptionLineIndex(
   lines: string[],
   nodeTitle: string,
-  optionDescription: string,
+  optionLineNumber: number,
 ): number {
+  const idx = optionLineNumber - 1;
+  if (idx < 0 || idx >= lines.length) return -1;
+
+  // 防御性检查：确认该行是选项行
+  if (!lines[idx]!.includes('[选项]')) return -1;
+
+  // 验证我们在正确的节点内
   let inTargetNode = false;
-
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = 0; i <= idx; i++) {
     const line = lines[i]!;
-
-    // 检测节点标题
     if (new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`).test(line)) {
       inTargetNode = true;
-      continue;
-    }
-
-    // 离开节点
-    if (inTargetNode && /^##\s+节点：/.test(line)) {
+    } else if (inTargetNode && /^##\s+节点：/.test(line)) {
       inTargetNode = false;
-      continue;
-    }
-
-    // 在目标节点内查找选项行
-    if (inTargetNode && line.includes(`[选项]`) && line.includes(optionDescription)) {
-      return i;
     }
   }
 
-  return -1;
+  if (!inTargetNode) return -1;
+
+  return idx;
 }
 
 /**
@@ -481,26 +540,29 @@ function findConditionSubLineIndex(
 function updateEditorConditionText(
   content: string,
   nodeTitle: string,
-  optionDescription: string,
+  optionLineNumber: number,
+  optionIndex: number,
   newExpression: string,
 ): string {
   const lines = content.split('\n');
-  const optionLineIdx = findOptionLineIndex(lines, nodeTitle, optionDescription);
+  const optionLineIdx = findOptionLineIndex(lines, nodeTitle, optionLineNumber);
+  const fallbackOptionLineIdx =
+    optionLineIdx === -1 ? findOptionLineIndexByOrdinal(lines, nodeTitle, optionIndex) : optionLineIdx;
 
-  if (optionLineIdx === -1) return content;
+  if (fallbackOptionLineIdx === -1) return content;
 
-  const condLineIdx = findConditionSubLineIndex(lines, optionLineIdx);
+  const condLineIdx = findConditionSubLineIndex(lines, fallbackOptionLineIdx);
 
-  if (newExpression) {
-    const newLine = `  条件: ${newExpression}`;
-    if (condLineIdx !== -1) {
-      // 替换现有条件行
-      lines[condLineIdx] = newLine;
+    if (newExpression) {
+      const newLine = `  条件: ${newExpression}`;
+      if (condLineIdx !== -1) {
+        // 替换现有条件行
+        lines[condLineIdx] = newLine;
+      } else {
+        // 在选项行之后插入
+        lines.splice(fallbackOptionLineIdx + 1, 0, newLine);
+      }
     } else {
-      // 在选项行之后插入
-      lines.splice(optionLineIdx + 1, 0, newLine);
-    }
-  } else {
     // 空表达式 → 删除条件行
     if (condLineIdx !== -1) {
       lines.splice(condLineIdx, 1);
@@ -508,6 +570,40 @@ function updateEditorConditionText(
   }
 
   return lines.join('\n');
+}
+
+function findOptionLineIndexByOrdinal(
+  lines: string[],
+  nodeTitle: string,
+  optionIndex: number,
+): number {
+  if (optionIndex < 0) return -1;
+
+  let inTargetNode = false;
+  let currentOptionIndex = -1;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+
+    if (new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`).test(line)) {
+      inTargetNode = true;
+      currentOptionIndex = -1;
+      continue;
+    }
+
+    if (inTargetNode && /^##\s+节点：/.test(line)) {
+      break;
+    }
+
+    if (inTargetNode && /^\[选项\]/.test(line)) {
+      currentOptionIndex += 1;
+      if (currentOptionIndex === optionIndex) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
 }
 
 /**
@@ -1116,7 +1212,6 @@ export function ConditionEditor({
   nodeId,
   optionIndex,
   onClose,
-  initialCondition,
 }: ConditionEditorProps): React.ReactElement | null {
   // ==========================================================================
   // Store 订阅
@@ -1138,55 +1233,65 @@ export function ConditionEditor({
 
   /** 当 nodeId + optionIndex 提供时，从 AST 查找已有条件 */
   const resolvedCondition = useMemo<ConditionNode | null>(() => {
-    if (nodeId === undefined || optionIndex === undefined || !plotFlowData) {
+    if (nodeId === undefined || optionIndex === undefined) {
       return null;
     }
-    for (const chapter of plotFlowData.chapters) {
-      for (const node of chapter.nodes) {
-        if (node.fullId === nodeId) {
-          const option = node.options[optionIndex];
-          return option?.condition ?? null;
+
+    if (plotFlowData) {
+      for (const chapter of plotFlowData.chapters) {
+        for (const node of chapter.nodes) {
+          if (node.fullId === nodeId) {
+            const option = node.options[optionIndex];
+            if (option?.condition) {
+              return option.condition;
+            }
+            break;
+          }
         }
       }
     }
-    return null;
-  }, [nodeId, optionIndex, plotFlowData]);
+
+    const nodeTitle = getNodeTitleFromNodeId(nodeId);
+    if (!nodeTitle) {
+      return null;
+    }
+
+    const expression = findConditionExpressionInContent(editorContent, nodeTitle, optionIndex);
+    if (!expression) {
+      return null;
+    }
+
+    const parsed = parseCondition(expression, variables);
+    if (!parsed.ok) {
+      return null;
+    }
+    return parsed.data;
+
+  }, [nodeId, optionIndex, plotFlowData, editorContent, variables]);
 
   // ==========================================================================
   // Builder 内部状态
   // ==========================================================================
 
   const [rootGroup, setRootGroup] = useState<ConditionGroup>(() => {
-    const seed = initialCondition ?? resolvedCondition;
-    if (seed) {
-      return conditionNodeToBuilder(seed, 0);
+    if (resolvedCondition) {
+      return conditionNodeToBuilder(resolvedCondition, 0);
     }
-    return {
-      id: nextId(),
-      operator: 'AND',
-      rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
-      groups: [],
-    };
+    return createEmptyConditionGroup();
   });
 
-  // 当 initialCondition prop 变化时重新初始化（editor text → panel 同步）
-  const prevConditionRef = useRef(initialCondition);
   useEffect(() => {
-    // 仅当 initialCondition 引用变化且面板打开时更新
-    if (initialCondition !== prevConditionRef.current && isOpen) {
-      prevConditionRef.current = initialCondition;
-      if (initialCondition) {
-        setRootGroup(conditionNodeToBuilder(initialCondition, 0));
-      } else {
-        setRootGroup({
-          id: nextId(),
-          operator: 'AND',
-          rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
-          groups: [],
-        });
-      }
+    if (!isOpen) return;
+
+    if (resolvedCondition) {
+      setRootGroup(conditionNodeToBuilder(resolvedCondition, 0));
+      return;
     }
-  }, [initialCondition, isOpen]);
+
+    setRootGroup(createEmptyConditionGroup());
+  }, [isOpen, resolvedCondition, nodeId, optionIndex]);
+
+  // initialCondition 的动态监听已在 V0.2 重构中移除（改用 resolvedCondition 一次初始化）
 
   // ==========================================================================
   // 表达式预览 (M3-06)
@@ -1223,25 +1328,26 @@ export function ConditionEditor({
     if (nodeId && optionIndex !== undefined && plotFlowData) {
       // 查找目标节点和选项
       let targetNodeTitle = '';
-      let targetOptionDesc = '';
+      let targetOptionLineNumber = 0;
 
       for (const chapter of plotFlowData.chapters) {
-        const node = chapter.nodes.find((n) => n.fullId === nodeId || n.id === nodeId);
+        const node = chapter.nodes.find((n) => n.fullId === nodeId);
         if (node) {
           targetNodeTitle = node.title;
           const option = node.options[optionIndex];
           if (option) {
-            targetOptionDesc = option.description;
+            targetOptionLineNumber = option.lineNumber;
           }
           break;
         }
       }
 
-      if (targetNodeTitle && targetOptionDesc) {
+      if (targetNodeTitle && targetOptionLineNumber > 0) {
         const newContent = updateEditorConditionText(
           editorContent,
           targetNodeTitle,
-          targetOptionDesc,
+          targetOptionLineNumber,
+          optionIndex,
           expression,
         );
         if (newContent !== editorContent) {
@@ -1381,7 +1487,7 @@ export function ConditionEditor({
               ...(!hasValidCondition ? applyButtonDisabledStyle : {}),
             }}
             onClick={handleApply}
-            disabled={!hasValidCondition && !initialCondition}
+            disabled={!hasValidCondition}
           >
             应用
           </button>
@@ -1445,7 +1551,7 @@ const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-modal, 1000)',
-  background: 'rgba(0, 0, 0, 0.35)',
+  background: 'var(--color-overlay-modal, rgba(0,0,0,0.35))',
 };
 
 // -------- Panel --------

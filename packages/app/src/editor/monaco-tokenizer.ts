@@ -76,9 +76,9 @@ const PLOTFLOW_MONARCH = {
         'heading',
       ],
 
-      // ── Option 行：[选项] 描述文本 → 绿色 ──
+      // ── Option 标记：[选项] → 绿色（仅标记本身，行内 -> 节点：由 target 规则着色） ──
       [
-        /^\[选项\].*$/,
+        /\[选项\]/,
         'option',
       ],
 

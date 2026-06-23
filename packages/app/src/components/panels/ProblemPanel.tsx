@@ -298,10 +298,10 @@ export function ProblemPanel(): React.ReactElement {
                         ...severityIconStyle,
                         color: `var(--color-diagnostic-${diagnostic.severity}, ${
                           diagnostic.severity === 'error'
-                            ? '#E53935'
+                            ? '#D32F2F'
                             : diagnostic.severity === 'warning'
                               ? '#F9A825'
-                              : '#1E88E5'
+                              : '#1976D2'
                         })`,
                       }}
                     >

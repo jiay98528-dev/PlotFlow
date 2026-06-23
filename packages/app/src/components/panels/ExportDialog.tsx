@@ -28,14 +28,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PlotFlowData } from '@plotflow/core';
 import { exportJSON, exportHTML, exportTXT } from '@plotflow/core';
 import { useStoryStore } from '../../stores/storyStore';
-import { useUIStore } from '../../stores/uiStore';
+import { useUIStore, type ExportFormat } from '../../stores/uiStore';
 
 // ============================================================================
 // 类型定义
 // ============================================================================
-
-/** 导出格式 */
-type ExportFormat = 'json' | 'html' | 'txt';
 
 /** 导出状态 */
 type ExportStatus = 'idle' | 'exporting' | 'success' | 'error';
@@ -98,6 +95,7 @@ const STATUS_LABEL: Readonly<Record<ExportStatus, string>> = {
 
 export function ExportDialog(): React.ReactElement | null {
   const isOpen = useUIStore((s) => s.isExportDialogOpen);
+  const requestedFormat = useUIStore((s) => s.exportDialogFormat);
   const closeExportDialog = useUIStore((s) => s.closeExportDialog);
   const storyData = useStoryStore((s) => s.plotFlowData);
 
@@ -138,6 +136,7 @@ export function ExportDialog(): React.ReactElement | null {
 
   useEffect(() => {
     if (isOpen) {
+      setSelectedFormat(requestedFormat);
       setExportStatus('idle');
       setStatusMessage('');
       // P0-5: 对话框重新打开时清除残留的自动关闭 timer
@@ -146,7 +145,7 @@ export function ExportDialog(): React.ReactElement | null {
         autoCloseTimerRef.current = undefined;
       }
     }
-  }, [isOpen]);
+  }, [isOpen, requestedFormat]);
 
   // P0-5: 组件卸载时清除自动关闭 timer
   useEffect(() => {
@@ -214,6 +213,7 @@ export function ExportDialog(): React.ReactElement | null {
         content,
         defaultPath: defaultFileName,
         filters: [{ name: filterName, extensions: [ext] }],
+        format: selectedFormat,
       });
 
       // 用户取消保存
@@ -453,7 +453,7 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0, 0, 0, 0.4)',
+  background: 'var(--color-overlay-modal, rgba(0,0,0,0.4))',
   zIndex: 1000,
   backdropFilter: 'blur(2px)',
 };

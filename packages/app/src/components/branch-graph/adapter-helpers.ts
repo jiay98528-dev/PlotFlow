@@ -29,6 +29,13 @@ import type { StoryNode } from '@plotflow/core';
  */
 export type NodeStatus = 'normal' | 'orphan' | 'deadend' | 'error';
 
+export const STATUS_TO_CLASS_MAP: Readonly<Record<NodeStatus, string>> = {
+  normal: 'node-status-normal',
+  orphan: 'node-status-orphan',
+  deadend: 'node-status-deadend',
+  error: 'node-status-error',
+};
+
 // ============================================================================
 // 核心判定函数
 // ============================================================================
