@@ -190,6 +190,15 @@ export async function forceSave(): Promise<void> {
     saveTimer = null;
   }
 
+  // 轮询等待正在进行的保存完成，防止 Ctrl+S 被静默丢弃
+  const MAX_WAIT_MS = 5000;
+  const POLL_INTERVAL_MS = 50;
+  let waited = 0;
+  while (isSaving && waited < MAX_WAIT_MS) {
+    await new Promise(function(r) { setTimeout(r, POLL_INTERVAL_MS); });
+    waited += POLL_INTERVAL_MS;
+  }
+
   // 如果有待保存的内容，立即保存
   if (pendingContent !== null && pendingPath !== null) {
     await performSave(pendingContent, pendingPath);

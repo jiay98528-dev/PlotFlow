@@ -26,9 +26,27 @@ import { ConditionEditor } from '../components/panels/ConditionEditor';
 import { StatusBar } from '../components/layout/StatusBar';
 import { ProblemPanel } from '../components/panels/ProblemPanel';
 import { CorpusManager } from '../components/panels/CorpusManager';
-import { clearPendingSave } from '../services/autoSaveService';
+import { clearPendingSave, saveOrSaveAs } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
+
+// ============================================================================
+// P0-5: 暴露给主进程的脏状态查询与强制保存接口
+// ============================================================================
+//
+// 主进程通过 mainWindow.webContents.executeJavaScript 调用这些函数，
+// 用于窗口关闭/应用退出时的脏状态检查与保存流程。
+// 渲染进程通过 window.plotflow.dialog.confirm() 调用原生对话框处理
+// 新建/打开文件时的脏状态确认。
+
+window.__getEditorDirtyState__ = () => {
+  const editor = useEditorStore.getState();
+  return { isDirty: editor.isDirty, filePath: editor.filePath };
+};
+
+window.__forceSave__ = async () => {
+  await saveOrSaveAs();
+};
 
 /**
  * PlotFlow Application Root
@@ -81,17 +99,17 @@ export function App(): React.ReactElement {
   // 订阅放在 App.tsx 全局层确保不受 GraphCanvas 条件渲染（minimap/split 切换）影响
   useEffect(() => {
     const unsubscribe = useGraphStore.subscribe(
-      (state, prevState) => {
-        if (state.selectedNodeId === prevState.selectedNodeId) return;
-        if (state.isEditing) return; // 连线拖拽等操作中跳过
+      (state) => state.selectedNodeId,
+      (selectedNodeId, prevSelectedNodeId) => {
+        if (selectedNodeId === prevSelectedNodeId) return;
+        if (useGraphStore.getState().isEditing) return; // 连线拖拽等操作中跳过
 
-        const nodeId = state.selectedNodeId;
-        if (!nodeId) {
+        if (!selectedNodeId) {
           useEditorStore.getState().setActiveNodeId(null);
           return;
         }
 
-        const node = state.nodes.find((n) => n.id === nodeId);
+        const node = useGraphStore.getState().nodes.find((n) => n.id === selectedNodeId);
         const nodeData = node?.data as StoryFlowNodeData | undefined;
         if (nodeData?.fullId && nodeData?.lineNumber) {
           useEditorStore.getState().setActiveNodeId(nodeData.fullId);
@@ -103,17 +121,166 @@ export function App(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  const handleTemplateSelected = useCallback(
-    (template: string, meta: { readonly title: string; readonly author: string }) => {
-      clearPendingSave();
+  // P0: isEditing 锁释放 → 自动重解析（防止编辑锁期间的内容变更丢失）
+  useEffect(() => {
+    const unsub = useGraphStore.subscribe(
+      (s) => s.isEditing,
+      (editing, wasEditing) => {
+        if (wasEditing && !editing) {
+          const content = useEditorStore.getState().content;
+          if (content) {
+            parsePipelineNow(content);
+          }
+        }
+      },
+    );
+    return unsub;
+  }, []);
+
+  // P0-6: 挂载时检查系统双击/命令行传入的待打开文件 (M7-08)
+  // 窗口首次挂载时调用 getPendingOpenFile()，消费文件打开系统事件。
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!window.plotflow?.file?.getPendingOpenFile) return;
+
+      const pending = await window.plotflow.file.getPendingOpenFile();
+      if (!pending || cancelled) return;
+
+      const { filePath, content } = pending;
       const editor = useEditorStore.getState();
-      editor.setFilePath(null);
-      editor.setDiagnostics([]);
-      editor.setActiveNodeId(null);
-      editor.setCursorPosition(1, 1);
+
+      // P0-5: 文件打开前检查是否有未保存的更改
+      if (editor.isDirty) {
+        const choice = await window.plotflow.dialog.confirm({
+          type: 'warning',
+          message: '放弃未保存的更改？',
+          detail: editor.filePath
+            ? `"${editor.filePath}" 有未保存的修改。打开新文件前是否保存？`
+            : '未命名的文件有未保存的修改。打开新文件前是否保存？',
+          buttons: ['保存并打开', '不保存并打开', '取消'],
+        });
+
+        if (cancelled) return;
+
+        if (choice === 0) {
+          await saveOrSaveAs();
+        } else if (choice === 2) {
+          return; // 取消打开
+        }
+        // choice === 1: 不保存，继续打开
+      }
+
+      if (cancelled) return;
+
+      clearPendingSave();
+      const freshEditor = useEditorStore.getState();
+      freshEditor.setFilePath(filePath);
+      freshEditor.setDiagnostics([]);
+      freshEditor.setActiveNodeId(null);
+      freshEditor.setCursorPosition(1, 1);
       useStoryStore.getState().clearParseData();
       useGraphStore.getState().syncFromAST(null);
-      editor.setContent(template);
+      freshEditor.setContent(content);
+      freshEditor.markSaved();
+      parsePipelineNow(content);
+      setStatusMessage(`已打开: ${filePath}`);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setStatusMessage]);
+
+  // P0-6: 运行时监听系统文件打开通知（应用已运行，用户双击 .mdstory 文件时触发）
+  useEffect(() => {
+    if (!window.plotflow?.file?.onSystemOpenFile) return;
+
+    const cleanup = window.plotflow.file.onSystemOpenFile(async (filePath: string) => {
+      const editor = useEditorStore.getState();
+
+      // P0-5: 文件打开前检查是否有未保存的更改
+      if (editor.isDirty) {
+        const choice = await window.plotflow.dialog.confirm({
+          type: 'warning',
+          message: '放弃未保存的更改？',
+          detail: editor.filePath
+            ? `"${editor.filePath}" 有未保存的修改。打开新文件前是否保存？`
+            : '未命名的文件有未保存的修改。打开新文件前是否保存？',
+          buttons: ['保存并打开', '不保存并打开', '取消'],
+        });
+
+        if (choice === 0) {
+          await saveOrSaveAs();
+        } else if (choice === 2) {
+          return; // 取消打开
+        }
+        // choice === 1: 不保存，继续打开
+      }
+
+      // 通过 IPC 读取文件内容
+      if (!window.plotflow?.file?.readByPath) {
+        setStatusMessage('读取文件失败: IPC 接口不可用');
+        return;
+      }
+
+      const result = await window.plotflow.file.readByPath(filePath);
+      if (!result) {
+        setStatusMessage(`无法读取文件: ${filePath}`);
+        return;
+      }
+
+      clearPendingSave();
+      const freshEditor = useEditorStore.getState();
+      freshEditor.setFilePath(result.filePath);
+      freshEditor.setDiagnostics([]);
+      freshEditor.setActiveNodeId(null);
+      freshEditor.setCursorPosition(1, 1);
+      useStoryStore.getState().clearParseData();
+      useGraphStore.getState().syncFromAST(null);
+      freshEditor.setContent(result.content);
+      freshEditor.markSaved();
+      parsePipelineNow(result.content);
+      setStatusMessage(`已打开: ${result.filePath}`);
+    });
+
+    return cleanup;
+  }, [setStatusMessage]);
+
+  const handleTemplateSelected = useCallback(
+    async (template: string, meta: { readonly title: string; readonly author: string }) => {
+      const editor = useEditorStore.getState();
+
+      // P0-5: 新建模板前检查是否有未保存的更改
+      if (editor.isDirty) {
+        const choice = await window.plotflow.dialog.confirm({
+          type: 'warning',
+          message: '放弃未保存的更改？',
+          detail: editor.filePath
+            ? `"${editor.filePath}" 有未保存的修改。创建新文件前是否保存？`
+            : '未命名的文件有未保存的修改。创建新文件前是否保存？',
+          buttons: ['保存并新建', '不保存并新建', '取消'],
+        });
+
+        if (choice === 0) {
+          await saveOrSaveAs();
+        } else if (choice === 2) {
+          return; // 取消新建
+        }
+        // choice === 1: 不保存，继续新建
+      }
+
+      clearPendingSave();
+      // 重新获取最新的 editor 引用（saveOrSaveAs 可能已更新状态）
+      const freshEditor = useEditorStore.getState();
+      freshEditor.setFilePath(null);
+      freshEditor.setDiagnostics([]);
+      freshEditor.setActiveNodeId(null);
+      freshEditor.setCursorPosition(1, 1);
+      useStoryStore.getState().clearParseData();
+      useGraphStore.getState().syncFromAST(null);
+      freshEditor.setContent(template);
       parsePipelineNow(template);
       setStatusMessage(`新建: ${meta.title}`);
     },
@@ -126,6 +293,48 @@ export function App(): React.ReactElement {
     },
     [setLanguage],
   );
+
+  useEffect(() => {
+    if (!window.plotflow?.env?.isTest) {
+      return undefined;
+    }
+
+    window.__test_store__ = {
+      getEditorContent: () => useEditorStore.getState().content,
+      setEditorContent: (content: string) => {
+        clearPendingSave();
+
+        const editor = useEditorStore.getState();
+        editor.setDiagnostics([]);
+        editor.setActiveNodeId(null);
+        editor.setCursorPosition(1, 1);
+
+        useStoryStore.getState().clearParseData();
+        useGraphStore.getState().syncFromAST(null);
+
+        editor.setContent(content);
+        parsePipelineNow(content);
+      },
+      openConditionEditor: (nodeId: string, optionIndex: number) => {
+        useUIStore.getState().openConditionEditor(nodeId, optionIndex);
+      },
+      getUIState: () => {
+        const state = useUIStore.getState();
+        return {
+          isConditionEditorOpen: state.isConditionEditorOpen,
+          conditionEditorNodeId: state.conditionEditorNodeId,
+          conditionEditorOptionIndex: state.conditionEditorOptionIndex,
+          activeRightPanel: state.activeRightPanel,
+          isExportDialogOpen: state.isExportDialogOpen,
+          isNewFileDialogOpen: state.isNewFileDialogOpen,
+        };
+      },
+    };
+
+    return () => {
+      delete window.__test_store__;
+    };
+  }, []);
 
   const showSplitGraph = activeRightPanel === 'graph' && viewMode === 'split';
   const showMinimap = activeRightPanel === 'graph' && viewMode === 'minimap';
@@ -153,7 +362,7 @@ export function App(): React.ReactElement {
                 <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
                 <span>{t('toolbar.newFile')}</span>
               </button>
-              <button type="button" className="toolbar-button" onClick={openExportDialog}>
+              <button type="button" className="toolbar-button" onClick={() => openExportDialog()}>
                 <Download aria-hidden="true" size={15} strokeWidth={2} />
                 <span>{t('toolbar.export')}</span>
               </button>

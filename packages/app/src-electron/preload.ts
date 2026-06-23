@@ -15,10 +15,24 @@ const menuListeners = new Map<string, () => void>();
 
 contextBridge.exposeInMainWorld('plotflow', {
   platform: process.platform,
+  env: {
+    isTest: process.env['NODE_ENV'] === 'test',
+  },
   versions: {
     node: process.versions.node,
     electron: process.versions.electron,
     chrome: process.versions.chrome,
+  },
+
+  // ── 对话框 — P0-5 ──
+  dialog: {
+    confirm: (options: {
+      type?: 'none' | 'info' | 'error' | 'question' | 'warning';
+      message: string;
+      detail: string;
+      buttons: readonly string[];
+    }): Promise<number> =>
+      ipcRenderer.invoke('dialog:confirm', options),
   },
 
   // ── 文件操作 — M1-13 ──
@@ -28,7 +42,7 @@ contextBridge.exposeInMainWorld('plotflow', {
       ipcRenderer.invoke('file:save', { path, content }),
     saveAs: (content: string) =>
       ipcRenderer.invoke('file:saveAs', { content }),
-    saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }> }) =>
+    saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }>; format: string }) =>
       ipcRenderer.invoke('file:export', options),
 
     // ── 系统文件打开 (M7-08) ──
@@ -53,6 +67,13 @@ contextBridge.exposeInMainWorld('plotflow', {
         ipcRenderer.removeListener('file:system-open-notify', listener);
       };
     },
+
+    /**
+     * 按路径读取 .mdstory 文件内容。
+     * 用于运行时系统文件打开通知后加载文件内容。
+     */
+    readByPath: (path: string): Promise<{ filePath: string; content: string } | null> =>
+      ipcRenderer.invoke('file:readByPath', { path }),
   },
 
   // ── 菜单事件 — M1-17 ──

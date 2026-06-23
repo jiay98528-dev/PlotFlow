@@ -120,12 +120,12 @@ export function buildMenu(): Menu {
         {
           label: '撤销',
           accelerator: 'CmdOrCtrl+Z',
-          role: 'undo',
+          click: () => sendToRenderer('menu:edit:undo'),
         },
         {
           label: '重做',
-          accelerator: 'CmdOrCtrl+Y',
-          role: 'redo',
+          accelerator: IS_MAC ? 'Cmd+Shift+Z' : 'CmdOrCtrl+Y',
+          click: () => sendToRenderer('menu:edit:redo'),
         },
         { type: 'separator' },
         {

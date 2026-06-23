@@ -39,6 +39,7 @@ export interface FileAPI {
     content: string;
     defaultPath: string;
     filters: Array<{ name: string; extensions: string[] }>;
+    format: string;
   }) => Promise<{ filePath: string } | null>;
 
   /**
@@ -59,6 +60,15 @@ export interface FileAPI {
    * @returns 清理函数，用于移除事件监听器
    */
   onSystemOpenFile: (callback: (filePath: string) => void) => () => void;
+
+  /**
+   * 按路径读取 .mdstory 文件内容 (M7-08)。
+   * 用于运行时系统文件打开通知后加载文件内容。
+   *
+   * @param path - 文件绝对路径
+   * @returns 文件内容及路径，读取失败返回 null
+   */
+  readByPath: (path: string) => Promise<{ filePath: string; content: string } | null>;
 }
 
 /** Electron 版本信息 */
@@ -78,6 +88,8 @@ export type MenuEventChannel =
   | 'menu:file:open'
   | 'menu:file:save'
   | 'menu:file:saveAs'
+  | 'menu:edit:undo'
+  | 'menu:edit:redo'
   | 'menu:edit:find'
   | 'menu:edit:replace'
   | 'menu:view:toggleOutline'
@@ -116,23 +128,94 @@ export interface MenuAPI {
 }
 
 // ============================================================================
+// 对话框 API 类型
+// ============================================================================
+
+/** 对话框确认选项 */
+export interface DialogConfirmOptions {
+  readonly type?: 'none' | 'info' | 'error' | 'question' | 'warning';
+  readonly message: string;
+  readonly detail: string;
+  readonly buttons: readonly string[];
+}
+
+/** 对话框 API — 从渲染进程调用原生系统对话框 */
+export interface DialogAPI {
+  /**
+   * 显示原生消息对话框并返回用户点击的按钮索引（0-based）。
+   *
+   * @param options - 对话框配置
+   * @returns 用户点击的按钮索引，或 -1 表示对话框被关闭
+   */
+  confirm: (options: DialogConfirmOptions) => Promise<number>;
+}
+
+// ============================================================================
 // 主 API 类型
 // ============================================================================
 
 /** 暴露到 window 的 PlotFlow 主 API */
 export interface PlotFlowAPI {
   readonly platform: NodeJS.Platform;
+  readonly env: {
+    readonly isTest: boolean;
+  };
   readonly versions: Versions;
   readonly file: FileAPI;
   readonly menu: MenuAPI;
+  readonly dialog: DialogAPI;
 }
 
 // ============================================================================
 // 全局 Window 声明
 // ============================================================================
 
+/**
+ * 编辑器脏状态快照 — 由渲染进程暴露，主进程通过 executeJavaScript 调用。
+ *
+ * @see App.tsx — window.__getEditorDirtyState__ 的实现
+ * @see main.ts — 窗口关闭拦截器
+ */
+export interface EditorDirtyState {
+  readonly isDirty: boolean;
+  readonly filePath: string | null;
+}
+
+/** 仅测试态暴露的桥接 API */
+export interface TestStoreBridge {
+  getEditorContent: () => string;
+  setEditorContent: (content: string) => void;
+  openConditionEditor: (nodeId: string, optionIndex: number) => void;
+  getUIState: () => {
+    readonly isConditionEditorOpen: boolean;
+    readonly conditionEditorNodeId: string | null;
+    readonly conditionEditorOptionIndex: number | null;
+    readonly activeRightPanel: string;
+    readonly isExportDialogOpen: boolean;
+    readonly isNewFileDialogOpen: boolean;
+  };
+}
+
 declare global {
   interface Window {
     readonly plotflow: PlotFlowAPI;
+
+    /**
+     * 返回编辑器当前脏状态快照。
+     * 由主进程通过 executeJavaScript 调用，用于窗口关闭前的脏检查。
+     */
+    __getEditorDirtyState__?: () => EditorDirtyState;
+
+    /**
+     * 触发强制保存（包括新文件和已有文件）。
+     * 由主进程通过 executeJavaScript 调用，用于窗口关闭时保存未保存内容。
+     */
+    __forceSave__?: () => Promise<void>;
+
+    /**
+     * 仅在 Playwright / E2E 测试环境暴露的状态桥接。
+     * 生产环境不会挂载。
+     */
+    __test_store__?: TestStoreBridge;
   }
 }

@@ -75,17 +75,39 @@ export function useMenuEvents(): void {
 
     menu.onEvent('menu:file:open', async () => {
       try {
+        // P0-5: 打开新文件前检查是否有未保存的更改
+        const editor = useEditorStore.getState();
+        if (editor.isDirty) {
+          const choice = await window.plotflow.dialog.confirm({
+            type: 'warning',
+            message: '放弃未保存的更改？',
+            detail: editor.filePath
+              ? `"${editor.filePath}" 有未保存的修改。打开其他文件前是否保存？`
+              : '未命名的文件有未保存的修改。打开其他文件前是否保存？',
+            buttons: ['保存并打开', '不保存并打开', '取消'],
+          });
+
+          if (choice === 0) {
+            await saveOrSaveAs();
+          } else if (choice === 2) {
+            return; // 取消打开
+          }
+          // choice === 1: 不保存，继续打开
+        }
+
         const result = await fileService.openFile();
+        if (!result) return; // 用户取消了文件打开对话框
+
         // 清除防抖定时器
         clearPendingSave();
-        // 写入编辑器内容并更新文件路径
-        const editor = useEditorStore.getState();
-        editor.setDiagnostics([]);
-        editor.setActiveNodeId(null);
-        editor.setCursorPosition(1, 1);
-        editor.setContent(result.content);
-        editor.setFilePath(result.path);
-        editor.markSaved();
+        // 重新获取最新的 editor 引用（saveOrSaveAs 可能已更新路径）
+        const freshEditor = useEditorStore.getState();
+        freshEditor.setDiagnostics([]);
+        freshEditor.setActiveNodeId(null);
+        freshEditor.setCursorPosition(1, 1);
+        freshEditor.setContent(result.content);
+        freshEditor.setFilePath(result.path);
+        freshEditor.markSaved();
         // 清除旧 AST 数据（新内容将在解析后自动更新）
         useStoryStore.getState().clearParseData();
         // 状态栏反馈
@@ -133,6 +155,16 @@ export function useMenuEvents(): void {
       editor?.getAction('editor.action.startFindReplaceAction')?.run();
     });
 
+    menu.onEvent('menu:edit:undo', () => {
+      const editor = useEditorStore.getState().editorInstance;
+      editor?.trigger('keyboard', 'undo', null);
+    });
+
+    menu.onEvent('menu:edit:redo', () => {
+      const editor = useEditorStore.getState().editorInstance;
+      editor?.trigger('keyboard', 'redo', null);
+    });
+
     // ====================================================================
     // 视图菜单
     // ====================================================================
@@ -164,15 +196,15 @@ export function useMenuEvents(): void {
     // ====================================================================
 
     menu.onEvent('menu:export:json', () => {
-      useUIStore.getState().openExportDialog();
+      useUIStore.getState().openExportDialog('json');
     });
 
     menu.onEvent('menu:export:html', () => {
-      useUIStore.getState().openExportDialog();
+      useUIStore.getState().openExportDialog('html');
     });
 
     menu.onEvent('menu:export:txt', () => {
-      useUIStore.getState().openExportDialog();
+      useUIStore.getState().openExportDialog('txt');
     });
 
     // ====================================================================
