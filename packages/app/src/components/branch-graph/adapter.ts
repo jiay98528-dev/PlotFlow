@@ -8,7 +8,7 @@
  * - StoryNode → React Flow Node
  *   - id: node.fullId
  *   - data: { title, body, optionCount, status }
- *   - position: 由 layoutNodes() 计算
+ *   - position: 优先使用 .mdstory layout.graph.nodes，缺失时由 layoutNodes() 计算
  * - Option → React Flow Edge
  *   - id: "{sourceFullId}->{targetFullId}#{optionIndex}"
  *   - source: node.fullId
@@ -55,7 +55,14 @@ let layoutCache: LayoutCache | null = null;
 function computeStructuralHash(nodes: Node<StoryFlowNodeData>[], edges: Edge[]): string {
   const sortedNodeIds = nodes.map((n) => n.id).sort();
   const sortedEdgePairs = edges.map((e) => `${e.source}:${e.target}`).sort();
-  return JSON.stringify([nodes.length, edges.length, sortedNodeIds, sortedEdgePairs]);
+  const sortedPositions = nodes
+    .filter((node) => node.data.persistedPosition)
+    .map((node) => {
+      const position = node.data.persistedPosition as { x: number; y: number };
+      return `${node.id}:${position.x}:${position.y}`;
+    })
+    .sort();
+  return JSON.stringify([nodes.length, edges.length, sortedNodeIds, sortedEdgePairs, sortedPositions]);
 }
 
 // ============================================================================
@@ -81,6 +88,9 @@ export type StoryFlowNodeData = Record<string, unknown> & {
 
   /** 在源文件中的行号（1-based），用于编辑器联动跳转 */
   lineNumber: number;
+
+  /** .mdstory 中持久化的 Graph Lab 位置 */
+  persistedPosition?: { x: number; y: number };
 };
 
 // ============================================================================
@@ -173,7 +183,7 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     return {
       id: uniqueIds[idx]!,
       type: 'storyNode',
-      position: { x: 0, y: 0 },
+      position: node.position ? { ...node.position } : { x: 0, y: 0 },
       width: NODE_DIMENSIONS.width,
       height: NODE_DIMENSIONS.height,
       className: STATUS_TO_CLASS_MAP[status],
@@ -184,6 +194,7 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
         optionCount: node.options.length,
         status,
         lineNumber: node.lineNumber,
+        persistedPosition: node.position ? { ...node.position } : undefined,
       },
     };
   });
@@ -200,8 +211,15 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     return { nodes: flowNodes, edges: flowEdges };
   }
 
-  // 步骤 7: 调用 Dagre 布局计算位置并缓存结果
+  // 步骤 7: 调用 Dagre 布局计算位置，再用 .mdstory 手动坐标覆盖自动位置
   const result = layoutNodes(flowNodes, flowEdges);
+  result.nodes = result.nodes.map((node) => {
+    const persistedPosition = node.data.persistedPosition as { x: number; y: number } | undefined;
+    const cachedPosition = layoutCache?.positions[node.id];
+    if (persistedPosition) return { ...node, position: { ...persistedPosition } };
+    if (cachedPosition) return { ...node, position: { ...cachedPosition } };
+    return node;
+  });
   layoutCache = {
     hash: structuralHash,
     positions: Object.fromEntries(result.nodes.map((n) => [n.id, { ...n.position }])),

@@ -384,6 +384,8 @@ export function ExportDialog(): React.ReactElement | null {
           <button
             type="button"
             onClick={handleExport}
+            data-testid="export-dialog-submit"
+            data-export-status={exportStatus}
             style={{
               ...exportButtonStyle,
               ...(exportStatus === 'exporting' ? exportButtonDisabledStyle : {}),

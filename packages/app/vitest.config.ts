@@ -4,7 +4,7 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: {
-      'monaco-editor': path.resolve(__dirname, '../../node_modules/monaco-editor/esm/vs/editor/editor.api.js'),
+      'monaco-editor': path.resolve(__dirname, 'node_modules/monaco-editor/esm/vs/editor/editor.api.js'),
     },
   },
   test: {

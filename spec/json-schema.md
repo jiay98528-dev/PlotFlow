@@ -390,7 +390,7 @@ PlotFlow 支持 6 种变量类型：
             "y": { "type": "number", "description": "Y coordinate in graph layout." }
           },
           "additionalProperties": false,
-          "description": "Graph layout position for the branch visualization."
+          "description": "Graph layout position for the branch visualization. Exporters SHOULD use .mdstory layout.graph.nodes when present and fall back to { x: 0, y: 0 } or computed editor layout when absent."
         },
         "isRoot": {
           "type": "boolean",
@@ -419,7 +419,7 @@ PlotFlow 支持 6 种变量类型：
 | `title` | string | **是** | 节点显示名称 |
 | `body` | string[] | **是** | 描述文本数组，每个元素为一个段落 |
 | `options` | array | **是** | 该节点的选项列表，可为空数组（死胡同节点） |
-| `position` | object | **是** | 分支图中的布局坐标 `{x, y}` |
+| `position` | object | **是** | 分支图中的布局坐标 `{x, y}`；优先来自 `.mdstory` 的 `layout.graph.nodes`，缺失时使用导出器 fallback |
 | `isRoot` | boolean | **是** | 是否为故事起始节点（仅第一个章节的第一个节点为 true） |
 | `isOrphan` | boolean | **是** | 诊断：是否为孤立节点（无入口路径，根节点除外） |
 | `isDeadEnd` | boolean | **是** | 诊断：是否为死胡同（无出口选项） |

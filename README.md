@@ -2,11 +2,11 @@
 
 > **面向独立游戏开发者的叙事分支管理工具。**
 >
-> 用 Markdown 方言（`.mdstory`）写分支剧情，实时可视化分支图，一键导出 JSON/HTML/TXT。
+> 用 Markdown 方言（`.mdstory`）或 Graph Lab 流程图模式管理分支剧情，一键导出 JSON/HTML/TXT。
 > 不锁死数据，不强制联网，$29 买断。
 
 [![License](https://img.shields.io/badge/license-Proprietary-red)](LICENSE)
-[![Electron](https://img.shields.io/badge/Electron-28-47848F?logo=electron)](https://electronjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-42-47848F?logo=electron)](https://electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 
@@ -14,7 +14,7 @@
 
 ## 这是什么？
 
-PlotFlow 是一款**本地优先的叙事分支编辑器**。你在左侧写 Markdown 方言文本，右侧实时渲染可拖拽的分支流程图。写完后一键导出为 JSON（给程序员接引擎）、HTML（可玩的网页版）、或 TXT（纯文本阅读版）。
+PlotFlow 是一款**本地优先的叙事分支编辑器**。当前提供两个核心入口：Split 分栏模式适合直接编辑 Markdown 方言源文本，Graph Lab 模式适合在全屏流程图、节点面板、Inspector 和 Source Drawer 中完成 GUI 图形化创作；`.mdstory` 仍是唯一磁盘文件格式。
 
 **目标用户**：独立游戏开发者（1-5 人团队）、游戏设计院校师生、视觉小说/互动小说制作者。
 
@@ -23,7 +23,7 @@ PlotFlow 是一款**本地优先的叙事分支编辑器**。你在左侧写 Mar
 ## 核心闭环
 
 ```
-写 .mdstory 文本 → 看实时分支图 → 检查语法错误 → 一键导出 → 引擎加载
+打开 .mdstory → Split 文本编辑或 Graph Lab 图形编辑 → 检查语法错误 → 一键导出 → 引擎加载
 ```
 
 ---
@@ -34,12 +34,13 @@ PlotFlow 是一款**本地优先的叙事分支编辑器**。你在左侧写 Mar
 |------|------|
 | 📝 **Monaco 编辑器** | VS Code 内核，PlotFlow 语法高亮 + 智能补全 |
 | 🌳 **实时分支图** | React Flow 可拖拽节点图，文本 ↔ 图形双向同步 |
+| 🧭 **Graph Lab** | 全屏流程图优先编辑，Palette 创建节点，Inspector 编辑内容/选项/条件/效果/变量，Source Drawer 辅助定位源文本 |
 | 🔧 **条件编辑器** | Airtable 风格零代码条件构建器 |
 | 🚨 **三级错误检测** | 8 种错误 + 6 种警告 + 3 种建议，波浪线标记 |
 | 👻 **幽灵补全** | N-gram 本地引擎，预测节点标题/选项句式/正文描述/变量名 |
 | 📤 **多格式导出** | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
 | 🎮 **Godot 插件** | 编辑器 Dock 面板 + 运行时库（条件评估、变量管理） |
-| 🌓 **双主题** | 暗色/亮色即时切换，CSS 变量驱动 |
+| 🌓 **官方主题中心** | 内置 `叙事工作台` 与 `夜航蓝图` 两套官方主题，节点、线缆、面板、Monaco 配色和动效即时热切换 |
 | 🌍 **中英双语** | 完整 UI 国际化覆盖 |
 
 ---
@@ -48,7 +49,7 @@ PlotFlow 是一款**本地优先的叙事分支编辑器**。你在左侧写 Mar
 
 | 层级 | 选型 |
 |------|------|
-| 桌面框架 | Electron 28 |
+| 桌面框架 | Electron 42 |
 | 前端 | React 18 + TypeScript 5 (strict) |
 | 构建 | Vite 5 + pnpm workspace |
 | 编辑器 | Monaco Editor |
@@ -104,18 +105,19 @@ PlotFlow/
 
 | 里程碑 | 名称 | 预估 | 进度 |
 |:---:|------|:---:|:---:|
-| M0 | 项目脚手架 | 2-3 天 | ✅ 100% |
+| M0 | 项目脚手架 | 2-3 天 | ✅ 92.31%（1 项移除） |
 | M1 | 核心解析与编辑 | 3-4 天 | ✅ 100% |
 | M2 | 分支可视化 | 3 天 | ✅ 100% |
 | M3 | 条件编辑与错误检测 | 2 天 | ✅ 100% |
-| M4 | 导出系统 | 2 天 | 🔵 92% |
-| M5 | 补全引擎 | 2 天 | ✅ 100% |
+| M4 | 导出系统 | 2 天 | ✅ 96.15%（1 项延后） |
+| M5 | 补全引擎 | 2 天 | ✅ 94.74%（1 项延后） |
 | M6 | 模板与主题 | 1 天 | ✅ 100% |
-| M7 | Electron 打包发布 | 2 天 | ⬜ |
+| M7 | Electron 打包发布 | 2 天 | 🔵 53.33%（7 项延后） |
+| M8 | Graph Lab Core | 图优先正式入口 | 🔵 17/18 |
 
 详见 [`spec/milestones.md`](spec/milestones.md)
 
-当前总进度见 [`spec/progress.md`](spec/progress.md)：125/142 项完成（88%），下一阶段为 M7 打包发布。
+当前 M0-M7 历史总进度见 [`spec/progress.md`](spec/progress.md)：132/142 项完成（92.96%），9 项延后，1 项移除。发行门禁当前本地通过：默认 app E2E 为 39/39 passed；`pnpm audit --audit-level moderate` 无已知漏洞；Windows NSIS 正式包与 packaged smoke 已通过。M8 Graph Lab Core 是新增图优先范围，不混入旧 142 项统计；当前 17/18，剩余发布说明/帮助文案收尾。
 
 ---
 

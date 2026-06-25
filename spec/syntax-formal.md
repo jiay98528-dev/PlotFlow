@@ -111,6 +111,7 @@ Frontmatter
 
 YAMLBlock
     = MetaFields
+      [ LayoutDecl ]
       VariableDeclarations
     ;
 
@@ -141,10 +142,45 @@ EngineValue
     = "godot" | "unity" | "unreal" | "none"
     ;
 
+LayoutDecl
+    = "layout:" NL
+      Indent "graph:" NL
+      Indent Indent "version:" WS Integer NL
+      Indent Indent "nodes:" NL
+      { GraphLayoutNode }
+    ;
+
+GraphLayoutNode
+    = Indent Indent Indent "-" WS "id:" WS StringValue NL
+      Indent Indent Indent "x:" WS NumberValue NL
+      Indent Indent Indent "y:" WS NumberValue NL
+    ;
+
 VariableDeclarations
     = "vars:" NL { Indent VariableDecl }
     ;
 ```
+
+### 2.1.1 Graph Layout 块（可选）
+
+`layout.graph.nodes` 是 Graph Lab / 分支图的手动布局投影，不属于剧情语义。旧文件可以完全没有该块；解析器必须继续用 Dagre 自动布局。存在该块时，节点坐标按 `id` 匹配到节点完整 ID。
+
+```yaml
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "第一章-村口"
+        x: 120
+        y: 80
+```
+
+规则：
+
+- `version` 当前固定为 `1`；未知版本不得阻断剧情解析，但可以忽略布局。
+- `id` 使用节点完整 ID；重复 ID 时以后出现的同名布局项覆盖前者。
+- `x` / `y` 必须是有限数字；非法坐标项应被忽略，不应导致 `.mdstory` 无法打开。
+- 节点重命名、章节移动或删除时，Graph Lab 写回逻辑必须迁移或清理对应布局项。
 
 ### 2.2 变量声明语法
 
@@ -237,7 +273,7 @@ VarName
 ```
 int, float, bool, string, enum, object,
 true, false, AND, OR, NOT, none,
-plotflow, title, author, engine, vars
+plotflow, title, author, engine, layout, graph, version, nodes, x, y, vars
 ```
 
 ### 2.6 字符串值
@@ -251,6 +287,22 @@ StringValue
 
 UnquotedString
     = ? 不含 ":"、换行符、首尾空白的非空字符序列 ?
+    ;
+```
+
+### 2.7 数字值
+
+```ebnf
+Integer
+    = Digit { Digit }
+    ;
+
+NumberValue
+    = [ "-" ] Digit { Digit } [ "." Digit { Digit } ]
+    ;
+
+Digit
+    = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
     ;
 ```
 

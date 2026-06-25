@@ -187,8 +187,8 @@ export function useMenuEvents(): void {
       useUIStore.getState().toggleProblemPanel();
     });
 
-    menu.onEvent('menu:view:toggleTheme', () => {
-      useUIStore.getState().toggleTheme();
+    menu.onEvent('menu:view:themeBrowser', () => {
+      useUIStore.getState().openThemeCenter();
     });
 
     // ====================================================================

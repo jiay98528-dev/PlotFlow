@@ -3,9 +3,10 @@
 > 版本：V0.2 | 日期：2026-06-13 | 更新：标注模型分配与串并行策略
 > 关联文档：`PRD.md`（功能规格）、`CLAUDE.md`（开发规范 + 工作流策略）
 > 
-> **归档注记（2026-06-20）**：本文档是 V0.1-V0.2 开发阶段的历史规划与模型分配参考。
-> 当前实际进度以 `spec/progress.md` 为准（132/142, 93%）。里程碑任务定义已全部落地，
-> 剩余 10 项为 M7 打包发布相关。V0.3 开发不再需要此规划文档作为基线。
+> **归档注记（2026-06-24）**：本文档是 V0.1-V0.2 开发阶段的历史规划与模型分配参考。
+> 当前实际进度以 `spec/progress.md` 为准（M0-M7 为 132/142, 92.96%；9 项延后，1 项移除）。
+> M8 Graph Lab Core 是 2026-06-23 新增图优先范围，在 `spec/progress.md` 单独跟踪，
+> 不混入本文档的 M0-M7 142 项历史规划。
 
 ---
 
@@ -48,7 +49,7 @@
 | #      | 任务                                   | 产出                                                              |
 | ------ | -------------------------------------- | ----------------------------------------------------------------- |
 | M0-01  | pnpm workspace monorepo 初始化         | `pnpm-workspace.yaml`，`packages/app/` + `packages/core/` 骨架    |
-| M0-02  | Electron 28+ 主进程骨架                | `packages/app/src/main/`，`pnpm dev` 可启动空白窗口               |
+| M0-02  | Electron 主进程骨架                    | `packages/app/src/main/`，`pnpm dev` 可启动空白窗口               |
 | M0-03  | React 18 + TypeScript 5 渲染进程骨架   | `packages/app/src/renderer/`，Vite 构建通过                       |
 | M0-04  | TypeScript strict mode                | 全项目 `tsconfig.json`，`tsc --noEmit` 零错误                     |
 | M0-05  | ESLint + Prettier 配置                 | `.eslintrc.cjs`、`.prettierrc`，`eslint src/` 零警告              |

@@ -7,6 +7,9 @@
  * @module types/electron
  */
 
+import type { Diagnostic } from '@plotflow/core';
+import type { ThemePackManifest, ThemePackSummary } from '../theme/themePack';
+
 // ============================================================================
 // 文件操作类型
 // ============================================================================
@@ -21,6 +24,20 @@ export interface FileOpenResult {
 export interface FileSaveResult {
   readonly success: boolean;
   readonly timestamp: number;
+}
+
+export interface WorkspaceStoryFile {
+  readonly filePath: string;
+  readonly relativePath: string;
+  readonly name: string;
+  readonly size: number;
+  readonly modifiedAt: number;
+}
+
+export interface WorkspaceStoriesResult {
+  readonly rootPath: string;
+  readonly files: readonly WorkspaceStoryFile[];
+  readonly truncated: boolean;
 }
 
 /** 文件操作 API */
@@ -69,6 +86,22 @@ export interface FileAPI {
    * @returns 文件内容及路径，读取失败返回 null
    */
   readByPath: (path: string) => Promise<{ filePath: string; content: string } | null>;
+
+  /**
+   * 选择 PlotFlow 工作区并浅递归扫描 .mdstory 文件。
+   * 只返回受限扫描结果，不读取文件内容。
+   */
+  chooseWorkspaceFolder: () => Promise<WorkspaceStoriesResult | null>;
+
+  /**
+   * 刷新已选择工作区内的 .mdstory 文件列表。
+   */
+  listWorkspaceStories: (rootPath: string) => Promise<WorkspaceStoriesResult>;
+
+  /**
+   * 读取工作区内的 .mdstory 文件。主进程会验证 filePath 位于 rootPath 内。
+   */
+  readWorkspaceStory: (rootPath: string, filePath: string) => Promise<{ filePath: string; content: string } | null>;
 }
 
 /** Electron 版本信息 */
@@ -95,7 +128,7 @@ export type MenuEventChannel =
   | 'menu:view:toggleOutline'
   | 'menu:view:toggleGraph'
   | 'menu:view:toggleProblems'
-  | 'menu:view:toggleTheme'
+  | 'menu:view:themeBrowser'
   | 'menu:export:json'
   | 'menu:export:html'
   | 'menu:export:txt'
@@ -150,6 +183,21 @@ export interface DialogAPI {
   confirm: (options: DialogConfirmOptions) => Promise<number>;
 }
 
+export interface ThemeInstallResult {
+  readonly ok: boolean;
+  readonly message: string;
+  readonly manifest?: ThemePackManifest;
+  readonly summary?: ThemePackSummary;
+  readonly errors?: readonly string[];
+}
+
+export interface ThemeAPI {
+  listThemePacks: () => Promise<ThemePackManifest[]>;
+  installThemePack: (sourcePath?: string) => Promise<ThemeInstallResult | null>;
+  openThemeMarket: () => Promise<void>;
+  openOfficialThemeStore: () => Promise<void>;
+}
+
 // ============================================================================
 // 主 API 类型
 // ============================================================================
@@ -164,6 +212,7 @@ export interface PlotFlowAPI {
   readonly file: FileAPI;
   readonly menu: MenuAPI;
   readonly dialog: DialogAPI;
+  readonly theme: ThemeAPI;
 }
 
 // ============================================================================
@@ -184,16 +233,31 @@ export interface EditorDirtyState {
 /** 仅测试态暴露的桥接 API */
 export interface TestStoreBridge {
   getEditorContent: () => string;
+  getDiagnostics: () => readonly Diagnostic[];
+  getGraphNodes: () => ReadonlyArray<{
+    readonly id: string;
+    readonly position: { readonly x: number; readonly y: number };
+  }>;
   setEditorContent: (content: string) => void;
   openConditionEditor: (nodeId: string, optionIndex: number) => void;
+  setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
   getUIState: () => {
+    readonly workspaceMode: 'split' | 'graphLab';
+    readonly isSourceDrawerOpen: boolean;
     readonly isConditionEditorOpen: boolean;
     readonly conditionEditorNodeId: string | null;
     readonly conditionEditorOptionIndex: number | null;
     readonly activeRightPanel: string;
     readonly isExportDialogOpen: boolean;
     readonly isNewFileDialogOpen: boolean;
+    readonly isThemeCenterOpen: boolean;
+    readonly isHomeSurfaceOpen: boolean;
+    readonly activeOfficialThemeId: 'plotflow-narrative-workbench' | 'plotflow-blueprint-nightwatch';
   };
+  setOfficialTheme: (themeId: 'plotflow-narrative-workbench' | 'plotflow-blueprint-nightwatch') => void;
+  getOfficialThemeId: () => 'plotflow-narrative-workbench' | 'plotflow-blueprint-nightwatch';
+  openThemeCenter: () => void;
+  setHomeSurfaceOpen: (open: boolean) => void;
 }
 
 declare global {

@@ -1,0 +1,309 @@
+{
+  "generatedAt": "2026-06-25T09:36:55.966Z",
+  "summary": {
+    "completed": 132,
+    "total": 142,
+    "rate": 92.96,
+    "remaining": 9,
+    "deferred": 9,
+    "removed": 1,
+    "lastUpdated": "2026-06-24",
+    "grade": "B+ / 82"
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "项目脚手架",
+      "total": 13,
+      "complete": 12,
+      "skipped": 0,
+      "removed": 1,
+      "progress": 92.31
+    },
+    {
+      "id": "M1",
+      "title": "核心解析与编辑",
+      "total": 17,
+      "complete": 17,
+      "skipped": 0,
+      "removed": 0,
+      "progress": 100
+    },
+    {
+      "id": "M2",
+      "title": "分支可视化",
+      "total": 16,
+      "complete": 16,
+      "skipped": 0,
+      "removed": 0,
+      "progress": 100
+    },
+    {
+      "id": "M3",
+      "title": "条件编辑与错误检测",
+      "total": 18,
+      "complete": 18,
+      "skipped": 0,
+      "removed": 0,
+      "progress": 100
+    },
+    {
+      "id": "M4",
+      "title": "导出系统",
+      "total": 26,
+      "complete": 25,
+      "skipped": 1,
+      "removed": 0,
+      "progress": 96.15
+    },
+    {
+      "id": "M5",
+      "title": "补全引擎",
+      "total": 19,
+      "complete": 18,
+      "skipped": 1,
+      "removed": 0,
+      "progress": 94.74
+    },
+    {
+      "id": "M6",
+      "title": "模板与主题",
+      "total": 18,
+      "complete": 18,
+      "skipped": 0,
+      "removed": 0,
+      "progress": 100
+    },
+    {
+      "id": "M7",
+      "title": "Electron 打包发布",
+      "total": 15,
+      "complete": 8,
+      "skipped": 7,
+      "removed": 0,
+      "progress": 53.33
+    }
+  ],
+  "releaseGates": [
+    {
+      "name": "pnpm.cmd lint",
+      "zhName": "代码规范检查",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "0 error，8 个既有 `no-console` warning",
+      "zhDetail": "代码规范检查通过，仅保留既有控制台日志警告。"
+    },
+    {
+      "name": "pnpm.cmd typecheck",
+      "zhName": "类型检查",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "TypeScript strict 通过",
+      "zhDetail": "严格类型检查通过。"
+    },
+    {
+      "name": "pnpm.cmd test",
+      "zhName": "单元测试",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "41 files / 1231 tests；新增官方主题定义测试通过",
+      "zhDetail": "41 个测试文件 / 1231 条测试用例通过。"
+    },
+    {
+      "name": "pnpm.cmd build",
+      "zhName": "生产构建",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "保留 1 个 Vite 动态/静态 import warning",
+      "zhDetail": "生产构建通过，保留一条既有模块拆分提示。"
+    },
+    {
+      "name": "pnpm.cmd lint:css",
+      "zhName": "样式规范检查",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "CSS token/stylelint 通过",
+      "zhDetail": "样式令牌与样式规则检查通过。"
+    },
+    {
+      "name": "pnpm.cmd --filter @plotflow/progress-dashboard test",
+      "zhName": "进度仪表盘测试",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "进度仪表盘单元测试通过",
+      "zhDetail": "进度仪表盘单元测试通过。"
+    },
+    {
+      "name": "pnpm.cmd --filter @plotflow/progress-dashboard typecheck",
+      "zhName": "进度仪表盘类型检查",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "进度仪表盘类型检查通过",
+      "zhDetail": "进度仪表盘类型检查通过。"
+    },
+    {
+      "name": "pnpm.cmd --filter @plotflow/app test:e2e",
+      "zhName": "应用端到端验收",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "38 passed，无 teardown error，无 did-not-run；含 Graph Lab 主路径、官方主题中心、叙事工作台/夜航蓝图 slot 热切换用例",
+      "zhDetail": "38 条应用 E2E 全部通过，无关闭超时或未运行用例。"
+    },
+    {
+      "name": "pnpm.cmd audit --audit-level moderate",
+      "zhName": "依赖安全审计",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "Electron 42.5.0；无 GHSA ignore；No known vulnerabilities found",
+      "zhDetail": "依赖安全审计通过；Electron 42.5.0 当前无已知中高危漏洞。"
+    },
+    {
+      "name": "pnpm.cmd package:win",
+      "zhName": "Windows 安装包构建",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "生成 `release/PlotFlow Setup 0.1.0.exe`、blockmap 与 `release/win-unpacked/PlotFlow.exe",
+      "zhDetail": "Windows 安装包和解包应用构建通过。"
+    },
+    {
+      "name": "Windows packaged smoke",
+      "zhName": "Windows 安装包冒烟验收",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "packaged exe 可启动；命令行打开 `.mdstory`、Graph Lab GUI 编辑、Source Drawer、导出 JSON 成功",
+      "zhDetail": "解包应用可启动；命令行打开 .mdstory、Graph Lab 图形编辑、Source Drawer 和导出 JSON 均成功。"
+    }
+  ],
+  "stableFeatures": [
+    {
+      "title": "Split editor workflow",
+      "zhTitle": "Split 双栏编辑工作流",
+      "status": "pass",
+      "detail": "Monaco editing, React Flow graph visualization, node navigation, and source-to-graph refresh are implemented.",
+      "zhDetail": "Monaco 编辑、React Flow 分支图、节点导航和源文本到图形刷新已经形成稳定闭环。",
+      "evidence": "M1/M2 complete; default app E2E currently passes 38/38.",
+      "zhEvidence": "M1/M2 已完成；默认应用 E2E 当前 38/38 通过。"
+    },
+    {
+      "title": "Parser, validator, diagnostics",
+      "zhTitle": "解析器、校验器与诊断系统",
+      "status": "pass",
+      "detail": "The parser, E001-E008 errors, W001-W006 warnings, I001-I003 suggestions, markers, ProblemPanel, and graph status sync are implemented.",
+      "zhDetail": "解析器、E001-E008 错误、W001-W006 警告、I001-I003 建议、编辑器标记、问题面板和图节点状态同步已经接入。",
+      "evidence": "pnpm.cmd test passes 41 files / 1231 tests; Parser/Validator E2E record is green.",
+      "zhEvidence": "pnpm.cmd test 通过 41 个文件 / 1231 条用例；Parser/Validator E2E 为通过状态。"
+    },
+    {
+      "title": "Condition editor and text sync",
+      "zhTitle": "条件编辑器与文本同步",
+      "status": "pass",
+      "detail": "The visual condition editor can load existing conditions and apply variable/operator/value logic back to text.",
+      "zhDetail": "图形化条件编辑器可载入已有条件，并把变量、运算符和值逻辑回写到文本。",
+      "evidence": "M3 complete; condition-editor E2E is part of the default app E2E gate.",
+      "zhEvidence": "M3 已完成；条件编辑器已纳入默认应用 E2E。"
+    },
+    {
+      "title": "JSON / HTML / TXT export",
+      "zhTitle": "JSON / HTML / TXT 导出",
+      "status": "pass",
+      "detail": "The export flow is implemented and current export E2E passes; PNG placeholder menu has been removed from release scope.",
+      "zhDetail": "导出流程已实现并通过当前导出 E2E；PNG 占位菜单已从发行范围移除。",
+      "evidence": "M4 25/26; export suite passed in the latest release audit notes.",
+      "zhEvidence": "M4 25/26；导出套件在最新发行审计记录中通过。"
+    },
+    {
+      "title": "Windows local package smoke",
+      "zhTitle": "Windows 本地安装包冒烟验收",
+      "status": "pass",
+      "detail": "The Windows NSIS installer and win-unpacked app were built locally and smoke-tested for launch, command-line open, save, and JSON export.",
+      "zhDetail": "Windows NSIS 安装器与 win-unpacked 应用已完成本地构建，并验证启动、命令行打开、保存和 JSON 导出。",
+      "evidence": "M7-02 and M7-14 complete in spec/progress.md.",
+      "zhEvidence": "M7-02 和 M7-14 已在进度文档中标记完成。"
+    },
+    {
+      "title": "Graph Lab graph-first workflow",
+      "zhTitle": "Graph Lab 图优先工作流",
+      "status": "pass",
+      "detail": "Graph Lab is now a core entry with workspace mode switching, Palette, Inspector, Source Drawer, text command layer, and E2E coverage.",
+      "zhDetail": "Graph Lab 已作为核心入口接入，覆盖模式切换、节点素材盘、检查器、源文本抽屉、文本命令层和 E2E。",
+      "evidence": "M8 Graph Lab Core is 17/18; default app E2E currently passes 38/38.",
+      "zhEvidence": "M8 Graph Lab Core 当前 17/18；默认应用 E2E 当前 38/38 通过。"
+    }
+  ],
+  "experimentalFeatures": [
+    {
+      "title": "macOS / Linux packaging",
+      "zhTitle": "macOS / Linux 打包",
+      "status": "warn",
+      "detail": "Cross-platform installers and smoke tests are deferred until CI matrix packaging is available.",
+      "zhDetail": "跨平台安装包和冒烟验收延后到 CI 矩阵构建可用后处理。",
+      "evidence": "M7-03, M7-04, and M7-15 are deferred.",
+      "zhEvidence": "M7-03、M7-04 和 M7-15 为延后状态。"
+    },
+    {
+      "title": "Auto-update and public release pipeline",
+      "zhTitle": "自动更新与公开发布链路",
+      "status": "warn",
+      "detail": "electron-updater integration, update server config, GitHub Release draft, and first-run onboarding are deferred.",
+      "zhDetail": "electron-updater 集成、更新服务器配置、GitHub Release 草稿和首次启动引导仍为延后状态。",
+      "evidence": "M7-09, M7-10, M7-12, and M7-13 are deferred.",
+      "zhEvidence": "M7-09、M7-10、M7-12 和 M7-13 为延后状态。"
+    },
+    {
+      "title": "Graph Lab release copy and onboarding",
+      "zhTitle": "Graph Lab 发布文案与上手说明",
+      "status": "neutral",
+      "detail": "The core Graph Lab workflow is implemented; public release copy, help text, and first-run guidance still need final polish.",
+      "zhDetail": "Graph Lab 核心流程已实现；公开发布文案、帮助说明和首次上手引导仍需最终打磨。",
+      "evidence": "M8-18 is still in progress.",
+      "zhEvidence": "M8-18 仍处于进行中。"
+    }
+  ],
+  "roadmap": [
+    {
+      "title": "Graph Lab release documentation",
+      "zhTitle": "Graph Lab 发布说明收尾",
+      "status": "neutral",
+      "detail": "Finish Graph Lab public copy, help text, first-run guidance, and website download notes.",
+      "zhDetail": "完成 Graph Lab 公开文案、帮助说明、首次上手引导和官网下载说明。"
+    },
+    {
+      "title": "Complete M7 publishing chain",
+      "zhTitle": "补齐七号发布链路",
+      "status": "warn",
+      "detail": "Add macOS/Linux packaging, auto-update, GitHub Release draft, first-run onboarding, and cross-platform smoke verification.",
+      "zhDetail": "补齐 macOS / Linux 打包、自动更新、GitHub Release 草稿、首次启动引导和跨平台冒烟验收。"
+    },
+    {
+      "title": "Extend Graph Lab visual editors",
+      "zhTitle": "扩展 Graph Lab 图形编辑器",
+      "status": "neutral",
+      "detail": "Upgrade inline condition/effect fields into richer visual builders while keeping the same graphEditService command layer.",
+      "zhDetail": "把当前内联条件/效果字段升级为更完整的图形化构建器，同时继续复用 graphEditService 命令层。"
+    },
+    {
+      "title": "Deploy this independent website",
+      "zhTitle": "部署独立官网",
+      "status": "neutral",
+      "detail": "Build website/dist separately and deploy it to a server. Keep it excluded from desktop application packaging.",
+      "zhDetail": "单独构建官网目录并部署到服务器，继续排除在桌面应用安装包之外。"
+    }
+  ],
+  "sourceRefs": [
+    "packages/progress-dashboard/public/dashboard-data.json",
+    "spec/progress.md",
+    "memory/bug_log.md",
+    "spec/decisions.md"
+  ]
+}

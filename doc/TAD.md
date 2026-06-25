@@ -72,7 +72,7 @@
 | 模式 | 运行环境 | 入口 | 文件读写 | 变量来源 | 适用场景 |
 |------|---------|------|---------|---------|---------|
 | **Web 开发模式** | Vite Dev Server (localhost:5173) | `index.html` | 浏览器 File System Access API（实验性） / Mock FileService | 本地开发/调试 |
-| **桌面打包模式** | Electron 28 独立窗口 | `packages/app/src-electron/main.ts` | Node.js `fs` 模块（通过 IPC） | 生产发布 |
+| **桌面打包模式** | Electron 42 独立窗口 | `packages/app/src-electron/main.ts` | Node.js `fs` 模块（通过 IPC） | 生产发布 |
 | **插件模式 (Godot)** | Godot 编辑器 Dock 内嵌 WebView | Godot 插件触发启动 | 引擎项目目录写入 | 从 Godot 引擎同步变量 | 引擎深度整合 |
 | **插件模式 (Unity)** | Unity 编辑器窗口 | Unity 插件触发 | 引擎项目目录写入 | 从 Unity 引擎同步 | V0.2 完整实现 |
 | **插件模式 (Unreal)** | Unreal 编辑器面板 | 接口定义（V0.1 无运行） | — | — | V0.3 完整实现 |
@@ -82,13 +82,77 @@
 | # | 决策 | 约束力 | 说明 |
 |---|------|--------|------|
 | D-IMM-01 | **文件即数据源** | 绝对 | `.mdstory` 是唯一数据源。绝不引入数据库（SQLite/IndexedDB）存储脚本内容。只能用于存储元数据（语料索引、用户偏好）。 |
-| D-IMM-02 | **文本格式双向同步** | 绝对 | 图形化编辑和 Markdown 文本始终保持一致。文本是真实来源，图形是视图。所有修改最终落回文本。 |
+| D-IMM-02 | **双投影同步** | 绝对 | `.mdstory` 是唯一磁盘真相源；GUI 与源文本是同一故事数据的两个编辑投影。图形化修改必须通过命令层序列化回 `.mdstory`，源文本修改必须重新解析并同步 GUI。 |
 | D-IMM-03 | **离线优先** | 绝对 | 零网络依赖。本地运行，本地补全，本地导出。V0.3 之前不考虑任何云端功能。 |
 | D-IMM-04 | **补全隐私安全** | 绝对 | N-gram 统计模型，数据不离开本地进程。不上传、不收集、不联网。 |
 | D-IMM-05 | **插件模式变量由引擎定义** | 条件 | 从 Godot/Unity 启动时，编辑器变量从引擎同步，不可自由创建新变量。独立模式下不受此限制。 |
-| D-IMM-06 | **Electron（非 Tauri）** | V0.1 锁定 | Electron 28+，复用现有编辑器资产，Monaco Editor 官方支持。Tauri 作为 V0.3 迁移选项。 |
+| D-IMM-06 | **Electron（非 Tauri）** | V0.3 锁定 | Electron 42+，复用现有编辑器资产，Monaco Editor 官方支持。Tauri 作为后续迁移评估项。 |
 | D-IMM-07 | **Monarch Tokenizer（非 TextMate）** | 绝对 | Monaco 语法高亮通过 Monarch 声明式 tokenizer 实现。TextMate 语法作为可选的增强（V0.2+）。 |
 | D-IMM-08 | **Design Token 强制** | 绝对 | 所有组件颜色必须引用 CSS 变量 Design Token，禁止裸 hex 色值（`#fff`、`#eee` 等）。主题切换通过 CSS 变量驱动。 |
+| D-IMM-09 | **官方主题模块边界** | 绝对 | 当前只发行编译内置官方主题。官方主题可替换受控 React slots、Design Token、Monaco 主题、布局配方和动效；社区主题、本地 `.pf-theme.zip` 导入和远程下载暂不作为产品入口。 |
+
+---
+
+### 1.4 Graph Lab Core 双投影架构
+
+Graph Lab 是 V0.3 图优先正式工作区。它把 GUI 操作提升为主编辑入口，但不引入数据库、专有二进制工程文件或独立图存储。`.mdstory` 仍是唯一磁盘格式；为保存手动节点坐标，Frontmatter 允许一个兼容旧文件的可选 `layout.graph.nodes` 投影块。
+
+```
+Graph Lab GUI command
+    │
+    ▼
+graphEditService（节点/选项/条件/效果命令层）
+    │  生成最小文本 patch 或 AST-safe 文本重写
+    ▼
+useEditorStore.content（.mdstory 源文本投影）
+    │
+    ▼
+parsePipeline（Parser → Validator → Graph adapter）
+    │
+    ├── useGraphStore.nodes/edges（GUI 投影）
+    ├── useEditorStore.diagnostics（诊断投影）
+    └── Exporter（JSON/HTML/TXT）
+```
+
+| 约束 | 说明 |
+|------|------|
+| 单一持久化格式 | 只写 `.mdstory`，不创建隐藏图数据库或专有工程文件 |
+| 命令层隔离 | Graph Lab 不直接修改 React Flow store；必须经 `graphEditService` 生成可回放、可测试的故事编辑命令 |
+| 布局投影可选 | M8 仅新增兼容旧文件的 `layout.graph.nodes` 可选块；缺失时继续使用 Dagre 自动布局 |
+| 双向可恢复 | 从 Graph Lab 切回 split 时 Monaco 必须显示最新源文本；手改源文本后 Graph Lab 必须重新解析并恢复图状态 |
+| DOM 断言保留 | E2E 不能只读 Zustand store；图状态仍需验证 React Flow DOM class，避免遗漏渲染层故障 |
+
+---
+
+### 1.5 Official Theme 编译内置热插拔架构
+
+Official Theme 是 PlotFlow 的官方美学和 UX 外观模块，不是业务插件系统。当前只发行随应用编译打包的官方主题；它可以深度替换 Graph Lab 和 Split 的视觉 slots，但不得改变 `.mdstory` 语义、导出结果、保存流程或 Graph Lab 命令层。
+
+```
+OfficialThemeDefinition
+    │
+    ▼
+OfficialThemeProvider
+    ├── html[data-official-theme]
+    ├── html[data-theme-pack]（历史兼容）
+    ├── CSS Design Token 注入
+    ├── Monaco defineTheme
+    ├── Graph Lab layoutRecipe / motionRecipe
+    └── OfficialThemeSlots
+        ├── StoryNodeCard
+        ├── StoryEdge
+        ├── ThemePreview
+        └── HomePreview
+```
+
+| 层级 | 允许能力 | 禁止能力 |
+|------|----------|----------|
+| Tokens | 颜色、字体、圆角、阴影、状态色、动效时长 | 改写业务状态、隐藏关键按钮 |
+| Visual Slots | 官方编译内置节点、线缆、端口、面板、预览组件 | 运行时加载第三方 JS/React |
+| Layout Recipe | Graph Lab 面板宽度、Source Dock 位置、节点卡片视觉样式、密度 | 绕过 `graphEditService` 或创建第二数据源 |
+| Store Metadata | 官方主题 ID、版本、售卖入口、内置/商店状态 | 应用内支付、授权、远程下载 |
+
+首版实现 `叙事工作台` 与 `夜航蓝图` 两个官方主题、HomeSurface 主题模块、ThemeCenter 和官网主题展示。购买入口只跳转官网/商店 URL；社区主题、本地导入、远程索引、签名、下载和授权后续另立阶段。
 
 ---
 
@@ -438,11 +502,13 @@ interface CompletionState {
 // ============================================================
 interface ThemeState {
   theme: 'dark' | 'light';
+  activeThemePackId: string;          // default: plotflow-narrative-workbench
   language: 'zh-CN' | 'en';
 
   // Actions
   toggleTheme: () => void;
   setTheme: (t: 'dark' | 'light') => void;
+  setActiveThemePackId: (id: string) => void;
   setLanguage: (l: 'zh-CN' | 'en') => void;
 }
 
@@ -818,7 +884,27 @@ const UnconditionalEdge: React.FC<EdgeProps> = (props) => {
 };
 ```
 
-#### 2.4.3 Dagre 布局配置
+#### 2.4.3 布局选择与 Dagre 配置
+
+`.mdstory` 可在 Frontmatter 中保存 Graph Lab 手动布局：
+
+```yaml
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "第一章-村口"
+        x: 120
+        y: 80
+```
+
+布局规则：
+
+1. 解析器读取 `layout.graph.nodes` 并建立 `fullId -> {x, y}` 索引。
+2. AST → React Flow 适配时，若节点存在持久化坐标则优先使用该坐标。
+3. 缺失坐标的节点继续走 Dagre 自动布局。
+4. 用户拖拽节点时只实时更新 React Flow 受控节点；松手后由 `graphEditService.updateNodePosition()` 写回 layout 块并触发解析。
+5. 节点重命名、移动章节或删除时，`graphEditService` 必须迁移或清理对应 layout 项，避免悬空坐标。
 
 ```typescript
 // dagre-layout.ts
@@ -857,13 +943,14 @@ function layoutNodes(chapters: Chapter[]): { nodes: StoryFlowNode[]; edges: Stor
 
   dagre.layout(g);
 
-  // 转换为 React Flow 格式
+  // 转换为 React Flow 格式；手动 layout 优先，缺失时使用 Dagre 坐标
   const nodes: StoryFlowNode[] = allNodes.map((node) => {
     const pos = g.node(node.fullId);
+    const manualPosition = layoutIndex.get(node.fullId);
     return {
       id: node.fullId,
       type: 'storyNode',
-      position: {
+      position: manualPosition ?? {
         x: pos.x - NODE_WIDTH / 2,
         y: pos.y - NODE_HEIGHT / 2,
       },
@@ -903,38 +990,23 @@ function layoutNodes(chapters: Chapter[]): { nodes: StoryFlowNode[]; edges: Stor
 #### 2.4.4 事件处理：图形编辑 → 文本同步
 
 ```typescript
-// 拖拽连线端点修改跳转目标
-function onEdgeUpdate(edgeId: string, newTargetNodeId: string): void {
-  // 1. 解析 edgeId 获取来源节点和选项索引
-  const { sourceNodeId, optionIndex } = parseEdgeId(edgeId);
+// Graph Lab 命令层：所有 GUI 编辑先生成 .mdstory patch，再走解析管线
+function connectOption(option: StoryOption, targetNodeId: string | null): void {
+  graphEditService.connectOption(option, targetNodeId);
+}
 
-  // 2. 修改 AST 中选项的 targetNodeId
-  const data = useStoryStore.getState().plotFlowData;
-  const node = data?.chapters.flatMap(ch => ch.nodes).find(n => n.fullId === sourceNodeId);
-  if (!node) return;
-  const oldTarget = node.options[optionIndex].targetNodeId;
+function createNodeAndConnect(
+  sourceNode: StoryNode,
+  option: StoryOption,
+  title: string,
+  dropPosition: { x: number; y: number },
+): void {
+  graphEditService.createNodeAndConnect(sourceNode, option, title, dropPosition);
+}
 
-  // 3. 更新 AST
-  node.options[optionIndex].targetNodeId = newTargetNodeId;
-
-  // 4. 重新生成 Markdown 文本
-  const newMarkdown = serializePlotFlowData(data!);
-
-  // 5. 替换 Monaco 编辑器内容（保留光标和撤销栈）
-  const editor = useEditorStore.getState().monacoEditor;
-  if (editor) {
-    const model = editor.getModel()!;
-    editor.executeEdits('graph-edge-update', [{
-      range: model.getFullModelRange(),
-      text: newMarkdown,
-    }]);
-  }
-
-  // 6. 刷新 branch graph（AST 已变，需要重新 sync）
-  useGraphStore.getState().syncFromAST(data!);
-
-  // 7. 触发重新验证
-  useValidatorStore.getState().validate(data!, newMarkdown);
+function updateNodePosition(node: StoryNode, position: { x: number; y: number }): void {
+  // 拖动中只更新 React Flow 受控节点，松手后写回 layout.graph.nodes。
+  graphEditService.updateNodePosition(node, position);
 }
 ```
 
@@ -3498,7 +3570,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
 | ADR | 决策 | 理由 |
 |-----|------|------|
-| ADR-001 | Electron 28 (非 Tauri) | Monaco 官方支持，React Flow 完全兼容，现有资产复用，V0.1 开发效率优先 |
+| ADR-001 | Electron 42 (非 Tauri) | 当前受支持稳定线，Monaco 官方支持，React Flow 完全兼容，现有资产复用 |
 | ADR-002 | React Flow + Dagre | MIT 协议，n8n/TypeForm 同款，可编辑节点图生态最成熟 |
 | ADR-003 | Zustand (非 Redux) | 轻量，适合编辑器细粒度状态，TypeScript 推断友好，无 boilerplate |
 | ADR-004 | unified + remark (非 marked) | 成熟 AST 生态，插件体系支持自定义语法扩展 |

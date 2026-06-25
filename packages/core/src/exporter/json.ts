@@ -209,7 +209,7 @@ function serializeChapter(chapter: Chapter): Record<string, unknown> {
  *
  * 映射说明：
  * - body: AST 中为单字符串 → Schema 中为段落数组（按双换行分割）
- * - position: AST 中不存在 → Schema 要求，默认 { x: 0, y: 0 }
+ * - position: 使用 AST 中的 Graph Lab 布局坐标；缺失时默认 { x: 0, y: 0 }
  * - diagnostics.isRoot/isOrphan/isDeadEnd → 直接映射
  */
 function serializeNode(node: StoryNode, _index: number): Record<string, unknown> {
@@ -220,7 +220,7 @@ function serializeNode(node: StoryNode, _index: number): Record<string, unknown>
     title: node.title,
     body: splitBodyToParagraphs(node.body),
     options: node.options.map((opt, i) => serializeOption(opt, i)),
-    position: { x: 0, y: 0 },
+    position: node.position ?? { x: 0, y: 0 },
     isRoot: node.diagnostics.isRoot,
     isOrphan: node.diagnostics.isOrphan,
     isDeadEnd: node.diagnostics.isDeadEnd,

@@ -20,6 +20,8 @@ import type {
   PlotFlowData,
   StoryMeta,
   EngineTarget,
+  GraphPosition,
+  StoryLayout,
   Chapter,
   StoryNode,
   NodeDiagnostics,
@@ -208,7 +210,7 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
   // 步骤 4：解析章节与节点（传入变量列表用于选项/条件/效果解析）
   const afterFm = raw.slice(fmEndIndex);
   const lines = afterFm.split(/\r?\n|\r/);
-  const cnResult = parseChaptersAndNodes(lines, bodyStartLine, variables);
+  const cnResult = parseChaptersAndNodes(lines, bodyStartLine, variables, fmMeta.layout);
 
   // 步骤 5：收集章节/节点解析诊断
   if (cnResult.ok) {
@@ -234,6 +236,7 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
     {
       sourcePath: null,
       meta,
+      layout: fmMeta.layout,
       variables: fmMeta.variables,
       chapters,
     },
@@ -270,6 +273,7 @@ export function parseChaptersAndNodes(
   lines: string[],
   startLine: number,
   variables: readonly VariableDeclaration[],
+  layout?: StoryLayout,
 ): ParseResult<{ chapters: Chapter[]; nodes: StoryNode[] }> {
   resetErrorSeq();
   const allErrors: Diagnostic[] = [];
@@ -283,6 +287,12 @@ export function parseChaptersAndNodes(
 
   /** fullId → lineNumber 映射（用于 E007 重名检测） */
   const seenFullIds = new Map<string, number>();
+
+  /** fullId → Graph Lab 持久化位置映射 */
+  const layoutPositions = new Map<string, GraphPosition>();
+  for (const item of layout?.graph.nodes ?? []) {
+    layoutPositions.set(item.id, { x: item.x, y: item.y });
+  }
 
   /** 是否正在节点内部收集正文 */
   let inNode = false;
@@ -446,6 +456,7 @@ export function parseChaptersAndNodes(
       chapterId,
       options: nodeOptions,
       diagnostics,
+      position: layoutPositions.get(fullId),
       lineNumber: currentNodeLineNumber,
     };
 

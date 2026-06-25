@@ -33,4 +33,4 @@ export { useGraphStore, ZOOM_CONSTRAINTS } from './graphStore';
 export type { GraphState, ViewMode } from './graphStore';
 
 export { useUIStore } from './uiStore';
-export type { UIState, Theme, Language, RightPanel } from './uiStore';
+export type { UIState, Language, RightPanel } from './uiStore';

@@ -5,7 +5,7 @@
 ## 当前源文件
 
 - 应用图标源图：`build/source-crops/app-final-1-source.png`
-- `.mdstory` 文件图标源图：`build/source-crops/file-final-2-source.png`
+- `.mdstory` 文件图标源图：`build/source-crops/file-final-3-source.png`
 
 ## 导出结果
 
@@ -24,4 +24,5 @@
 
 - `electron-builder` 当前使用 `build/icon.*` 作为应用图标
 - `.mdstory` 文件关联使用 `build/file-icon.ico`
+- 当前正式源图已改为透明背景，并在 1024x1024 画布内重新放大排版
 - `icon.svg` 和 `file-icon.svg` 仅保留为历史草稿，不作为当前生产源文件

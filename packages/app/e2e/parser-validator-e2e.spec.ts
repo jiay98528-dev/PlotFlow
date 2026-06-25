@@ -22,6 +22,7 @@ import fs from 'fs';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 const RENDER_WAIT_MS = 1000;
+const TEARDOWN_TIMEOUT_MS = 15_000;
 
 // ============================================================================
 // 辅助函数
@@ -30,6 +31,102 @@ const RENDER_WAIT_MS = 1000;
 /** 读取测试夹具文件内容 */
 function readFixture(name: string): string {
   return fs.readFileSync(path.join(FIXTURES_DIR, name), 'utf-8');
+}
+
+function isIgnorableTeardownError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(message);
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function closeElectronAppSafely(
+  app: ElectronApplication | undefined,
+  testPage: Page | undefined,
+): Promise<void> {
+  if (!app) return;
+
+  if (testPage && !testPage.isClosed()) {
+    await closeProblemPanel(testPage).catch(() => {});
+    await testPage.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    })).catch((error: unknown) => {
+      if (!isIgnorableTeardownError(error)) throw error;
+    });
+    await withTimeout(
+      testPage.close({ runBeforeUnload: false }),
+      TEARDOWN_TIMEOUT_MS,
+      'page.close',
+    ).catch((error: unknown) => {
+      if (!isIgnorableTeardownError(error)) throw error;
+    });
+  }
+
+  try {
+    await withTimeout(app.close(), TEARDOWN_TIMEOUT_MS, 'electronApp.close');
+    return;
+  } catch (error) {
+    if (isIgnorableTeardownError(error)) return;
+  }
+
+  await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.removeAllListeners('close');
+        win.destroy();
+      }
+    }
+    electronApp.exit(0);
+  }).catch((error: unknown) => {
+    if (!isIgnorableTeardownError(error)) throw error;
+  });
+
+  await withTimeout(app.close(), 5_000, 'electronApp.close fallback').catch(() => {});
+}
+
+async function waitForDiagnostic(page: Page, code: string): Promise<void> {
+  await page.waitForFunction(
+    (expectedCode: string) => {
+      const s = (window as TestWindow).__test_store__;
+      return s?.getDiagnostics?.().some((diagnostic) => diagnostic.code === expectedCode) ?? false;
+    },
+    code,
+    { timeout: 10_000 },
+  );
+}
+
+async function waitForGraphStatus(
+  page: Page,
+  status: 'orphan' | 'deadend',
+): Promise<void> {
+  await page.waitForFunction(
+    (expectedStatus: string) => {
+      const expectedClass = `node-status-${expectedStatus}`;
+      return Array.from(document.querySelectorAll('.react-flow__node')).some((node) =>
+        node.classList.contains(expectedClass),
+      );
+    },
+    status,
+    { timeout: 10_000 },
+  );
+  await page.waitForTimeout(RENDER_WAIT_MS);
 }
 
 /**
@@ -48,6 +145,7 @@ function readFixture(name: string): string {
 interface TestStoreBridge {
   setEditorContent: (content: string) => void;
   getEditorContent: () => string;
+  getDiagnostics: () => Array<{ code: string }>;
 }
 
 type TestWindow = Window & { __test_store__?: TestStoreBridge };
@@ -78,9 +176,6 @@ async function loadContentIntoEditor(
     { timeout: 10_000 },
   );
 
-  // 3. 等待 React Flow 渲染节点
-  await page.waitForSelector('.react-flow__node', { timeout: 10_000 });
-  await page.waitForTimeout(RENDER_WAIT_MS);
 }
 
 /**
@@ -208,7 +303,15 @@ test.describe('Parser & Validator E2E Tests', () => {
 
     page = await electronApp.firstWindow();
     await page.waitForLoadState('load');
-    await page.waitForTimeout(3000);
+    await page.waitForSelector('.app-shell', { timeout: 20_000 });
+    await page.waitForFunction(
+      () => Boolean((window as TestWindow).__test_store__),
+      { timeout: 20_000 },
+    );
+    await page.evaluate(() => {
+      window.localStorage.setItem('plotflow:workspaceMode', 'split');
+      (window as TestWindow).__test_store__?.setWorkspaceMode?.('split');
+    });
 
     // 确认 Monaco 编辑器已就绪
     await page.waitForSelector('.monaco-editor', { timeout: 15_000 });
@@ -216,9 +319,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   });
 
   test.afterAll(async () => {
-    if (electronApp) {
-      await electronApp.close();
-    }
+    await closeElectronAppSafely(electronApp, page);
   });
 
   test.afterEach(async () => {
@@ -232,6 +333,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(1) E001 undefined target node shows red wave underline', async () => {
     const content = readFixture('e001-undefined-target.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
+    await waitForDiagnostic(page, 'E001');
 
     await openProblemPanel(page);
     const items = await getDiagnosticItems(page);
@@ -252,6 +354,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(2) E002 undeclared variable shows red wave underline', async () => {
     const content = readFixture('e002-undeclared-variable.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
+    await waitForDiagnostic(page, 'E002');
 
     await openProblemPanel(page);
     const items = await getDiagnosticItems(page);
@@ -272,6 +375,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(3) E007 duplicate node ID shows red wave underline', async () => {
     const content = readFixture('e007-duplicate-node-id.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
+    await waitForDiagnostic(page, 'E007');
 
     await openProblemPanel(page);
     const items = await getDiagnosticItems(page);
@@ -292,6 +396,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(4) W001 orphan node shows yellow wave + yellow graph border', async () => {
     const content = readFixture('w001-orphan-node.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
+    await waitForDiagnostic(page, 'W001');
 
     // Check ProblemPanel for W001
     await openProblemPanel(page);
@@ -303,6 +408,7 @@ test.describe('Parser & Validator E2E Tests', () => {
     expect(w001Items[0]!.message).toContain('孤立');
 
     // Check graph node -- orphan should have node-status-orphan class
+    await waitForGraphStatus(page, 'orphan');
     const nodeStatuses = await getGraphNodeStatuses(page);
     let orphanFound = false;
     for (const [id, status] of Object.entries(nodeStatuses)) {
@@ -330,7 +436,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(5) W002 dead-end node shows yellow wave + gray graph border', async () => {
     const content = readFixture('w002-deadend-node.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
-    await page.waitForTimeout(RENDER_WAIT_MS);
+    await waitForDiagnostic(page, 'W002');
 
     await openProblemPanel(page);
     const items = await getDiagnosticItems(page);
@@ -341,6 +447,7 @@ test.describe('Parser & Validator E2E Tests', () => {
     expect(w002Items[0]!.message).toContain('出口');
 
     // Check graph node -- dead-end should have node-status-deadend class
+    await waitForGraphStatus(page, 'deadend');
     const nodeStatuses = await getGraphNodeStatuses(page);
     let deadEndFound = false;
     for (const status of Object.values(nodeStatuses)) {
@@ -359,6 +466,7 @@ test.describe('Parser & Validator E2E Tests', () => {
   test('(6) Ctrl+Shift+M toggles panel, shows all diagnostics, click jumps cursor', async () => {
     const content = readFixture('w002-deadend-node.mdstory');
     await loadContentIntoEditor(page, content, electronApp);
+    await waitForDiagnostic(page, 'W002');
 
     // Step 1: Ensure panel is closed
     await closeProblemPanel(page);

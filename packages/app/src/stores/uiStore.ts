@@ -15,16 +15,19 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { changeLanguage, type Locale } from '@plotflow/core';
+import {
+  DEFAULT_OFFICIAL_THEME_ID,
+  normalizeOfficialThemeId,
+  type OfficialThemeId,
+} from '../theme/officialThemeIds';
 
 // ============================================================================
 // 类型定义
 // ============================================================================
 
 /** 主题 */
-export type Theme = 'light' | 'dark';
 
 /** 强调色方案 */
-export type Accent = 'ocean' | 'gold';
 
 /** 语言 */
 export type Language = Locale;
@@ -34,16 +37,22 @@ export type RightPanel = 'graph' | 'none';
 
 export type ExportFormat = 'json' | 'html' | 'txt';
 
+export type WorkspaceMode = 'split' | 'graphLab';
+
+export type ThemePackId = string;
+
 /** UI 全局状态 */
 export interface UIState {
   /** 当前主题（亮色 / 暗色） */
-  readonly theme: Theme;
 
   /** 当前界面语言 */
   readonly language: Language;
 
   /** 强调色方案 */
-  readonly accent: Accent;
+
+  readonly workspaceMode: WorkspaceMode;
+  readonly activeOfficialThemeId: OfficialThemeId;
+  readonly activeThemePackId: ThemePackId;
 
   /** 右侧面板当前显示内容 */
   readonly activeRightPanel: RightPanel;
@@ -61,6 +70,7 @@ export interface UIState {
 
   /** 问题面板是否打开（M3-16） */
   readonly isProblemPanelOpen: boolean;
+  readonly isSourceDrawerOpen: boolean;
 
   /** 导出对话框是否打开（M4） */
   readonly isExportDialogOpen: boolean;
@@ -72,16 +82,23 @@ export interface UIState {
   /** 新建文件模板对话框是否打开（M6-01） */
   readonly isNewFileDialogOpen: boolean;
 
+  readonly isThemeCenterOpen: boolean;
+  readonly isHomeSurfaceOpen: boolean;
+
   // --- Actions ---
 
-  /** 切换主题（light <-> dark） */
-  toggleTheme: () => void;
 
   /** 设置强调色方案 */
-  setAccent: (accent: Accent) => void;
 
   /** 设置界面语言 */
   setLanguage: (lang: Language) => void;
+
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
+
+  toggleWorkspaceMode: () => void;
+
+  setActiveThemePackId: (themePackId: ThemePackId) => void;
+  setActiveOfficialThemeId: (themeId: OfficialThemeId) => void;
 
   /** 设置右侧面板显示内容 */
   setActiveRightPanel: (panel: RightPanel) => void;
@@ -100,6 +117,8 @@ export interface UIState {
 
   /** 显式设置问题面板打开/关闭 */
   setProblemPanelOpen: (open: boolean) => void;
+  toggleSourceDrawer: () => void;
+  setSourceDrawerOpen: (open: boolean) => void;
 
   /** 打开导出对话框 */
   openExportDialog: (format?: ExportFormat) => void;
@@ -118,6 +137,10 @@ export interface UIState {
 
   /** 关闭新建文件模板对话框 */
   closeNewFileDialog: () => void;
+
+  openThemeCenter: () => void;
+  closeThemeCenter: () => void;
+  setHomeSurfaceOpen: (open: boolean) => void;
 }
 
 // ============================================================================
@@ -126,17 +149,9 @@ export interface UIState {
 
 const THEME_STORAGE_KEY = 'plotflow:theme';
 const LANGUAGE_STORAGE_KEY = 'plotflow:language';
-const ACCENT_STORAGE_KEY = 'plotflow:accent';
-
-function readStoredTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
-  try {
-    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return saved === 'dark' ? 'dark' : 'light';
-  } catch {
-    return 'light';
-  }
-}
+const WORKSPACE_MODE_STORAGE_KEY = 'plotflow:workspaceMode';
+const THEME_PACK_STORAGE_KEY = 'plotflow:themePack';
+const OFFICIAL_THEME_STORAGE_KEY = 'plotflow:officialTheme';
 
 function readStoredLanguage(): Language {
   if (typeof window === 'undefined') return 'zh-CN';
@@ -148,13 +163,42 @@ function readStoredLanguage(): Language {
   }
 }
 
-function readStoredAccent(): Accent {
-  if (typeof window === 'undefined') return 'ocean';
+function readStoredWorkspaceMode(): WorkspaceMode {
+  if (typeof window === 'undefined') return 'split';
   try {
-    const saved = window.localStorage.getItem(ACCENT_STORAGE_KEY);
-    return saved === 'gold' ? 'gold' : 'ocean';
+    const saved = window.localStorage.getItem(WORKSPACE_MODE_STORAGE_KEY);
+    return saved === 'graphLab' ? 'graphLab' : 'split';
   } catch {
-    return 'ocean';
+    return 'split';
+  }
+}
+
+function readStoredOfficialThemeId(): OfficialThemeId {
+  if (typeof window === 'undefined') return DEFAULT_OFFICIAL_THEME_ID;
+  try {
+    const savedOfficial = window.localStorage.getItem(OFFICIAL_THEME_STORAGE_KEY);
+    if (savedOfficial) {
+      const normalized = normalizeOfficialThemeId(savedOfficial);
+      window.localStorage.setItem(OFFICIAL_THEME_STORAGE_KEY, normalized);
+      window.localStorage.setItem(THEME_PACK_STORAGE_KEY, normalized);
+      return normalized;
+    }
+
+    const savedLegacy = window.localStorage.getItem(THEME_PACK_STORAGE_KEY);
+    if (!savedLegacy) {
+      const legacyMode = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (legacyMode === 'dark') {
+        window.localStorage.setItem(OFFICIAL_THEME_STORAGE_KEY, 'plotflow-blueprint-nightwatch');
+        window.localStorage.setItem(THEME_PACK_STORAGE_KEY, 'plotflow-blueprint-nightwatch');
+        return 'plotflow-blueprint-nightwatch';
+      }
+    }
+    const normalized = normalizeOfficialThemeId(savedLegacy);
+    window.localStorage.setItem(OFFICIAL_THEME_STORAGE_KEY, normalized);
+    window.localStorage.setItem(THEME_PACK_STORAGE_KEY, normalized);
+    return normalized;
+  } catch {
+    return DEFAULT_OFFICIAL_THEME_ID;
   }
 }
 
@@ -168,11 +212,13 @@ function persistPreference(key: string, value: string): void {
 }
 
 const initialLanguage = readStoredLanguage();
+const initialOfficialThemeId = readStoredOfficialThemeId();
 changeLanguage(initialLanguage);
 
 const initialState = {
-  theme: readStoredTheme(),
-  accent: readStoredAccent(),
+  workspaceMode: readStoredWorkspaceMode(),
+  activeOfficialThemeId: initialOfficialThemeId,
+  activeThemePackId: initialOfficialThemeId,
   language: initialLanguage,
   activeRightPanel: 'graph' as RightPanel,
   isOutlinePanelOpen: true,
@@ -181,11 +227,14 @@ const initialState = {
   conditionEditorNodeId: null,
   conditionEditorOptionIndex: null,
   isProblemPanelOpen: false,
+  isSourceDrawerOpen: false,
   isExportDialogOpen: false,
   exportDialogFormat: 'json' as ExportFormat,
   isCorpusManagerOpen: false,
   isNewFileDialogOpen: false,
-} as const satisfies Omit<UIState, 'toggleTheme' | 'setAccent' | 'setLanguage' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog'>;
+  isThemeCenterOpen: false,
+  isHomeSurfaceOpen: true,
+} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemePackId' | 'setActiveOfficialThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
 
 // ============================================================================
 // Store
@@ -199,17 +248,6 @@ export const useUIStore = create<UIState>()(
 
       // --- Actions ---
 
-      toggleTheme: () =>
-        set(
-          (state) => {
-            const theme = state.theme === 'light' ? 'dark' : 'light';
-            persistPreference(THEME_STORAGE_KEY, theme);
-            return { theme };
-          },
-          false,
-          'ui/toggleTheme',
-        ),
-
       setLanguage: (lang: Language) => {
         changeLanguage(lang);
         persistPreference(LANGUAGE_STORAGE_KEY, lang);
@@ -220,12 +258,50 @@ export const useUIStore = create<UIState>()(
         );
       },
 
-      setAccent: (accent: Accent) => {
-        persistPreference(ACCENT_STORAGE_KEY, accent);
+      setWorkspaceMode: (mode: WorkspaceMode) => {
+        persistPreference(WORKSPACE_MODE_STORAGE_KEY, mode);
         set(
-          { accent },
+          { workspaceMode: mode },
           false,
-          'ui/setAccent',
+          'ui/setWorkspaceMode',
+        );
+      },
+
+      toggleWorkspaceMode: () =>
+        set(
+          (state) => {
+            const workspaceMode = state.workspaceMode === 'split' ? 'graphLab' : 'split';
+            persistPreference(WORKSPACE_MODE_STORAGE_KEY, workspaceMode);
+            return { workspaceMode };
+          },
+          false,
+          'ui/toggleWorkspaceMode',
+        ),
+
+      setActiveOfficialThemeId: (themeId: OfficialThemeId) => {
+        persistPreference(OFFICIAL_THEME_STORAGE_KEY, themeId);
+        persistPreference(THEME_PACK_STORAGE_KEY, themeId);
+        set(
+          {
+            activeOfficialThemeId: themeId,
+            activeThemePackId: themeId,
+          },
+          false,
+          'ui/setActiveOfficialThemeId',
+        );
+      },
+
+      setActiveThemePackId: (themePackId: ThemePackId) => {
+        const themeId = normalizeOfficialThemeId(themePackId);
+        persistPreference(OFFICIAL_THEME_STORAGE_KEY, themeId);
+        persistPreference(THEME_PACK_STORAGE_KEY, themeId);
+        set(
+          {
+            activeOfficialThemeId: themeId,
+            activeThemePackId: themeId,
+          },
+          false,
+          'ui/setActiveThemePackId',
         );
       },
 
@@ -290,6 +366,22 @@ export const useUIStore = create<UIState>()(
           'ui/setProblemPanelOpen',
         ),
 
+      toggleSourceDrawer: () =>
+        set(
+          (state) => ({
+            isSourceDrawerOpen: !state.isSourceDrawerOpen,
+          }),
+          false,
+          'ui/toggleSourceDrawer',
+        ),
+
+      setSourceDrawerOpen: (open: boolean) =>
+        set(
+          { isSourceDrawerOpen: open },
+          false,
+          'ui/setSourceDrawerOpen',
+        ),
+
       openExportDialog: (format?: ExportFormat) =>
         set(
           (state) => ({
@@ -333,6 +425,27 @@ export const useUIStore = create<UIState>()(
           { isNewFileDialogOpen: false },
           false,
           'ui/closeNewFileDialog',
+        ),
+
+      openThemeCenter: () =>
+        set(
+          { isThemeCenterOpen: true },
+          false,
+          'ui/openThemeCenter',
+        ),
+
+      closeThemeCenter: () =>
+        set(
+          { isThemeCenterOpen: false },
+          false,
+          'ui/closeThemeCenter',
+        ),
+
+      setHomeSurfaceOpen: (open: boolean) =>
+        set(
+          { isHomeSurfaceOpen: open },
+          false,
+          'ui/setHomeSurfaceOpen',
         ),
     }),
     { name: 'UIStore' },

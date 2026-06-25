@@ -74,6 +74,12 @@ contextBridge.exposeInMainWorld('plotflow', {
      */
     readByPath: (path: string): Promise<{ filePath: string; content: string } | null> =>
       ipcRenderer.invoke('file:readByPath', { path }),
+    chooseWorkspaceFolder: () =>
+      ipcRenderer.invoke('file:chooseWorkspaceFolder'),
+    listWorkspaceStories: (rootPath: string) =>
+      ipcRenderer.invoke('file:listWorkspaceStories', { rootPath }),
+    readWorkspaceStory: (rootPath: string, filePath: string): Promise<{ filePath: string; content: string } | null> =>
+      ipcRenderer.invoke('file:readWorkspaceStory', { rootPath, filePath }),
   },
 
   // ── 菜单事件 — M1-17 ──
@@ -128,5 +134,16 @@ contextBridge.exposeInMainWorld('plotflow', {
       menuListeners.forEach((remove) => remove());
       menuListeners.clear();
     },
+  },
+
+  theme: {
+    listThemePacks: () =>
+      ipcRenderer.invoke('theme:listLocalThemePacks'),
+    installThemePack: (sourcePath?: string) =>
+      ipcRenderer.invoke('theme:installThemePack', sourcePath),
+    openThemeMarket: () =>
+      ipcRenderer.invoke('theme:openThemeMarket'),
+    openOfficialThemeStore: () =>
+      ipcRenderer.invoke('theme:openOfficialThemeStore'),
   },
 });

@@ -29,9 +29,11 @@ import {
   ReactFlowProvider,
   useReactFlow,
   SelectionMode,
+  applyNodeChanges,
   type Node,
   type Edge,
   type Connection,
+  type NodeChange,
   type OnConnectStartParams,
   reconnectEdge,
 } from '@xyflow/react';
@@ -40,13 +42,13 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useOfficialTheme } from '../../theme/OfficialThemeProvider';
 import { parsePipelineNow } from '../../services/parsePipeline';
+import { graphEditService } from '../../services/graphEditService';
 import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
-import { findTargetArrowIndex, closeUnclosedBrackets } from './adapter-helpers';
-import type { StoryEdgeData } from './StoryEdge';
+import { StoryEdge, type StoryEdgeData } from './StoryEdge';
 import { StoryNodeCard } from './StoryNodeCard';
-import { edgeTypes } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
 import type { ContextMenuType } from './GraphContextMenu';
 import { CollapseNode } from './CollapseNode';
@@ -57,10 +59,235 @@ import type { CollapseNodeData } from './layout';
 // 自定义节点类型注册表
 // ============================================================================
 
-const nodeTypes = {
-  storyNode: StoryNodeCard,
-  collapseNode: CollapseNode,
-};
+type ScreenToFlowPosition = (position: { readonly x: number; readonly y: number }) => { x: number; y: number };
+
+interface WireDropContext {
+  readonly mode: 'connect' | 'reconnect';
+  readonly position: { readonly x: number; readonly y: number };
+  readonly flowPosition: { readonly x: number; readonly y: number };
+  readonly sourceFullId: string;
+  readonly optionIndex: number;
+}
+
+interface WireDragSource {
+  readonly sourceFullId: string;
+  readonly optionIndex: number;
+}
+
+interface ManualWireDrag extends WireDragSource {
+  readonly pointerId: number;
+  readonly startPoint: { readonly x: number; readonly y: number };
+}
+
+interface LiveWirePreview extends ManualWireDrag {
+  readonly currentPoint: { readonly x: number; readonly y: number };
+}
+
+function eventToClientPoint(event: globalThis.MouseEvent | globalThis.TouchEvent | unknown): { x: number; y: number } {
+  if (event instanceof MouseEvent) {
+    return { x: event.clientX, y: event.clientY };
+  }
+  if (event instanceof TouchEvent) {
+    const touch = event.changedTouches[0] ?? event.touches[0];
+    if (touch) return { x: touch.clientX, y: touch.clientY };
+  }
+  return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+}
+
+function getStoryNodeIdFromPoint(point: { readonly x: number; readonly y: number }): string | null {
+  const element = document.elementFromPoint(point.x, point.y);
+  const nodeElement = element instanceof Element
+    ? element.closest('.react-flow__node')
+    : null;
+  if (!(nodeElement instanceof HTMLElement)) return null;
+
+  const rawId =
+    nodeElement.dataset['id'] ??
+    nodeElement.getAttribute('data-id') ??
+    nodeElement.getAttribute('aria-label') ??
+    nodeElement.id.replace(/^react-flow__node-/, '');
+
+  const normalized = rawId.trim();
+  if (!normalized || normalized.includes('collapse')) return null;
+  return normalized.replace(/#\d+$/, '');
+}
+
+function isPointInsideReactFlow(point: { readonly x: number; readonly y: number }): boolean {
+  const element = document.elementFromPoint(point.x, point.y);
+  return element instanceof Element && Boolean(element.closest('.react-flow'));
+}
+
+function getWireDragSourceFromTarget(target: EventTarget | null): WireDragSource | null {
+  if (!(target instanceof Element)) return null;
+  const handle = target.closest('.story-node-connect-handle');
+  if (!(handle instanceof HTMLElement)) return null;
+
+  const sourceFullId =
+    handle.dataset['sourceFullId'] ??
+    handle.dataset['nodeid'] ??
+    handle.getAttribute('data-nodeid') ??
+    '';
+  const optionIndexRaw =
+    handle.dataset['optionIndex'] ??
+    handle.dataset['handleid']?.replace('option-', '') ??
+    handle.getAttribute('data-handleid')?.replace('option-', '') ??
+    '';
+  const optionIndex = Number.parseInt(optionIndexRaw, 10);
+
+  if (!sourceFullId || !Number.isInteger(optionIndex) || optionIndex < 0) return null;
+  return { sourceFullId: sourceFullId.replace(/#\d+$/, ''), optionIndex };
+}
+
+function ReactFlowRuntimeBridge({
+  projectRef,
+}: {
+  readonly projectRef: React.MutableRefObject<ScreenToFlowPosition | null>;
+}): null {
+  const { screenToFlowPosition } = useReactFlow();
+
+  useEffect(() => {
+    projectRef.current = screenToFlowPosition;
+    return () => {
+      projectRef.current = null;
+    };
+  }, [projectRef, screenToFlowPosition]);
+
+  return null;
+}
+
+function WireDropMenu({
+  context,
+  onClose,
+}: {
+  readonly context: WireDropContext;
+  readonly onClose: () => void;
+}): React.ReactElement | null {
+  const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
+  const getAllNodes = useStoryStore((state) => state.getAllNodes);
+  const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const [query, setQuery] = useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const sourceNode = getNodeByFullId(context.sourceFullId);
+  const option = sourceNode?.options[context.optionIndex];
+  const candidates = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return getAllNodes()
+      .filter((node) => node.fullId !== context.sourceFullId)
+      .filter((node) => (
+        normalizedQuery.length === 0 ||
+        node.title.toLowerCase().includes(normalizedQuery) ||
+        node.fullId.toLowerCase().includes(normalizedQuery)
+      ))
+      .slice(0, 6);
+  }, [context.sourceFullId, getAllNodes, query]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+      if (event.key === 'Enter' && candidates[0] && option) {
+        event.preventDefault();
+        graphEditService.connectOption(option, candidates[0].id);
+        setStatusMessage(`Graph Lab 已连接到「${candidates[0].title}」`);
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [candidates, onClose, option, setStatusMessage]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
+      onClose();
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    return () => window.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [onClose]);
+
+  if (!sourceNode || !option) return null;
+
+  const adjustedX = Math.min(context.position.x, window.innerWidth - 300);
+  const adjustedY = Math.min(context.position.y, window.innerHeight - 360);
+
+  const createAndConnect = (title: string): void => {
+    graphEditService.createNodeAndConnect(sourceNode, option, title, context.flowPosition);
+    setStatusMessage(`Graph Lab 已创建并连接「${title}」`);
+    onClose();
+  };
+
+  const connectExisting = (targetId: string, targetTitle: string): void => {
+    graphEditService.connectOption(option, targetId);
+    setStatusMessage(`Graph Lab 已连接到「${targetTitle}」`);
+    onClose();
+  };
+
+  const disconnect = (): void => {
+    graphEditService.connectOption(option, null);
+    setStatusMessage(`Graph Lab 已断开「${sourceNode.title}」的选项 ${context.optionIndex + 1}`);
+    onClose();
+  };
+
+  return (
+    <div
+      ref={menuRef}
+      className="wire-drop-menu nodrag nopan"
+      data-testid="wire-drop-menu"
+      role="menu"
+      style={{ left: adjustedX, top: adjustedY }}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="wire-drop-menu__header">
+        {context.mode === 'reconnect' ? '重连或断开线缆' : '创建或连接目标'}
+      </div>
+      <input
+        ref={inputRef}
+        className="wire-drop-menu__search"
+        data-testid="wire-drop-search"
+        value={query}
+        placeholder="搜索已有节点"
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <div className="wire-drop-menu__section">
+        <button type="button" data-testid="wire-drop-create-node" onClick={() => createAndConnect('新节点')}>
+          创建普通节点并连接
+        </button>
+        <button type="button" data-testid="wire-drop-create-ending" onClick={() => createAndConnect('结局')}>
+          创建结局节点并连接
+        </button>
+        {(context.mode === 'reconnect' || option.targetNodeId) && (
+          <button type="button" data-testid="wire-drop-disconnect" className="wire-drop-menu__danger" onClick={disconnect}>
+            断开此选项
+          </button>
+        )}
+      </div>
+      <div className="wire-drop-menu__section wire-drop-menu__results">
+        {candidates.map((candidate) => (
+          <button
+            type="button"
+            key={candidate.fullId}
+            data-testid="wire-drop-connect-existing"
+            onClick={() => connectExisting(candidate.id, candidate.title)}
+          >
+            <span>{candidate.title}</span>
+            <small>{candidate.chapterId}</small>
+          </button>
+        ))}
+        {candidates.length === 0 && (
+          <div className="wire-drop-menu__empty">没有匹配节点</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ============================================================================
 // 键盘快捷键辅助组件
@@ -84,6 +311,26 @@ function ZoomResetShortcut(): null {
   return null;
 }
 
+function AutoFitOnGraphChange({
+  enabled,
+  nodeCount,
+}: {
+  readonly enabled: boolean;
+  readonly nodeCount: number;
+}): null {
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    if (!enabled || nodeCount === 0) return;
+    const frame = requestAnimationFrame(() => {
+      fitView({ padding: 0.2, duration: 200 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [enabled, fitView, nodeCount]);
+
+  return null;
+}
+
 // ============================================================================
 // 常量
 // ============================================================================
@@ -93,11 +340,14 @@ function ZoomResetShortcut(): null {
 // ============================================================================
 
 export interface GraphCanvasProps {
-  readonly viewMode?: 'split' | 'minimap';
+  readonly viewMode?: 'split' | 'graphLab' | 'minimap';
 }
 
 export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.ReactElement {
   const isSplit = viewMode === 'split';
+  const isGraphLab = viewMode === 'graphLab';
+  const canEditGraph = viewMode !== 'minimap';
+  const { activeTheme } = useOfficialTheme();
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const collapsedGroups = useGraphStore((state) => state.collapsedGroups);
@@ -106,11 +356,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const renamingNodeId = useGraphStore((state) => state.renamingNodeId);
   const setRenamingNodeId = useGraphStore((state) => state.setRenamingNodeId);
   const setEditing = useGraphStore((state) => state.setEditing);
+  const setNodes = useGraphStore((state) => state.setNodes);
   const setEdges = useGraphStore((state) => state.setEdges);
 
   const editorInstance = useEditorStore((state) => state.editorInstance);
-  const editorContent = useEditorStore((state) => state.content);
-  const setContent = useEditorStore((state) => state.setContent);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
 
   // V02-033: 解析器错误诊断 — 驱动分支图错误横幅和空状态提示
@@ -118,10 +367,36 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
   // StoryStore — 用于查找 AST 节点信息（选项行号、targetNodeId 等）
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
+  const hasManualLayout = useStoryStore((state) => (state.plotFlowData?.layout?.graph.nodes.length ?? 0) > 0);
 
   // UIStore — 条件编辑器面板控制
   const openConditionEditor = useUIStore((state) => state.openConditionEditor);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+
+  const connectDidSucceed = React.useRef(false);
+  const connectStartParams = React.useRef<OnConnectStartParams | null>(null);
+  const reconnectDidSucceed = React.useRef(false);
+  const reconnectEdgeRef = React.useRef<Edge | null>(null);
+  const screenToFlowPositionRef = React.useRef<ScreenToFlowPosition | null>(null);
+  const manualWireDragRef = React.useRef<ManualWireDrag | null>(null);
+  const [liveWirePreview, setLiveWirePreview] = useState<LiveWirePreview | null>(null);
+  const [wireDropContext, setWireDropContext] = useState<WireDropContext | null>(null);
+
+  const nodeTypes = useMemo(
+    () => ({
+      storyNode: isGraphLab ? activeTheme.slots.StoryNodeCard : StoryNodeCard,
+      collapseNode: CollapseNode,
+    }),
+    [activeTheme.slots.StoryNodeCard, isGraphLab],
+  );
+
+  const edgeTypes = useMemo(
+    () => ({
+      default: isGraphLab ? activeTheme.slots.StoryEdge : StoryEdge,
+      conditional: isGraphLab ? activeTheme.slots.StoryEdge : StoryEdge,
+    }),
+    [activeTheme.slots.StoryEdge, isGraphLab],
+  );
 
   // ==========================================================================
   // 连线连接处理 (M2-09)
@@ -132,8 +407,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 操作锁阻止编辑器侧的 debounce 文本→图同步覆盖此次更改。
    */
   const handleConnectStart = useCallback(
-    (_event: MouseEvent | TouchEvent, _params: OnConnectStartParams) => {
+    (_event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
       if (renamingNodeId !== null) return; // M2-08 锁：重命名期间禁止连线操作
+      connectDidSucceed.current = false;
+      connectStartParams.current = params;
       setEditing(true);
     },
     [renamingNodeId, setEditing],
@@ -144,8 +421,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * React Flow v12: 当用户拖拽已有连线的端点时触发。
    */
   const handleReconnectStart = useCallback(
-    (_event: unknown, _edge: Edge, _handleType: unknown) => {
+    (_event: unknown, edge: Edge, _handleType: unknown) => {
       if (renamingNodeId !== null) return;
+      reconnectDidSucceed.current = false;
+      reconnectEdgeRef.current = edge;
       setEditing(true);
     },
     [renamingNodeId, setEditing],
@@ -156,12 +435,45 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * React Flow v12: 在 onReconnect 之后触发。
    */
   const handleReconnectEnd = useCallback(
-    (_event: unknown, _edge: Edge, _handleType: unknown) => {
+    (event: unknown, edge: Edge, _handleType: unknown) => {
       setEditing(false);
+      if (!reconnectDidSucceed.current) {
+        const edgeToReconnect = reconnectEdgeRef.current ?? edge;
+        reconnectEdgeRef.current = null;
+        try {
+          const { sourceFullId, optionIndex } = parseEdgeId(edgeToReconnect.id);
+          const sourceNode = getNodeByFullId(sourceFullId);
+          const option = sourceNode?.options[optionIndex];
+          const clientPoint = eventToClientPoint(event);
+          const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
+          const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint);
+          if (sourceNode && option && dropTargetFullId && dropTargetFullId !== sourceFullId) {
+            const targetNode = getNodeByFullId(dropTargetFullId);
+            if (targetNode) {
+              graphEditService.connectOption(option, targetNode.id);
+              setStatusMessage(`Graph Lab 已重连到「${targetNode.title}」`);
+              return;
+            }
+          }
+          setWireDropContext({
+            mode: 'reconnect',
+            position: clientPoint,
+            flowPosition,
+            sourceFullId,
+            optionIndex,
+          });
+          return;
+        } catch {
+          // eslint-disable-next-line no-console
+          console.warn('[GraphCanvas] reconnect blank drop failed — invalid edge id:', edgeToReconnect.id);
+        }
+      }
+      reconnectDidSucceed.current = false;
+      reconnectEdgeRef.current = null;
       const editor = useEditorStore.getState().editorInstance;
       if (editor) { parsePipelineNow(editor.getValue()); }
     },
-    [setEditing],
+    [getNodeByFullId, setEditing, setStatusMessage],
   );
 
   /**
@@ -219,9 +531,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 当用户从 source node 的选项 handle 拖拽到 target node 时触发。
    * 执行流程：
    * 1. 解析 sourceHandle → optionIndex
-   * 2. 查找对应选项的文本行
-   * 3. 更新 -> 节点：目标 文本
-   * 4. 使用 editorInstance.executeEdits()（Monaco）或 setContent()（fallback）
+   * 2. 查找源节点、目标节点与对应选项
+   * 3. 通过 graphEditService 生成 .mdstory patch 并触发解析
    */
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -241,83 +552,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const option = sourceNode.options[optionIndex];
       if (!option) return;
 
-      // 步骤 4: 构建新的目标文本
-      // 使用目标节点的简单 ID（而非 fullId），因为源文本中用的是简单节点名
-      const newTargetText = `-> 节点：${targetNode.id}`;
-
-      // 步骤 5: 更新编辑器文本
-      if (editorInstance) {
-        // ---- Monaco 编辑器路径 (M1+) ----
-        const model = editorInstance.getModel();
-        if (model) {
-          const lineNumber = option.lineNumber;
-          const lineContent = model.getLineContent(lineNumber);
-          const arrowIndex = findTargetArrowIndex(lineContent);
-
-          if (arrowIndex >= 0) {
-            // 已有目标 → 替换
-            editorInstance.executeEdits('plotflow-reconnect', [
-              {
-                range: {
-                  startLineNumber: lineNumber,
-                  startColumn: arrowIndex + 1,
-                  endLineNumber: lineNumber,
-                  endColumn: lineContent.length + 1,
-                },
-                text: newTargetText,
-              },
-            ]);
-          } else {
-            // 无目标（死胡同选项首次连线）→ 追加
-            // BUG5 修复：先补齐未闭合括号再追加
-            const fixedLine = closeUnclosedBrackets(lineContent);
-            if (fixedLine !== lineContent) {
-              // 行尾有未闭合括号 → 先替换整行为补全后的行，再追加目标
-              editorInstance.executeEdits('plotflow-reconnect', [
-                {
-                  range: {
-                    startLineNumber: lineNumber,
-                    startColumn: 1,
-                    endLineNumber: lineNumber,
-                    endColumn: lineContent.length + 1,
-                  },
-                  text: `${fixedLine} ${newTargetText}`,
-                },
-              ]);
-            } else {
-              editorInstance.executeEdits('plotflow-reconnect', [
-                {
-                  range: {
-                    startLineNumber: lineNumber,
-                    startColumn: lineContent.length + 1,
-                    endLineNumber: lineNumber,
-                    endColumn: lineContent.length + 1,
-                  },
-                  text: ` ${newTargetText}`,
-                },
-              ]);
-            }
-          }
-        }
-      } else {
-        // ---- Fallback: 通过 editorStore.setContent 更新 (M0 textarea 模式) ----
-        const lines = editorContent.split('\n');
-        const lineIndex = option.lineNumber - 1;
-        if (lineIndex >= 0 && lineIndex < lines.length) {
-          const line = lines[lineIndex]!;
-          const arrowIndex = findTargetArrowIndex(line);
-          if (arrowIndex >= 0) {
-            // 已有目标 → 替换
-            lines[lineIndex] = line.slice(0, arrowIndex) + newTargetText;
-          } else {
-            // 无目标 → 追加
-            lines[lineIndex] = line + ` ${newTargetText}`;
-          }
-          setContent(lines.join('\n'));
-        }
-      }
+      graphEditService.connectOption(option, targetNode.id);
     },
-    [editorInstance, editorContent, setContent, getNodeByFullId],
+    [getNodeByFullId],
   );
 
   /**
@@ -344,44 +581,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const targetNode = getNodeByFullId(newConnection.target);
         if (!targetNode) return;
 
-        const newTargetText = `-> 节点：${targetNode.id}`;
-
-        // 步骤 3: 更新编辑器文本
-        if (editorInstance) {
-          const model = editorInstance.getModel();
-          if (model) {
-            const lineNumber = option.lineNumber;
-            const lineContent = model.getLineContent(lineNumber);
-            const arrowIndex = findTargetArrowIndex(lineContent);
-
-            if (arrowIndex >= 0) {
-              // 已有目标 → 替换
-              editorInstance.executeEdits('plotflow-edge-reconnect', [
-                {
-                  range: {
-                    startLineNumber: lineNumber,
-                    startColumn: arrowIndex + 1,
-                    endLineNumber: lineNumber,
-                    endColumn: lineContent.length + 1,
-                  },
-                  text: newTargetText,
-                },
-              ]);
-            }
-          }
-        } else {
-          // Fallback: 通过 editorStore.setContent
-          const lines = editorContent.split('\n');
-          const lineIndex = option.lineNumber - 1;
-          if (lineIndex >= 0 && lineIndex < lines.length) {
-            const line = lines[lineIndex]!;
-            const arrowIndex = findTargetArrowIndex(line);
-            if (arrowIndex >= 0) {
-              lines[lineIndex] = line.slice(0, arrowIndex) + newTargetText;
-              setContent(lines.join('\n'));
-            }
-          }
-        }
+        reconnectDidSucceed.current = true;
+        graphEditService.connectOption(option, targetNode.id);
 
         // 步骤 4: 即时视觉反馈 — reconnectEdge + setEdges
         const currentEdges = useGraphStore.getState().edges;
@@ -395,7 +596,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         console.warn('[GraphCanvas] handleReconnect failed for edge:', oldEdge.id);
       }
     },
-    [editorInstance, editorContent, setContent, getNodeByFullId, setEdges],
+    [getNodeByFullId, setEdges],
   );
 
   // ==========================================================================
@@ -482,40 +683,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           const option = sourceNode.options[optionIndex];
           if (!option) return;
 
-          // 更新编辑器文本：移除 -> 节点：XXX 引用
-          if (editorInstance) {
-            const model = editorInstance.getModel();
-            if (model) {
-              const lineNumber = option.lineNumber;
-              const lineContent = model.getLineContent(lineNumber);
-              const arrowIndex = findTargetArrowIndex(lineContent);
-              if (arrowIndex >= 0) {
-                editorInstance.executeEdits('plotflow-edge-delete', [
-                  {
-                    range: {
-                      startLineNumber: lineNumber,
-                      startColumn: arrowIndex + 1,
-                      endLineNumber: lineNumber,
-                      endColumn: lineContent.length + 1,
-                    },
-                    text: '', // 清空跳转目标
-                  },
-                ]);
-              }
-            }
-          } else {
-            // Fallback: 通过 editorStore.setContent
-            const lines = editorContent.split('\n');
-            const lineIndex = option.lineNumber - 1;
-            if (lineIndex >= 0 && lineIndex < lines.length) {
-              const line = lines[lineIndex]!;
-              const arrowIndex = findTargetArrowIndex(line);
-              if (arrowIndex >= 0) {
-                lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
-                setContent(lines.join('\n'));
-              }
-            }
-          }
+          graphEditService.connectOption(option, null);
         } catch {
           // parseEdgeId 解析失败 → 记录日志，不崩溃
           // eslint-disable-next-line no-console
@@ -523,7 +691,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         }
       }
     },
-    [renamingNodeId, editorInstance, editorContent, setContent, getNodeByFullId],
+    [renamingNodeId, getNodeByFullId],
   );
 
   /**
@@ -604,6 +772,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const handlePaneClick = useCallback(() => {
     // 操作锁 (M2-08)：内联重命名期间忽略空白点击
     if (renamingNodeId !== null) return;
+    setWireDropContext(null);
     selectNode(null);
   }, [selectNode, renamingNodeId]);
 
@@ -632,13 +801,6 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   // ==========================================================================
 
   /**
-   * 标记上一次拖拽是否成功创建了连接。
-   * onConnect 在成功连接时调用，将标志设为 true。
-   * handleConnectEnd 读取此标志，若为 false 则表示拖拽到了空白区域。
-   */
-  const connectDidSucceed = React.useRef(false);
-
-  /**
    * 包裹 handleConnect，追踪连接成功。
    */
   const handleConnectWithTrack = useCallback(
@@ -655,24 +817,271 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 若用户从选项 handle 拖拽到没有目标节点的空白区域 → 插入新节点 + 自动连接 (FR-2, V02-021)。
    */
   const handleConnectEndWithCreate = useCallback(
-    (_event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+    (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
       // 先释放操作锁
       handleConnectEnd();
 
       // 如果已经成功连接，不需要创建新节点
       if (connectDidSucceed.current) {
         connectDidSucceed.current = false;
+        connectStartParams.current = null;
         const editor = useEditorStore.getState().editorInstance;
         if (editor) { parsePipelineNow(editor.getValue()); }
         return;
       }
 
-      // 拖拽到空白区域 — 不强制创建新节点以避免干扰正常画布操作。
-      // 用户可通过右键空白菜单手动添加节点。
-      // 未来版本可加入浮动"创建节点"按钮（V0.3+）。
-      setStatusMessage('拖拽到空白 — 右键菜单"添加节点"创建新卡片');
+      const startParams = connectStartParams.current;
+      connectStartParams.current = null;
+      const sourceNodeId = startParams?.nodeId;
+      const sourceHandle = startParams?.handleId;
+      const optionIndex = parseInt(sourceHandle?.replace('option-', '') ?? '-1', 10);
+      const sourceNode = sourceNodeId ? getNodeByFullId(sourceNodeId) : undefined;
+      const option = optionIndex >= 0 ? sourceNode?.options[optionIndex] : undefined;
+
+      if (!sourceNode || !option) {
+        setStatusMessage('拖拽到空白 — 未找到可连接的选项');
+        return;
+      }
+
+      const clientPoint = eventToClientPoint(event);
+      const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
+      const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint);
+      if (dropTargetFullId && dropTargetFullId !== sourceNode.fullId) {
+        const targetNode = getNodeByFullId(dropTargetFullId);
+        if (targetNode) {
+          graphEditService.connectOption(option, targetNode.id);
+          setStatusMessage(`Graph Lab 已连接到「${targetNode.title}」`);
+          return;
+        }
+      }
+      setWireDropContext({
+        mode: 'connect',
+        position: clientPoint,
+        flowPosition,
+        sourceFullId: sourceNode.fullId,
+        optionIndex,
+      });
+      setStatusMessage('Graph Lab 请选择线缆目标');
     },
-    [handleConnectEnd, setStatusMessage],
+    [getNodeByFullId, handleConnectEnd, setStatusMessage],
+  );
+
+  // Graph Lab 自有线缆手势兜底：避免 React Flow 节点拖拽抢走端口拖线。
+  const handleManualWirePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (renamingNodeId !== null) return;
+      const source = getWireDragSourceFromTarget(event.target);
+      if (!source) return;
+
+      manualWireDragRef.current = {
+        ...source,
+        pointerId: event.pointerId,
+        startPoint: { x: event.clientX, y: event.clientY },
+      };
+      setLiveWirePreview({
+        ...source,
+        pointerId: event.pointerId,
+        startPoint: { x: event.clientX, y: event.clientY },
+        currentPoint: { x: event.clientX, y: event.clientY },
+      });
+      setEditing(true);
+      setWireDropContext(null);
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [renamingNodeId, setEditing],
+  );
+
+  const handleManualWireMouseDown = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (renamingNodeId !== null || manualWireDragRef.current) return;
+      const source = getWireDragSourceFromTarget(event.target);
+      if (!source) return;
+
+      manualWireDragRef.current = {
+        ...source,
+        pointerId: -1,
+        startPoint: { x: event.clientX, y: event.clientY },
+      };
+      setLiveWirePreview({
+        ...source,
+        pointerId: -1,
+        startPoint: { x: event.clientX, y: event.clientY },
+        currentPoint: { x: event.clientX, y: event.clientY },
+      });
+      setEditing(true);
+      setWireDropContext(null);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [renamingNodeId, setEditing],
+  );
+
+  const finishManualWireDrag = useCallback(
+    (clientPoint: { readonly x: number; readonly y: number }): boolean => {
+      const drag = manualWireDragRef.current;
+      if (!drag) return false;
+
+      manualWireDragRef.current = null;
+      setLiveWirePreview(null);
+      setEditing(false);
+      const distance = Math.hypot(clientPoint.x - drag.startPoint.x, clientPoint.y - drag.startPoint.y);
+      if (distance < 4) return true;
+
+      if (!isPointInsideReactFlow(clientPoint)) {
+        setStatusMessage('Graph Lab 已取消线缆拖拽');
+        return true;
+      }
+
+      const sourceNode = getNodeByFullId(drag.sourceFullId);
+      const option = sourceNode?.options[drag.optionIndex];
+      if (!sourceNode || !option) {
+        setStatusMessage('拖拽线缆 — 未找到可连接的选项');
+        return true;
+      }
+
+      const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint);
+      if (dropTargetFullId && dropTargetFullId !== sourceNode.fullId) {
+        const targetNode = getNodeByFullId(dropTargetFullId);
+        if (targetNode) {
+          graphEditService.connectOption(option, targetNode.id);
+          setStatusMessage(`Graph Lab 已连接到「${targetNode.title}」`);
+          return true;
+        }
+      }
+
+      const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
+      setWireDropContext({
+        mode: option.targetNodeId ? 'reconnect' : 'connect',
+        position: clientPoint,
+        flowPosition,
+        sourceFullId: sourceNode.fullId,
+        optionIndex: drag.optionIndex,
+      });
+      setStatusMessage('Graph Lab 请选择线缆目标');
+      return true;
+    },
+    [getNodeByFullId, setEditing, setStatusMessage],
+  );
+
+  const handleManualWirePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const drag = manualWireDragRef.current;
+      if (!drag) return;
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      finishManualWireDrag({ x: event.clientX, y: event.clientY });
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [finishManualWireDrag],
+  );
+
+  const handleManualWireMouseUp = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const drag = manualWireDragRef.current;
+      if (!drag) return;
+
+      finishManualWireDrag({ x: event.clientX, y: event.clientY });
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [finishManualWireDrag],
+  );
+
+  useEffect(() => {
+    const handleGlobalPointerMove = (event: PointerEvent): void => {
+      if (!manualWireDragRef.current) return;
+      setLiveWirePreview((preview) => preview ? {
+        ...preview,
+        currentPoint: { x: event.clientX, y: event.clientY },
+      } : preview);
+    };
+    const handleGlobalPointerUp = (event: PointerEvent): void => {
+      if (!manualWireDragRef.current) return;
+      if (finishManualWireDrag({ x: event.clientX, y: event.clientY })) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    const handleGlobalMouseMove = (event: MouseEvent): void => {
+      if (!manualWireDragRef.current) return;
+      setLiveWirePreview((preview) => preview ? {
+        ...preview,
+        currentPoint: { x: event.clientX, y: event.clientY },
+      } : preview);
+    };
+    const handleGlobalMouseUp = (event: MouseEvent): void => {
+      if (!manualWireDragRef.current) return;
+      if (finishManualWireDrag({ x: event.clientX, y: event.clientY })) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    window.addEventListener('pointermove', handleGlobalPointerMove, true);
+    window.addEventListener('pointerup', handleGlobalPointerUp, true);
+    window.addEventListener('mousemove', handleGlobalMouseMove, true);
+    window.addEventListener('mouseup', handleGlobalMouseUp, true);
+    return () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove, true);
+      window.removeEventListener('pointerup', handleGlobalPointerUp, true);
+      window.removeEventListener('mousemove', handleGlobalMouseMove, true);
+      window.removeEventListener('mouseup', handleGlobalMouseUp, true);
+    };
+  }, [finishManualWireDrag]);
+
+  const handleManualWirePointerCancel = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const drag = manualWireDragRef.current;
+      if (!drag) return;
+      manualWireDragRef.current = null;
+      setLiveWirePreview(null);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      setEditing(false);
+    },
+    [setEditing],
+  );
+
+  // ==========================================================================
+  // 节点位置拖拽持久化
+  // ==========================================================================
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const nodeIds = new Set(nodes.map((node) => node.id));
+      const relevantChanges = changes.filter((change) => !('id' in change) || nodeIds.has(change.id));
+      if (relevantChanges.length === 0) return;
+      setNodes(applyNodeChanges(relevantChanges, nodes));
+    },
+    [nodes, setNodes],
+  );
+
+  const handleNodeDragStart = useCallback(
+    (_event: MouseEvent | TouchEvent, node: Node) => {
+      if (renamingNodeId !== null || node.type === 'collapseNode') return;
+      setEditing(true);
+    },
+    [renamingNodeId, setEditing],
+  );
+
+  const handleNodeDragStop = useCallback(
+    (_event: MouseEvent | TouchEvent, node: Node) => {
+      setEditing(false);
+      if (node.type === 'collapseNode') return;
+      const nodeData = node.data as StoryFlowNodeData | undefined;
+      if (!nodeData?.fullId) return;
+      const storyNode = getNodeByFullId(nodeData.fullId);
+      if (!storyNode) return;
+      graphEditService.updateNodePosition(storyNode, node.position);
+      setStatusMessage(`Graph Lab 已保存「${storyNode.title}」的位置`);
+    },
+    [getNodeByFullId, setEditing, setStatusMessage],
   );
 
   // ==========================================================================
@@ -683,7 +1092,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const isPerfMode = nodes.length > 200;
 
   /** 性能模式下 fitView 动画时长（更大值 = 更低帧率体感） */
-  const fitViewDuration = isPerfMode ? 400 : 200;
+  const fitViewDuration = isGraphLab ? 0 : (isPerfMode ? 120 : 200);
 
   // ==========================================================================
   // 同层折叠 + 节点高亮派生 (M2-15, M2-04)
@@ -784,41 +1193,54 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   return (
     <>
     <ReactFlowProvider>
-      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div
+        className={`graph-canvas-runtime${liveWirePreview ? ' graph-canvas-runtime--wire-dragging' : ''}`}
+        style={{ width: '100%', height: '100%', position: 'relative' }}
+        onPointerDownCapture={canEditGraph ? handleManualWirePointerDown : undefined}
+        onPointerUpCapture={canEditGraph ? handleManualWirePointerUp : undefined}
+        onPointerCancelCapture={canEditGraph ? handleManualWirePointerCancel : undefined}
+        onMouseDownCapture={canEditGraph ? handleManualWireMouseDown : undefined}
+        onMouseUpCapture={canEditGraph ? handleManualWireMouseUp : undefined}
+      >
+        <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
         <ZoomResetShortcut />
+        <AutoFitOnGraphChange enabled={!hasManualLayout} nodeCount={displayedNodes.length} />
         <ReactFlow
           nodes={displayedNodes}
           edges={displayedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeClick={isSplit ? handleNodeClick : undefined}
-          onNodeDoubleClick={isSplit ? handleNodeDoubleClick : undefined}
-          onNodeContextMenu={isSplit ? handleNodeContextMenu : undefined}
-          onPaneClick={isSplit ? handlePaneClick : undefined}
-          onPaneContextMenu={isSplit ? handlePaneContextMenu : undefined}
-          onEdgeClick={isSplit ? handleEdgeClick : undefined}
-          onEdgeDoubleClick={isSplit ? handleEdgeDoubleClick : undefined}
-          onEdgeContextMenu={isSplit ? handleEdgeContextMenu : undefined}
-          onConnect={isSplit ? handleConnectWithTrack : undefined}
-          onConnectStart={isSplit ? handleConnectStart : undefined}
-          onConnectEnd={isSplit ? handleConnectEndWithCreate : undefined}
-          isValidConnection={isSplit ? handleIsValidConnection : undefined}
-          edgesReconnectable={isSplit}
-          onReconnect={isSplit ? handleReconnect : undefined}
-          onReconnectStart={isSplit ? handleReconnectStart : undefined}
-          onReconnectEnd={isSplit ? handleReconnectEnd : undefined}
+          onNodeClick={canEditGraph ? handleNodeClick : undefined}
+          onNodeDoubleClick={canEditGraph ? handleNodeDoubleClick : undefined}
+          onNodesChange={canEditGraph ? handleNodesChange : undefined}
+          onNodeDragStart={canEditGraph ? handleNodeDragStart : undefined}
+          onNodeDragStop={canEditGraph ? handleNodeDragStop : undefined}
+          onNodeContextMenu={canEditGraph ? handleNodeContextMenu : undefined}
+          onPaneClick={canEditGraph ? handlePaneClick : undefined}
+          onPaneContextMenu={canEditGraph ? handlePaneContextMenu : undefined}
+          onEdgeClick={canEditGraph ? handleEdgeClick : undefined}
+          onEdgeDoubleClick={canEditGraph ? handleEdgeDoubleClick : undefined}
+          onEdgeContextMenu={canEditGraph ? handleEdgeContextMenu : undefined}
+          onConnect={canEditGraph ? handleConnectWithTrack : undefined}
+          onConnectStart={canEditGraph ? handleConnectStart : undefined}
+          onConnectEnd={canEditGraph ? handleConnectEndWithCreate : undefined}
+          isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
+          edgesReconnectable={canEditGraph}
+          onReconnect={canEditGraph ? handleReconnect : undefined}
+          onReconnectStart={canEditGraph ? handleReconnectStart : undefined}
+          onReconnectEnd={canEditGraph ? handleReconnectEnd : undefined}
           nodesDraggable={true}
-          nodesConnectable={isSplit}
-          elementsSelectable={isSplit}
+          nodesConnectable={canEditGraph}
+          elementsSelectable={canEditGraph}
           panOnDrag={[1, 2]}
           panOnScroll={true}
           selectionMode={SelectionMode.Partial}
-          onlyRenderVisibleElements={true}
+          onlyRenderVisibleElements={canEditGraph}
           elevateNodesOnSelect={false}
           fitView
           fitViewOptions={{ padding: 0.2, duration: fitViewDuration }}
-          minZoom={isSplit ? 0.1 : 0.05}
-          maxZoom={isSplit ? 2.0 : 0.5}
+          minZoom={canEditGraph ? 0.1 : 0.05}
+          maxZoom={canEditGraph ? 2.0 : 0.5}
           onViewportChange={(viewport) => setZoom(viewport.zoom)}
           attributionPosition="bottom-left"
           proOptions={{ hideAttribution: true }}
@@ -830,7 +1252,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           style={{ background: 'var(--color-bg-secondary, #F5F5F6)' }}
         >
         {/* 网格背景 — 仅 split 模式 */}
-        {isSplit && (
+        {canEditGraph && (
           <Background
             color="var(--color-border-light, #E8E8E8)"
             gap={20}
@@ -839,7 +1261,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         )}
 
         {/* 缩放/适应/锁定控件 — 仅 split 模式 */}
-        {isSplit && (
+        {canEditGraph && (
           <Controls
             position="bottom-right"
             style={{
@@ -875,11 +1297,19 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         />
         )}
       </ReactFlow>
+      {canEditGraph && liveWirePreview && (
+        <svg className="graph-live-wire-preview" data-testid="graph-live-wire-preview" aria-hidden="true">
+          <path
+            className="graph-live-wire-preview__path"
+            d={`M ${liveWirePreview.startPoint.x} ${liveWirePreview.startPoint.y} C ${liveWirePreview.startPoint.x + 120} ${liveWirePreview.startPoint.y}, ${liveWirePreview.currentPoint.x - 120} ${liveWirePreview.currentPoint.y}, ${liveWirePreview.currentPoint.x} ${liveWirePreview.currentPoint.y}`}
+          />
+        </svg>
+      )}
     </div>
     </ReactFlowProvider>
 
       {/* ── 解析错误警告横幅 (V02-033) ── */}
-      {hasParseErrors && isSplit && (
+      {hasParseErrors && canEditGraph && (
         <div
           style={{
             position: 'absolute',
@@ -908,7 +1338,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       )}
 
       {/* 右键菜单 — 仅 split 模式 */}
-      {isSplit && (
+      {canEditGraph && (
         <GraphContextMenu
           isOpen={contextMenu.isOpen}
           position={contextMenu.position}
@@ -916,6 +1346,13 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           node={contextMenu.node}
           edge={contextMenu.edge}
           onClose={handleContextMenuClose}
+        />
+      )}
+
+      {canEditGraph && wireDropContext && (
+        <WireDropMenu
+          context={wireDropContext}
+          onClose={() => setWireDropContext(null)}
         />
       )}
     </>

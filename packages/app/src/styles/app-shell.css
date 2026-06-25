@@ -220,6 +220,40 @@
   overflow: hidden;
 }
 
+.split-workspace {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.split-viewbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+  background: color-mix(in oklch, var(--color-bg-elevated) 88%, var(--color-bg-secondary));
+}
+
+.split-viewbar__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 750;
+}
+
+.split-viewbar__toggle {
+  min-height: 30px;
+  padding: var(--space-1) var(--space-2);
+}
+
 .editor-pane {
   min-width: 0;
   min-height: 0;

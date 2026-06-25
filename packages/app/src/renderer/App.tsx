@@ -3,16 +3,19 @@ import {
   Database,
   Download,
   FilePlus2,
+  FileText,
+  GitBranch,
+  Home,
   Languages,
-  Moon,
+  Palette,
   PanelRightClose,
   PanelRightOpen,
-  Sun,
 } from 'lucide-react';
 import { t } from '@plotflow/core';
 import { MonacoEditor } from '../components/editor/MonacoEditor';
 import { OutlinePanel } from '../components/layout/OutlinePanel';
 import { GraphCanvas } from '../components/branch-graph/GraphCanvas';
+import { GraphLabWorkspace } from '../components/graph-lab/GraphLabWorkspace';
 import { ThemeProvider } from '../components/ThemeProvider';
 import { NewFileDialog } from '../components/panels/NewFileDialog';
 import { useEditorStore } from '../stores/editorStore';
@@ -26,6 +29,8 @@ import { ConditionEditor } from '../components/panels/ConditionEditor';
 import { StatusBar } from '../components/layout/StatusBar';
 import { ProblemPanel } from '../components/panels/ProblemPanel';
 import { CorpusManager } from '../components/panels/CorpusManager';
+import { ThemeCenter } from '../components/panels/ThemeCenter';
+import { HomeSurface } from '../components/home/HomeSurface';
 import { clearPendingSave, saveOrSaveAs } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
@@ -59,7 +64,6 @@ export function App(): React.ReactElement {
 
   const { navigateToNode } = useOutlineSync();
 
-  const theme = useUIStore((state) => state.theme);
   const language = useUIStore((state) => state.language);
   const openNewFileDialog = useUIStore((state) => state.openNewFileDialog);
   const closeNewFileDialog = useUIStore((state) => state.closeNewFileDialog);
@@ -70,10 +74,14 @@ export function App(): React.ReactElement {
   const conditionEditorOptionIndex = useUIStore((state) => state.conditionEditorOptionIndex);
   const openExportDialog = useUIStore((state) => state.openExportDialog);
   const openCorpusManager = useUIStore((state) => state.openCorpusManager);
-  const toggleTheme = useUIStore((state) => state.toggleTheme);
+  const openThemeCenter = useUIStore((state) => state.openThemeCenter);
+  const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
   const setLanguage = useUIStore((state) => state.setLanguage);
   const activeRightPanel = useUIStore((state) => state.activeRightPanel);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const workspaceMode = useUIStore((state) => state.workspaceMode);
+  const setWorkspaceMode = useUIStore((state) => state.setWorkspaceMode);
+  const toggleWorkspaceMode = useUIStore((state) => state.toggleWorkspaceMode);
 
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
@@ -185,6 +193,7 @@ export function App(): React.ReactElement {
       freshEditor.setContent(content);
       freshEditor.markSaved();
       parsePipelineNow(content);
+      setHomeSurfaceOpen(false);
       setStatusMessage(`已打开: ${filePath}`);
     })();
 
@@ -242,6 +251,7 @@ export function App(): React.ReactElement {
       freshEditor.setContent(result.content);
       freshEditor.markSaved();
       parsePipelineNow(result.content);
+      setHomeSurfaceOpen(false);
       setStatusMessage(`已打开: ${result.filePath}`);
     });
 
@@ -282,6 +292,7 @@ export function App(): React.ReactElement {
       useGraphStore.getState().syncFromAST(null);
       freshEditor.setContent(template);
       parsePipelineNow(template);
+      setHomeSurfaceOpen(false);
       setStatusMessage(`新建: ${meta.title}`);
     },
     [setStatusMessage],
@@ -295,12 +306,29 @@ export function App(): React.ReactElement {
   );
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'g') {
+        event.preventDefault();
+        toggleWorkspaceMode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleWorkspaceMode]);
+
+  useEffect(() => {
     if (!window.plotflow?.env?.isTest) {
       return undefined;
     }
 
     window.__test_store__ = {
       getEditorContent: () => useEditorStore.getState().content,
+      getDiagnostics: () => useEditorStore.getState().diagnostics,
+      getGraphNodes: () => useGraphStore.getState().nodes.map((node) => ({
+        id: node.id,
+        position: { ...node.position },
+      })),
       setEditorContent: (content: string) => {
         clearPendingSave();
 
@@ -309,26 +337,51 @@ export function App(): React.ReactElement {
         editor.setActiveNodeId(null);
         editor.setCursorPosition(1, 1);
 
+        const ui = useUIStore.getState();
+        ui.setSourceDrawerOpen(false);
+        ui.setProblemPanelOpen(false);
+        ui.closeExportDialog();
+        ui.closeThemeCenter();
+        ui.setHomeSurfaceOpen(false);
+        if (ui.isConditionEditorOpen) {
+          ui.toggleConditionEditor();
+        }
+
         useStoryStore.getState().clearParseData();
         useGraphStore.getState().syncFromAST(null);
 
         editor.setContent(content);
         parsePipelineNow(content);
+        useUIStore.getState().setHomeSurfaceOpen(false);
       },
       openConditionEditor: (nodeId: string, optionIndex: number) => {
         useUIStore.getState().openConditionEditor(nodeId, optionIndex);
       },
+      setWorkspaceMode: (mode: 'split' | 'graphLab') => {
+        useUIStore.getState().setWorkspaceMode(mode);
+      },
       getUIState: () => {
         const state = useUIStore.getState();
         return {
+          workspaceMode: state.workspaceMode,
+          isSourceDrawerOpen: state.isSourceDrawerOpen,
           isConditionEditorOpen: state.isConditionEditorOpen,
           conditionEditorNodeId: state.conditionEditorNodeId,
           conditionEditorOptionIndex: state.conditionEditorOptionIndex,
           activeRightPanel: state.activeRightPanel,
           isExportDialogOpen: state.isExportDialogOpen,
           isNewFileDialogOpen: state.isNewFileDialogOpen,
+          isThemeCenterOpen: state.isThemeCenterOpen,
+          isHomeSurfaceOpen: state.isHomeSurfaceOpen,
+          activeOfficialThemeId: state.activeOfficialThemeId,
         };
       },
+      setOfficialTheme: (themeId: 'plotflow-narrative-workbench' | 'plotflow-blueprint-nightwatch') => {
+        useUIStore.getState().setActiveOfficialThemeId(themeId);
+      },
+      getOfficialThemeId: () => useUIStore.getState().activeOfficialThemeId,
+      openThemeCenter: () => useUIStore.getState().openThemeCenter(),
+      setHomeSurfaceOpen: (open: boolean) => useUIStore.getState().setHomeSurfaceOpen(open),
     };
 
     return () => {
@@ -340,13 +393,16 @@ export function App(): React.ReactElement {
   const showMinimap = activeRightPanel === 'graph' && viewMode === 'minimap';
   const graphModeLabel =
     viewMode === 'split' ? t('toolbar.graphSplit') : t('toolbar.graphMinimap');
-  const themeLabel = theme === 'dark' ? t('toolbar.themeDark') : t('toolbar.themeLight');
-
   return (
     <ThemeProvider>
-      <div className="app-shell">
+      <div className={`app-shell${workspaceMode === 'graphLab' ? ' app-shell--graph-lab' : ''}`}>
         <header className="app-topbar">
-          <div className="app-topbar__brand">
+          <button
+            type="button"
+            className="app-topbar__brand app-topbar-brand-button"
+            data-testid="toolbar-home"
+            onClick={() => setHomeSurfaceOpen(true)}
+          >
             <span className="app-logo" aria-hidden="true">
               Pf
             </span>
@@ -354,7 +410,8 @@ export function App(): React.ReactElement {
               <h1 className="app-title">PlotFlow V0.1</h1>
               <p className="app-subtitle">{t('statusBar.phase')}</p>
             </div>
-          </div>
+            <Home aria-hidden="true" size={15} strokeWidth={2} />
+          </button>
 
           <nav className="app-toolbar" aria-label="PlotFlow toolbar">
             <div className="toolbar-group" role="group" aria-label={t('menu.file')}>
@@ -362,49 +419,57 @@ export function App(): React.ReactElement {
                 <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
                 <span>{t('toolbar.newFile')}</span>
               </button>
-              <button type="button" className="toolbar-button" onClick={() => openExportDialog()}>
+              <button type="button" className="toolbar-button" data-testid="toolbar-export" onClick={() => openExportDialog()}>
                 <Download aria-hidden="true" size={15} strokeWidth={2} />
                 <span>{t('toolbar.export')}</span>
               </button>
             </div>
 
             <div className="toolbar-group" role="group" aria-label={t('menu.view')}>
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
+                data-testid="workspace-mode-split"
+                onClick={() => {
+                  setWorkspaceMode('split');
+                  setHomeSurfaceOpen(false);
+                }}
+                aria-pressed={workspaceMode === 'split'}
+              >
+                <FileText aria-hidden="true" size={15} strokeWidth={2} />
+                <span>Split</span>
+              </button>
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
+                data-testid="workspace-mode-graph-lab"
+                onClick={() => {
+                  setWorkspaceMode('graphLab');
+                  setHomeSurfaceOpen(false);
+                }}
+                aria-pressed={workspaceMode === 'graphLab'}
+              >
+                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                <span>Graph Lab</span>
+                <span className="toolbar-button__meta">官方主题</span>
+              </button>
               <button type="button" className="toolbar-button" onClick={openCorpusManager}>
                 <Database aria-hidden="true" size={15} strokeWidth={2} />
                 <span>{t('toolbar.corpus')}</span>
               </button>
               <button
                 type="button"
-                className={`toolbar-button toolbar-button--state${viewMode === 'split' ? ' is-active' : ''}`}
-                onClick={toggleViewMode}
-                title={viewMode === 'split' ? t('toolbar.graphMinimap') : t('toolbar.graphSplit')}
-                aria-pressed={viewMode === 'split'}
+                className="toolbar-button"
+                data-testid="toolbar-theme-center"
+                onClick={openThemeCenter}
+                title="官方主题中心"
               >
-                {viewMode === 'split' ? (
-                  <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
-                ) : (
-                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
-                )}
-                <span>{t('toolbar.graph')}</span>
-                <span className="toolbar-button__meta">{graphModeLabel}</span>
+                <Palette aria-hidden="true" size={15} strokeWidth={2} />
+                <span>主题</span>
               </button>
             </div>
 
             <div className="toolbar-group" role="group" aria-label={t('toolbar.preferences')}>
-              <button
-                type="button"
-                className="toolbar-button toolbar-button--state"
-                onClick={toggleTheme}
-                title={themeLabel}
-                aria-pressed={theme === 'dark'}
-              >
-                {theme === 'dark' ? (
-                  <Moon aria-hidden="true" size={15} strokeWidth={2} />
-                ) : (
-                  <Sun aria-hidden="true" size={15} strokeWidth={2} />
-                )}
-                <span>{themeLabel}</span>
-              </button>
               <label className="toolbar-select">
                 <Languages aria-hidden="true" size={15} strokeWidth={2} />
                 <span className="visually-hidden">{t('toolbar.language')}</span>
@@ -422,21 +487,51 @@ export function App(): React.ReactElement {
           </nav>
         </header>
 
-        <div className="app-main">
-          <OutlinePanel onNodeClick={navigateToNode} />
+        <HomeSurface />
 
-          <main className="editor-pane">
-            <MonacoEditor />
-          </main>
+        {workspaceMode === 'graphLab' ? (
+          <GraphLabWorkspace />
+        ) : (
+          <div className="split-workspace">
+            <div className="split-viewbar" aria-label="Split workspace controls">
+              <div className="split-viewbar__label">
+                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                <span>{t('toolbar.graph')}</span>
+              </div>
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
+                data-testid="toolbar-graph-view-toggle"
+                onClick={toggleViewMode}
+                title={viewMode === 'split' ? t('toolbar.graphMinimap') : t('toolbar.graphSplit')}
+                aria-pressed={viewMode === 'split'}
+              >
+                {viewMode === 'split' ? (
+                  <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
+                ) : (
+                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+                )}
+                <span>{t('toolbar.graph')}：{graphModeLabel}</span>
+              </button>
+            </div>
 
-          {showSplitGraph && (
-            <aside className="graph-pane" aria-label={t('toolbar.graph')}>
-              <GraphCanvas viewMode="split" />
-            </aside>
-          )}
-        </div>
+            <div className="app-main">
+              <OutlinePanel onNodeClick={navigateToNode} />
 
-        {showMinimap && (
+              <main className="editor-pane">
+                <MonacoEditor />
+              </main>
+
+              {showSplitGraph && (
+                <aside className="graph-pane" aria-label={t('toolbar.graph')}>
+                  <GraphCanvas viewMode="split" />
+                </aside>
+              )}
+            </div>
+          </div>
+        )}
+
+        {workspaceMode === 'split' && showMinimap && (
           <div className="minimap-shell" aria-label="PlotFlow minimap">
             <GraphCanvas viewMode="minimap" />
           </div>
@@ -452,6 +547,7 @@ export function App(): React.ReactElement {
         <ExportDialog />
         <ProblemPanel />
         <CorpusManager />
+        <ThemeCenter />
 
         {isNewFileDialogOpen && (
           <NewFileDialog

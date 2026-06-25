@@ -1,0 +1,36 @@
+:root {
+  --color-paper: #f2ead8;
+  --color-paper-deep: #e4d7bb;
+  --color-surface: #fff9ed;
+  --color-surface-muted: #eadfc8;
+  --color-ink: #1d1a16;
+  --color-ink-soft: #665d4e;
+  --color-line: #c9b996;
+  --color-teal: #285c62;
+  --color-teal-soft: #d7e5df;
+  --color-sienna: #9e5635;
+  --color-sienna-soft: #ead2bd;
+  --color-olive: #647141;
+  --color-good: #2f6f4e;
+  --color-warn: #9b6a1f;
+  --color-risk: #8a4631;
+  --color-neutral: #645f53;
+  --shadow-board: 0 28px 80px rgb(73 50 25 / 18%);
+  --shadow-lift: 0 14px 32px rgb(73 50 25 / 14%);
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-body: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+  --font-ui: "Aptos", "Segoe UI", sans-serif;
+  --font-code: "IBM Plex Mono", "Cascadia Code", Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+  --radius-tight: 4px;
+  --radius-panel: 8px;
+  --motion-fast: 160ms ease;
+  --motion-slow: 420ms ease;
+}

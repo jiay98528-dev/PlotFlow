@@ -19,7 +19,7 @@
 import * as yaml from 'js-yaml';
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
-import type { VariableDeclaration, VariableType, VariableValue } from '../types/ast.js';
+import type { StoryLayout, VariableDeclaration, VariableType, VariableValue } from '../types/ast.js';
 import type { Diagnostic, ErrorCode, SourceRange } from '../types/diagnostic.js';
 import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 
@@ -45,6 +45,8 @@ export interface FrontmatterResult {
   readonly engine?: string;
   /** PlotFlow 格式版本 */
   readonly plotflow?: string;
+  /** Graph Lab 布局数据 */
+  readonly layout?: StoryLayout;
 }
 
 // ============================================================================
@@ -59,7 +61,7 @@ export interface FrontmatterResult {
 const RESERVED_WORDS = new Set([
   'int', 'float', 'bool', 'string', 'enum', 'object',
   'true', 'false', 'AND', 'OR', 'NOT', 'none',
-  'plotflow', 'title', 'author', 'engine', 'vars',
+  'plotflow', 'title', 'author', 'engine', 'layout', 'vars',
 ]);
 
 /**
@@ -230,6 +232,7 @@ export function parseFrontmatter(raw: string): ParseResult<FrontmatterResult> {
     author: meta.author,
     engine: meta.engine,
     plotflow: meta.plotflow,
+    layout: meta.layout,
   });
 }
 
@@ -264,6 +267,7 @@ interface MetaFields {
   author?: string;
   engine?: string;
   plotflow?: string;
+  layout?: StoryLayout;
 }
 
 /**
@@ -310,8 +314,51 @@ function parseMetaSection(
   if (typeof obj['plotflow'] === 'string' || typeof obj['plotflow'] === 'number') {
     meta.plotflow = String(obj['plotflow']);
   }
+  meta.layout = parseStoryLayout(obj['layout']);
 
   return meta;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function parseStoryLayout(value: unknown): StoryLayout | undefined {
+  if (!isRecord(value)) return undefined;
+  const graph = value['graph'];
+  if (!isRecord(graph)) return undefined;
+
+  const versionValue = graph['version'];
+  const version = typeof versionValue === 'number'
+    ? versionValue
+    : typeof versionValue === 'string'
+      ? Number(versionValue)
+      : undefined;
+  if (version !== 1) return undefined;
+
+  const rawNodes = graph['nodes'];
+  if (!Array.isArray(rawNodes)) {
+    return { graph: { version: 1, nodes: [] } };
+  }
+
+  const nodes = rawNodes.flatMap((raw): StoryLayout['graph']['nodes'][number][] => {
+    if (!isRecord(raw) || typeof raw['id'] !== 'string') return [];
+    const x = parseFiniteNumber(raw['x']);
+    const y = parseFiniteNumber(raw['y']);
+    if (x === null || y === null) return [];
+    return [{ id: raw['id'], x, y }];
+  });
+
+  return { graph: { version: 1, nodes } };
 }
 
 // ============================================================================
@@ -911,4 +958,3 @@ function skipObjectBlock(
 
   return i;
 }
-

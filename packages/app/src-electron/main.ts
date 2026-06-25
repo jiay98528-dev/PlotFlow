@@ -1,13 +1,20 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
-import { join, normalize } from 'node:path';
-import { writeFile, readFile, stat } from 'node:fs/promises';
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
+import { writeFile, readFile, stat, mkdir, rm, readdir, copyFile, lstat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import AdmZip from 'adm-zip';
 import { buildMenu } from './menu';
 import {
   assertWritableContent,
   findStoryFileArgument,
   withTimeout,
 } from './mainProcessUtils';
+import {
+  THEME_MARKET_URL,
+  summarizeThemePack,
+  validateThemePackManifest,
+  type ThemePackManifest,
+} from '../src/theme/themePack';
 
 // Note: electron-squirrel-startup check is skipped in M0 (dependency not installed).
 // Will be enabled in M7 when electron-builder packaging is set up.
@@ -29,8 +36,23 @@ let forceQuitting = false;
  */
 let pendingFilePath: string | null = null;
 
+const APP_ID = 'com.plotflow.app';
 const RENDERER_QUERY_TIMEOUT_MS = 5_000;
 const RENDERER_SAVE_TIMEOUT_MS = 15_000;
+
+function resolveWindowIconPath(): string | undefined {
+  const packagedIconPath = join(process.resourcesPath, 'icon.png');
+  if (app.isPackaged && existsSync(packagedIconPath)) {
+    return packagedIconPath;
+  }
+
+  const devIconPath = join(__dirname, '../../build/icon.png');
+  if (existsSync(devIconPath)) {
+    return devIconPath;
+  }
+
+  return undefined;
+}
 
 // ============================================================================
 // IPC 安全校验常量 (V0.3 主进程兜底校验)
@@ -41,6 +63,37 @@ const MAX_READ_BYTES = 10 * 1024 * 1024;
 
 /** 导出格式白名单 */
 const ALLOWED_EXPORT_FORMATS = ['json', 'html', 'txt'] as const;
+const MAX_THEME_MANIFEST_BYTES = 128 * 1024;
+const MAX_THEME_PACKAGE_BYTES = 8 * 1024 * 1024;
+const MAX_THEME_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_WORKSPACE_SCAN_DEPTH = 2;
+const MAX_WORKSPACE_STORY_FILES = 300;
+const WORKSPACE_IGNORED_DIRS = new Set([
+  '.git',
+  '.hg',
+  '.svn',
+  'node_modules',
+  '.pnpm',
+  'release',
+  'out',
+  'dist',
+  'coverage',
+  'website',
+  'dist-static',
+]);
+const ALLOWED_THEME_FILE_EXTENSIONS = new Set([
+  '.json',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.svg',
+  '.ico',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+]);
 
 /** 禁止访问的系统目录前缀（Unix） */
 const FORBIDDEN_UNIX_PREFIXES = ['/etc', '/proc', '/sys', '/dev', '/boot', '/root'];
@@ -66,6 +119,314 @@ function isBlockedSystemPath(filePath: string): boolean {
   }
 
   return false;
+}
+
+function getThemeRootPath(): string {
+  return join(app.getPath('userData'), 'themes');
+}
+
+function assertPathInside(root: string, target: string): void {
+  const resolvedRoot = resolve(root);
+  const resolvedTarget = resolve(target);
+  const rel = relative(resolvedRoot, resolvedTarget);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error('主题包路径越界');
+  }
+}
+
+function assertWorkspacePathInside(root: string, target: string): void {
+  const resolvedRoot = resolve(root);
+  const resolvedTarget = resolve(target);
+  const rel = relative(resolvedRoot, resolvedTarget);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error('工作区文件路径越界');
+  }
+}
+
+async function assertReadableStoryFile(filePath: string): Promise<string> {
+  const normalizedPath = normalize(filePath);
+  if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
+    throw new Error('仅支持读取 .mdstory 文件');
+  }
+  if (isBlockedSystemPath(normalizedPath)) {
+    throw new Error('不允许从系统目录读取文件');
+  }
+
+  const fileStat = await stat(normalizedPath);
+  if (!fileStat.isFile()) {
+    throw new Error('目标不是文件');
+  }
+  if (fileStat.size > MAX_READ_BYTES) {
+    const sizeMB = (fileStat.size / 1024 / 1024).toFixed(1);
+    throw new Error(`文件过大（${sizeMB}MB），上限为 10MB`);
+  }
+
+  return normalizedPath;
+}
+
+async function readStoryFile(filePath: string): Promise<{ filePath: string; content: string }> {
+  const normalizedPath = await assertReadableStoryFile(filePath);
+  const content = await readFile(normalizedPath, 'utf-8');
+  return { filePath: normalizedPath, content };
+}
+
+interface WorkspaceStoryFile {
+  readonly filePath: string;
+  readonly relativePath: string;
+  readonly name: string;
+  readonly size: number;
+  readonly modifiedAt: number;
+}
+
+interface WorkspaceStoriesResult {
+  readonly rootPath: string;
+  readonly files: WorkspaceStoryFile[];
+  readonly truncated: boolean;
+}
+
+async function collectWorkspaceStories(
+  rootPath: string,
+  currentPath: string,
+  depth: number,
+  files: WorkspaceStoryFile[],
+): Promise<boolean> {
+  if (files.length >= MAX_WORKSPACE_STORY_FILES) return true;
+
+  let truncated = false;
+  const entries = await readdir(currentPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (files.length >= MAX_WORKSPACE_STORY_FILES) {
+      truncated = true;
+      break;
+    }
+
+    const entryPath = join(currentPath, entry.name);
+    assertWorkspacePathInside(rootPath, entryPath);
+
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      if (depth >= MAX_WORKSPACE_SCAN_DEPTH) continue;
+      if (WORKSPACE_IGNORED_DIRS.has(entry.name.toLowerCase())) continue;
+      truncated = (await collectWorkspaceStories(rootPath, entryPath, depth + 1, files)) || truncated;
+      continue;
+    }
+
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.mdstory')) {
+      continue;
+    }
+
+    const fileStat = await stat(entryPath);
+    if (fileStat.size > MAX_READ_BYTES) {
+      continue;
+    }
+
+    files.push({
+      filePath: normalize(entryPath),
+      relativePath: relative(rootPath, entryPath).replace(/\\/g, '/'),
+      name: basename(entryPath),
+      size: fileStat.size,
+      modifiedAt: fileStat.mtimeMs,
+    });
+  }
+
+  return truncated;
+}
+
+async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesResult> {
+  const normalizedRoot = normalize(rootPath);
+  if (isBlockedSystemPath(normalizedRoot)) {
+    throw new Error('不允许把系统目录作为 PlotFlow 工作区');
+  }
+
+  const rootStat = await stat(normalizedRoot);
+  if (!rootStat.isDirectory()) {
+    throw new Error('请选择文件夹作为 PlotFlow 工作区');
+  }
+
+  const files: WorkspaceStoryFile[] = [];
+  const truncated = await collectWorkspaceStories(normalizedRoot, normalizedRoot, 0, files);
+  files.sort((a, b) => a.relativePath.localeCompare(b.relativePath, 'zh-CN'));
+  return { rootPath: normalizedRoot, files, truncated };
+}
+
+function normalizeThemeEntryPath(entryPath: string): string {
+  const normalized = entryPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!normalized || normalized.includes('..') || isAbsolute(normalized)) {
+    throw new Error(`非法主题包路径: ${entryPath}`);
+  }
+  return normalized;
+}
+
+function assertAllowedThemeFile(relativePath: string, size: number): void {
+  const ext = extname(relativePath).toLowerCase();
+  if (!ALLOWED_THEME_FILE_EXTENSIONS.has(ext)) {
+    throw new Error(`不支持的主题包文件类型: ${relativePath}`);
+  }
+  if (size > MAX_THEME_FILE_BYTES) {
+    throw new Error(`主题包文件过大: ${relativePath}`);
+  }
+}
+
+async function readThemeManifestFromFile(manifestPath: string): Promise<ThemePackManifest> {
+  const manifestStat = await stat(manifestPath);
+  if (manifestStat.size > MAX_THEME_MANIFEST_BYTES) {
+    throw new Error('theme.json 过大');
+  }
+  const raw = await readFile(manifestPath, 'utf-8');
+  const parsed = JSON.parse(raw) as unknown;
+  const validation = validateThemePackManifest(parsed);
+  if (!validation.ok) {
+    throw new Error(validation.errors.join('; '));
+  }
+  return parsed as ThemePackManifest;
+}
+
+async function copyThemeDirectory(sourceDir: string, targetDir: string): Promise<void> {
+  const sourceRoot = resolve(sourceDir);
+  const entries = await readdir(sourceRoot, { withFileTypes: true });
+
+  await mkdir(targetDir, { recursive: true });
+
+  for (const entry of entries) {
+    const sourcePath = join(sourceRoot, entry.name);
+    const relativePath = normalizeThemeEntryPath(relative(sourceRoot, sourcePath));
+    const targetPath = join(targetDir, relativePath);
+    assertPathInside(targetDir, targetPath);
+
+    if (entry.isSymbolicLink()) {
+      throw new Error('主题包不允许包含符号链接');
+    }
+
+    if (entry.isDirectory()) {
+      await copyThemeDirectory(sourcePath, targetPath);
+      continue;
+    }
+
+    const fileStat = await lstat(sourcePath);
+    assertAllowedThemeFile(relativePath, fileStat.size);
+    await mkdir(dirname(targetPath), { recursive: true });
+    await copyFile(sourcePath, targetPath);
+  }
+}
+
+function readThemeManifestFromZip(zip: AdmZip): { manifest: ThemePackManifest; prefix: string } {
+  const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
+  const manifestEntries = entries.filter((entry) => normalizeThemeEntryPath(entry.entryName).endsWith('theme.json'));
+  if (manifestEntries.length === 0) {
+    throw new Error('主题 ZIP 缺少 theme.json');
+  }
+
+  const manifestEntry =
+    manifestEntries.find((entry) => normalizeThemeEntryPath(entry.entryName) === 'theme.json') ??
+    manifestEntries[0]!;
+  const manifestPath = normalizeThemeEntryPath(manifestEntry.entryName);
+  const prefix = manifestPath.endsWith('/theme.json') ? manifestPath.slice(0, -'theme.json'.length) : '';
+
+  if (manifestEntry.header.size > MAX_THEME_MANIFEST_BYTES) {
+    throw new Error('theme.json 过大');
+  }
+
+  const parsed = JSON.parse(manifestEntry.getData().toString('utf-8')) as unknown;
+  const validation = validateThemePackManifest(parsed);
+  if (!validation.ok) {
+    throw new Error(validation.errors.join('; '));
+  }
+
+  return { manifest: parsed as ThemePackManifest, prefix };
+}
+
+async function extractThemeZip(zipPath: string, targetDir: string, prefix: string): Promise<void> {
+  const zipStat = await stat(zipPath);
+  if (zipStat.size > MAX_THEME_PACKAGE_BYTES) {
+    throw new Error('主题 ZIP 过大');
+  }
+
+  const zip = new AdmZip(zipPath);
+  let totalBytes = 0;
+  await mkdir(targetDir, { recursive: true });
+
+  for (const entry of zip.getEntries()) {
+    if (entry.isDirectory) continue;
+
+    const entryName = normalizeThemeEntryPath(entry.entryName);
+    if (prefix && !entryName.startsWith(prefix)) continue;
+
+    const relativePath = normalizeThemeEntryPath(prefix ? entryName.slice(prefix.length) : entryName);
+    if (!relativePath) continue;
+
+    const size = entry.header.size;
+    totalBytes += size;
+    if (totalBytes > MAX_THEME_PACKAGE_BYTES) {
+      throw new Error('主题 ZIP 解包后体积过大');
+    }
+    assertAllowedThemeFile(relativePath, size);
+
+    const targetPath = join(targetDir, relativePath);
+    assertPathInside(targetDir, targetPath);
+    await mkdir(dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, entry.getData());
+  }
+}
+
+async function installThemeFromPath(sourcePath: string): Promise<{
+  manifest: ThemePackManifest;
+  sourcePath: string;
+}> {
+  const normalizedSource = normalize(sourcePath);
+  const sourceStat = await stat(normalizedSource);
+  const root = getThemeRootPath();
+  await mkdir(root, { recursive: true });
+
+  let manifest: ThemePackManifest;
+  let installer: (targetDir: string) => Promise<void>;
+
+  if (sourceStat.isDirectory()) {
+    manifest = await readThemeManifestFromFile(join(normalizedSource, 'theme.json'));
+    installer = (targetDir) => copyThemeDirectory(normalizedSource, targetDir);
+  } else {
+    const ext = extname(normalizedSource).toLowerCase();
+    if (ext === '.json') {
+      const sourceDir = dirname(normalizedSource);
+      manifest = await readThemeManifestFromFile(normalizedSource);
+      installer = (targetDir) => copyThemeDirectory(sourceDir, targetDir);
+    } else if (ext === '.zip' || normalizedSource.toLowerCase().endsWith('.pf-theme.zip')) {
+      const zip = new AdmZip(normalizedSource);
+      const parsed = readThemeManifestFromZip(zip);
+      manifest = parsed.manifest;
+      installer = (targetDir) => extractThemeZip(normalizedSource, targetDir, parsed.prefix);
+    } else {
+      throw new Error('请选择主题文件夹、theme.json 或 .pf-theme.zip');
+    }
+  }
+
+  const targetDir = join(root, manifest.id);
+  assertPathInside(root, targetDir);
+  await rm(targetDir, { recursive: true, force: true });
+  await mkdir(targetDir, { recursive: true });
+  await installer(targetDir);
+
+  return { manifest, sourcePath: normalizedSource };
+}
+
+async function listInstalledThemePacks(): Promise<ThemePackManifest[]> {
+  const root = getThemeRootPath();
+  if (!existsSync(root)) return [];
+
+  const entries = await readdir(root, { withFileTypes: true });
+  const manifests: ThemePackManifest[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    try {
+      const manifest = await readThemeManifestFromFile(join(root, entry.name, 'theme.json'));
+      manifests.push(manifest);
+    } catch {
+      // Invalid local theme folders are ignored; the theme browser keeps the editor usable.
+    }
+  }
+  return manifests;
 }
 
 // ============================================================================
@@ -132,25 +493,7 @@ ipcMain.handle('file:open', async () => {
 
     const filePath = result.filePaths[0]!;
 
-    // ── 主进程兜底校验 1：扩展名 ──
-    if (!filePath.toLowerCase().endsWith('.mdstory')) {
-      throw new Error('仅支持打开 .mdstory 文件');
-    }
-
-    // ── 主进程兜底校验 2：系统目录 ──
-    if (isBlockedSystemPath(filePath)) {
-      throw new Error('不允许从系统目录打开文件');
-    }
-
-    // ── 主进程兜底校验 3：文件大小上限 10MB ──
-    const fileStat = await stat(filePath);
-    if (fileStat.size > MAX_READ_BYTES) {
-      const sizeMB = (fileStat.size / 1024 / 1024).toFixed(1);
-      throw new Error(`文件过大（${sizeMB}MB），上限为 10MB`);
-    }
-
-    const content = await readFile(filePath, 'utf-8');
-    return { filePath, content };
+    return readStoryFile(filePath);
   } catch (error) {
     throw new Error(`文件打开失败: ${(error as Error).message}`);
   }
@@ -255,8 +598,7 @@ ipcMain.handle('file:getPendingOpenFile', async () => {
   pendingFilePath = null; // 一次性消费
 
   try {
-    const content = await readFile(path, 'utf-8');
-    return { filePath: path, content };
+    return readStoryFile(path);
   } catch (error) {
     console.error(`[PlotFlow] 读取系统打开文件失败: ${path}`, error);
     return null;
@@ -271,10 +613,46 @@ ipcMain.handle('file:getPendingOpenFile', async () => {
  */
 ipcMain.handle('file:readByPath', async (_event, payload: { path: string }) => {
   try {
-    const content = await readFile(payload.path, 'utf-8');
-    return { filePath: payload.path, content };
+    return readStoryFile(payload.path);
   } catch (error) {
     console.error(`[PlotFlow] 读取文件失败: ${payload.path}`, error);
+    return null;
+  }
+});
+
+ipcMain.handle('file:chooseWorkspaceFolder', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: '选择 PlotFlow 工作区',
+      properties: ['openDirectory'],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return listWorkspaceStories(result.filePaths[0]!);
+  } catch (error) {
+    throw new Error(`工作区扫描失败: ${(error as Error).message}`);
+  }
+});
+
+ipcMain.handle('file:listWorkspaceStories', async (_event, payload: { rootPath: string }) => {
+  try {
+    return listWorkspaceStories(payload.rootPath);
+  } catch (error) {
+    throw new Error(`工作区刷新失败: ${(error as Error).message}`);
+  }
+});
+
+ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: string; filePath: string }) => {
+  try {
+    const rootPath = normalize(payload.rootPath);
+    const filePath = normalize(payload.filePath);
+    assertWorkspacePathInside(rootPath, filePath);
+    return readStoryFile(filePath);
+  } catch (error) {
+    console.error(`[PlotFlow] 读取工作区文件失败: ${payload.filePath}`, error);
     return null;
   }
 });
@@ -302,18 +680,69 @@ ipcMain.handle('dialog:confirm', async (_event, options: {
   return result.response;
 });
 
+ipcMain.handle('theme:listLocalThemePacks', async () => {
+  return listInstalledThemePacks();
+});
+
+ipcMain.handle('theme:installThemePack', async (_event, sourcePath?: string) => {
+  try {
+    let selectedPath = sourcePath;
+    if (!selectedPath) {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        title: '导入 PlotFlow 主题包',
+        filters: [
+          { name: 'PlotFlow Theme Pack', extensions: ['pf-theme.zip', 'zip', 'json'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+        properties: ['openFile', 'openDirectory'],
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+      selectedPath = result.filePaths[0]!;
+    }
+
+    const installed = await installThemeFromPath(selectedPath);
+    return {
+      ok: true,
+      message: `已导入主题: ${installed.manifest.name}`,
+      manifest: installed.manifest,
+      summary: summarizeThemePack(installed.manifest, 'local'),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      message: `主题导入失败: ${message}`,
+      errors: [message],
+    };
+  }
+});
+
+ipcMain.handle('theme:openThemeMarket', async () => {
+  await shell.openExternal(THEME_MARKET_URL);
+});
+
+ipcMain.handle('theme:openOfficialThemeStore', async () => {
+  await shell.openExternal(THEME_MARKET_URL);
+});
+
 // ============================================================================
 // Window Management
 // ============================================================================
 
 function createWindow(): void {
   forceQuitting = false;
+  const windowIcon = resolveWindowIconPath();
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     title: 'PlotFlow',
+    ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
@@ -462,6 +891,10 @@ function checkCommandLineArgs(args: readonly string[] = process.argv): boolean {
 // ============================================================================
 // App Lifecycle
 // ============================================================================
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId(APP_ID);
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 

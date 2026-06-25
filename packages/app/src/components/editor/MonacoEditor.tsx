@@ -24,6 +24,7 @@ import {
   THEME_DARK,
   THEME_LIGHT,
 } from '../../editor/setupEditor';
+import { getOfficialTheme } from '../../theme/OfficialThemeProvider';
 
 export function MonacoEditor(): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -55,8 +56,8 @@ export function MonacoEditor(): React.ReactElement {
     if (!container) return;
 
     // 读取当前主题，确保冷启动时 Monaco 编辑器主题与 app 主题一致
-    const appTheme = useUIStore.getState().theme;
-    const monacoTheme = appTheme === 'dark' ? THEME_DARK : THEME_LIGHT;
+    const activeTheme = getOfficialTheme(useUIStore.getState().activeOfficialThemeId);
+    const monacoTheme = activeTheme.defaultMode === 'dark' ? THEME_DARK : THEME_LIGHT;
 
     initMonacoEditor(container, content, monacoTheme).then((editor) => {
       if (disposed) {

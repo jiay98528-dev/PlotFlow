@@ -138,19 +138,23 @@ async function loadRpgTemplate(page: Page): Promise<void> {
 async function closeExportDialog(page: Page): Promise<void> {
   const overlay = page.locator('.export-dialog__overlay');
   if (await overlay.isVisible().catch(() => false)) {
+    await page.keyboard.press('Escape').catch(() => {});
+    const closedByEscape = await overlay.waitFor({ state: 'hidden', timeout: 1000 })
+      .then(() => true)
+      .catch(() => false);
+    if (closedByEscape) return;
+
     const closeBtn = overlay.locator('button[title="关闭导出对话框"]').first();
     if (await closeBtn.isVisible().catch(() => false)) {
-      await closeBtn.click();
+      await closeBtn.click({ force: true, timeout: 1000 }).catch(() => {});
     } else {
       const cancelBtn = overlay.locator('button').filter({ hasText: '取消' }).first();
       if (await cancelBtn.isVisible().catch(() => false)) {
-        await cancelBtn.click();
-      } else {
-        await page.keyboard.press('Escape');
+        await cancelBtn.click({ force: true, timeout: 1000 }).catch(() => {});
       }
     }
 
-    await overlay.waitFor({ state: 'hidden', timeout: 3000 });
+    await overlay.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
   }
 }
 

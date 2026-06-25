@@ -183,9 +183,8 @@ export function buildMenu(): Menu {
         },
         { type: 'separator' },
         {
-          label: '切换主题',
-          accelerator: 'CmdOrCtrl+Shift+T',
-          click: () => sendToRenderer('menu:view:toggleTheme'),
+          label: '主题与美学拓展...',
+          click: () => sendToRenderer('menu:view:themeBrowser'),
         },
       ],
     },

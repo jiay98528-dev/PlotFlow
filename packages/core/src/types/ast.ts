@@ -31,6 +31,9 @@ export interface PlotFlowData {
   /** 元信息 */
   readonly meta: StoryMeta;
 
+  /** 编辑器布局数据（来自 YAML Frontmatter，可选） */
+  readonly layout?: StoryLayout;
+
   /** 变量声明列表（来自 YAML Frontmatter） */
   readonly variables: VariableDeclaration[];
 
@@ -61,6 +64,34 @@ export interface StoryMeta {
 
 /** 目标游戏引擎 */
 export type EngineTarget = 'godot' | 'unity' | 'unreal' | 'generic';
+
+// ============================================================================
+// Graph Lab 布局
+// ============================================================================
+
+/** Graph Lab 节点画布坐标。 */
+export interface GraphPosition {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 单个节点的持久化画布位置。 */
+export interface GraphLayoutNode {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Graph Lab 手动布局数据。 */
+export interface GraphLayout {
+  readonly version: 1;
+  readonly nodes: readonly GraphLayoutNode[];
+}
+
+/** `.mdstory` frontmatter 中的布局区。 */
+export interface StoryLayout {
+  readonly graph: GraphLayout;
+}
 
 // ============================================================================
 // 变量声明
@@ -159,6 +190,9 @@ export interface StoryNode {
 
   /** 诊断元数据（验证器填充） */
   readonly diagnostics: NodeDiagnostics;
+
+  /** Graph Lab 持久化画布位置（可选，缺失时由自动布局计算） */
+  readonly position?: GraphPosition;
 
   /** 在源文件中的行号（1-based） */
   readonly lineNumber: number;

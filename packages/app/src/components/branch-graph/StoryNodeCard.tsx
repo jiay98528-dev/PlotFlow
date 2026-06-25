@@ -319,24 +319,31 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
       <Handle
         type="target"
         position={Position.Top}
-        className="story-node-handle story-node-handle-target"
+        className="story-node-handle story-node-handle-target nodrag nopan"
       />
 
       {/* React Flow 连线端口 — 每个选项一个源端口（底部，可拖拽修改跳转目标） */}
       {data.optionCount > 0 && (
         <div className="story-node-connectors">
           {Array.from({ length: data.optionCount }, (_, i) => (
-            <Handle
+            <div
               key={`option-${i}`}
-              id={`option-${i}`}
-              type="source"
-              position={Position.Bottom}
-              className="story-node-connect-handle"
+              className="story-node-connect-handle nodrag nopan"
+              data-source-full-id={data.fullId}
+              data-option-index={i}
+              data-testid={`story-node-option-handle-${i}`}
               style={{
                 left: `${((i + 1) / (data.optionCount + 1)) * 100}%`,
               }}
-              title={`选项 ${i + 1}: 拖拽到目标节点以修改跳转目标`}
-            />
+              title={`选项 ${i + 1}: 拖到节点可连接，拖到空白处可创建或搜索目标`}
+            >
+              <Handle
+                id={`option-${i}`}
+                type="source"
+                position={Position.Bottom}
+                className="story-node-connect-port nodrag nopan"
+              />
+            </div>
           ))}
         </div>
       )}

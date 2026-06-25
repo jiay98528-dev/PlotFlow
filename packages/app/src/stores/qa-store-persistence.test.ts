@@ -234,9 +234,9 @@ function resetAllStores(): void {
 
   // uiStore — 无 reset() 方法，手动设置到默认值
   useUIStore.setState({
-    theme: 'light',
     language: 'zh-CN' as const,
-    accent: 'ocean',
+    activeOfficialThemeId: 'plotflow-narrative-workbench',
+    activeThemePackId: 'plotflow-narrative-workbench',
     activeRightPanel: 'graph',
     isOutlinePanelOpen: true,
     statusMessage: '',
@@ -675,19 +675,16 @@ describe('graphStore — 状态流 (ST-07~ST-10)', () => {
 
 describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   // --------------------------------------------------------------------------
-  // ST-11: toggleTheme
   // --------------------------------------------------------------------------
-  it('[ST-11] toggleTheme() → theme 在 light/dark 翻转', () => {
-    // 初始状态为 light (beforeEach reset)
-    expect(useUIStore.getState().theme).toBe('light');
+  it('[ST-11] setActiveOfficialThemeId() -> ??????', () => {
+    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
 
-    // 第1次 → dark
-    useUIStore.getState().toggleTheme();
-    expect(useUIStore.getState().theme).toBe('dark');
+    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
+    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-blueprint-nightwatch');
+    expect(useUIStore.getState().activeThemePackId).toBe('plotflow-blueprint-nightwatch');
 
-    // 第2次 → light
-    useUIStore.getState().toggleTheme();
-    expect(useUIStore.getState().theme).toBe('light');
+    useUIStore.getState().setActiveOfficialThemeId('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
   });
 
   // --------------------------------------------------------------------------
@@ -706,18 +703,13 @@ describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // ST-13: setAccent
   // --------------------------------------------------------------------------
-  it('[ST-13] setAccent("gold") → accent="gold"', () => {
-    // Act
-    useUIStore.getState().setAccent('gold');
+  it('[ST-13] setActiveThemePackId() -> legacy/local id ???????', () => {
+    useUIStore.getState().setActiveThemePackId('plotflow-blueprint-nightwatch');
+    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-blueprint-nightwatch');
 
-    // Assert
-    expect(useUIStore.getState().accent).toBe('gold');
-
-    // 切回 ocean
-    useUIStore.getState().setAccent('ocean');
-    expect(useUIStore.getState().accent).toBe('ocean');
+    useUIStore.getState().setActiveThemePackId('unknown-local-theme');
+    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
   });
 
   // --------------------------------------------------------------------------
@@ -815,91 +807,72 @@ describe('localStorage 持久化 (DATA-03)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // DATA-03-17: toggleTheme 持久化
   // --------------------------------------------------------------------------
-  it('[DATA-03-17] toggleTheme() → localStorage 有 plotflow:theme', () => {
-    // Act: 切换为 dark
-    useUIStore.getState().toggleTheme();
+  it('[DATA-03-17] setActiveOfficialThemeId() -> localStorage ??????', () => {
+    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
 
-    // Assert: localStorage 应有 'dark'
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('dark');
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
+    expect(window.localStorage.getItem('plotflow:themePack')).toBe('plotflow-blueprint-nightwatch');
 
-    // Act: 再切回 light
-    useUIStore.getState().toggleTheme();
-
-    // Assert: localStorage 应有 'light'
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('light');
+    useUIStore.getState().setActiveOfficialThemeId('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-narrative-workbench');
   });
 
   // --------------------------------------------------------------------------
-  // DATA-03-18: setAccent 持久化
   // --------------------------------------------------------------------------
-  it('[DATA-03-18] setAccent("gold") → localStorage 有 plotflow:accent = "gold"', () => {
-    // Act
-    useUIStore.getState().setAccent('gold');
+  it('[DATA-03-18] setActiveThemePackId() -> localStorage ?? themePack key', () => {
+    useUIStore.getState().setActiveThemePackId('plotflow-blueprint-nightwatch');
 
-    // Assert
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('gold');
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
+    expect(window.localStorage.getItem('plotflow:themePack')).toBe('plotflow-blueprint-nightwatch');
 
-    // 切回 ocean
-    useUIStore.getState().setAccent('ocean');
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('ocean');
+    useUIStore.getState().setActiveThemePackId('unknown-local-theme');
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-narrative-workbench');
   });
 
   // --------------------------------------------------------------------------
   // DATA-03-19: 回退到默认值
   // --------------------------------------------------------------------------
-  it('[DATA-03-19] 清除 localStorage → 验证回退到默认值 (light, zh-CN, ocean)', () => {
-    // Arrange: 先设置非默认值
+  it('[DATA-03-19] ?? localStorage -> ????????????', () => {
     useUIStore.getState().setLanguage('en-US');
-    useUIStore.getState().toggleTheme(); // light → dark
-    useUIStore.getState().setAccent('gold');
+    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
 
-    // 验证 localStorage 已被修改
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('dark');
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('gold');
 
-    // Act: 清除 localStorage
     clearLocalStorage();
 
-    // 验证 localStorage 已清空
-    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBeNull();
     expect(window.localStorage.getItem('plotflow:language')).toBeNull();
-    expect(window.localStorage.getItem('plotflow:accent')).toBeNull();
 
-    // 手动触发 store 回退到默认值
-    // 由于 store 是单例且模块已加载，需要模拟重新初始化的行为：
-    // 1. 清除 localStorage
-    // 2. 重置 store 状态到默认值（等同于新建 store 的行为）
     resetAllStores();
 
-    // Assert: store 状态回退到默认值
-    expect(useUIStore.getState().theme).toBe('light');
+    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
     expect(useUIStore.getState().language).toBe('zh-CN');
-    expect(useUIStore.getState().accent).toBe('ocean');
   });
 
-  // --------------------------------------------------------------------------
-  // 额外验证: 仅有这三个 key 被持久化
-  // --------------------------------------------------------------------------
-  it('只有 theme / language / accent 三个 key 被持久化', () => {
+  it('??????????????????? key', () => {
     useUIStore.getState().setLanguage('en-US');
-    useUIStore.getState().toggleTheme(); // → dark
-    useUIStore.getState().setAccent('gold');
+    useUIStore.getState().setWorkspaceMode('graphLab');
+    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
 
-    // 其他操作不应写入 localStorage
     useUIStore.getState().setActiveRightPanel('none');
     useUIStore.getState().openExportDialog();
     useUIStore.getState().setStatusMessage('hello');
 
-    // localStorage 仍只有 3 个 key
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('dark');
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('gold');
+    expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('graphLab');
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
+    expect(window.localStorage.getItem('plotflow:themePack')).toBe('plotflow-blueprint-nightwatch');
+    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    expect(window.localStorage.getItem('plotflow:accent')).toBeNull();
 
-    // 不应有其他 key
-    expect(Object.keys(localStorageStore)).toHaveLength(3);
+    expect(Object.keys(localStorageStore).sort()).toEqual([
+      'plotflow:language',
+      'plotflow:officialTheme',
+      'plotflow:themePack',
+      'plotflow:workspaceMode',
+    ]);
   });
 });
 

@@ -1,11 +1,8 @@
 /**
- * electron-builder 三平台打包配置 (M7-01)
+ * Electron Builder packaging configuration.
  *
- * 构建流程:
- *   electron-vite build  → 输出到 out/
- *   electron-builder     → 从 out/ 读取并打包到 release/
- *
- * 注意: V0.1 不配置代码签名, Windows SmartScreen 警告属正常现象。
+ * `website/` is a separately deployed documentation site and must never be
+ * bundled into the desktop app. Keep `files` as an allowlist.
  */
 
 module.exports = {
@@ -17,60 +14,77 @@ module.exports = {
     buildResources: 'build',
   },
 
-  /* ── 下载镜像 (国内网络加速) ── */
   electronDownload: {
     mirror: 'https://npmmirror.com/mirrors/electron/',
   },
 
-  /* ── 打包优化 ── */
   npmRebuild: false,
   asar: true,
 
-  /* ── 文件关联 (M7-07) ──
-   *
-   * .mdstory 文件关联到 PlotFlow 应用。
-   * Windows 安装时自动注册到注册表，macOS 写入 Info.plist，Linux 写入 .desktop。
-   *
-   * 注意: 图标路径依赖 build/ 目录下的对应格式文件:
-   *   - Windows: build/icon.ico
-   *   - macOS:   build/icon.icns
-   *   - Linux:   build/icon.png
-   */
+  files: [
+    'out/**/*',
+    'package.json',
+  ],
+
+  extraResources: [
+    {
+      from: 'build/icon.png',
+      to: 'icon.png',
+    },
+    {
+      from: 'build/file-icon.ico',
+      to: 'file-icon.ico',
+    },
+  ],
+
   fileAssociations: [
     {
       ext: 'mdstory',
       name: 'PlotFlow Story',
-      description: 'PlotFlow 叙事分支文件',
+      description: 'PlotFlow story branch file',
       icon: 'build/file-icon.ico',
       role: 'Editor',
       isPackage: false,
     },
   ],
 
-  /* ── 打包内容 ── */
-  files: [
-    'out/**/*',
-    'package.json',
-  ],
-
-  /* ── Windows ── */
   win: {
     target: ['nsis'],
     icon: 'build/icon.ico',
   },
+
   nsis: {
     oneClick: false,
+    artifactName: 'PlotFlow Setup ${version}.${ext}',
+    guid: '74fc8b73-b58d-5573-82e7-75efc9ec526f',
+    include: 'build/installer.nsh',
+
+    allowElevation: true,
     allowToChangeInstallationDirectory: true,
+    // Windows NSIS file associations are only reliable for per-machine installs.
+    perMachine: true,
+    createDesktopShortcut: 'always',
+    createStartMenuShortcut: true,
+    runAfterFinish: true,
+    shortcutName: 'PlotFlow',
+    uninstallDisplayName: 'PlotFlow',
+
+    installerIcon: 'build/icon.ico',
+    uninstallerIcon: 'build/icon.ico',
+    installerSidebar: 'build/installer-sidebar.bmp',
+    uninstallerSidebar: 'build/uninstaller-sidebar.bmp',
+
+    multiLanguageInstaller: true,
+    displayLanguageSelector: true,
+    installerLanguages: ['zh_CN', 'zh_TW', 'en_US', 'ja_JP', 'ko_KR'],
   },
 
-  /* ── macOS ── */
   mac: {
     target: ['dmg'],
     icon: 'build/icon.icns',
     category: 'public.app-category.developer-tools',
   },
 
-  /* ── Linux ── */
   linux: {
     target: ['AppImage', 'deb'],
     icon: 'build/icon.png',
