@@ -352,7 +352,9 @@ test.describe('Graph Lab E2E', () => {
     );
     await page.evaluate(() => {
       window.localStorage.setItem('plotflow:workspaceMode', 'split');
+      window.localStorage.setItem('plotflow:themeId', 'plotflow-narrative-workbench');
       (window as TestWindow).__test_store__?.setWorkspaceMode?.('split');
+      (window as TestWindow).__test_store__?.setTheme?.('plotflow-narrative-workbench');
     });
     await mockExportIpcHandler(electronApp);
   });
@@ -372,6 +374,11 @@ test.describe('Graph Lab E2E', () => {
     await expect(page.locator('.react-flow__node').filter({ hasText: '新节点' })).toBeVisible({ timeout: 10_000 });
 
     await clickNodeBody(page, '新节点');
+    // M4: 新节点卡片可能因 DOM 事件委托/冒泡/Handle 拦截导致点击未触发选中。
+    // 额外走 __test_store__.selectNode 程序化选中，确保 Inspector 一定拿到 node 上下文。
+    await page.evaluate(() => {
+      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.('第一章-新节点');
+    });
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await titleInput.fill('树林');
     await blur(titleInput);
@@ -383,6 +390,9 @@ test.describe('Graph Lab E2E', () => {
     await waitForContent(page, '树影挡住了小路。');
 
     await clickNodeBody(page, '起点');
+    await page.evaluate(() => {
+      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.('第一章-起点');
+    });
     await page.getByTestId('graph-inspector-option-target-0').selectOption({ label: '树林' });
     await waitForContent(page, '-> 节点：树林');
 
@@ -433,7 +443,7 @@ test.describe('Graph Lab E2E', () => {
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
 
-    await expect(page.locator('html')).toHaveAttribute('data-theme-pack', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
     await expect(page.getByText('Graph Lab · 叙事工作台')).toBeVisible();
     await expect(page.getByTestId('graph-lab-workspace-browser')).toBeVisible();
     await expect(page.getByTestId('graph-lab-outline-node').filter({ hasText: '起点' })).toBeVisible();

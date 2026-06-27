@@ -1,10 +1,10 @@
 import React from 'react';
-import { OfficialThemeProvider } from '../theme/OfficialThemeProvider';
+import { ThemePlatformProvider } from './ThemePlatformProvider';
 
 export interface ThemeProviderProps {
   readonly children: React.ReactNode;
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElement {
-  return <OfficialThemeProvider>{children}</OfficialThemeProvider>;
+  return <ThemePlatformProvider>{children}</ThemePlatformProvider>;
 }

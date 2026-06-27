@@ -42,13 +42,12 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
-import { useOfficialTheme } from '../../theme/OfficialThemeProvider';
+import { useThemePlatform } from '../ThemePlatformProvider';
 import { parsePipelineNow } from '../../services/parsePipeline';
 import { graphEditService } from '../../services/graphEditService';
 import { parseEdgeId } from '../../stores/edgeStore';
 import type { StoryFlowNodeData } from './adapter';
-import { StoryEdge, type StoryEdgeData } from './StoryEdge';
-import { StoryNodeCard } from './StoryNodeCard';
+import { type StoryEdgeData } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
 import type { ContextMenuType } from './GraphContextMenu';
 import { CollapseNode } from './CollapseNode';
@@ -92,6 +91,49 @@ function eventToClientPoint(event: globalThis.MouseEvent | globalThis.TouchEvent
     if (touch) return { x: touch.clientX, y: touch.clientY };
   }
   return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+}
+
+const EDGE_HIT_FALLBACK_RADIUS = 24;
+const EDGE_HIT_SAMPLE_COUNT = 24;
+
+function getScreenPointOnPath(path: SVGPathElement, length: number): DOMPoint | null {
+  const svg = path.closest('svg');
+  const svgCTM = svg?.getScreenCTM();
+  if (!svg || !svgCTM) return null;
+
+  const localPoint = path.getPointAtLength(length);
+  const groupTransform = path.closest('g')?.getAttribute('transform') ?? '';
+  const match = groupTransform.match(/translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+  const tx = match ? Number.parseFloat(match[1]!) : 0;
+  const ty = match ? Number.parseFloat(match[2]!) : 0;
+
+  const point = svg.createSVGPoint();
+  point.x = localPoint.x + tx;
+  point.y = localPoint.y + ty;
+  return point.matrixTransform(svgCTM);
+}
+
+function findOfficialEdgeIdAtPoint(clientX: number, clientY: number): string | null {
+  let best: { edgeId: string; distance: number } | null = null;
+  const paths = document.querySelectorAll<SVGPathElement>('.official-graph-edge__hit-area[data-edge-id]');
+
+  for (const path of paths) {
+    const edgeId = path.dataset['edgeId'];
+    if (!edgeId) continue;
+
+    const totalLength = path.getTotalLength();
+    for (let i = 0; i <= EDGE_HIT_SAMPLE_COUNT; i++) {
+      const screenPoint = getScreenPointOnPath(path, totalLength * (i / EDGE_HIT_SAMPLE_COUNT));
+      if (!screenPoint) continue;
+
+      const distance = Math.hypot(screenPoint.x - clientX, screenPoint.y - clientY);
+      if (!best || distance < best.distance) {
+        best = { edgeId, distance };
+      }
+    }
+  }
+
+  return best && best.distance <= EDGE_HIT_FALLBACK_RADIUS ? best.edgeId : null;
 }
 
 function getStoryNodeIdFromPoint(point: { readonly x: number; readonly y: number }): string | null {
@@ -347,7 +389,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const isSplit = viewMode === 'split';
   const isGraphLab = viewMode === 'graphLab';
   const canEditGraph = viewMode !== 'minimap';
-  const { activeTheme } = useOfficialTheme();
+  const { activeTheme } = useThemePlatform();
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const collapsedGroups = useGraphStore((state) => state.collapsedGroups);
@@ -379,24 +421,46 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const reconnectEdgeRef = React.useRef<Edge | null>(null);
   const screenToFlowPositionRef = React.useRef<ScreenToFlowPosition | null>(null);
   const manualWireDragRef = React.useRef<ManualWireDrag | null>(null);
+  const altPressedRef = React.useRef(false);
   const [liveWirePreview, setLiveWirePreview] = useState<LiveWirePreview | null>(null);
   const [wireDropContext, setWireDropContext] = useState<WireDropContext | null>(null);
 
   const nodeTypes = useMemo(
     () => ({
-      storyNode: isGraphLab ? activeTheme.slots.StoryNodeCard : StoryNodeCard,
+      storyNode: activeTheme.slots.StoryNodeCard,
       collapseNode: CollapseNode,
     }),
-    [activeTheme.slots.StoryNodeCard, isGraphLab],
+    [activeTheme.slots.StoryNodeCard],
   );
 
   const edgeTypes = useMemo(
     () => ({
-      default: isGraphLab ? activeTheme.slots.StoryEdge : StoryEdge,
-      conditional: isGraphLab ? activeTheme.slots.StoryEdge : StoryEdge,
+      default: activeTheme.slots.StoryEdge,
+      conditional: activeTheme.slots.StoryEdge,
     }),
-    [activeTheme.slots.StoryEdge, isGraphLab],
+    [activeTheme.slots.StoryEdge],
   );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Alt') altPressedRef.current = true;
+    };
+    const handleKeyUp = (event: KeyboardEvent): void => {
+      if (event.key === 'Alt') altPressedRef.current = false;
+    };
+    const handleBlur = (): void => {
+      altPressedRef.current = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
 
   // ==========================================================================
   // 连线连接处理 (M2-09)
@@ -667,12 +731,31 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 普通点击：选中连线（视觉高亮）
    * Alt+点击：删除连线 → 确认后移除文本中的 -> 节点：XXX
    */
+  const deleteEdgeById = useCallback(
+    (edgeId: string): void => {
+      try {
+        const { sourceFullId, optionIndex } = parseEdgeId(edgeId);
+        const sourceNode = getNodeByFullId(sourceFullId);
+        if (!sourceNode) return;
+
+        const option = sourceNode.options[optionIndex];
+        if (!option) return;
+
+        graphEditService.connectOption(option, null);
+      } catch {
+        // eslint-disable-next-line no-console
+        console.warn('[GraphCanvas] Alt+click edge delete failed - invalid edge id:', edgeId);
+      }
+    },
+    [getNodeByFullId],
+  );
+
   const handleEdgeClick = useCallback(
     (event: React.MouseEvent, edge: Edge<StoryEdgeData>) => {
       if (renamingNodeId !== null) return;
 
       // Alt+点击 → 删除连线 (FR-1)
-      if (event.altKey) {
+      if (event.altKey || altPressedRef.current) {
         event.preventDefault();
 
         try {
@@ -693,6 +776,44 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     },
     [renamingNodeId, getNodeByFullId],
   );
+
+  const handleEdgeHitAreaClickCapture = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!(event.altKey || altPressedRef.current) || renamingNodeId !== null) return;
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const edgeElement = target.closest<HTMLElement>(
+        '[data-edge-id].official-graph-edge__hit-area, [data-edge-id].official-graph-edge',
+      );
+      const edgeId = edgeElement?.dataset['edgeId'] ?? findOfficialEdgeIdAtPoint(event.clientX, event.clientY);
+      if (!edgeId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      deleteEdgeById(edgeId);
+    },
+    [renamingNodeId, deleteEdgeById],
+  );
+
+  useEffect(() => {
+    if (!canEditGraph) return undefined;
+
+    const handleDocumentClick = (event: MouseEvent): void => {
+      if (!(event.altKey || altPressedRef.current) || renamingNodeId !== null) return;
+
+      const edgeId = findOfficialEdgeIdAtPoint(event.clientX, event.clientY);
+      if (!edgeId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      deleteEdgeById(edgeId);
+    };
+
+    document.addEventListener('click', handleDocumentClick, true);
+    return () => document.removeEventListener('click', handleDocumentClick, true);
+  }, [canEditGraph, renamingNodeId, deleteEdgeById]);
 
   /**
    * 连线双击 → 打开条件编辑器 (DG-3, V02-017 + V02-030)。
@@ -1201,6 +1322,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         onPointerCancelCapture={canEditGraph ? handleManualWirePointerCancel : undefined}
         onMouseDownCapture={canEditGraph ? handleManualWireMouseDown : undefined}
         onMouseUpCapture={canEditGraph ? handleManualWireMouseUp : undefined}
+        onClickCapture={canEditGraph ? handleEdgeHitAreaClickCapture : undefined}
       >
         <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
         <ZoomResetShortcut />

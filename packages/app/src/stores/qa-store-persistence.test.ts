@@ -81,7 +81,7 @@ import { describe, it, expect, beforeEach, vi, beforeAll } from 'vitest';
 import { useEditorStore } from './editorStore';
 import { useStoryStore } from './storyStore';
 import { useGraphStore, ZOOM_CONSTRAINTS } from './graphStore';
-import { useUIStore } from './uiStore';
+import { useUIStore, normalizeLegacyThemeValue } from './uiStore';
 import type { PlotFlowData, Diagnostic } from '@plotflow/core';
 import { parsePipelineNow } from '../services/parsePipeline';
 import { forceSave, clearPendingSave } from '../services/autoSaveService';
@@ -235,8 +235,7 @@ function resetAllStores(): void {
   // uiStore — 无 reset() 方法，手动设置到默认值
   useUIStore.setState({
     language: 'zh-CN' as const,
-    activeOfficialThemeId: 'plotflow-narrative-workbench',
-    activeThemePackId: 'plotflow-narrative-workbench',
+    activeThemeId: 'plotflow-narrative-workbench',
     activeRightPanel: 'graph',
     isOutlinePanelOpen: true,
     statusMessage: '',
@@ -676,15 +675,14 @@ describe('graphStore — 状态流 (ST-07~ST-10)', () => {
 describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
-  it('[ST-11] setActiveOfficialThemeId() -> ??????', () => {
-    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
+  it('[ST-11] setActiveThemeId() -> activeThemeId 更新', () => {
+    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
 
-    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
-    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-blueprint-nightwatch');
-    expect(useUIStore.getState().activeThemePackId).toBe('plotflow-blueprint-nightwatch');
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
 
-    useUIStore.getState().setActiveOfficialThemeId('plotflow-narrative-workbench');
-    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
   });
 
   // --------------------------------------------------------------------------
@@ -704,12 +702,12 @@ describe('uiStore — 状态流 (ST-11~ST-15)', () => {
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
-  it('[ST-13] setActiveThemePackId() -> legacy/local id ???????', () => {
-    useUIStore.getState().setActiveThemePackId('plotflow-blueprint-nightwatch');
-    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-blueprint-nightwatch');
+  it('[ST-13] setActiveThemeId() -> 任意字符串 ID 直接接受', () => {
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
 
-    useUIStore.getState().setActiveThemePackId('unknown-local-theme');
-    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId('custom-official-theme');
+    expect(useUIStore.getState().activeThemeId).toBe('custom-official-theme');
   });
 
   // --------------------------------------------------------------------------
@@ -808,53 +806,103 @@ describe('localStorage 持久化 (DATA-03)', () => {
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
-  it('[DATA-03-17] setActiveOfficialThemeId() -> localStorage ??????', () => {
-    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
+  it('[DATA-03-17] setActiveThemeId() -> localStorage themeId key', () => {
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
 
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
-    expect(window.localStorage.getItem('plotflow:themePack')).toBe('plotflow-blueprint-nightwatch');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
 
-    useUIStore.getState().setActiveOfficialThemeId('plotflow-narrative-workbench');
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
   });
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
-  it('[DATA-03-18] setActiveThemePackId() -> localStorage ?? themePack key', () => {
-    useUIStore.getState().setActiveThemePackId('plotflow-blueprint-nightwatch');
+  it('[DATA-03-18] setActiveThemeId() -> 旧键已清除', () => {
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
 
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
-    expect(window.localStorage.getItem('plotflow:themePack')).toBe('plotflow-blueprint-nightwatch');
+    // 旧键不应存在（持久化只保留新键 plotflow:themeId）
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBeNull();
+  });
 
-    useUIStore.getState().setActiveThemePackId('unknown-local-theme');
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-narrative-workbench');
+  // --------------------------------------------------------------------------
+  // DATA-03-18b: legacy dark/light → 规范化为正式 themeId
+  // --------------------------------------------------------------------------
+  it('[DATA-03-18b] normalizeLegacyThemeValue: dark -> workbench', () => {
+    expect(normalizeLegacyThemeValue('dark')).toBe('plotflow-narrative-workbench');
+  });
+
+  it('[DATA-03-18c] normalizeLegacyThemeValue: light -> workbench', () => {
+    expect(normalizeLegacyThemeValue('light')).toBe('plotflow-narrative-workbench');
+  });
+
+  it('[DATA-03-18d] normalizeLegacyThemeValue: officialTheme ID 原样保留', () => {
+    expect(normalizeLegacyThemeValue('plotflow-narrative-workbench')).toBe('plotflow-narrative-workbench');
+    expect(normalizeLegacyThemeValue('plotflow-narrative-workbench')).toBe('plotflow-narrative-workbench');
+  });
+
+  it('[DATA-03-18e] legacy plotflow:theme=dark 触发完整初始化迁移路径', async () => {
+    // 模拟用户浏览器中残留的旧键
+    window.localStorage.setItem('plotflow:theme', 'dark');
+
+    // 清除模块缓存，使下次 import 重新执行模块级初始化（readStoredThemeId()）
+    vi.resetModules();
+
+    // 动态 import 触发 uiStore.ts 模块执行：
+    //   readStoredThemeId() → 读到 'dark' → normalizeLegacyThemeValue('dark')
+    //   → migrateToNewKey('plotflow-narrative-workbench')
+    //   → 新 key 写入 + 旧 key 删除 + store 初始化为规范化值
+    const fresh = await import('./uiStore');
+
+    // 断言新键 plotflow:themeId 被写入规范化后的值
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    // 断言旧键 plotflow:theme 被删除
+    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    // 断言 store 的 activeThemeId 是规范化后的值
+    expect(fresh.useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+
+    // 恢复模块缓存，防止影响后续测试
+    vi.resetModules();
+    await import('./uiStore');
+  });
+
+  it('[DATA-03-18f] legacy plotflow:theme=light 迁移触发', async () => {
+    window.localStorage.setItem('plotflow:theme', 'light');
+    vi.resetModules();
+    const fresh = await import('./uiStore');
+
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    expect(fresh.useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+
+    vi.resetModules();
+    await import('./uiStore');
   });
 
   // --------------------------------------------------------------------------
   // DATA-03-19: 回退到默认值
   // --------------------------------------------------------------------------
-  it('[DATA-03-19] ?? localStorage -> ????????????', () => {
+  it('[DATA-03-19] localStorage 清除后重置为默认主题', () => {
     useUIStore.getState().setLanguage('en-US');
-    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
 
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
 
     clearLocalStorage();
 
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBeNull();
+    expect(window.localStorage.getItem('plotflow:themeId')).toBeNull();
     expect(window.localStorage.getItem('plotflow:language')).toBeNull();
 
     resetAllStores();
 
-    expect(useUIStore.getState().activeOfficialThemeId).toBe('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
     expect(useUIStore.getState().language).toBe('zh-CN');
   });
 
-  it('??????????????????? key', () => {
+  it('setActiveThemeId 持久化到 localStorage', () => {
     useUIStore.getState().setLanguage('en-US');
     useUIStore.getState().setWorkspaceMode('graphLab');
-    useUIStore.getState().setActiveOfficialThemeId('plotflow-blueprint-nightwatch');
+    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
 
     useUIStore.getState().setActiveRightPanel('none');
     useUIStore.getState().openExportDialog();
@@ -862,15 +910,12 @@ describe('localStorage 持久化 (DATA-03)', () => {
 
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
     expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('graphLab');
-    expect(window.localStorage.getItem('plotflow:officialTheme')).toBe('plotflow-blueprint-nightwatch');
-    expect(window.localStorage.getItem('plotflow:themePack')).toBe('plotflow-blueprint-nightwatch');
-    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
     expect(window.localStorage.getItem('plotflow:accent')).toBeNull();
 
     expect(Object.keys(localStorageStore).sort()).toEqual([
       'plotflow:language',
-      'plotflow:officialTheme',
-      'plotflow:themePack',
+      'plotflow:themeId',
       'plotflow:workspaceMode',
     ]);
   });

@@ -118,10 +118,11 @@ async function waitForGraphStatus(
 ): Promise<void> {
   await page.waitForFunction(
     (expectedStatus: string) => {
-      const expectedClass = `node-status-${expectedStatus}`;
-      return Array.from(document.querySelectorAll('.react-flow__node')).some((node) =>
-        node.classList.contains(expectedClass),
-      );
+      const expectedClass = `official-graph-node--${expectedStatus}`;
+      return Array.from(document.querySelectorAll('.react-flow__node')).some((node) => {
+        const card = node.querySelector('.official-graph-node');
+        return card ? card.classList.contains(expectedClass) : false;
+      });
     },
     status,
     { timeout: 10_000 },
@@ -253,9 +254,9 @@ async function getGraphNodeStatuses(page: Page): Promise<Record<string, string>>
     const nodes = document.querySelectorAll('.react-flow__node');
 
     nodes.forEach((node) => {
-      const classList = Array.from(node.classList);
-      const statusClass = classList.find((c) => c.startsWith('node-status-'));
-      const status = statusClass ? statusClass.replace('node-status-', '') : 'unknown';
+      const classList = Array.from(node.querySelector('.official-graph-node')?.classList ?? (node.classList as unknown as DOMTokenList));
+      const statusClass = classList.find((c) => c.startsWith('official-graph-node--') && !c.includes('workbench'));
+      const status = statusClass ? statusClass.replace('official-graph-node--', '') : 'unknown';
       // React Flow v12 使用 data-id；回退到 id 属性或 aria-label
       const dataId =
         node.getAttribute('data-id') ??

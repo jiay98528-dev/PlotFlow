@@ -1,4 +1,4 @@
-html[data-official-theme] {
+html[data-theme-id] {
   --theme-card-radius: 8px;
   --theme-grid-size: 28px;
 }
@@ -19,13 +19,14 @@ html[data-official-theme] {
 
 .home-surface {
   position: absolute;
-  inset: 64px 0 26px;
+  inset: var(--theme-ux-home-inset, 64px 0 26px);
   z-index: var(--z-panel, 50);
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: var(--space-5);
+  gap: var(--theme-ux-home-gap, var(--space-5));
   overflow: auto;
-  padding: clamp(var(--space-4), 3vw, var(--space-8));
+  padding: var(--theme-ux-home-padding, clamp(var(--space-4), 3vw, var(--space-8)));
+  opacity: var(--theme-ux-home-opacity, 1);
   background:
     var(--theme-blueprint-canvas),
     linear-gradient(135deg, var(--theme-graph-lab-paper), var(--theme-graph-lab-surface));
@@ -150,18 +151,18 @@ html[data-official-theme] {
 .theme-center {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  z-index: var(--theme-ux-theme-center-z-index, var(--z-modal));
   display: grid;
   place-items: center;
-  padding: var(--space-6);
+  padding: var(--theme-ux-theme-center-padding, var(--space-6));
   background: var(--color-overlay-modal);
 }
 
 .theme-center__panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(1080px, 100%);
-  max-height: min(780px, calc(100vh - var(--space-12)));
+  width: var(--theme-ux-theme-center-width, min(1080px, 100%));
+  max-height: var(--theme-ux-theme-center-height, min(780px, calc(100vh - var(--space-12))));
   overflow: hidden;
   border: 1px solid var(--theme-node-border);
   border-radius: var(--radius-lg);
@@ -238,6 +239,23 @@ html[data-official-theme] {
   min-height: 0;
   overflow: auto;
   padding: var(--space-5);
+}
+
+.theme-center__section-title {
+  margin: var(--space-2) 0 0;
+  color: var(--theme-node-ink);
+  font-size: var(--text-sm);
+  font-weight: 840;
+  letter-spacing: 0.03em;
+}
+
+.theme-center__empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--theme-node-border);
+  border-radius: var(--radius-md);
+  color: var(--theme-node-muted);
+  background: var(--theme-panel-surface);
 }
 
 .official-theme-card {
@@ -376,10 +394,6 @@ html[data-official-theme] {
   stroke-width: 4;
 }
 
-.official-theme-preview--nightwatch path {
-  filter: drop-shadow(0 0 6px var(--theme-graph-cable-default));
-}
-
 .graph-lab,
 .graph-pane,
 .minimap-shell {
@@ -444,20 +458,9 @@ html[data-official-theme] {
   transition: opacity 160ms ease;
 }
 
-.official-node-shell--nightwatch .official-node-shell__glow {
-  opacity: 0.12;
-}
-
 .official-node-shell:hover .official-node-shell__glow,
 .official-node-shell:focus-within .official-node-shell__glow {
   opacity: 0.16;
-}
-
-.official-node-shell--nightwatch .story-node-card {
-  border-width: 1px;
-  outline: 1px solid color-mix(in oklch, var(--theme-graph-cable-default), transparent 58%);
-  background:
-    linear-gradient(180deg, color-mix(in oklch, var(--theme-node-surface), white 5%), var(--theme-node-surface));
 }
 
 .official-node-shell .story-node-connect-port,
@@ -467,17 +470,13 @@ html[data-official-theme] {
   box-shadow: 0 0 0 4px color-mix(in oklch, var(--theme-port-fill), transparent 78%);
 }
 
-.official-edge--nightwatch path:not(.edge-interaction-path) {
-  filter: drop-shadow(0 0 6px var(--theme-graph-cable-default));
-}
-
 .official-graph-node {
   position: relative;
   display: grid;
   gap: var(--space-3);
-  width: 260px;
-  min-height: 150px;
-  padding: var(--space-3);
+  width: var(--theme-ux-node-width, 260px);
+  min-height: var(--theme-ux-node-min-height, 150px);
+  padding: var(--theme-ux-node-padding, var(--space-3));
   border: 1px solid var(--theme-node-border);
   color: var(--theme-node-ink);
   background: var(--theme-node-surface);
@@ -485,22 +484,10 @@ html[data-official-theme] {
 }
 
 .official-graph-node--workbench {
-  border-radius: 10px 10px 14px;
+  border-radius: var(--theme-ux-node-radius, 10px 10px 14px);
   background:
     linear-gradient(90deg, color-mix(in oklch, var(--theme-port-fill), transparent 84%) 0 8px, transparent 8px),
     linear-gradient(180deg, color-mix(in oklch, var(--theme-node-surface), white 9%), var(--theme-node-surface));
-}
-
-.official-graph-node--nightwatch {
-  width: 284px;
-  min-height: 132px;
-  border-radius: 6px;
-  outline: 1px solid color-mix(in oklch, var(--theme-graph-cable-default), transparent 46%);
-  background:
-    linear-gradient(180deg, color-mix(in oklch, var(--theme-node-surface), var(--theme-graph-cable-default) 8%), var(--theme-node-surface));
-  box-shadow:
-    0 0 0 1px color-mix(in oklch, var(--theme-graph-cable-default), transparent 70%),
-    0 18px 54px oklch(3% 0.02 250deg / 46%);
 }
 
 .official-graph-node.is-selected {
@@ -573,11 +560,6 @@ html[data-official-theme] {
   background: color-mix(in oklch, var(--theme-panel-surface), transparent 20%);
 }
 
-.official-graph-node--nightwatch .official-graph-node__option {
-  border-radius: 3px;
-  background: color-mix(in oklch, var(--theme-graph-cable-default), transparent 90%);
-}
-
 .official-graph-node__option-text {
   min-width: 0;
   overflow: hidden;
@@ -593,14 +575,6 @@ html[data-official-theme] {
   border: 2px solid var(--theme-node-surface);
   background: var(--theme-port-fill);
   box-shadow: 0 0 0 4px color-mix(in oklch, var(--theme-port-fill), transparent 76%);
-}
-
-.official-graph-node--nightwatch .official-node-port {
-  width: 16px;
-  height: 16px;
-  box-shadow:
-    0 0 0 5px color-mix(in oklch, var(--theme-port-fill), transparent 80%),
-    0 0 14px color-mix(in oklch, var(--theme-port-fill), transparent 18%);
 }
 
 .official-node-port--target {
@@ -621,11 +595,6 @@ html[data-official-theme] {
 .official-graph-edge--conditional .official-graph-edge__path {
   stroke: var(--theme-graph-cable-conditional);
   stroke-dasharray: 7 5;
-}
-
-.official-graph-edge--nightwatch .official-graph-edge__path {
-  stroke-width: 3.4px;
-  filter: drop-shadow(0 0 8px var(--theme-graph-cable-default));
 }
 
 .official-graph-edge.is-hovered .official-graph-edge__path,
@@ -669,15 +638,6 @@ html[data-official-theme] {
 
 .graph-canvas-runtime--wire-dragging .official-node-port--target {
   transform: scale(1.18);
-}
-
-html[data-official-theme="plotflow-blueprint-nightwatch"] .app-shell {
-  color: var(--theme-node-ink);
-  background: var(--theme-graph-lab-paper);
-}
-
-html[data-official-theme="plotflow-blueprint-nightwatch"] .official-theme-preview--nightwatch {
-  box-shadow: inset 0 0 48px oklch(5% 0.03 250deg / 62%);
 }
 
 @media (width <= 900px) {

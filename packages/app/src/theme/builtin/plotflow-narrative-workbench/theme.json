@@ -15,11 +15,17 @@
   "tokens": {
     "shared": {
       "--theme-workbench-paper-grain": "linear-gradient(135deg, var(--theme-workbench-paper), var(--theme-workbench-paper-warm))",
+      "--theme-graph-lab-paper": "var(--theme-workbench-paper)",
+      "--theme-graph-lab-surface": "var(--theme-workbench-panel)",
+      "--theme-panel-surface": "color-mix(in oklch, var(--theme-workbench-panel), transparent 8%)",
+      "--theme-grid-size": "28px",
+      "--theme-card-radius": "var(--radius-lg)",
       "--theme-graph-node-radius": "var(--radius-lg)",
       "--theme-graph-canvas-grid-opacity": "0.62",
       "--theme-graph-cable-default": "var(--theme-blueprint-cable)",
       "--theme-graph-cable-conditional": "var(--theme-effect-line)",
       "--theme-graph-port": "var(--theme-blueprint-cable)",
+      "--theme-port-fill": "var(--theme-blueprint-cable)",
       "--theme-source-dock-height": "340px"
     },
     "light": {
@@ -33,6 +39,8 @@
       "--theme-node-surface": "oklch(0.992 0.008 88)",
       "--theme-node-surface-strong": "oklch(0.962 0.018 86)",
       "--theme-node-border": "oklch(0.79 0.05 82)",
+      "--theme-node-ink": "oklch(0.24 0.026 78)",
+      "--theme-node-muted": "oklch(0.47 0.035 79)",
       "--theme-effect-line": "oklch(0.62 0.13 38)",
       "--theme-success-leaf": "oklch(0.54 0.09 147)",
       "--theme-warning-leaf": "oklch(0.74 0.12 82)",
@@ -50,6 +58,8 @@
       "--theme-node-surface": "oklch(0.292 0.018 246)",
       "--theme-node-surface-strong": "oklch(0.345 0.021 244)",
       "--theme-node-border": "oklch(0.49 0.048 232)",
+      "--theme-node-ink": "oklch(0.9 0.018 82)",
+      "--theme-node-muted": "oklch(0.72 0.024 84)",
       "--theme-effect-line": "oklch(0.73 0.13 57)",
       "--theme-success-leaf": "oklch(0.68 0.105 151)",
       "--theme-warning-leaf": "oklch(0.78 0.115 83)",
@@ -102,6 +112,67 @@
       "nodeCardStyle": "blueprint-card",
       "cableStyle": "blueprint-cable",
       "motionIntensity": "subtle"
+    }
+  },
+  "uxRecipe": {
+    "appShell": {
+      "layout": "editor-shell",
+      "padding": "0",
+      "gap": "0"
+    },
+    "home": {
+      "layout": "hero-grid",
+      "inset": "64px 0 26px",
+      "padding": "clamp(var(--space-4), 3vw, var(--space-8))",
+      "gap": "var(--space-5)",
+      "opacity": "1"
+    },
+    "themeCenter": {
+      "layout": "sidebar-catalog",
+      "width": "min(1180px, 100%)",
+      "height": "min(820px, calc(100vh - var(--space-12)))",
+      "padding": "var(--space-6)",
+      "gap": "var(--space-4)",
+      "opacity": "1",
+      "zIndex": "var(--z-modal)"
+    },
+    "graphLab": {
+      "layout": "three-pane-canvas",
+      "padding": "var(--space-4)",
+      "gap": "var(--space-3)"
+    },
+    "split": {
+      "layout": "balanced-editor-graph",
+      "gap": "var(--space-3)"
+    },
+    "toolbar": {
+      "height": "64px",
+      "padding": "0 var(--space-4)",
+      "gap": "var(--space-3)"
+    },
+    "panel": {
+      "radius": "var(--radius-lg)",
+      "shadow": "var(--theme-workbench-shadow)",
+      "opacity": "0.98"
+    },
+    "dock": {
+      "height": "340px",
+      "position": "bottom"
+    },
+    "node": {
+      "width": "260px",
+      "minHeight": "150px",
+      "padding": "var(--space-3)",
+      "radius": "10px 10px 14px",
+      "opacity": "1"
+    },
+    "edge": {
+      "width": "36px",
+      "opacity": "1"
+    },
+    "typography": {
+      "layout": "editorial",
+      "gap": "var(--space-2)"
     }
   },
   "assets": {

@@ -1,0 +1,11 @@
+{
+  "id": "plotflow-neon-dossier",
+  "name": {
+    "zh-CN": "霓虹档案",
+    "en-US": "Neon Dossier"
+  },
+  "version": "1.0.0",
+  "themeApiVersion": 1,
+  "priceLabel": "免费主题",
+  "entry": "prebuilt:plotflow-neon-dossier"
+}

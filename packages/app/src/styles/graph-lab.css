@@ -550,11 +550,11 @@
   pointer-events: none;
 }
 
-html[data-theme-pack='plotflow-narrative-workbench'] .graph-lab__canvas .react-flow__pane {
+html[data-theme-id='plotflow-narrative-workbench'] .graph-lab__canvas .react-flow__pane {
   cursor: grab;
 }
 
-html[data-theme-pack='plotflow-narrative-workbench'] .graph-lab__canvas .react-flow__pane:active {
+html[data-theme-id='plotflow-narrative-workbench'] .graph-lab__canvas .react-flow__pane:active {
   cursor: grabbing;
 }
 

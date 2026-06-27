@@ -15,11 +15,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { changeLanguage, type Locale } from '@plotflow/core';
-import {
-  DEFAULT_OFFICIAL_THEME_ID,
-  normalizeOfficialThemeId,
-  type OfficialThemeId,
-} from '../theme/officialThemeIds';
+import type { ThemeId } from '../theme-platform/types';
 
 // ============================================================================
 // 类型定义
@@ -39,8 +35,6 @@ export type ExportFormat = 'json' | 'html' | 'txt';
 
 export type WorkspaceMode = 'split' | 'graphLab';
 
-export type ThemePackId = string;
-
 /** UI 全局状态 */
 export interface UIState {
   /** 当前主题（亮色 / 暗色） */
@@ -51,8 +45,8 @@ export interface UIState {
   /** 强调色方案 */
 
   readonly workspaceMode: WorkspaceMode;
-  readonly activeOfficialThemeId: OfficialThemeId;
-  readonly activeThemePackId: ThemePackId;
+  /** 平台统一主题字段 (M4: 已是唯一主题字段) */
+  readonly activeThemeId: ThemeId;
 
   /** 右侧面板当前显示内容 */
   readonly activeRightPanel: RightPanel;
@@ -97,8 +91,8 @@ export interface UIState {
 
   toggleWorkspaceMode: () => void;
 
-  setActiveThemePackId: (themePackId: ThemePackId) => void;
-  setActiveOfficialThemeId: (themeId: OfficialThemeId) => void;
+  /** 平台统一主题 action */
+  setActiveThemeId: (themeId: ThemeId) => void;
 
   /** 设置右侧面板显示内容 */
   setActiveRightPanel: (panel: RightPanel) => void;
@@ -147,11 +141,15 @@ export interface UIState {
 // 初始状态
 // ============================================================================
 
-const THEME_STORAGE_KEY = 'plotflow:theme';
 const LANGUAGE_STORAGE_KEY = 'plotflow:language';
 const WORKSPACE_MODE_STORAGE_KEY = 'plotflow:workspaceMode';
-const THEME_PACK_STORAGE_KEY = 'plotflow:themePack';
-const OFFICIAL_THEME_STORAGE_KEY = 'plotflow:officialTheme';
+/** M4 — 平台唯一主题持久化键 */
+const THEME_STORAGE_KEY = 'plotflow:themeId';
+/**
+ * 旧版主题键（迁移用，只读不写）。
+ * M7: 合并为一次性回退列表，保持 localStorage 兼容性。
+ */
+const LEGACY_THEME_KEYS = ['plotflow:officialTheme', 'plotflow:themePack', 'plotflow:theme'] as const;
 
 function readStoredLanguage(): Language {
   if (typeof window === 'undefined') return 'zh-CN';
@@ -173,32 +171,53 @@ function readStoredWorkspaceMode(): WorkspaceMode {
   }
 }
 
-function readStoredOfficialThemeId(): OfficialThemeId {
-  if (typeof window === 'undefined') return DEFAULT_OFFICIAL_THEME_ID;
-  try {
-    const savedOfficial = window.localStorage.getItem(OFFICIAL_THEME_STORAGE_KEY);
-    if (savedOfficial) {
-      const normalized = normalizeOfficialThemeId(savedOfficial);
-      window.localStorage.setItem(OFFICIAL_THEME_STORAGE_KEY, normalized);
-      window.localStorage.setItem(THEME_PACK_STORAGE_KEY, normalized);
-      return normalized;
-    }
+/**
+ * 规范化旧版主题值为合法的 ThemeId。
+ *
+ * 旧版使用 'dark'/'light' 字符串，需映射为正式主题 ID。
+ * 其他旧键（officialTheme / themePack）存储的已经是正式 ID。
+ */
+export function normalizeLegacyThemeValue(value: string): ThemeId {
+  if (value === 'dark') return 'plotflow-narrative-workbench';
+  if (value === 'light') return 'plotflow-narrative-workbench';
+  return value;
+}
 
-    const savedLegacy = window.localStorage.getItem(THEME_PACK_STORAGE_KEY);
-    if (!savedLegacy) {
-      const legacyMode = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (legacyMode === 'dark') {
-        window.localStorage.setItem(OFFICIAL_THEME_STORAGE_KEY, 'plotflow-blueprint-nightwatch');
-        window.localStorage.setItem(THEME_PACK_STORAGE_KEY, 'plotflow-blueprint-nightwatch');
-        return 'plotflow-blueprint-nightwatch';
+/**
+ * 读取持久化的主题 ID，支持旧版键迁移。
+ *
+ * 回退顺序：plotflow:themeId → 遍历 LEGACY_THEME_KEYS
+ * 迁移完成后删除所有旧键。旧 'dark'/'light' 值会规范化后再写入新键。
+ */
+function readStoredThemeId(): ThemeId {
+  const DEFAULT_ID = 'plotflow-narrative-workbench';
+  if (typeof window === 'undefined') return DEFAULT_ID;
+  try {
+    // 1. 当前键
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved) return saved;
+
+    // 2. 遍历旧键回退链，规范化后迁移
+    for (const legacyKey of LEGACY_THEME_KEYS) {
+      const value = window.localStorage.getItem(legacyKey);
+      if (value) {
+        const normalized = normalizeLegacyThemeValue(value);
+        migrateToNewKey(normalized);
+        return normalized;
       }
     }
-    const normalized = normalizeOfficialThemeId(savedLegacy);
-    window.localStorage.setItem(OFFICIAL_THEME_STORAGE_KEY, normalized);
-    window.localStorage.setItem(THEME_PACK_STORAGE_KEY, normalized);
-    return normalized;
+
+    return DEFAULT_ID;
   } catch {
-    return DEFAULT_OFFICIAL_THEME_ID;
+    return DEFAULT_ID;
+  }
+}
+
+/** 一次性迁移旧键到新键，迁移后删除所有旧键 */
+function migrateToNewKey(value: string): void {
+  window.localStorage.setItem(THEME_STORAGE_KEY, value);
+  for (const legacyKey of LEGACY_THEME_KEYS) {
+    window.localStorage.removeItem(legacyKey);
   }
 }
 
@@ -212,13 +231,12 @@ function persistPreference(key: string, value: string): void {
 }
 
 const initialLanguage = readStoredLanguage();
-const initialOfficialThemeId = readStoredOfficialThemeId();
+const initialThemeId = readStoredThemeId();
 changeLanguage(initialLanguage);
 
 const initialState = {
   workspaceMode: readStoredWorkspaceMode(),
-  activeOfficialThemeId: initialOfficialThemeId,
-  activeThemePackId: initialOfficialThemeId,
+  activeThemeId: initialThemeId,
   language: initialLanguage,
   activeRightPanel: 'graph' as RightPanel,
   isOutlinePanelOpen: true,
@@ -234,7 +252,7 @@ const initialState = {
   isNewFileDialogOpen: false,
   isThemeCenterOpen: false,
   isHomeSurfaceOpen: true,
-} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemePackId' | 'setActiveOfficialThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
+} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
 
 // ============================================================================
 // Store
@@ -278,30 +296,12 @@ export const useUIStore = create<UIState>()(
           'ui/toggleWorkspaceMode',
         ),
 
-      setActiveOfficialThemeId: (themeId: OfficialThemeId) => {
-        persistPreference(OFFICIAL_THEME_STORAGE_KEY, themeId);
-        persistPreference(THEME_PACK_STORAGE_KEY, themeId);
+      setActiveThemeId: (themeId: ThemeId) => {
+        persistPreference(THEME_STORAGE_KEY, themeId);
         set(
-          {
-            activeOfficialThemeId: themeId,
-            activeThemePackId: themeId,
-          },
+          { activeThemeId: themeId },
           false,
-          'ui/setActiveOfficialThemeId',
-        );
-      },
-
-      setActiveThemePackId: (themePackId: ThemePackId) => {
-        const themeId = normalizeOfficialThemeId(themePackId);
-        persistPreference(OFFICIAL_THEME_STORAGE_KEY, themeId);
-        persistPreference(THEME_PACK_STORAGE_KEY, themeId);
-        set(
-          {
-            activeOfficialThemeId: themeId,
-            activeThemePackId: themeId,
-          },
-          false,
-          'ui/setActiveThemePackId',
+          'ui/setActiveThemeId',
         );
       },
 

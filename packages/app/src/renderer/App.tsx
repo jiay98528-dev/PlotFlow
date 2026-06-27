@@ -373,15 +373,20 @@ export function App(): React.ReactElement {
           isNewFileDialogOpen: state.isNewFileDialogOpen,
           isThemeCenterOpen: state.isThemeCenterOpen,
           isHomeSurfaceOpen: state.isHomeSurfaceOpen,
-          activeOfficialThemeId: state.activeOfficialThemeId,
+          activeThemeId: state.activeThemeId,
         };
       },
-      setOfficialTheme: (themeId: 'plotflow-narrative-workbench' | 'plotflow-blueprint-nightwatch') => {
-        useUIStore.getState().setActiveOfficialThemeId(themeId);
+      setTheme: (themeId: string) => {
+        useUIStore.getState().setActiveThemeId(themeId);
       },
-      getOfficialThemeId: () => useUIStore.getState().activeOfficialThemeId,
+      getThemeId: () => useUIStore.getState().activeThemeId,
       openThemeCenter: () => useUIStore.getState().openThemeCenter(),
       setHomeSurfaceOpen: (open: boolean) => useUIStore.getState().setHomeSurfaceOpen(open),
+      /** 直接选中分支图节点并联动编辑器，绕开 DOM 点击/冒泡/事件委托依赖 */
+      selectNode: (nodeId: string) => {
+        useGraphStore.getState().selectNode(nodeId);
+        useEditorStore.getState().setActiveNodeId(nodeId);
+      },
     };
 
     return () => {

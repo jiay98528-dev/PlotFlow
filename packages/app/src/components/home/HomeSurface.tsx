@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { ExternalLink, FilePlus2, FolderOpen, GitBranch, Palette, Play } from 'lucide-react';
-import { useOfficialTheme } from '../../theme/OfficialThemeProvider';
+import { useThemePlatform } from '../ThemePlatformProvider';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
@@ -17,7 +17,7 @@ export function HomeSurface(): React.ReactElement | null {
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const filePath = useEditorStore((state) => state.filePath);
   const isDirty = useEditorStore((state) => state.isDirty);
-  const { activeThemeId, themes } = useOfficialTheme();
+  const { activeThemeId, themes } = useThemePlatform();
 
   const openFile = useCallback(async () => {
     const editor = useEditorStore.getState();
@@ -65,17 +65,21 @@ export function HomeSurface(): React.ReactElement | null {
           <h2>用流程图和文本双投影编排互动叙事</h2>
           <p>
             从 `.mdstory` 文件进入 Split 或 Graph Lab。故事内容仍是纯文本，官方主题决定工作台的节点、
-            线缆、面板和动效表现。
+            连线、面板、布局和动效表现。
           </p>
           <div className="home-surface__actions">
             <button type="button" className="button button--primary" onClick={() => setHomeSurfaceOpen(false)}>
               <Play aria-hidden="true" size={16} strokeWidth={2} />
               <span>继续编辑</span>
             </button>
-            <button type="button" className="button button--secondary" onClick={() => {
-              openNewFileDialog();
-              setHomeSurfaceOpen(false);
-            }}>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => {
+                openNewFileDialog();
+                setHomeSurfaceOpen(false);
+              }}
+            >
               <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
               <span>新建故事</span>
             </button>
@@ -106,27 +110,17 @@ export function HomeSurface(): React.ReactElement | null {
         >
           <GitBranch aria-hidden="true" size={20} strokeWidth={2} />
           <span>进入 Graph Lab</span>
-          <small>使用节点、线缆和 Inspector 完成图形化编辑。</small>
+          <small>使用节点、连线和 Inspector 完成图形化编辑。</small>
         </button>
-        <button
-          type="button"
-          className="home-action-card"
-          data-testid="home-open-theme-center"
-          onClick={openThemeCenter}
-        >
+        <button type="button" className="home-action-card" data-testid="home-open-theme-center" onClick={openThemeCenter}>
           <Palette aria-hidden="true" size={20} strokeWidth={2} />
           <span>主题中心</span>
-          <small>切换叙事工作台或夜航蓝图，无需重启。</small>
+          <small>切换内置官方主题，或下载官方免费主题。</small>
         </button>
-        <button
-          type="button"
-          className="home-action-card"
-          data-testid="home-open-theme-store"
-          onClick={() => window.plotflow?.theme?.openOfficialThemeStore?.()}
-        >
+        <button type="button" className="home-action-card" data-testid="home-open-theme-store" onClick={openThemeCenter}>
           <ExternalLink aria-hidden="true" size={20} strokeWidth={2} />
-          <span>购买更多官方主题</span>
-          <small>首版跳转官网商店，不在应用内处理支付。</small>
+          <span>浏览官方免费主题</span>
+          <small>只展示官方发布的免费主题，不提供本地导入。</small>
         </button>
       </section>
 

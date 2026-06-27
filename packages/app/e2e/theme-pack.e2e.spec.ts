@@ -43,7 +43,7 @@ async function loadStory(page: Page): Promise<void> {
   await page.evaluate((content) => {
     window.__test_store__?.setEditorContent(content);
     window.__test_store__?.setWorkspaceMode('graphLab');
-    window.__test_store__?.setOfficialTheme('plotflow-narrative-workbench');
+    window.__test_store__?.setTheme('plotflow-narrative-workbench');
     window.__test_store__?.setHomeSurfaceOpen(false);
   }, THEME_STORY);
   await expect(page.getByTestId('graph-lab-workspace')).toBeVisible({ timeout: 20_000 });
@@ -78,8 +78,7 @@ test.describe('Official Theme Center E2E', () => {
     app = launched.app;
     page = launched.page;
     await page.evaluate(() => {
-      window.localStorage.removeItem('plotflow:themePack');
-      window.localStorage.removeItem('plotflow:officialTheme');
+      window.localStorage.removeItem('plotflow:themeId');
     });
     await loadStory(page);
   });
@@ -97,8 +96,7 @@ test.describe('Official Theme Center E2E', () => {
     await expect(themeCenter).toBeVisible();
     await expect(themeCenter.getByText('官方主题中心')).toBeVisible();
     await expect(themeCenter.getByRole('heading', { name: '叙事工作台' })).toBeVisible();
-    await expect(themeCenter.getByRole('heading', { name: '夜航蓝图' })).toBeVisible();
-    await expect(themeCenter.getByText('购买更多官方主题')).toBeVisible();
+    await expect(themeCenter.getByText('浏览官方免费主题')).toBeVisible();
     await expect(page.getByText('导入主题包')).toHaveCount(0);
     await expect(page.getByText('.pf-theme')).toHaveCount(0);
 
@@ -106,38 +104,24 @@ test.describe('Official Theme Center E2E', () => {
     await page.evaluate(() => window.__test_store__?.setHomeSurfaceOpen(false));
   });
 
-  test('switches official themes and replaces graph node plus edge renderers', async () => {
+  test('applies narrative workbench theme and verifies node/edge renderers', async () => {
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toBeVisible();
 
-    const nightwatchCard = page.locator('[data-official-theme-card-id="plotflow-blueprint-nightwatch"]');
-    await nightwatchCard.getByTestId('theme-center-apply').click();
+    const workbenchCard = page.locator('.official-theme-card').filter({ hasText: '叙事工作台' });
+    await expect(workbenchCard).toBeVisible({ timeout: 5_000 });
+    await expect(workbenchCard.getByTestId('theme-center-apply')).toBeDisabled();
 
-    await expect(page.locator('html')).toHaveAttribute('data-official-theme', 'plotflow-blueprint-nightwatch');
-    await expect(page.locator('html')).toHaveAttribute('data-theme-pack', 'plotflow-blueprint-nightwatch');
-    await expect(page.locator('[data-official-node-theme="plotflow-blueprint-nightwatch"]').first()).toBeVisible();
-    await expect(page.locator('[data-official-node-variant="nightwatch"]').first()).toBeVisible();
-    await expect(page.locator('.official-graph-node--nightwatch').first()).toBeVisible();
-    await expect(page.locator('[data-official-edge-theme="plotflow-blueprint-nightwatch"]')).toHaveCount(1);
-    await expect(page.locator('.official-node-shell')).toHaveCount(0);
-
-    const nightwatchCanvas = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--theme-graph-lab-paper').trim(),
-    );
-    expect(nightwatchCanvas).toContain('oklch');
-
-    const workbenchCard = page.locator('[data-official-theme-card-id="plotflow-narrative-workbench"]');
-    await workbenchCard.getByTestId('theme-center-apply').click();
-
-    await expect(page.locator('html')).toHaveAttribute('data-official-theme', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(page.locator('[data-official-node-theme="plotflow-narrative-workbench"]').first()).toBeVisible();
     await expect(page.locator('[data-official-node-variant="workbench"]').first()).toBeVisible();
     await expect(page.locator('.official-graph-node--workbench').first()).toBeVisible();
     await expect(page.locator('[data-official-edge-theme="plotflow-narrative-workbench"]')).toHaveCount(1);
 
-    const workbenchCanvas = await page.evaluate(() =>
+    const paperColor = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--theme-graph-lab-paper').trim(),
     );
-    expect(workbenchCanvas).not.toBe(nightwatchCanvas);
+    expect(paperColor).toContain('oklch');
   });
 });

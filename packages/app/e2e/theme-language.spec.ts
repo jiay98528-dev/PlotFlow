@@ -23,8 +23,7 @@ async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
   await page.evaluate(() => {
     window.localStorage.removeItem('plotflow:theme');
     window.localStorage.removeItem('plotflow:accent');
-    window.localStorage.removeItem('plotflow:officialTheme');
-    window.localStorage.removeItem('plotflow:themePack');
+    window.localStorage.removeItem('plotflow:themeId');
     window.localStorage.removeItem('plotflow:language');
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -55,23 +54,22 @@ test.describe('Theme and language E2E', () => {
     await closeElectronApp(app, page);
   });
 
-  test('uses official themes as the only visible appearance switch', async () => {
+  test('apply workbench theme and verify persistence', async () => {
     await expect(page.getByTestId('toolbar-theme-center')).toBeVisible();
     await expect(page.getByRole('button', { name: /亮色|暗色|Light|Dark/i })).toHaveCount(0);
-    await expect(page.locator('html')).not.toHaveAttribute('data-accent', /.+/);
 
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toBeVisible();
 
-    const nightwatchCard = page.locator('[data-official-theme-card-id="plotflow-blueprint-nightwatch"]');
-    await nightwatchCard.getByTestId('theme-center-apply').click();
+    const workbenchCard = page.locator('.official-theme-card').filter({ hasText: '叙事工作台' });
+    await expect(workbenchCard).toBeVisible({ timeout: 5_000 });
+    await expect(workbenchCard.getByTestId('theme-center-apply')).toBeDisabled();
+    await page.getByTestId('theme-center-reset').click();
 
-    await expect(page.locator('html')).toHaveAttribute('data-official-theme', 'plotflow-blueprint-nightwatch');
-    await expect(page.locator('html')).toHaveAttribute('data-theme-pack', 'plotflow-blueprint-nightwatch');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await expect(page.locator('html')).not.toHaveAttribute('data-accent', /.+/);
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
-    expect(await page.evaluate(() => window.localStorage.getItem('plotflow:officialTheme'))).toBe('plotflow-blueprint-nightwatch');
+    expect(await page.evaluate(() => window.localStorage.getItem('plotflow:themeId'))).toBe('plotflow-narrative-workbench');
     expect(await page.evaluate(() => window.localStorage.getItem('plotflow:theme'))).toBeNull();
     expect(await page.evaluate(() => window.localStorage.getItem('plotflow:accent'))).toBeNull();
   });
@@ -85,10 +83,10 @@ test.describe('Theme and language E2E', () => {
 
     await languageSelect.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-    await expect(page.locator('html')).toHaveAttribute('data-official-theme', 'plotflow-blueprint-nightwatch');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
   });
 
-  test('migrates legacy dark preference to Blueprint Nightwatch', async () => {
+  test('migrates legacy dark preference to narrative workbench', async () => {
     await page.evaluate(() => {
       window.localStorage.removeItem('plotflow:officialTheme');
       window.localStorage.removeItem('plotflow:themePack');
@@ -98,7 +96,8 @@ test.describe('Theme and language E2E', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.app-shell', { timeout: 20_000 });
 
-    await expect(page.locator('html')).toHaveAttribute('data-official-theme', 'plotflow-blueprint-nightwatch');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    // M7: dark maps to workbench (only builtin theme)
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 });
