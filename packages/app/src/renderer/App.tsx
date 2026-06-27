@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+﻿import React, { useCallback, useEffect } from 'react';
 import {
   Database,
   Download,
@@ -17,6 +17,7 @@ import { OutlinePanel } from '../components/layout/OutlinePanel';
 import { GraphCanvas } from '../components/branch-graph/GraphCanvas';
 import { GraphLabWorkspace } from '../components/graph-lab/GraphLabWorkspace';
 import { ThemeProvider } from '../components/ThemeProvider';
+import { useThemePlatform } from '../components/ThemePlatformProvider';
 import { NewFileDialog } from '../components/panels/NewFileDialog';
 import { useEditorStore } from '../stores/editorStore';
 import { useStoryStore } from '../stores/storyStore';
@@ -36,13 +37,13 @@ import { parsePipelineNow } from '../services/parsePipeline';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 
 // ============================================================================
-// P0-5: 暴露给主进程的脏状态查询与强制保存接口
+// P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
 // ============================================================================
 //
-// 主进程通过 mainWindow.webContents.executeJavaScript 调用这些函数，
-// 用于窗口关闭/应用退出时的脏状态检查与保存流程。
-// 渲染进程通过 window.plotflow.dialog.confirm() 调用原生对话框处理
-// 新建/打开文件时的脏状态确认。
+// 涓昏繘绋嬮€氳繃 mainWindow.webContents.executeJavaScript 璋冪敤杩欎簺鍑芥暟锛?
+// 鐢ㄤ簬绐楀彛鍏抽棴/搴旂敤閫€鍑烘椂鐨勮剰鐘舵€佹鏌ヤ笌淇濆瓨娴佺▼銆?
+// 娓叉煋杩涚▼閫氳繃 window.plotflow.dialog.confirm() 璋冪敤鍘熺敓瀵硅瘽妗嗗鐞?
+// 鏂板缓/鎵撳紑鏂囦欢鏃剁殑鑴忕姸鎬佺‘璁ゃ€?
 
 window.__getEditorDirtyState__ = () => {
   const editor = useEditorStore.getState();
@@ -60,6 +61,14 @@ window.__forceSave__ = async () => {
  * The parser/graph synchronization flow remains the same as M2/M3.
  */
 export function App(): React.ReactElement {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
+function AppContent(): React.ReactElement {
   useMenuEvents();
 
   const { navigateToNode } = useOutlineSync();
@@ -86,8 +95,8 @@ export function App(): React.ReactElement {
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
 
-  // storyStore → graphStore 安全网（parsePipeline 已直接调用 syncFromAST，
-  // 此处仅处理直接调用 setPlotFlowData 的旁路路径）
+  // storyStore 鈫?graphStore 瀹夊叏缃戯紙parsePipeline 宸茬洿鎺ヨ皟鐢?syncFromAST锛?
+  // 姝ゅ浠呭鐞嗙洿鎺ヨ皟鐢?setPlotFlowData 鐨勬梺璺矾寰勶級
   useEffect(() => {
     const unsubscribe = useStoryStore.subscribe(
       (state, prevState) => {
@@ -102,15 +111,15 @@ export function App(): React.ReactElement {
     return () => { unsubscribe(); };
   }, []);
 
-  // P0-1: graphStore.selectedNodeId → editorStore 单向同步
-  // 分支图节点选中时自动联动大纲高亮与光标位置
-  // 订阅放在 App.tsx 全局层确保不受 GraphCanvas 条件渲染（minimap/split 切换）影响
+  // P0-1: graphStore.selectedNodeId 鈫?editorStore 鍗曞悜鍚屾
+  // 鍒嗘敮鍥捐妭鐐归€変腑鏃惰嚜鍔ㄨ仈鍔ㄥぇ绾查珮浜笌鍏夋爣浣嶇疆
+  // 璁㈤槄鏀惧湪 App.tsx 鍏ㄥ眬灞傜‘淇濅笉鍙?GraphCanvas 鏉′欢娓叉煋锛坢inimap/split 鍒囨崲锛夊奖鍝?
   useEffect(() => {
     const unsubscribe = useGraphStore.subscribe(
       (state) => state.selectedNodeId,
       (selectedNodeId, prevSelectedNodeId) => {
         if (selectedNodeId === prevSelectedNodeId) return;
-        if (useGraphStore.getState().isEditing) return; // 连线拖拽等操作中跳过
+        if (useGraphStore.getState().isEditing) return; // 杩炵嚎鎷栨嫿绛夋搷浣滀腑璺宠繃
 
         if (!selectedNodeId) {
           useEditorStore.getState().setActiveNodeId(null);
@@ -129,7 +138,7 @@ export function App(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  // P0: isEditing 锁释放 → 自动重解析（防止编辑锁期间的内容变更丢失）
+  // P0: isEditing 閿侀噴鏀?鈫?鑷姩閲嶈В鏋愶紙闃叉缂栬緫閿佹湡闂寸殑鍐呭鍙樻洿涓㈠け锛?
   useEffect(() => {
     const unsub = useGraphStore.subscribe(
       (s) => s.isEditing,
@@ -145,8 +154,8 @@ export function App(): React.ReactElement {
     return unsub;
   }, []);
 
-  // P0-6: 挂载时检查系统双击/命令行传入的待打开文件 (M7-08)
-  // 窗口首次挂载时调用 getPendingOpenFile()，消费文件打开系统事件。
+  // P0-6: 鎸傝浇鏃舵鏌ョ郴缁熷弻鍑?鍛戒护琛屼紶鍏ョ殑寰呮墦寮€鏂囦欢 (M7-08)
+  // 绐楀彛棣栨鎸傝浇鏃惰皟鐢?getPendingOpenFile()锛屾秷璐规枃浠舵墦寮€绯荤粺浜嬩欢銆?
   useEffect(() => {
     let cancelled = false;
 
@@ -159,14 +168,14 @@ export function App(): React.ReactElement {
       const { filePath, content } = pending;
       const editor = useEditorStore.getState();
 
-      // P0-5: 文件打开前检查是否有未保存的更改
+      // P0-5: 鏂囦欢鎵撳紑鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
       if (editor.isDirty) {
         const choice = await window.plotflow.dialog.confirm({
           type: 'warning',
-          message: '放弃未保存的更改？',
+          message: '当前文件有未保存修改',
           detail: editor.filePath
-            ? `"${editor.filePath}" 有未保存的修改。打开新文件前是否保存？`
-            : '未命名的文件有未保存的修改。打开新文件前是否保存？',
+            ? `"${editor.filePath}" 有未保存修改。打开新文件前是否保存？`
+            : '未命名文件有未保存修改。打开新文件前是否保存？',
           buttons: ['保存并打开', '不保存并打开', '取消'],
         });
 
@@ -175,9 +184,9 @@ export function App(): React.ReactElement {
         if (choice === 0) {
           await saveOrSaveAs();
         } else if (choice === 2) {
-          return; // 取消打开
+          return; // 鍙栨秷鎵撳紑
         }
-        // choice === 1: 不保存，继续打开
+        // choice === 1: 涓嶄繚瀛橈紝缁х画鎵撳紑
       }
 
       if (cancelled) return;
@@ -202,33 +211,33 @@ export function App(): React.ReactElement {
     };
   }, [setStatusMessage]);
 
-  // P0-6: 运行时监听系统文件打开通知（应用已运行，用户双击 .mdstory 文件时触发）
+  // P0-6: 杩愯鏃剁洃鍚郴缁熸枃浠舵墦寮€閫氱煡锛堝簲鐢ㄥ凡杩愯锛岀敤鎴峰弻鍑?.mdstory 鏂囦欢鏃惰Е鍙戯級
   useEffect(() => {
     if (!window.plotflow?.file?.onSystemOpenFile) return;
 
     const cleanup = window.plotflow.file.onSystemOpenFile(async (filePath: string) => {
       const editor = useEditorStore.getState();
 
-      // P0-5: 文件打开前检查是否有未保存的更改
+      // P0-5: 鏂囦欢鎵撳紑鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
       if (editor.isDirty) {
         const choice = await window.plotflow.dialog.confirm({
           type: 'warning',
-          message: '放弃未保存的更改？',
+          message: '当前文件有未保存修改',
           detail: editor.filePath
-            ? `"${editor.filePath}" 有未保存的修改。打开新文件前是否保存？`
-            : '未命名的文件有未保存的修改。打开新文件前是否保存？',
+            ? `"${editor.filePath}" 有未保存修改。打开新文件前是否保存？`
+            : '未命名文件有未保存修改。打开新文件前是否保存？',
           buttons: ['保存并打开', '不保存并打开', '取消'],
         });
 
         if (choice === 0) {
           await saveOrSaveAs();
         } else if (choice === 2) {
-          return; // 取消打开
+          return; // 鍙栨秷鎵撳紑
         }
-        // choice === 1: 不保存，继续打开
+        // choice === 1: 涓嶄繚瀛橈紝缁х画鎵撳紑
       }
 
-      // 通过 IPC 读取文件内容
+      // 閫氳繃 IPC 璇诲彇鏂囦欢鍐呭
       if (!window.plotflow?.file?.readByPath) {
         setStatusMessage('读取文件失败: IPC 接口不可用');
         return;
@@ -262,27 +271,27 @@ export function App(): React.ReactElement {
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
       const editor = useEditorStore.getState();
 
-      // P0-5: 新建模板前检查是否有未保存的更改
+      // P0-5: 鏂板缓妯℃澘鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
       if (editor.isDirty) {
         const choice = await window.plotflow.dialog.confirm({
           type: 'warning',
-          message: '放弃未保存的更改？',
+          message: '当前文件有未保存修改',
           detail: editor.filePath
-            ? `"${editor.filePath}" 有未保存的修改。创建新文件前是否保存？`
-            : '未命名的文件有未保存的修改。创建新文件前是否保存？',
+            ? `"${editor.filePath}" 有未保存修改。创建新文件前是否保存？`
+            : '未命名文件有未保存修改。创建新文件前是否保存？',
           buttons: ['保存并新建', '不保存并新建', '取消'],
         });
 
         if (choice === 0) {
           await saveOrSaveAs();
         } else if (choice === 2) {
-          return; // 取消新建
+          return; // 鍙栨秷鏂板缓
         }
-        // choice === 1: 不保存，继续新建
+        // choice === 1: 涓嶄繚瀛橈紝缁х画鏂板缓
       }
 
       clearPendingSave();
-      // 重新获取最新的 editor 引用（saveOrSaveAs 可能已更新状态）
+      // 閲嶆柊鑾峰彇鏈€鏂扮殑 editor 寮曠敤锛坰aveOrSaveAs 鍙兘宸叉洿鏂扮姸鎬侊級
       const freshEditor = useEditorStore.getState();
       freshEditor.setFilePath(null);
       freshEditor.setDiagnostics([]);
@@ -382,7 +391,7 @@ export function App(): React.ReactElement {
       getThemeId: () => useUIStore.getState().activeThemeId,
       openThemeCenter: () => useUIStore.getState().openThemeCenter(),
       setHomeSurfaceOpen: (open: boolean) => useUIStore.getState().setHomeSurfaceOpen(open),
-      /** 直接选中分支图节点并联动编辑器，绕开 DOM 点击/冒泡/事件委托依赖 */
+      /** 鐩存帴閫変腑鍒嗘敮鍥捐妭鐐瑰苟鑱斿姩缂栬緫鍣紝缁曞紑 DOM 鐐瑰嚮/鍐掓场/浜嬩欢濮旀墭渚濊禆 */
       selectNode: (nodeId: string) => {
         useGraphStore.getState().selectNode(nodeId);
         useEditorStore.getState().setActiveNodeId(nodeId);
@@ -398,28 +407,30 @@ export function App(): React.ReactElement {
   const showMinimap = activeRightPanel === 'graph' && viewMode === 'minimap';
   const graphModeLabel =
     viewMode === 'split' ? t('toolbar.graphSplit') : t('toolbar.graphMinimap');
+  const { activeTheme } = useThemePlatform();
+  const Surfaces = activeTheme.surfaces;
   return (
-    <ThemeProvider>
-      <div className={`app-shell${workspaceMode === 'graphLab' ? ' app-shell--graph-lab' : ''}`}>
-        <header className="app-topbar">
-          <button
-            type="button"
-            className="app-topbar__brand app-topbar-brand-button"
-            data-testid="toolbar-home"
-            onClick={() => setHomeSurfaceOpen(true)}
-          >
-            <span className="app-logo" aria-hidden="true">
-              Pf
-            </span>
-            <div>
-              <h1 className="app-title">PlotFlow V0.1</h1>
-              <p className="app-subtitle">{t('statusBar.phase')}</p>
-            </div>
-            <Home aria-hidden="true" size={15} strokeWidth={2} />
-          </button>
-
-          <nav className="app-toolbar" aria-label="PlotFlow toolbar">
-            <div className="toolbar-group" role="group" aria-label={t('menu.file')}>
+      <Surfaces.AppShell workspaceMode={workspaceMode} topbar={null} overlays={null} statusBar={null}>
+        <Surfaces.Toolbar
+          brand={(
+            <button
+              type="button"
+              className="app-topbar__brand app-topbar-brand-button"
+              data-testid="toolbar-home"
+              onClick={() => setHomeSurfaceOpen(true)}
+            >
+              <span className="app-logo" aria-hidden="true">
+                Pf
+              </span>
+              <div>
+                <h1 className="app-title">PlotFlow V0.1</h1>
+                <p className="app-subtitle">{t('statusBar.phase')}</p>
+              </div>
+              <Home aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+          )}
+          fileControls={(
+            <>
               <button type="button" className="button button--primary" onClick={openNewFileDialog}>
                 <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
                 <span>{t('toolbar.newFile')}</span>
@@ -428,9 +439,10 @@ export function App(): React.ReactElement {
                 <Download aria-hidden="true" size={15} strokeWidth={2} />
                 <span>{t('toolbar.export')}</span>
               </button>
-            </div>
-
-            <div className="toolbar-group" role="group" aria-label={t('menu.view')}>
+            </>
+          )}
+          viewControls={(
+            <>
               <button
                 type="button"
                 className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
@@ -472,74 +484,66 @@ export function App(): React.ReactElement {
                 <Palette aria-hidden="true" size={15} strokeWidth={2} />
                 <span>主题</span>
               </button>
-            </div>
-
-            <div className="toolbar-group" role="group" aria-label={t('toolbar.preferences')}>
-              <label className="toolbar-select">
-                <Languages aria-hidden="true" size={15} strokeWidth={2} />
-                <span className="visually-hidden">{t('toolbar.language')}</span>
-                <select
-                  className="language-select"
-                  aria-label={t('toolbar.language')}
-                  value={language}
-                  onChange={handleLanguageChange}
-                >
-                  <option value="zh-CN">中文</option>
-                  <option value="en-US">English</option>
-                </select>
-              </label>
-            </div>
-          </nav>
-        </header>
+            </>
+          )}
+          preferenceControls={(
+            <label className="toolbar-select">
+              <Languages aria-hidden="true" size={15} strokeWidth={2} />
+              <span className="visually-hidden">{t('toolbar.language')}</span>
+              <select
+                className="language-select"
+                aria-label={t('toolbar.language')}
+                value={language}
+                onChange={handleLanguageChange}
+              >
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+              </select>
+            </label>
+          )}
+        />
 
         <HomeSurface />
-
         {workspaceMode === 'graphLab' ? (
           <GraphLabWorkspace />
         ) : (
-          <div className="split-workspace">
-            <div className="split-viewbar" aria-label="Split workspace controls">
-              <div className="split-viewbar__label">
-                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{t('toolbar.graph')}</span>
+          <Surfaces.SplitShell
+            viewbar={(
+              <div className="split-viewbar" aria-label="Split workspace controls">
+                <div className="split-viewbar__label">
+                  <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                  <span>{t('toolbar.graph')}</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
+                  data-testid="toolbar-graph-view-toggle"
+                  onClick={toggleViewMode}
+                  title={viewMode === 'split' ? t('toolbar.graphMinimap') : t('toolbar.graphSplit')}
+                  aria-pressed={viewMode === 'split'}
+                >
+                  {viewMode === 'split' ? (
+                    <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
+                  ) : (
+                    <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+                  )}
+                  <span>{t('toolbar.graph')}: {graphModeLabel}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
-                data-testid="toolbar-graph-view-toggle"
-                onClick={toggleViewMode}
-                title={viewMode === 'split' ? t('toolbar.graphMinimap') : t('toolbar.graphSplit')}
-                aria-pressed={viewMode === 'split'}
-              >
-                {viewMode === 'split' ? (
-                  <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
-                ) : (
-                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
-                )}
-                <span>{t('toolbar.graph')}：{graphModeLabel}</span>
-              </button>
-            </div>
-
-            <div className="app-main">
-              <OutlinePanel onNodeClick={navigateToNode} />
-
-              <main className="editor-pane">
-                <MonacoEditor />
-              </main>
-
-              {showSplitGraph && (
-                <aside className="graph-pane" aria-label={t('toolbar.graph')}>
-                  <GraphCanvas viewMode="split" />
-                </aside>
-              )}
-            </div>
-          </div>
-        )}
-
-        {workspaceMode === 'split' && showMinimap && (
-          <div className="minimap-shell" aria-label="PlotFlow minimap">
-            <GraphCanvas viewMode="minimap" />
-          </div>
+            )}
+            outline={<OutlinePanel onNodeClick={navigateToNode} />}
+            editor={<MonacoEditor />}
+            graph={showSplitGraph ? (
+              <aside className="graph-pane" aria-label={t('toolbar.graph')}>
+                <GraphCanvas viewMode="split" />
+              </aside>
+            ) : null}
+            minimap={showMinimap ? (
+              <div className="minimap-shell" aria-label="PlotFlow minimap">
+                <GraphCanvas viewMode="minimap" />
+              </div>
+            ) : null}
+          />
         )}
 
         {isConditionEditorOpen && (
@@ -562,7 +566,6 @@ export function App(): React.ReactElement {
         )}
 
         <StatusBar />
-      </div>
-    </ThemeProvider>
+      </Surfaces.AppShell>
   );
 }

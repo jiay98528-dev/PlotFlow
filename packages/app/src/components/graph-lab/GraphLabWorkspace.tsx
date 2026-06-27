@@ -9,6 +9,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useThemePlatform } from '../ThemePlatformProvider';
 
 function getFileName(path: string | null): string {
   if (!path) return '未保存故事';
@@ -22,6 +23,8 @@ export function GraphLabWorkspace(): React.ReactElement {
   const filePath = useEditorStore((state) => state.filePath);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
+  const { activeTheme } = useThemePlatform();
+  const Surface = activeTheme.surfaces.GraphLabShell;
 
   const stats = useMemo(() => {
     const chapters = plotFlowData?.chapters.length ?? 0;
@@ -50,58 +53,64 @@ export function GraphLabWorkspace(): React.ReactElement {
   const selectedLabel = selectedNodeId ? selectedNodeId.split('-').slice(1).join('-') || selectedNodeId : '未选择节点';
 
   return (
-    <main className={`graph-lab${isSourceDrawerOpen ? ' graph-lab--source-open' : ''}`} data-testid="graph-lab-workspace">
-      <header className="graph-lab__commandbar">
-        <div className="graph-lab__commandbar-main">
-          <span className="graph-lab__mark" aria-hidden="true">
-            <GitBranch size={16} strokeWidth={2.2} />
-          </span>
-          <div>
-            <p className="graph-lab__mode">Graph Lab · 叙事工作台</p>
-            <h2>{getFileName(filePath)}</h2>
+    <Surface
+      isSourceDrawerOpen={isSourceDrawerOpen}
+      commandbar={(
+        <header className="graph-lab__commandbar">
+          <div className="graph-lab__commandbar-main">
+            <span className="graph-lab__mark" aria-hidden="true">
+              <GitBranch size={16} strokeWidth={2.2} />
+            </span>
+            <div>
+              <p className="graph-lab__mode">Graph Lab · 叙事工作台</p>
+              <h2>{getFileName(filePath)}</h2>
+            </div>
           </div>
-        </div>
 
-        <div className="graph-lab__commandbar-stats" aria-label="当前故事统计">
-          <span>{stats.chapters} 章</span>
-          <span>{stats.nodes} 节点</span>
-          <span>{stats.options} 选项</span>
-          <span className={diagnostics.length > 0 ? 'is-warning' : ''}>{diagnostics.length} 诊断</span>
-        </div>
+          <div className="graph-lab__commandbar-stats" aria-label="当前故事统计">
+            <span>{stats.chapters} 章</span>
+            <span>{stats.nodes} 节点</span>
+            <span>{stats.options} 选项</span>
+            <span className={diagnostics.length > 0 ? 'is-warning' : ''}>{diagnostics.length} 诊断</span>
+          </div>
 
-        <div className="graph-lab__commandbar-actions">
-          <span className="graph-lab__selection" title={selectedLabel}>
-            <Activity aria-hidden="true" size={14} strokeWidth={2} />
-            {selectedLabel}
-          </span>
-          <button
-            type="button"
-            className="graph-lab-dock-toggle"
-            data-testid="graph-lab-source-toggle"
-            onClick={toggleSourceDrawer}
-            aria-expanded={isSourceDrawerOpen}
-          >
-            <FileText aria-hidden="true" size={15} strokeWidth={2} />
-            <span>源文本</span>
-            {isSourceDrawerOpen ? (
-              <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
-            ) : (
-              <PanelBottomOpen aria-hidden="true" size={15} strokeWidth={2} />
-            )}
-          </button>
-        </div>
-      </header>
-
-      <GraphLabPalette onNodeNavigate={handleNodeNavigate} />
-      <section className="graph-lab__canvas" aria-label="Graph Lab canvas">
-        <GraphCanvas viewMode="graphLab" />
-      </section>
-      <GraphInspector />
-      <SourceDrawer>
-        <div className={isSourceDrawerOpen ? 'source-drawer__editor' : 'source-drawer__editor source-drawer--editor-hidden'}>
-          <MonacoEditor />
-        </div>
-      </SourceDrawer>
-    </main>
+          <div className="graph-lab__commandbar-actions">
+            <span className="graph-lab__selection" title={selectedLabel}>
+              <Activity aria-hidden="true" size={14} strokeWidth={2} />
+              {selectedLabel}
+            </span>
+            <button
+              type="button"
+              className="graph-lab-dock-toggle"
+              data-testid="graph-lab-source-toggle"
+              onClick={toggleSourceDrawer}
+              aria-expanded={isSourceDrawerOpen}
+            >
+              <FileText aria-hidden="true" size={15} strokeWidth={2} />
+              <span>源文本</span>
+              {isSourceDrawerOpen ? (
+                <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
+              ) : (
+                <PanelBottomOpen aria-hidden="true" size={15} strokeWidth={2} />
+              )}
+            </button>
+          </div>
+        </header>
+      )}
+      palette={<GraphLabPalette onNodeNavigate={handleNodeNavigate} />}
+      canvas={(
+        <section className="graph-lab__canvas" aria-label="Graph Lab canvas">
+          <GraphCanvas viewMode="graphLab" />
+        </section>
+      )}
+      inspector={<GraphInspector />}
+      sourceDrawer={(
+        <SourceDrawer>
+          <div className={isSourceDrawerOpen ? 'source-drawer__editor' : 'source-drawer__editor source-drawer--editor-hidden'}>
+            <MonacoEditor />
+          </div>
+        </SourceDrawer>
+      )}
+    />
   );
 }

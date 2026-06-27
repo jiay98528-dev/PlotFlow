@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyThemeToRoot } from './engine';
 import type { ThemeDescriptor } from './types';
+import { defaultThemeSurfaces } from '../theme/surfaces/defaultSurfaces';
 
 const theme: ThemeDescriptor = {
   id: 'test.ux-theme',
@@ -44,6 +45,7 @@ const theme: ThemeDescriptor = {
     ThemePreview: () => null,
     HomePreview: () => null,
   },
+  surfaces: defaultThemeSurfaces,
 };
 
 describe('applyThemeToRoot uxRecipe', () => {

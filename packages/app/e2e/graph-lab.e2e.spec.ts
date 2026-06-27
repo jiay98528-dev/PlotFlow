@@ -1,4 +1,4 @@
-import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+﻿import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 
@@ -350,6 +350,10 @@ test.describe('Graph Lab E2E', () => {
       () => Boolean((window as TestWindow).__test_store__),
       { timeout: 20_000 },
     );
+    await page.keyboard.up('Control').catch(() => {});
+    await page.keyboard.up('Shift').catch(() => {});
+    await page.keyboard.up('Alt').catch(() => {});
+    await page.mouse.up().catch(() => {});
     await page.evaluate(() => {
       window.localStorage.setItem('plotflow:workspaceMode', 'split');
       window.localStorage.setItem('plotflow:themeId', 'plotflow-narrative-workbench');

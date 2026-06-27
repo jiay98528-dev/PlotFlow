@@ -1,5 +1,65 @@
-import type { InstalledOfficialThemeSummary, ThemeDescriptor } from '../theme-platform/types';
+import { createElement } from 'react';
+import type { InstalledOfficialThemeSummary, ThemeDescriptor, ThemeSurfaces } from '../theme-platform/types';
 import { narrativeWorkbenchSlots } from './builtin/plotflow-narrative-workbench/slots';
+import { defaultThemeSurfaces } from './surfaces/defaultSurfaces';
+
+const neonDossierSurfaces: ThemeSurfaces = {
+  ...defaultThemeSurfaces,
+
+  AppShell({ workspaceMode, topbar, children, overlays, statusBar }) {
+    return createElement(
+      'div',
+      {
+        className: `app-shell neon-dossier-shell${workspaceMode === 'graphLab' ? ' app-shell--graph-lab neon-dossier-shell--graph-lab' : ''}`,
+        'data-theme-surface': 'neon-dossier-app-shell',
+      },
+      topbar,
+      children,
+      overlays,
+      statusBar,
+    );
+  },
+
+  GraphLabShell({ isSourceDrawerOpen, commandbar, palette, canvas, inspector, sourceDrawer }) {
+    return createElement(
+      'main',
+      {
+        className: `graph-lab neon-dossier-graph-lab${isSourceDrawerOpen ? ' graph-lab--source-open' : ''}`,
+        'data-theme-surface': 'neon-dossier-graph-lab-shell',
+      },
+      commandbar,
+      palette,
+      canvas,
+      inspector,
+      sourceDrawer,
+    );
+  },
+
+  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+    return createElement(
+      'div',
+      {
+        className: 'official-theme-center neon-dossier-theme-center',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'data-theme-surface': 'neon-dossier-theme-center-surface',
+      },
+      header,
+      createElement(
+        'div',
+        { className: 'official-theme-center__layout neon-dossier-theme-center__layout' },
+        sidebar,
+        createElement(
+          'main',
+          { className: 'official-theme-center__content neon-dossier-theme-center__content' },
+          installedThemes,
+          remoteThemes,
+        ),
+      ),
+      footer,
+    );
+  },
+};
 
 const neonDossierTheme: ThemeDescriptor = {
   id: 'plotflow-neon-dossier',
@@ -79,6 +139,7 @@ const neonDossierTheme: ThemeDescriptor = {
     storeUrl: 'https://plotflow.app/themes/plotflow-neon-dossier',
   },
   slots: narrativeWorkbenchSlots,
+  surfaces: neonDossierSurfaces,
 };
 
 const officialRemoteThemeModules: Record<string, ThemeDescriptor> = {

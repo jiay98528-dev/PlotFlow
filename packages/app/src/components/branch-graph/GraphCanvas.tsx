@@ -1191,18 +1191,34 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     [renamingNodeId, setEditing],
   );
 
-  const handleNodeDragStop = useCallback(
-    (_event: MouseEvent | TouchEvent, node: Node) => {
-      setEditing(false);
+  const persistDraggedNodePosition = useCallback(
+    (node: Node, notify: boolean) => {
       if (node.type === 'collapseNode') return;
       const nodeData = node.data as StoryFlowNodeData | undefined;
       if (!nodeData?.fullId) return;
       const storyNode = getNodeByFullId(nodeData.fullId);
       if (!storyNode) return;
       graphEditService.updateNodePosition(storyNode, node.position);
-      setStatusMessage(`Graph Lab 已保存「${storyNode.title}」的位置`);
+      if (notify) {
+        setStatusMessage(`Graph Lab 已保存「${storyNode.title}」的位置`);
+      }
     },
-    [getNodeByFullId, setEditing, setStatusMessage],
+    [getNodeByFullId, setStatusMessage],
+  );
+
+  const handleNodeDrag = useCallback(
+    (_event: MouseEvent | TouchEvent, node: Node) => {
+      persistDraggedNodePosition(node, false);
+    },
+    [persistDraggedNodePosition],
+  );
+
+  const handleNodeDragStop = useCallback(
+    (_event: MouseEvent | TouchEvent, node: Node) => {
+      setEditing(false);
+      persistDraggedNodePosition(node, true);
+    },
+    [persistDraggedNodePosition, setEditing],
   );
 
   // ==========================================================================
@@ -1335,6 +1351,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           onNodeClick={canEditGraph ? handleNodeClick : undefined}
           onNodeDoubleClick={canEditGraph ? handleNodeDoubleClick : undefined}
           onNodesChange={canEditGraph ? handleNodesChange : undefined}
+          onNodeDrag={canEditGraph ? handleNodeDrag : undefined}
           onNodeDragStart={canEditGraph ? handleNodeDragStart : undefined}
           onNodeDragStop={canEditGraph ? handleNodeDragStop : undefined}
           onNodeContextMenu={canEditGraph ? handleNodeContextMenu : undefined}

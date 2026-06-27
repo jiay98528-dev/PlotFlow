@@ -1,5 +1,6 @@
 import type { ThemeDescriptor } from '../../../theme-platform/types';
 import { narrativeWorkbenchSlots } from './slots';
+import { defaultThemeSurfaces } from '../../surfaces/defaultSurfaces';
 import raw from './theme.json';
 
 const data = raw as Record<string, unknown>;
@@ -56,4 +57,5 @@ export const narrativeWorkbenchTheme: ThemeDescriptor = {
     storeUrl: 'https://plotflow.app/themes',
   }),
   slots: narrativeWorkbenchSlots,
+  surfaces: defaultThemeSurfaces,
 };

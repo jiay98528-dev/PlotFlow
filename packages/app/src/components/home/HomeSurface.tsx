@@ -17,7 +17,8 @@ export function HomeSurface(): React.ReactElement | null {
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const filePath = useEditorStore((state) => state.filePath);
   const isDirty = useEditorStore((state) => state.isDirty);
-  const { activeThemeId, themes } = useThemePlatform();
+  const { activeThemeId, themes, activeTheme } = useThemePlatform();
+  const Surface = activeTheme.surfaces.HomeSurface;
 
   const openFile = useCallback(async () => {
     const editor = useEditorStore.getState();
@@ -54,80 +55,86 @@ export function HomeSurface(): React.ReactElement | null {
 
   if (!isOpen) return null;
 
-  const activeTheme = themes.find((theme) => theme.id === activeThemeId) ?? themes[0]!;
-  const ActivePreview = activeTheme.slots.HomePreview;
+  const displayedTheme = themes.find((theme) => theme.id === activeThemeId) ?? activeTheme;
+  const ActivePreview = displayedTheme.slots.HomePreview;
 
   return (
-    <main className="home-surface" data-testid="home-surface">
-      <section className="home-surface__hero">
-        <div className="home-surface__copy">
+    <Surface
+      heroCopy={(
+        <>
           <p className="home-surface__eyebrow">PlotFlow Official Workbench</p>
           <h2>用流程图和文本双投影编排互动叙事</h2>
           <p>
-            从 `.mdstory` 文件进入 Split 或 Graph Lab。故事内容仍是纯文本，官方主题决定工作台的节点、
+            从 <code>.mdstory</code> 文件进入 Split 或 Graph Lab。故事内容仍是纯文本，官方主题决定工作台的节点、
             连线、面板、布局和动效表现。
           </p>
-          <div className="home-surface__actions">
-            <button type="button" className="button button--primary" onClick={() => setHomeSurfaceOpen(false)}>
-              <Play aria-hidden="true" size={16} strokeWidth={2} />
-              <span>继续编辑</span>
-            </button>
-            <button
-              type="button"
-              className="button button--secondary"
-              onClick={() => {
-                openNewFileDialog();
-                setHomeSurfaceOpen(false);
-              }}
-            >
-              <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-              <span>新建故事</span>
-            </button>
-            <button type="button" className="button button--secondary" onClick={openFile}>
-              <FolderOpen aria-hidden="true" size={16} strokeWidth={2} />
-              <span>打开文件</span>
-            </button>
-          </div>
-        </div>
-        <div className="home-surface__preview" data-active-official-theme={activeTheme.id}>
+        </>
+      )}
+      preview={(
+        <div className="home-surface__preview" data-active-official-theme={displayedTheme.id}>
           <ActivePreview active />
           <div className="home-surface__current">
             <span>当前官方主题</span>
-            <strong>{activeTheme.name['zh-CN']}</strong>
+            <strong>{displayedTheme.name['zh-CN']}</strong>
           </div>
         </div>
-      </section>
-
-      <section className="home-surface__grid">
-        <button
-          type="button"
-          className="home-action-card"
-          data-testid="home-open-graph-lab"
-          onClick={() => {
-            setWorkspaceMode('graphLab');
-            setHomeSurfaceOpen(false);
-          }}
-        >
-          <GitBranch aria-hidden="true" size={20} strokeWidth={2} />
-          <span>进入 Graph Lab</span>
-          <small>使用节点、连线和 Inspector 完成图形化编辑。</small>
-        </button>
-        <button type="button" className="home-action-card" data-testid="home-open-theme-center" onClick={openThemeCenter}>
-          <Palette aria-hidden="true" size={20} strokeWidth={2} />
-          <span>主题中心</span>
-          <small>切换内置官方主题，或下载官方免费主题。</small>
-        </button>
-        <button type="button" className="home-action-card" data-testid="home-open-theme-store" onClick={openThemeCenter}>
-          <ExternalLink aria-hidden="true" size={20} strokeWidth={2} />
-          <span>浏览官方免费主题</span>
-          <small>只展示官方发布的免费主题，不提供本地导入。</small>
-        </button>
-      </section>
-
-      <section className="home-surface__status">
-        <span>{filePath ? `当前文件：${filePath}` : '当前文件：未保存故事'}</span>
-        <span>{isDirty ? '存在未保存修改' : '内容已同步'}</span>
-      </section>
-    </main>
+      )}
+      actions={(
+        <>
+          <button type="button" className="button button--primary" onClick={() => setHomeSurfaceOpen(false)}>
+            <Play aria-hidden="true" size={16} strokeWidth={2} />
+            <span>继续编辑</span>
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() => {
+              openNewFileDialog();
+              setHomeSurfaceOpen(false);
+            }}
+          >
+            <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
+            <span>新建故事</span>
+          </button>
+          <button type="button" className="button button--secondary" onClick={openFile}>
+            <FolderOpen aria-hidden="true" size={16} strokeWidth={2} />
+            <span>打开文件</span>
+          </button>
+        </>
+      )}
+      cards={(
+        <>
+          <button
+            type="button"
+            className="home-action-card"
+            data-testid="home-open-graph-lab"
+            onClick={() => {
+              setWorkspaceMode('graphLab');
+              setHomeSurfaceOpen(false);
+            }}
+          >
+            <GitBranch aria-hidden="true" size={20} strokeWidth={2} />
+            <span>进入 Graph Lab</span>
+            <small>使用节点、连线和 Inspector 完成图形化编辑。</small>
+          </button>
+          <button type="button" className="home-action-card" data-testid="home-open-theme-center" onClick={openThemeCenter}>
+            <Palette aria-hidden="true" size={20} strokeWidth={2} />
+            <span>主题中心</span>
+            <small>切换内置官方主题，或下载官方免费主题。</small>
+          </button>
+          <button type="button" className="home-action-card" data-testid="home-open-theme-store" onClick={openThemeCenter}>
+            <ExternalLink aria-hidden="true" size={20} strokeWidth={2} />
+            <span>浏览官方免费主题</span>
+            <small>只展示官方发布的免费主题，不提供本地导入。</small>
+          </button>
+        </>
+      )}
+      status={(
+        <>
+          <span>{filePath ? `当前文件：${filePath}` : '当前文件：未保存故事'}</span>
+          <span>{isDirty ? '存在未保存修改' : '内容已同步'}</span>
+        </>
+      )}
+    />
   );
 }

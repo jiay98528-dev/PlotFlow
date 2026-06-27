@@ -109,7 +109,10 @@ async function readCapturedExport(app: ElectronApplication): Promise<{
  */
 async function loadRpgTemplate(page: Page): Promise<void> {
   // 等待应用和 Monaco 编辑器完全初始化
-  await page.waitForSelector('.monaco-editor', { timeout: 20000 });
+  await page.waitForSelector('.app-shell', { timeout: 20000 });
+  await page.getByTestId('workspace-mode-split').click();
+  await page.waitForSelector('.split-workspace', { timeout: 10000 });
+  await page.waitForSelector('.editor-pane .monaco-editor', { timeout: 20000 });
   await page.waitForTimeout(500);
 
   // 点击顶部工具栏"新建"按钮 (.app-topbar .button--primary)

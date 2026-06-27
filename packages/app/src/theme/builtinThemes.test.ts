@@ -34,6 +34,14 @@ describe('builtin theme definitions', () => {
       expect(theme.slots.StoryEdge).toBeTypeOf('function');
       expect(theme.slots.ThemePreview).toBeTypeOf('function');
       expect(theme.slots.HomePreview).toBeTypeOf('function');
+      expect(theme.surfaces.AppShell).toBeTypeOf('function');
+      expect(theme.surfaces.Toolbar).toBeTypeOf('function');
+      expect(theme.surfaces.SplitShell).toBeTypeOf('function');
+      expect(theme.surfaces.GraphLabShell).toBeTypeOf('function');
+      expect(theme.surfaces.HomeSurface).toBeTypeOf('function');
+      expect(theme.surfaces.ThemeCenterSurface).toBeTypeOf('function');
+      expect(theme.surfaces.PanelFrame).toBeTypeOf('function');
+      expect(theme.surfaces.DockFrame).toBeTypeOf('function');
       expect(theme.slots.StoryNodeCard.displayName).toContain('OfficialGraphNode');
       expect(theme.slots.StoryEdge.displayName).toContain('OfficialGraphEdge');
     }
@@ -65,5 +73,9 @@ describe('builtin theme definitions', () => {
     expect(descriptor?.id).toBe('plotflow-neon-dossier');
     expect(descriptor?.storeMeta.availability).toBe('officialRemote');
     expect(descriptor?.uxRecipe?.node?.width).toBeTruthy();
+    expect(descriptor?.surfaces.AppShell).toBeTypeOf('function');
+    expect(descriptor?.surfaces.GraphLabShell).toBeTypeOf('function');
+    expect(descriptor?.surfaces.ThemeCenterSurface).toBeTypeOf('function');
+    expect(descriptor?.surfaces.AppShell).not.toBe(builtinThemes[0]!.surfaces.AppShell);
   });
 });

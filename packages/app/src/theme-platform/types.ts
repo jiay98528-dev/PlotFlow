@@ -219,6 +219,76 @@ export interface ThemeSlots {
 }
 
 // ============================================================================
+// UX Surfaces
+// ============================================================================
+
+export interface ThemeAppShellSurfaceProps {
+  readonly workspaceMode: 'split' | 'graphLab';
+  readonly topbar: React.ReactNode;
+  readonly children: React.ReactNode;
+  readonly overlays: React.ReactNode;
+  readonly statusBar: React.ReactNode;
+}
+
+export interface ThemeToolbarSurfaceProps {
+  readonly brand: React.ReactNode;
+  readonly fileControls: React.ReactNode;
+  readonly viewControls: React.ReactNode;
+  readonly preferenceControls: React.ReactNode;
+}
+
+export interface ThemeSplitShellSurfaceProps {
+  readonly viewbar: React.ReactNode;
+  readonly outline: React.ReactNode;
+  readonly editor: React.ReactNode;
+  readonly graph: React.ReactNode;
+  readonly minimap: React.ReactNode;
+}
+
+export interface ThemeGraphLabShellSurfaceProps {
+  readonly isSourceDrawerOpen: boolean;
+  readonly commandbar: React.ReactNode;
+  readonly palette: React.ReactNode;
+  readonly canvas: React.ReactNode;
+  readonly inspector: React.ReactNode;
+  readonly sourceDrawer: React.ReactNode;
+}
+
+export interface ThemeHomeSurfaceProps {
+  readonly heroCopy: React.ReactNode;
+  readonly preview: React.ReactNode;
+  readonly actions: React.ReactNode;
+  readonly cards: React.ReactNode;
+  readonly status: React.ReactNode;
+}
+
+export interface ThemeCenterSurfaceProps {
+  readonly header: React.ReactNode;
+  readonly sidebar: React.ReactNode;
+  readonly installedThemes: React.ReactNode;
+  readonly remoteThemes: React.ReactNode;
+  readonly footer: React.ReactNode;
+}
+
+export interface ThemeFrameSurfaceProps {
+  readonly className?: string;
+  readonly testId?: string;
+  readonly ariaLabel?: string;
+  readonly children: React.ReactNode;
+}
+
+export interface ThemeSurfaces {
+  readonly AppShell: React.FC<ThemeAppShellSurfaceProps>;
+  readonly Toolbar: React.FC<ThemeToolbarSurfaceProps>;
+  readonly SplitShell: React.FC<ThemeSplitShellSurfaceProps>;
+  readonly GraphLabShell: React.FC<ThemeGraphLabShellSurfaceProps>;
+  readonly HomeSurface: React.FC<ThemeHomeSurfaceProps>;
+  readonly ThemeCenterSurface: React.FC<ThemeCenterSurfaceProps>;
+  readonly PanelFrame: React.FC<ThemeFrameSurfaceProps>;
+  readonly DockFrame: React.FC<ThemeFrameSurfaceProps>;
+}
+
+// ============================================================================
 // 涓婚鎻忚堪绗︼紙椤跺眰锛?// ============================================================================
 
 /**
@@ -243,4 +313,5 @@ export interface ThemeDescriptor {
   readonly motionRecipe: ThemeMotionRecipe;
   readonly storeMeta: ThemeStoreMeta;
   readonly slots: ThemeSlots;
+  readonly surfaces: ThemeSurfaces;
 }
