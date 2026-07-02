@@ -22,6 +22,7 @@ import { layoutNodes } from '../branch-graph/layout';
 import { graphEditService } from '../../services/graphEditService';
 import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
 import { parsePipelineNow } from '../../services/parsePipeline';
+import { useAppText } from '../../i18n/appI18n';
 
 interface GraphLabPaletteProps {
   readonly onNodeNavigate: (nodeId: string, lineNumber: number) => void;
@@ -42,40 +43,41 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function getFileName(path: string | null): string {
-  if (!path) return '未保存故事';
+type TextFn = ReturnType<typeof useAppText>;
+
+function getFileName(path: string | null, fallback: string): string {
+  if (!path) return fallback;
   return path.split(/[/\\]/).pop() || path;
 }
 
-function getNodeSeverityLabel(severity: NodeSeverity): string {
+function getNodeSeverityLabel(severity: NodeSeverity, text: TextFn): string {
   switch (severity) {
     case 'error':
-      return '错误';
+      return text('palette.error');
     case 'warning':
-      return '警告';
+      return text('palette.warning');
     case 'info':
-      return '建议';
+      return text('palette.info');
     default:
-      return '正常';
+      return text('palette.normal');
   }
 }
 
-async function confirmBeforeReplacingStory(): Promise<boolean> {
+async function confirmBeforeReplacingStory(text: TextFn): Promise<boolean> {
   const editor = useEditorStore.getState();
   if (!editor.isDirty) return true;
 
   const choice = await window.plotflow.dialog.confirm({
     type: 'warning',
-    message: '打开工作区文件前处理未保存更改？',
+    message: text('palette.beforeReplaceTitle'),
     detail: editor.filePath
-      ? `"${editor.filePath}" 有未保存的修改。`
-      : '当前未命名故事有未保存的修改。',
-    buttons: ['保存并打开', '不保存并打开', '取消'],
+      ? text('palette.beforeReplaceNamed', { path: editor.filePath })
+      : text('palette.beforeReplaceUnnamed'),
+    buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
   });
 
   if (choice === 0) {
-    await saveOrSaveAs();
-    return true;
+    return saveOrSaveAs();
   }
   return choice === 1;
 }
@@ -106,6 +108,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   const [workspace, setWorkspace] = useState<WorkspaceStoriesResult | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const text = useAppText();
 
   const severityByNode = useMemo(() => {
     const map = new Map<string, NodeSeverity>();
@@ -124,29 +127,29 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   }, [diagnostics, plotFlowData]);
 
   const handleCreateChapter = useCallback(() => {
-    graphEditService.createChapter('第一章');
-    setStatusMessage('已创建章节');
-  }, [setStatusMessage]);
+    graphEditService.createChapter(text('palette.defaultChapterTitle'));
+    setStatusMessage(text('palette.createdChapter'));
+  }, [setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
-    graphEditService.createNode({ chapterTitle: '第一章', title: '新节点' });
-    setStatusMessage('已创建节点');
-  }, [setStatusMessage]);
+    graphEditService.createNode({ chapterTitle: text('palette.defaultChapterTitle'), title: text('palette.newNodeTitle') });
+    setStatusMessage(text('palette.createdNode'));
+  }, [setStatusMessage, text]);
 
   const handleCreateEnding = useCallback(() => {
-    graphEditService.createNode({ chapterTitle: '第一章', title: '结局', isEnding: true });
-    setStatusMessage('已创建结局节点');
-  }, [setStatusMessage]);
+    graphEditService.createNode({ chapterTitle: text('palette.defaultChapterTitle'), title: text('palette.endingNodeTitle'), isEnding: true });
+    setStatusMessage(text('palette.createdEnding'));
+  }, [setStatusMessage, text]);
 
   const handleRelayout = useCallback(() => {
     if (nodes.length === 0) {
-      setStatusMessage('当前没有可布局的节点');
+      setStatusMessage(text('palette.noLayoutNodes'));
       return;
     }
     const { nodes: layoutedNodes } = layoutNodes(nodes, edges);
     setNodes(layoutedNodes);
-    setStatusMessage('Graph Lab 已重新布局');
-  }, [edges, nodes, setNodes, setStatusMessage]);
+    setStatusMessage(text('palette.relayoutDone'));
+  }, [edges, nodes, setNodes, setStatusMessage, text]);
 
   const refreshWorkspace = useCallback(async (rootPath: string) => {
     setWorkspaceError(null);
@@ -154,7 +157,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
     try {
       const result = await window.plotflow.file.listWorkspaceStories(rootPath);
       setWorkspace(result);
-      setStatusMessage(`已刷新工作区: ${result.files.length} 个故事文件`);
+      setStatusMessage(text('palette.workspaceRefreshed', { count: result.files.length }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setWorkspaceError(message);
@@ -162,7 +165,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
     } finally {
       setIsScanning(false);
     }
-  }, [setStatusMessage]);
+  }, [setStatusMessage, text]);
 
   const handleChooseWorkspace = useCallback(async () => {
     setWorkspaceError(null);
@@ -171,7 +174,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
       const result = await window.plotflow.file.chooseWorkspaceFolder();
       if (!result) return;
       setWorkspace(result);
-      setStatusMessage(`已选择工作区: ${result.files.length} 个故事文件`);
+      setStatusMessage(text('palette.workspaceSelected', { count: result.files.length }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setWorkspaceError(message);
@@ -179,47 +182,47 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
     } finally {
       setIsScanning(false);
     }
-  }, [setStatusMessage]);
+  }, [setStatusMessage, text]);
 
   const handleOpenWorkspaceFile = useCallback(async (file: WorkspaceStoryFile) => {
     if (!workspace) return;
-    const canReplace = await confirmBeforeReplacingStory();
+    const canReplace = await confirmBeforeReplacingStory(text);
     if (!canReplace) return;
 
     const result = await window.plotflow.file.readWorkspaceStory(workspace.rootPath, file.filePath);
     if (!result) {
-      setStatusMessage(`无法读取工作区文件: ${file.relativePath}`);
+      setStatusMessage(text('palette.cannotRead', { path: file.relativePath }));
       return;
     }
 
     loadStoryIntoEditor(result.filePath, result.content);
-    setStatusMessage(`已打开: ${file.relativePath}`);
-  }, [setStatusMessage, workspace]);
+    setStatusMessage(text('status.opened', { path: file.relativePath }));
+  }, [setStatusMessage, text, workspace]);
 
   const hasOutline = (plotFlowData?.chapters.length ?? 0) > 0;
 
   return (
-    <aside className="graph-lab-rail" aria-label="Graph Lab 工作区">
+    <aside className="graph-lab-rail" aria-label={text('palette.aria')}>
       <section className="graph-lab-rail__block graph-lab-rail__hero">
         <div className="graph-lab-panel__header">
           <span className="graph-lab-panel__eyebrow">PlotFlow</span>
-          <h2>叙事工作台</h2>
+          <h2>{text('palette.workbench')}</h2>
         </div>
         <p className="graph-lab-rail__current" title={filePath ?? undefined}>
           <FileText aria-hidden="true" size={15} strokeWidth={2} />
-          <span>{getFileName(filePath)}</span>
+          <span>{getFileName(filePath, text('graphLab.unsavedStory'))}</span>
         </p>
       </section>
 
       <section className="graph-lab-rail__block" data-testid="graph-lab-workspace-browser">
         <div className="graph-lab-section__title">
-          <h3>内容浏览器</h3>
+          <h3>{text('palette.contentBrowser')}</h3>
           <button
             type="button"
             className="icon-button"
             data-testid="graph-lab-choose-workspace"
             onClick={handleChooseWorkspace}
-            title="选择工作区"
+            title={text('palette.chooseWorkspace')}
             disabled={isScanning}
           >
             <FolderOpen aria-hidden="true" size={15} strokeWidth={2} />
@@ -230,12 +233,12 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
           <>
             <div className="graph-lab-workspace-summary">
               <FileSearch aria-hidden="true" size={15} strokeWidth={2} />
-              <span title={workspace.rootPath}>{workspace.files.length} 个 .mdstory</span>
+              <span title={workspace.rootPath}>{text('palette.workspaceSummary', { count: workspace.files.length })}</span>
               <button
                 type="button"
                 className="icon-button"
                 onClick={() => void refreshWorkspace(workspace.rootPath)}
-                title="刷新工作区"
+                title={text('palette.refreshWorkspace')}
                 disabled={isScanning}
               >
                 <RefreshCw aria-hidden="true" size={14} strokeWidth={2} />
@@ -244,7 +247,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             {workspace.truncated && (
               <p className="graph-lab-warning">
                 <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
-                <span>文件较多，已显示前 300 个。</span>
+                <span>{text('palette.workspaceTruncated')}</span>
               </p>
             )}
             <div className="graph-lab-file-list">
@@ -265,7 +268,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
                 );
               })}
               {workspace.files.length === 0 && (
-                <p className="graph-lab-empty">当前工作区没有 `.mdstory` 文件。</p>
+                <p className="graph-lab-empty">{text('palette.noWorkspaceFiles')}</p>
               )}
             </div>
           </>
@@ -277,7 +280,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             disabled={isScanning}
           >
             <FolderOpen aria-hidden="true" size={15} strokeWidth={2} />
-            <span>{isScanning ? '扫描中' : '选择工作区'}</span>
+            <span>{isScanning ? text('palette.scanning') : text('palette.chooseWorkspace')}</span>
           </button>
         )}
         {workspaceError && <p className="graph-lab-warning">{workspaceError}</p>}
@@ -285,7 +288,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
 
       <section className="graph-lab-rail__block">
         <div className="graph-lab-section__title">
-          <h3>章节大纲</h3>
+          <h3>{text('palette.outline')}</h3>
           <ListTree aria-hidden="true" size={15} strokeWidth={2} />
         </div>
         {hasOutline ? (
@@ -303,7 +306,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
                       className={`graph-lab-outline-node graph-lab-outline-node--${severity}${isActive ? ' graph-lab-outline-node--active' : ''}`}
                       data-testid="graph-lab-outline-node"
                       onClick={() => onNodeNavigate(node.fullId, node.lineNumber)}
-                      title={`${node.title} · ${getNodeSeverityLabel(severity)}`}
+                      title={`${node.title} · ${getNodeSeverityLabel(severity, text)}`}
                     >
                       <span className="graph-lab-outline-node__status" aria-hidden="true" />
                       <span className="graph-lab-outline-node__title">{node.title}</span>
@@ -315,31 +318,31 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             ))}
           </div>
         ) : (
-          <p className="graph-lab-empty">打开或创建故事后，这里会显示章节和节点。</p>
+          <p className="graph-lab-empty">{text('palette.outlineEmpty')}</p>
         )}
       </section>
 
       <section className="graph-lab-rail__block">
         <div className="graph-lab-section__title">
-          <h3>创建</h3>
+          <h3>{text('palette.create')}</h3>
           <GitBranchPlus aria-hidden="true" size={15} strokeWidth={2} />
         </div>
         <div className="graph-lab-palette__actions">
           <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-chapter" onClick={handleCreateChapter}>
             <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-            <span>章节</span>
+            <span>{text('palette.chapter')}</span>
           </button>
           <button type="button" className="graph-lab-tool graph-lab-tool--primary" data-testid="graph-lab-create-node" onClick={handleCreateNode}>
             <Plus aria-hidden="true" size={16} strokeWidth={2} />
-            <span>节点</span>
+            <span>{text('palette.node')}</span>
           </button>
           <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-ending" onClick={handleCreateEnding}>
             <Square aria-hidden="true" size={15} strokeWidth={2} />
-            <span>结局</span>
+            <span>{text('palette.ending')}</span>
           </button>
           <button type="button" className="graph-lab-tool" data-testid="graph-lab-relayout" onClick={handleRelayout}>
             <LayoutGrid aria-hidden="true" size={16} strokeWidth={2} />
-            <span>重新布局</span>
+            <span>{text('palette.relayout')}</span>
           </button>
         </div>
       </section>

@@ -6,6 +6,7 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { graphEditService } from '../../services/graphEditService';
+import { useAppText } from '../../i18n/appI18n';
 
 interface FieldProps {
   readonly label: string;
@@ -63,6 +64,7 @@ export function GraphInspector(): React.ReactElement {
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const [variableName, setVariableName] = useState('');
   const [variableType, setVariableType] = useState('int');
+  const text = useAppText();
 
   const node = useMemo(
     () => {
@@ -88,28 +90,28 @@ export function GraphInspector(): React.ReactElement {
       useGraphStore.getState().selectNode(nextFullId);
       useEditorStore.getState().setActiveNodeId(nextFullId);
     }
-    setStatusMessage('Graph Lab 已更新节点');
-  }, [setStatusMessage]);
+    setStatusMessage(text('inspector.updatedNode'));
+  }, [setStatusMessage, text]);
 
   const commitOptionPatch = useCallback((option: Option, patch: Parameters<typeof graphEditService.updateOption>[1]) => {
     graphEditService.updateOption(option, patch);
-    setStatusMessage('Graph Lab 已更新选项');
-  }, [setStatusMessage]);
+    setStatusMessage(text('inspector.updatedOption'));
+  }, [setStatusMessage, text]);
 
   const handleAddOption = useCallback(() => {
     const selected = getSelectedStoryNode();
     if (!selected) return;
-    graphEditService.addOption(selected, { description: '新选项' });
-    setStatusMessage('Graph Lab 已添加选项');
-  }, [setStatusMessage]);
+    graphEditService.addOption(selected, { description: text('inspector.newOption') });
+    setStatusMessage(text('inspector.addedOption'));
+  }, [setStatusMessage, text]);
 
   const handleDeleteNode = useCallback(() => {
     const selected = getSelectedStoryNode();
     if (!selected) return;
     graphEditService.deleteNode(selected);
     useGraphStore.getState().selectNode(null);
-    setStatusMessage('Graph Lab 已删除节点');
-  }, [setStatusMessage]);
+    setStatusMessage(text('inspector.deletedNode'));
+  }, [setStatusMessage, text]);
 
   const handleVariableSubmit = useCallback(() => {
     if (!variableName.trim()) return;
@@ -119,34 +121,34 @@ export function GraphInspector(): React.ReactElement {
     });
     setVariableName('');
     setVariableType('int');
-    setStatusMessage('Graph Lab 已更新变量');
-  }, [setStatusMessage, variableName, variableType]);
+    setStatusMessage(text('inspector.updatedVariable'));
+  }, [setStatusMessage, text, variableName, variableType]);
 
   return (
-    <aside className="graph-lab-inspector" aria-label="Graph Lab Inspector" data-testid="graph-lab-inspector">
+    <aside className="graph-lab-inspector" aria-label={text('inspector.aria')} data-testid="graph-lab-inspector">
       <div className="graph-lab-panel__header">
         <span className="graph-lab-panel__eyebrow">Inspector</span>
-        <h2>{node ? node.title : '未选择节点'}</h2>
+        <h2>{node ? node.title : text('inspector.emptyTitle')}</h2>
       </div>
 
       <section className="graph-lab-section">
-        <h3>故事信息</h3>
+        <h3>{text('inspector.storyInfo')}</h3>
         <EditableField
-          label="标题"
+          label={text('inspector.title')}
           testId="graph-inspector-meta-title"
           value={plotFlowData?.meta.title ?? ''}
           onCommit={(value) => {
             graphEditService.updateMeta('title', value);
-            setStatusMessage('Graph Lab 已更新故事标题');
+            setStatusMessage(text('inspector.updatedStoryTitle'));
           }}
         />
         <EditableField
-          label="作者"
+          label={text('inspector.author')}
           testId="graph-inspector-meta-author"
           value={plotFlowData?.meta.author ?? ''}
           onCommit={(value) => {
             graphEditService.updateMeta('author', value);
-            setStatusMessage('Graph Lab 已更新作者');
+            setStatusMessage(text('inspector.updatedAuthor'));
           }}
         />
       </section>
@@ -155,32 +157,32 @@ export function GraphInspector(): React.ReactElement {
         <>
           <section className="graph-lab-section">
             <div className="graph-lab-section__title">
-              <h3>节点</h3>
-              <button type="button" className="icon-button" title="删除节点" onClick={handleDeleteNode}>
+              <h3>{text('inspector.node')}</h3>
+              <button type="button" className="icon-button" title={text('inspector.deleteNode')} onClick={handleDeleteNode}>
                 <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
               </button>
             </div>
             <EditableField
-              label="标题"
+              label={text('inspector.title')}
               testId="graph-inspector-node-title"
               value={node.title}
               onCommit={(value) => commitNodePatch({ title: value })}
             />
             <label className="graph-lab-field">
-              <span>章节</span>
+              <span>{text('inspector.chapter')}</span>
               <select
                 data-testid="graph-inspector-node-chapter"
                 value={node.chapterId}
                 onChange={(event) => commitNodePatch({ chapterTitle: event.target.value })}
               >
-                {chapterOptions.length === 0 && <option value={node.chapterId}>{node.chapterId || '默认章节'}</option>}
+                {chapterOptions.length === 0 && <option value={node.chapterId}>{node.chapterId || text('inspector.defaultChapter')}</option>}
                 {chapterOptions.map((chapter) => (
                   <option key={chapter} value={chapter}>{chapter}</option>
                 ))}
               </select>
             </label>
             <EditableField
-              label="正文"
+              label={text('inspector.body')}
               testId="graph-inspector-node-body"
               value={node.body}
               multiline
@@ -190,32 +192,32 @@ export function GraphInspector(): React.ReactElement {
 
           <section className="graph-lab-section">
             <div className="graph-lab-section__title">
-              <h3>选项</h3>
+              <h3>{text('inspector.options')}</h3>
               <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-add-option" onClick={handleAddOption}>
                 <ListPlus aria-hidden="true" size={15} strokeWidth={2} />
-                <span>添加</span>
+                <span>{text('inspector.add')}</span>
               </button>
             </div>
             {node.options.length === 0 ? (
-              <p className="graph-lab-empty">当前节点没有选项，可作为结局节点，也可以添加分支选项。</p>
+              <p className="graph-lab-empty">{text('inspector.noOptions')}</p>
             ) : (
               <div className="graph-lab-options">
                 {node.options.map((option, index) => (
                   <div className="graph-lab-option" key={`${option.lineNumber}-${index}`}>
                     <EditableField
-                      label={`选项 ${index + 1}`}
+                      label={text('inspector.optionLabel', { index: index + 1 })}
                       testId={`graph-inspector-option-description-${index}`}
                       value={option.description}
                       onCommit={(value) => commitOptionPatch(option, { description: value })}
                     />
                     <label className="graph-lab-field">
-                      <span>目标节点</span>
+                      <span>{text('inspector.targetNode')}</span>
                       <select
                         data-testid={`graph-inspector-option-target-${index}`}
                         value={option.targetNodeId ?? ''}
                         onChange={(event) => commitOptionPatch(option, { targetNodeId: event.target.value || null })}
                       >
-                        <option value="">无跳转</option>
+                        <option value="">{text('inspector.noJump')}</option>
                         {allNodes
                           .filter((target) => target.fullId !== node.fullId)
                           .map((target) => (
@@ -224,13 +226,13 @@ export function GraphInspector(): React.ReactElement {
                       </select>
                     </label>
                     <EditableField
-                      label="条件"
+                      label={text('inspector.condition')}
                       testId={`graph-inspector-option-condition-${index}`}
                       value={option.conditionRaw ?? ''}
                       onCommit={(value) => commitOptionPatch(option, { conditionRaw: value || null })}
                     />
                     <EditableField
-                      label="效果"
+                      label={text('inspector.effects')}
                       testId={`graph-inspector-option-effects-${index}`}
                       value={option.effectsRaw ?? ''}
                       onCommit={(value) => commitOptionPatch(option, { effectsRaw: value || null })}
@@ -239,7 +241,7 @@ export function GraphInspector(): React.ReactElement {
                       <button
                         type="button"
                         className="icon-button"
-                        title="上移"
+                        title={text('inspector.moveUp')}
                         disabled={index === 0}
                         onClick={() => graphEditService.reorderOption(node, index, index - 1)}
                       >
@@ -248,7 +250,7 @@ export function GraphInspector(): React.ReactElement {
                       <button
                         type="button"
                         className="icon-button"
-                        title="下移"
+                        title={text('inspector.moveDown')}
                         disabled={index === node.options.length - 1}
                         onClick={() => graphEditService.reorderOption(node, index, index + 1)}
                       >
@@ -257,7 +259,7 @@ export function GraphInspector(): React.ReactElement {
                       <button
                         type="button"
                         className="icon-button"
-                        title="清除跳转"
+                        title={text('inspector.clearJump')}
                         onClick={() => graphEditService.connectOption(option, null)}
                       >
                         <Link2Off aria-hidden="true" size={14} strokeWidth={2} />
@@ -265,7 +267,7 @@ export function GraphInspector(): React.ReactElement {
                       <button
                         type="button"
                         className="icon-button icon-button--danger"
-                        title="删除选项"
+                        title={text('inspector.deleteOption')}
                         onClick={() => graphEditService.deleteOption(option)}
                       >
                         <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
@@ -278,17 +280,17 @@ export function GraphInspector(): React.ReactElement {
           </section>
         </>
       ) : (
-        <p className="graph-lab-empty">在画布中选择一个节点，或从左侧创建新节点。</p>
+        <p className="graph-lab-empty">{text('inspector.selectHint')}</p>
       )}
 
       <section className="graph-lab-section">
-        <h3>变量</h3>
+        <h3>{text('inspector.variables')}</h3>
         <label className="graph-lab-field">
-          <span>变量名</span>
-          <input data-testid="graph-inspector-variable-name" value={variableName} onChange={(event) => setVariableName(event.target.value)} placeholder="金币" />
+          <span>{text('inspector.variableName')}</span>
+          <input data-testid="graph-inspector-variable-name" value={variableName} onChange={(event) => setVariableName(event.target.value)} placeholder={text('inspector.variablePlaceholder')} />
         </label>
         <label className="graph-lab-field">
-          <span>变量类型</span>
+          <span>{text('inspector.variableType')}</span>
           <select data-testid="graph-inspector-variable-type" value={variableType} onChange={(event) => setVariableType(event.target.value)}>
             <option value="int">int</option>
             <option value="float">float</option>
@@ -296,7 +298,7 @@ export function GraphInspector(): React.ReactElement {
             <option value="string">string</option>
           </select>
         </label>
-        <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-save-variable" onClick={handleVariableSubmit}>保存变量</button>
+        <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-save-variable" onClick={handleVariableSubmit}>{text('inspector.saveVariable')}</button>
       </section>
     </aside>
   );

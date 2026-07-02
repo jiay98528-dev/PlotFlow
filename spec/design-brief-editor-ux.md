@@ -1,6 +1,6 @@
 ﻿# PlotFlow 缂栬緫鍣?UX 璁捐绠€鎶?
 
-> **主题系统权威口径（2026-06-26）**：PlotFlow 只支持官方主题。官方主题分为内置主题和官方远程免费主题；远程主题由 PlotFlow 官方静态目录注册、下载、校验和更新。当前不开放第三方、社区上传、本地 `.pf-theme.zip` 导入、支付或授权。主题是全 UX 配方模块，可以控制位置、大小、布局类型、颜色、透明度、z-index、半径、字体、动效、React slots 和 Monaco 配色，但不得改变 `.mdstory` 语义、保存、导出或 Graph Lab 命令层。
+> **主题系统权威口径（2026-06-27）**：PlotFlow 只支持官方主题。官方主题分为内置主题和官方远程免费主题；远程主题由 PlotFlow 官方静态目录注册，下载 `.pf-official-theme.zip`，校验后通过 `plotflow-theme://` 动态加载包内 `index.mjs`。远程主题包与内置主题拥有同等当前主题能力，可以提供完整 `ThemeDescriptor`、React surfaces、React slots、位置、大小、布局类型、颜色、透明度、z-index、半径、字体、动效、Monaco 配色、CSS 和 assets。当前不开放第三方、社区上传、本地 `.pf-theme.zip` 导入、支付或授权；主题不得改变 `.mdstory` 语义、保存、导出或 Graph Lab 命令层。完整开发标准见 `doc/standards-theme-development.md`。
 
 > **绫诲瀷**锛歚/impeccable shape` 浜у嚭
 > **鏃ユ湡**锛?026-06-12
@@ -447,4 +447,54 @@ UI 浜や粯锛?鈹溾攢鈹€ 搴旂敤鍥炬爣锛堝鍒嗚鲸鐜囷級
 ---
 
 *鏈畝鎶ュ熀浜?PRD.md銆乀AD.md銆丆LAUDE.md 鍜?3 杞?discovery 璁胯皥锛? 涓粨鏋勫寲闂锛夈€傚緟鐢ㄦ埛纭鍚庝氦浠?`/impeccable craft` 鎴栫洿鎺ユ寚瀵奸€愰噷绋嬬瀹炵幇銆?
+
+---
+
+## 12. 内置官方主题：引擎遥测台（Engine Telemetry）
+
+> 记录日期：2026-06-27
+> 主题 ID：`plotflow-engine-telemetry`
+> 主题类型：内置官方主题。`plotflow-narrative-workbench` 仍是默认主题，本主题作为第二个可选内置主题。
+
+### 12.1 定位
+
+引擎遥测台是面向“次世代游戏生产工具”气质的深色主题，不是营销页式视觉皮肤。它服务 Graph Lab 图优先工作流，让叙事拓扑成为主工作区，同时让 `.mdstory` 源码始终保持可见、可检查、可回退。
+
+### 12.2 UX 骨架
+
+采用 `Source Spine + Topology Canvas + Inspector Rack`：
+
+```text
+┌────────────────────────────────────────────────────────────┐
+│ Compact Command Bar                                        │
+├───────────────┬──────────────────────────────┬─────────────┤
+│ Source Spine  │ Topology Canvas              │ Inspector   │
+│ Palette       │ React Flow full workspace    │ Rack        │
+│ Source Dock   │ Nodes / routes / diagnostics │ Properties  │
+└───────────────┴──────────────────────────────┴─────────────┘
+```
+
+Split 模式中，左侧源码与大纲被收束为 Source Spine，中间或右侧画布承担主要拓扑浏览；Graph Lab 中左侧 palette 与 Source Drawer 组成 Source Spine，中间画布跨越主要高度，右侧 Inspector 始终清晰可达。
+
+### 12.3 视觉策略
+
+- 石墨暗面作为主背景，避免暖纸、蓝图和玻璃拟态。
+- 青绿色信号线承载默认连线、端口、选中态与实时拖线。
+- 琥珀色状态光承载条件分支、门控提示和警告状态。
+- 红色错误提示用于错误节点与危险状态，且必须配合 `ERR` 等文本标签，不只依赖颜色。
+- 节点采用运行时模块面板语义：状态、章节、标题、正文预览、选项数、条件标记、rename 和 source/target Handle 全部保留。
+- 连线采用信号路由线语义：default/conditional、hover/selected、Alt 删除、双击条件编辑、右键菜单、重连命中和宽 hit area 全部保留。
+
+### 12.4 可用性原则
+
+- 源码入口不隐藏：Source Drawer 可收起但入口必须常驻。
+- Inspector 不做属性墙：优先呈现当前节点/连线的关键编辑任务，保持扫描效率。
+- 错误、警告、建议必须同时具备颜色、文本和形状/边框差异。
+- 窄屏布局必须按 Command Bar、Source Spine、Canvas、Inspector、Source Drawer 顺序纵向堆叠。
+
+### 12.5 反目标
+
+- 不使用暖纸、蓝图、霓虹档案、玻璃拟态、紫蓝科幻、装饰光球或 Articy 式属性墙。
+- 不改变 `.mdstory` 语义、parser、validator、exporter、保存流程、Graph Lab 命令层或主题平台 API。
+- 不开放第三方、本地导入、购买或授权路径；保持官方主题边界。
 

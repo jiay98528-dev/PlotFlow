@@ -1,6 +1,6 @@
 ﻿# PlotFlow 瀹炴椂杩涘害璺熻釜
 
-> **主题系统当前状态（2026-06-26）**：M9 主题方向已调整为“官方远程免费代码主题 + 全 UX 权限”。`plotflow-blueprint-nightwatch` 已删除；远程主题由官方静态目录注册、下载、校验并安装；Theme Center 使用“官方免费主题库”心智，不做第三方、社区上传、本地导入、购买或授权。
+> **主题系统当前状态（2026-06-27）**：M9 主题方向已落地为“官方远程免费 ZIP 代码主题 + 当前主题架构完整能力”。`plotflow-blueprint-nightwatch` 已删除；远程主题由官方静态目录注册，下载 `.pf-official-theme.zip`，校验后通过 `plotflow-theme://` 动态加载 `index.mjs`，可提供完整 `ThemeDescriptor`、React surfaces、React slots、tokens、CSS、assets、Monaco 和 UX recipes；Theme Center 使用“官方免费主题库”心智，不做第三方、社区上传、本地导入、购买或授权。完整开发标准见 `doc/standards-theme-development.md`。
 
 
 > **鐗堟湰**锛歏0.3 | **鍒涘缓鏃ユ湡**锛?026-06-12 | **鏇存柊**锛?026-06-25 瀹樻柟娣卞害涓婚鏋舵瀯 鈥?M0-M7 瀹為檯 132/142 (92.96%)
@@ -385,15 +385,18 @@
 |------|------|------|
 | `pnpm.cmd lint` | 鉁?PASS | 0 error锛? 涓棦鏈?`no-console` warning |
 | `pnpm.cmd typecheck` | 鉁?PASS | TypeScript strict 閫氳繃 |
-| `pnpm.cmd test` | 鉁?PASS | 41 files / 1231 tests锛涙柊澧炲畼鏂逛富棰樺畾涔夋祴璇曢€氳繃 |
+| `pnpm.cmd test` | 鉁?PASS | 44 files / 1252 tests; includes export filename fallback, main-process write verification, Graph Lab referenced-node rename, and app i18n coverage. |
 | `pnpm.cmd build` | 鉁?PASS | 淇濈暀 1 涓?Vite 鍔ㄦ€?闈欐€?import warning |
 | `pnpm.cmd lint:css` | 鉁?PASS | CSS token/stylelint 閫氳繃 |
 | `pnpm.cmd --filter @plotflow/progress-dashboard test` | 鉁?PASS | 杩涘害浠〃鐩樺崟鍏冩祴璇曢€氳繃 |
 | `pnpm.cmd --filter @plotflow/progress-dashboard typecheck` | 鉁?PASS | 杩涘害浠〃鐩樼被鍨嬫鏌ラ€氳繃 |
-| `pnpm.cmd --filter @plotflow/app test:e2e` | 鉁?PASS | 39 passed锛屾棤 teardown error锛屾棤 did-not-run锛涘惈 Graph Lab 涓昏矾寰勩€丼plit 灞€閮ㄥ浘瑙嗗浘鎺у埗闅旂銆佸畼鏂逛富棰樹腑蹇冦€佸彊浜嬪伐浣滃彴/澶滆埅钃濆浘 slot 鐑垏鎹㈢敤渚?|
+| `pnpm.cmd --filter @plotflow/app test:e2e` | ✅ PASS | 49 passed after the latest save-flow fix. Includes duplicate Save As prevention, Save As failure feedback, and Save As cancellation blocking file replacement. |
+| `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` | ✅ PASS | 10 passed / 4 packaged-or-installed skipped after the latest save-flow fix. Skips still require package/installed targets. |
+| `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` | ⚠️ STALE | Last unpacked package predates the latest save-flow fix. Rebuild and rerun against `release/win-unpacked/PlotFlow.exe`. |
+| `pnpm.cmd --filter @plotflow/app test:e2e:installed` | ⏳ PENDING | Must run after installing the newly built installer and setting `PLOTFLOW_INSTALLED_EXE`, for example `D:\PF\PlotFlow\PlotFlow.exe`. |
 | `pnpm.cmd audit --audit-level moderate` | 鉁?PASS | Electron 42.5.0锛涙棤 GHSA ignore锛汵o known vulnerabilities found |
-| `pnpm.cmd package:win` | 鉁?PASS | 鐢熸垚 `release/PlotFlow Setup 0.1.0.exe`銆乥lockmap 涓?`release/win-unpacked/PlotFlow.exe` |
-| Windows packaged smoke | 鉁?PASS | packaged exe 鍙惎鍔紱鍛戒护琛屾墦寮€ `.mdstory`銆丟raph Lab GUI 缂栬緫銆丼ource Drawer銆佸鍑?JSON 鎴愬姛 |
+| `pnpm.cmd package:win` | ⚠️ STALE | Previous 2026-07-01 package predates the latest save-flow fix. Clear/rebuild before using as release evidence. |
+| Windows packaged smoke | ⚠️ STALE | Previous packaged smoke does not include the latest save-flow fix. Rerun after a fresh package build. |
 
 ---
 
@@ -424,8 +427,13 @@
 | 2026-06-24 | **Graph Lab 姝ｅ紡鍏ュ彛涓?Electron 42 Windows 姝ｅ紡鍖?*锛氭柊澧?`workspaceMode`銆丟raph Lab 涓夋爮宸ヤ綔鍖恒€丳alette銆両nspector銆丼ource Drawer 涓?`graphEditService` 鍛戒护灞傦紝GUI 缂栬緫缁熶竴钀藉洖 `.mdstory` 骞跺鐢ㄨВ鏋愮绾裤€傛柊澧?Graph Lab E2E锛岄粯璁?app E2E 鏇存柊涓?30/30銆侲lectron 杩佺Щ鍒?42.5.0锛岀Щ闄?GHSA ignore锛宍pnpm.cmd audit --audit-level moderate` 鏃犲凡鐭ユ紡娲炪€備慨姝ｆ墦鍖呰剼鏈樉寮忓姞杞?`electron-builder.config.js`锛宍pnpm.cmd package:win` 鐢熸垚 `release/PlotFlow Setup 0.1.0.exe`锛宎sar 鎵弿纭涓嶅寘鍚?`website/`锛宲ackaged smoke 瑕嗙洊鍛戒护琛屾墦寮€銆丟raph Lab GUI 缂栬緫銆丼ource Drawer銆佸鍑?JSON銆?|
 | 2026-06-24 | **Graph Lab 钃濆浘寮忕敾甯冧氦浜掑崌绾?*锛氭柊澧?`.mdstory` 鍙€?`layout.graph.nodes` 甯冨眬鎶曞奖锛岃妭鐐规嫋鎷藉疄鏃剁Щ鍔ㄥ苟鍦ㄦ澗鎵嬪啓鍥炲潗鏍囷紱绾跨紗鐑尯鏀逛负鍗＄墖搴曢儴姝ｅ父甯冨眬琛岋紝鏀寔鎷栧埌宸叉湁鑺傜偣杩炴帴銆佹嫋鍒扮┖鐧芥墦寮€鍔ㄤ綔鑿滃崟銆佸垱寤鸿妭鐐瑰苟杩炴帴銆佹嫋鏃㈡湁绾跨紗鍒扮┖鐧芥柇寮€銆侴raph Lab E2E 5/5 瑕嗙洊涓婅堪涓昏矾寰勩€?|
 | 2026-06-25 | **瀹樻柟娣卞害涓婚鏋舵瀯涓庝富棰樺叆鍙?*锛氭柊澧?`OfficialThemeDefinition`銆佸畼鏂逛富棰?provider銆乣activeOfficialThemeId` 鎸佷箙鍖栦笌鏃?`themePack` 杩佺Щ銆傞鍙?`plotflow-narrative-workbench`锛堝彊浜嬪伐浣滃彴锛夊拰 `plotflow-neon-dossier`锛堝鑸摑鍥撅級锛孏raphCanvas 鑺傜偣/绾跨紗鏀圭敱褰撳墠瀹樻柟涓婚 slots 鎻愪緵銆傛柊澧?HomeSurface 涓?ThemeCenter锛孴opbar 鍜岄椤靛潎鍙繘鍏ヤ富棰樹腑蹇冿紝璐拱鍏ュ彛璺宠浆瀹樼綉锛屼骇鍝?UI 涓嶅啀鏆撮湶鏈湴涓婚鍖呭鍏ャ€傚畼缃戦椤垫柊澧炲畼鏂逛富棰樺睍绀恒€傛柊澧炲畼鏂逛富棰樺崟鍏冩祴璇曚笌 E2E锛岄獙璇佷富棰樹腑蹇冦€佹牴灞炴€с€佽妭鐐?slot銆乪dge slot 鍜屾牳蹇?CSS var 鐑垏鎹€傚綋鍓嶅畬鏁撮粯璁?app E2E 涓?39/39 passed銆?|
+| 2026-06-30 | **Audit refresh and docs sync**: reviewed the current official theme platform changes. Confirmed `plotflow-engine-telemetry`, remote ZIP theme `plotflow-neon-dossier`, `plotflow-theme://` runtime loading, theme development standard docs, and blackbox GUI E2E are present. Verification: `pnpm.cmd lint` PASS with 0 error / 9 warnings; `pnpm.cmd typecheck` PASS; `pnpm.cmd test` PASS with 42 files / 1243 tests; `pnpm.cmd build` PASS; `pnpm.cmd lint:css` PASS; `pnpm.cmd --filter @plotflow/app test:e2e` PASS with 39/39; `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS with 8/8; `pnpm.cmd --dir website test` PASS; `website build:static + verify:static` PASS. Fixed `website/scripts/sync-project-status.mjs` release gate parsing and `verify-static.mjs` BOM JSON handling, then regenerated `website/public/data/project-status.json` and `website/dist-static/data/project-status.json`. |
+| 2026-06-30 | **Release blackbox gate hardening**: added `spec/release-blackbox-gate.md`, extended blackbox launcher targets to `devBuild`, `winUnpacked`, and `installedExe`, and added high-risk installed-style guards for Graph Lab wire/drop interactions, native packaged export, visual/theme renderer drift, packaged resource scans, and installed `.mdstory` registry association. Source blackbox validation currently passes as 10 passed / 4 skipped; skipped checks require packaged or installed targets and must not be counted as formal release evidence. |
+| 2026-07-01 | **Export false-success fix and unpacked blackbox validation**: fixed export default filename fallback so template placeholders such as `{{title}}` fall back to the current `.mdstory` basename, added main-process export/save write-back verification, hardened Windows native save dialog automation to target the actual Windows 11 `FileNameControlHost` save-dialog tree, cleared stale `release/` artifacts and old `D:\PF\PlotFlow` install directory, then regenerated Windows artifacts. Verification: `pnpm.cmd lint` PASS with 0 error / 9 existing warnings; `pnpm.cmd typecheck` PASS; `pnpm.cmd test -- ExportDialog mainProcessUtils` PASS with 43 files / 1248 tests; `pnpm.cmd --filter @plotflow/app test:e2e` PASS with 39/39; `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS with 10 passed / 4 skipped; `pnpm.cmd package:win` PASS; `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` PASS with 13 passed / 1 installed-only skipped; `pnpm.cmd audit --audit-level moderate` PASS. Installed blackbox remains pending until the refreshed installer is installed. |
+| 2026-07-01 | **Manual blackbox P1/P2 source fixes**: fixed Home hero overlap, Graph Lab referenced-node rename edge migration, diagnostics chip discoverability, save/save-as status priority, and primary English UI coverage. Verification: `pnpm.cmd lint` PASS with 0 error / 9 existing warnings; `pnpm.cmd typecheck` PASS; `pnpm.cmd test` PASS with 44 files / 1252 tests; `pnpm.cmd build` PASS with the existing Vite dynamic/static import warning; `pnpm.cmd lint:css` PASS; Graph Lab narrow E2E PASS with 13/13; export E2E PASS with 5/5; full app integration E2E PASS with 44/44; source blackbox PASS with 10 passed / 4 packaged-or-installed skips; `pnpm.cmd audit --audit-level moderate` PASS. No new package was generated in this pass, so unpacked/installed blackbox and manual patrol remain required before any release-candidate claim. |
+| 2026-07-01 | **Clean Windows package output**: cleared old `release/` and `out/`, rebuilt Windows NSIS package, verified installer SHA256 `7E5F28B694D6065F27775027DD63CECD6349B3D9B0654DFCB9EEE1531D6840C7`, confirmed `app.asar` excludes `website/` and `dist-static`, and ran current unpacked blackbox. Verification: `pnpm.cmd package:win` PASS; `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` PASS with 13 passed / 1 installed-only skipped. Installed blackbox remains pending until the new installer is installed. |
+| 2026-07-01 | **Save-flow cancellation safety fix**: fixed save/open and save/new control flow so Save As cancellation or failure stops file replacement instead of continuing; moved Save As concurrency lock before the first await; distinguished Save As cancellation from real save errors; added Graph Lab E2E regressions for duplicate Save As prevention, save failure feedback, and cancellation blocking file open. Previous Windows package and unpacked blackbox are now stale and must be regenerated/rerun. |
 
 ---
 
 *鏈枃妗ｆ瘡娆℃彁浜ゅ悗鏇存柊銆傞噷绋嬬瀹屾垚鏃跺悓姝ユ洿鏂?`CLAUDE.md` 涓殑闃舵鐘舵€併€俈0.3 璧锋湰鏂囦欢浣滀负鍞竴杩涘害鏉冨▉鏉ユ簮銆?
-

@@ -1,3 +1,5 @@
+import { readFile, stat, writeFile } from 'node:fs/promises';
+
 const MEBIBYTE = 1024 * 1024;
 
 /** Renderer-to-main write operations are capped to prevent unbounded IPC allocation. */
@@ -38,4 +40,57 @@ export function findStoryFileArgument(args: readonly string[]): string | null {
     if (argument.toLowerCase().endsWith('.mdstory')) return argument;
   }
   return null;
+}
+
+const EXPORT_EXTENSIONS = new Set(['json', 'html', 'txt']);
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
+const TEMPLATE_PLACEHOLDER = /\{\{[^}]+}}/;
+const RESERVED_WINDOWS_DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+function replaceInvalidFileNameChars(value: string): string {
+  return value
+    .replace(INVALID_FILENAME_CHARS, '_')
+    .split('')
+    .map((char) => (char.charCodeAt(0) < 32 ? '_' : char))
+    .join('');
+}
+
+export function sanitizeExportDefaultPath(defaultPath: unknown, format: string): string {
+  const extension = EXPORT_EXTENSIONS.has(format) ? format : 'json';
+  const fallback = `plotflow-story.${extension}`;
+
+  if (typeof defaultPath !== 'string') return fallback;
+
+  const trimmedPath = defaultPath.trim();
+  const isAbsoluteLikePath = /^[a-zA-Z]:[\\/]/.test(trimmedPath)
+    || trimmedPath.startsWith('/')
+    || trimmedPath.startsWith('\\');
+  const rawName = isAbsoluteLikePath
+    ? (trimmedPath.replace(/\\/g, '/').split('/').pop()?.trim() ?? '')
+    : trimmedPath;
+  const baseName = rawName.replace(/\.[^.]+$/u, '');
+  if (!baseName || TEMPLATE_PLACEHOLDER.test(baseName)) return fallback;
+
+  const safeName = replaceInvalidFileNameChars(baseName)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '')
+    .slice(0, 96);
+
+  if (!safeName || RESERVED_WINDOWS_DEVICE_NAME.test(safeName)) return fallback;
+  return `${safeName}.${extension}`;
+}
+
+export async function writeTextFileAndVerify(filePath: string, content: string): Promise<void> {
+  await writeFile(filePath, content, 'utf-8');
+
+  const fileStat = await stat(filePath);
+  if (!fileStat.isFile()) {
+    throw new Error('写入目标不是文件');
+  }
+
+  const written = await readFile(filePath, 'utf-8');
+  if (written !== content) {
+    throw new Error('写入后读回校验失败');
+  }
 }

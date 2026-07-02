@@ -235,8 +235,87 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 
 ---
 
+### BUG-007: 手工黑盒发现 Home 溢出、Graph Lab 重命名断链、诊断入口弱、保存反馈弱与 English 混杂
+
+**日期**：2026-07-01
+**分类**：`STY` / `RFL` / `ASY` / `I18`
+**严重程度**：🔴 阻断
+**里程碑**：M8 Graph Lab / Release blackbox
+
+**文件/模块**：`packages/app/src/styles/official-themes.css` / `packages/app/src/services/graphEditService.ts` / `packages/app/src/components/graph-lab/*` / `packages/app/src/i18n/appI18n.ts` / `packages/app/src/services/autoSaveService.ts` / `packages/app/src/services/parsePipeline.ts`
+
+**现象**：
+- Home 首屏标题在两个官方主题下覆盖正文和按钮区域。
+- Graph Lab Inspector 重命名被其他节点引用的目标节点后，入边仍指向旧标题，产生 E001 “目标节点未定义”。
+- Graph Lab 顶部“n 诊断”胶囊看起来可交互但点击无明显动作。
+- `Ctrl+S` / 菜单保存或另存为触发原生对话框前后缺少即时且稳定的状态反馈，成功反馈会被诊断状态抢占。
+- 切换 English 后，Home、Inspector、ProblemPanel、ExportDialog、ThemeCenter、状态栏等主界面仍有中文 UI 文案。
+
+**根因**：
+- Home 使用 `grid-template-rows: minmax(min-content, 1fr) auto auto`，在有限高度下首行被压缩，预览区域溢出后与卡片区相交。
+- `graphEditService.updateNodeText()` 只重写节点标题行和 layout id，没有把所有 `[选项] ... -> 节点：旧标题` 引用迁移到新标题。
+- Graph Lab 诊断胶囊是静态 `span`，没有绑定 `setProblemPanelOpen(true)`，用户无法从该入口进入问题面板。
+- 保存状态和解析诊断共用 `ui.statusMessage`，解析管线可在保存成功后立即覆盖 `save:` 状态。
+- 应用缺少统一 app 级 i18n 字典，多个主界面组件直接写中文字符串。
+
+**教训**：手工黑盒反馈必须转成可执行 UI 断言；功能 E2E 通过不代表视觉边界、状态优先级和语言完整性通过。
+
+**预防措施**：
+- `graph-lab.e2e.spec.ts` 增加 Home 两主题三视口重叠断言、Graph Lab 诊断胶囊打开 ProblemPanel、Inspector 重命名目标节点后无 E001、保存菜单 300ms 内出现反馈、English 主界面表面英文化断言。
+- `appI18n.test.ts` 校验 `zh-CN` / `en-US` 字典 key 完整一致，并覆盖本次手工黑盒反馈涉及的主 UI key。
+- `graphEditService.test.ts` 增加“重命名被引用节点时同步更新入边 target 和 layout id”回归。
+
+**修复**：工作区未提交。源码态验证：`pnpm.cmd lint` PASS，0 error / 9 个既有 `no-console` warning；`pnpm.cmd typecheck` PASS；`pnpm.cmd test` PASS，44 files / 1252 tests；`pnpm.cmd build` PASS，保留既有 Vite 动态/静态 import warning；`pnpm.cmd lint:css` PASS；Graph Lab 窄 E2E PASS，13/13；导出 E2E PASS，5/5；完整 app 集成 E2E PASS，44/44；源码态黑盒 PASS，10 passed / 4 packaged-or-installed skips；`pnpm.cmd audit --audit-level moderate` PASS。未重新打包，unpacked/installed 黑盒和人工巡检仍需在下一次干净打包后复跑。
+
+---
+
 > 同分类累计 ≥3 次时，在此总结模式并链接回具体 Bug 记录。
 
 ---
 
 *每次发现 Bug 都值得被记住。踩过的坑，不该踩第二次。*
+---
+
+### BUG-008: Graph Lab 手工 GUI 复验发现 Ctrl+S、未保存关闭、菜单语言和诊断文案残留
+
+**日期**：2026-07-01
+**分类**：`ASY` / `I18` / `UX`
+**严重程度**：P1 阻断 + P2 体验
+**里程碑**：M8 Graph Lab / Release GUI blackbox
+
+**现象**：
+- Graph Lab 模式中未保存故事按 `Ctrl+S` 没有弹出保存对话框，也没有稳定可见反馈。
+- 未保存故事下 `Alt+F4` 或窗口关闭按钮没有弹出保存/放弃确认，窗口关闭路径不可信。
+- English 模式下 Windows 原生菜单栏仍显示中文“文件/编辑/视图/导出/帮助”。
+- English 模式下 Problems 面板仍显示 core 诊断中文消息。
+
+**根因**：
+- `Ctrl+S` 只在 `MonacoEditor` 中 `preventDefault()`，Graph Lab 模式不挂载 Monaco，因此保存快捷键缺少全局兜底；同时 Electron accelerator 在部分焦点路径下会被 renderer keydown 拦截。
+- 主进程 `before-quit` 过早设置 `forceQuitting`，可能绕过 `BrowserWindow.close` 的脏状态裁决；关闭时保存流程也没有向主进程返回“用户取消保存”的布尔结果。
+- Electron 菜单只在启动时用固定中文模板构建，renderer 语言状态没有同步给主进程。
+- core 诊断消息是语义层中文常量，Problems 面板直接展示 `diagnostic.message`，没有 UI 层本地化。
+
+**修复**：
+- `App.tsx` 增加全局 `Ctrl/Cmd+S` 保存处理，Graph Lab 和 Split 均走 `saveOrSaveAs()`；Monaco 内部保留兜底。
+- `autoSaveService` 的 `forceSave()`、`saveOrSaveAs()`、`saveAsCurrentFile()` 改为返回 `boolean`，保存取消或失败返回 `false`。
+- `main.ts` 关闭确认检查 `__forceSave__` 返回值；保存取消时留在应用内；确认关闭后用 `destroy()` 结束窗口，并不再在 `before-quit` 中抢先设置 `forceQuitting`。
+- `menu.ts` 重建为干净的中英双语菜单定义；preload 增加 `menu.setLanguage()`；renderer 语言变化时同步主进程菜单。
+- `ProblemPanel` 按诊断 code 在 English 模式显示英文诊断摘要，core 诊断语义不变。
+
+**防回归**：
+- `graph-lab.e2e.spec.ts` 新增 Graph Lab 下 `Ctrl+S` 保存反馈测试。
+- 新增 English 模式菜单栏标签断言。
+- 新增 Problems 面板英文诊断摘要断言。
+- 新增未保存窗口关闭测试：取消保持窗口，放弃后关闭，并显式退出测试 Electron 进程避免 single-instance lock 泄漏。
+
+**验证**：
+- `pnpm.cmd typecheck` PASS。
+- `pnpm.cmd lint` PASS，0 error / 9 个既有 `no-console` warning。
+- `pnpm.cmd build` PASS，保留既有 Vite 动态/静态 import warning。
+- `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS，15/15。
+- `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts e2e/parser-validator-e2e.spec.ts e2e/theme-language.spec.ts --workers=1` PASS，24/24。
+- `pnpm.cmd --filter @plotflow/app test:e2e` PASS，46/46。
+- 2026-07-01 save-flow safety follow-up: `saveOrSaveAs()` now returns false on Save As cancellation/failure and all save-and-open/save-and-new flows stop instead of replacing the current story; Save As lock is set before the first await to prevent duplicate native dialogs; real Save As failures show failure feedback instead of cancellation.
+- 2026-07-01 verification update: `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS，18/18；`pnpm.cmd --filter @plotflow/app test:e2e` PASS，49/49。
+- 2026-07-01 blackbox update: after the blocking unsaved dialog was manually dismissed, `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS，10 passed / 4 packaged-or-installed skipped.
+- Current package status: source changed after the last Windows package/unpacked blackbox result. Existing `release/` artifacts are stale; package, unpacked blackbox, installed blackbox, and manual patrol must be rerun before release-candidate claims.

@@ -7,6 +7,7 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
 import { parsePipelineNow } from '../../services/parsePipeline';
+import { useAppText } from '../../i18n/appI18n';
 
 export function HomeSurface(): React.ReactElement | null {
   const isOpen = useUIStore((state) => state.isHomeSurfaceOpen);
@@ -15,22 +16,25 @@ export function HomeSurface(): React.ReactElement | null {
   const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
   const setWorkspaceMode = useUIStore((state) => state.setWorkspaceMode);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const language = useUIStore((state) => state.language);
   const filePath = useEditorStore((state) => state.filePath);
   const isDirty = useEditorStore((state) => state.isDirty);
   const { activeThemeId, themes, activeTheme } = useThemePlatform();
   const Surface = activeTheme.surfaces.HomeSurface;
+  const text = useAppText();
 
   const openFile = useCallback(async () => {
     const editor = useEditorStore.getState();
     if (editor.isDirty) {
       const choice = await window.plotflow.dialog.confirm({
         type: 'warning',
-        message: '当前文件有未保存修改',
-        detail: '打开其他 .mdstory 文件前是否保存当前修改？',
-        buttons: ['保存并打开', '不保存并打开', '取消'],
+        message: text('home.unsavedConfirmTitle'),
+        detail: text('home.unsavedConfirmDetail'),
+        buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
       });
       if (choice === 0) {
-        await saveOrSaveAs();
+        const saved = await saveOrSaveAs();
+        if (!saved) return;
       } else if (choice === 2) {
         return;
       }
@@ -50,8 +54,8 @@ export function HomeSurface(): React.ReactElement | null {
     useGraphStore.getState().syncFromAST(null);
     parsePipelineNow(result.content);
     setHomeSurfaceOpen(false);
-    setStatusMessage(`已打开: ${result.path}`);
-  }, [setHomeSurfaceOpen, setStatusMessage]);
+    setStatusMessage(text('status.opened', { path: result.path }));
+  }, [setHomeSurfaceOpen, setStatusMessage, text]);
 
   if (!isOpen) return null;
 
@@ -63,10 +67,9 @@ export function HomeSurface(): React.ReactElement | null {
       heroCopy={(
         <>
           <p className="home-surface__eyebrow">PlotFlow Official Workbench</p>
-          <h2>用流程图和文本双投影编排互动叙事</h2>
+          <h2>{text('home.title')}</h2>
           <p>
-            从 <code>.mdstory</code> 文件进入 Split 或 Graph Lab。故事内容仍是纯文本，官方主题决定工作台的节点、
-            连线、面板、布局和动效表现。
+            {text('home.body')}
           </p>
         </>
       )}
@@ -74,8 +77,8 @@ export function HomeSurface(): React.ReactElement | null {
         <div className="home-surface__preview" data-active-official-theme={displayedTheme.id}>
           <ActivePreview active />
           <div className="home-surface__current">
-            <span>当前官方主题</span>
-            <strong>{displayedTheme.name['zh-CN']}</strong>
+            <span>{text('home.currentTheme')}</span>
+            <strong>{displayedTheme.name[language]}</strong>
           </div>
         </div>
       )}
@@ -83,7 +86,7 @@ export function HomeSurface(): React.ReactElement | null {
         <>
           <button type="button" className="button button--primary" onClick={() => setHomeSurfaceOpen(false)}>
             <Play aria-hidden="true" size={16} strokeWidth={2} />
-            <span>继续编辑</span>
+            <span>{text('home.continue')}</span>
           </button>
           <button
             type="button"
@@ -94,11 +97,11 @@ export function HomeSurface(): React.ReactElement | null {
             }}
           >
             <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-            <span>新建故事</span>
+            <span>{text('home.newStory')}</span>
           </button>
           <button type="button" className="button button--secondary" onClick={openFile}>
             <FolderOpen aria-hidden="true" size={16} strokeWidth={2} />
-            <span>打开文件</span>
+            <span>{text('home.openFile')}</span>
           </button>
         </>
       )}
@@ -114,25 +117,25 @@ export function HomeSurface(): React.ReactElement | null {
             }}
           >
             <GitBranch aria-hidden="true" size={20} strokeWidth={2} />
-            <span>进入 Graph Lab</span>
-            <small>使用节点、连线和 Inspector 完成图形化编辑。</small>
+            <span>{text('home.graphLabTitle')}</span>
+            <small>{text('home.graphLabDesc')}</small>
           </button>
           <button type="button" className="home-action-card" data-testid="home-open-theme-center" onClick={openThemeCenter}>
             <Palette aria-hidden="true" size={20} strokeWidth={2} />
-            <span>主题中心</span>
-            <small>切换内置官方主题，或下载官方免费主题。</small>
+            <span>{text('home.themeCenterTitle')}</span>
+            <small>{text('home.themeCenterDesc')}</small>
           </button>
           <button type="button" className="home-action-card" data-testid="home-open-theme-store" onClick={openThemeCenter}>
             <ExternalLink aria-hidden="true" size={20} strokeWidth={2} />
-            <span>浏览官方免费主题</span>
-            <small>只展示官方发布的免费主题，不提供本地导入。</small>
+            <span>{text('home.themeStoreTitle')}</span>
+            <small>{text('home.themeStoreDesc')}</small>
           </button>
         </>
       )}
       status={(
         <>
-          <span>{filePath ? `当前文件：${filePath}` : '当前文件：未保存故事'}</span>
-          <span>{isDirty ? '存在未保存修改' : '内容已同步'}</span>
+          <span>{filePath ? text('home.currentFile', { path: filePath }) : text('home.currentFileUnsaved')}</span>
+          <span>{isDirty ? text('home.dirty') : text('home.synced')}</span>
         </>
       )}
     />

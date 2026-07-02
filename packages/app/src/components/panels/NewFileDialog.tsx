@@ -5,6 +5,7 @@ import {
   BUILTIN_TEMPLATES,
   type BuiltinTemplate,
 } from '../../templates/builtinTemplates';
+import { useAppText } from '../../i18n/appI18n';
 
 export interface NewFileDialogProps {
   readonly onClose: () => void;
@@ -17,6 +18,14 @@ export interface NewFileDialogProps {
 const DEFAULT_TITLE = 'Untitled Story';
 const DEFAULT_AUTHOR = 'PlotFlow Writer';
 
+const TEMPLATE_DESCRIPTION_KEY: Record<BuiltinTemplate['id'], string> = {
+  blank: 'newFile.descriptions.blank',
+  'rpg-dialogue': 'newFile.descriptions.rpgDialogue',
+  'visual-novel': 'newFile.descriptions.visualNovel',
+  'puzzle-escape': 'newFile.descriptions.puzzle',
+  'godot-example': 'newFile.descriptions.godot',
+};
+
 export function NewFileDialog({
   onClose,
   onTemplateSelected,
@@ -24,6 +33,7 @@ export function NewFileDialog({
   const [selectedId, setSelectedId] = useState<BuiltinTemplate['id']>('rpg-dialogue');
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [author, setAuthor] = useState(DEFAULT_AUTHOR);
+  const text = useAppText();
 
   const selectedTemplate = useMemo(() => {
     const fallback: BuiltinTemplate = {
@@ -89,13 +99,13 @@ export function NewFileDialog({
       <section className="new-file-dialog__panel">
         <header className="new-file-dialog__header">
           <div>
-            <p className="new-file-dialog__eyebrow">M6 Templates</p>
-            <h2 id="new-file-title">{t('dialogs.newFile')}</h2>
+            <p className="new-file-dialog__eyebrow">{text('newFile.eyebrow')}</p>
+            <h2 id="new-file-title">{text('newFile.title')}</h2>
           </div>
           <button
             type="button"
             className="icon-button"
-            aria-label={t('dialogs.close')}
+            aria-label={text('common.close')}
             onClick={onClose}
           >
             <X aria-hidden="true" size={16} strokeWidth={2} />
@@ -105,7 +115,7 @@ export function NewFileDialog({
         <div className="new-file-dialog__body">
           <aside className="new-file-dialog__sidebar">
             <label className="form-field">
-              <span>{t('dialogs.title')}</span>
+              <span>{text('newFile.storyTitle')}</span>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
@@ -113,7 +123,7 @@ export function NewFileDialog({
               />
             </label>
             <label className="form-field">
-              <span>{t('dialogs.author')}</span>
+              <span>{text('newFile.author')}</span>
               <input
                 value={author}
                 onChange={(event) => setAuthor(event.target.value)}
@@ -121,7 +131,7 @@ export function NewFileDialog({
               />
             </label>
 
-            <div className="template-grid" aria-label={t('dialogs.template')}>
+            <div className="template-grid" aria-label={text('newFile.template')}>
               {BUILTIN_TEMPLATES.map((template) => {
                 const isSelected = template.id === selectedId;
                 return (
@@ -143,9 +153,9 @@ export function NewFileDialog({
                         />
                       )}
                     </span>
-                    <span className="template-card__description">{template.description}</span>
+                    <span className="template-card__description">{text(TEMPLATE_DESCRIPTION_KEY[template.id])}</span>
                     <span className="template-card__meta">
-                      {template.nodeCount} nodes / {template.engine}
+                      {text('newFile.nodes', { count: template.nodeCount })} / {template.engine}
                     </span>
                   </button>
                 );
@@ -156,14 +166,14 @@ export function NewFileDialog({
           <main className="new-file-dialog__preview">
             <div className="preview-toolbar">
               <div>
-                <span className="preview-toolbar__label">{t('dialogs.preview')}</span>
+                <span className="preview-toolbar__label">{text('newFile.preview')}</span>
                 <strong>{t(selectedTemplate.titleKey)}</strong>
               </div>
               <span className={`template-chip template-chip--${selectedTemplate.accent}`}>
-                {selectedTemplate.nodeCount} nodes
+                {text('newFile.nodes', { count: selectedTemplate.nodeCount })}
               </span>
             </div>
-            <pre className="template-preview" aria-label={t('dialogs.preview')}>
+            <pre className="template-preview" aria-label={text('newFile.preview')}>
               {renderedPreview}
             </pre>
           </main>
@@ -171,10 +181,10 @@ export function NewFileDialog({
 
         <footer className="new-file-dialog__footer">
           <button type="button" className="button button--secondary" onClick={onClose}>
-            {t('dialogs.cancel')}
+            {text('common.cancel')}
           </button>
           <button type="button" className="button button--primary" onClick={handleCreate}>
-            {t('dialogs.create')}
+            {text('common.create')}
           </button>
         </footer>
       </section>

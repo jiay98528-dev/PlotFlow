@@ -10,21 +10,24 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useThemePlatform } from '../ThemePlatformProvider';
+import { useAppText } from '../../i18n/appI18n';
 
-function getFileName(path: string | null): string {
-  if (!path) return '未保存故事';
+function getFileName(path: string | null, fallback: string): string {
+  if (!path) return fallback;
   return path.split(/[/\\]/).pop() || path;
 }
 
 export function GraphLabWorkspace(): React.ReactElement {
   const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
   const toggleSourceDrawer = useUIStore((state) => state.toggleSourceDrawer);
+  const setProblemPanelOpen = useUIStore((state) => state.setProblemPanelOpen);
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const filePath = useEditorStore((state) => state.filePath);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const { activeTheme } = useThemePlatform();
   const Surface = activeTheme.surfaces.GraphLabShell;
+  const text = useAppText();
 
   const stats = useMemo(() => {
     const chapters = plotFlowData?.chapters.length ?? 0;
@@ -50,7 +53,7 @@ export function GraphLabWorkspace(): React.ReactElement {
     }
   }, []);
 
-  const selectedLabel = selectedNodeId ? selectedNodeId.split('-').slice(1).join('-') || selectedNodeId : '未选择节点';
+  const selectedLabel = selectedNodeId ? selectedNodeId.split('-').slice(1).join('-') || selectedNodeId : text('graphLab.noSelection');
 
   return (
     <Surface
@@ -62,16 +65,24 @@ export function GraphLabWorkspace(): React.ReactElement {
               <GitBranch size={16} strokeWidth={2.2} />
             </span>
             <div>
-              <p className="graph-lab__mode">Graph Lab · 叙事工作台</p>
-              <h2>{getFileName(filePath)}</h2>
+              <p className="graph-lab__mode">{text('graphLab.mode')}</p>
+              <h2>{getFileName(filePath, text('graphLab.unsavedStory'))}</h2>
             </div>
           </div>
 
-          <div className="graph-lab__commandbar-stats" aria-label="当前故事统计">
-            <span>{stats.chapters} 章</span>
-            <span>{stats.nodes} 节点</span>
-            <span>{stats.options} 选项</span>
-            <span className={diagnostics.length > 0 ? 'is-warning' : ''}>{diagnostics.length} 诊断</span>
+          <div className="graph-lab__commandbar-stats" aria-label={text('graphLab.statsLabel')}>
+            <span>{text('graphLab.chapters', { count: stats.chapters })}</span>
+            <span>{text('graphLab.nodes', { count: stats.nodes })}</span>
+            <span>{text('graphLab.options', { count: stats.options })}</span>
+            <button
+              type="button"
+              className={diagnostics.length > 0 ? 'is-warning' : ''}
+              data-testid="graph-lab-diagnostics-button"
+              onClick={() => setProblemPanelOpen(true)}
+              aria-label={text('graphLab.openProblems', { count: diagnostics.length })}
+            >
+              {text('graphLab.diagnostics', { count: diagnostics.length })}
+            </button>
           </div>
 
           <div className="graph-lab__commandbar-actions">
@@ -87,7 +98,7 @@ export function GraphLabWorkspace(): React.ReactElement {
               aria-expanded={isSourceDrawerOpen}
             >
               <FileText aria-hidden="true" size={15} strokeWidth={2} />
-              <span>源文本</span>
+              <span>{text('graphLab.sourceText')}</span>
               {isSourceDrawerOpen ? (
                 <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
               ) : (
@@ -99,7 +110,7 @@ export function GraphLabWorkspace(): React.ReactElement {
       )}
       palette={<GraphLabPalette onNodeNavigate={handleNodeNavigate} />}
       canvas={(
-        <section className="graph-lab__canvas" aria-label="Graph Lab canvas">
+        <section className="graph-lab__canvas" aria-label={text('graphLab.canvasLabel')}>
           <GraphCanvas viewMode="graphLab" />
         </section>
       )}

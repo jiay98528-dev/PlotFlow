@@ -1,43 +1,103 @@
-/**
- * 应用菜单栏 (M1-17)
- *
- * @remarks
- * Electron Menu API 构建五菜单：文件/编辑/视图/导出/帮助。
- * 快捷键通过菜单项的 accelerator 属性实现。
- * 所有菜单点击通过 IPC (webContents.send) 发送事件到渲染进程，
- * 由 useMenuEvents hook 接收并分发到对应的 store / service 操作。
- *
- * 注意：
- * - Electron Menu 不支持 VSCode 风格的多键和弦（如 Ctrl+E J），
- *   导出菜单改用单组合键：Ctrl+E / Ctrl+Shift+E / Ctrl+Alt+E。
- * - 标准编辑操作（撤销/重做/剪切/复制/粘贴/全选）使用内置 role，
- *   由 Electron 自动处理，不发送 IPC。
- *
- * @see doc/TAD.md §4.3 — 应用菜单
- * @see src/hooks/useMenuEvents.ts — 菜单事件接收与分发
- */
-
 import {
-  Menu,
-  type MenuItemConstructorOptions,
   app,
   BrowserWindow,
+  Menu,
+  type MenuItemConstructorOptions,
 } from 'electron';
 
-// ============================================================================
-// 常量
-// ============================================================================
+export type AppMenuLanguage = 'zh-CN' | 'en-US';
 
 const IS_MAC = process.platform === 'darwin';
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
+const labels: Record<AppMenuLanguage, {
+  file: string;
+  new: string;
+  open: string;
+  save: string;
+  saveAs: string;
+  quit: string;
+  edit: string;
+  undo: string;
+  redo: string;
+  cut: string;
+  copy: string;
+  paste: string;
+  selectAll: string;
+  find: string;
+  replace: string;
+  view: string;
+  outline: string;
+  branchGraph: string;
+  problems: string;
+  themeCenter: string;
+  export: string;
+  exportJson: string;
+  exportHtml: string;
+  exportTxt: string;
+  help: string;
+  about: string;
+  docs: string;
+}> = {
+  'zh-CN': {
+    file: '文件',
+    new: '新建',
+    open: '打开...',
+    save: '保存',
+    saveAs: '另存为...',
+    quit: '退出',
+    edit: '编辑',
+    undo: '撤销',
+    redo: '重做',
+    cut: '剪切',
+    copy: '复制',
+    paste: '粘贴',
+    selectAll: '全选',
+    find: '查找',
+    replace: '替换',
+    view: '视图',
+    outline: '大纲',
+    branchGraph: '分支图',
+    problems: '问题面板',
+    themeCenter: '主题中心...',
+    export: '导出',
+    exportJson: '导出 JSON',
+    exportHtml: '导出 HTML',
+    exportTxt: '导出 TXT',
+    help: '帮助',
+    about: '关于 PlotFlow',
+    docs: '文档',
+  },
+  'en-US': {
+    file: 'File',
+    new: 'New',
+    open: 'Open...',
+    save: 'Save',
+    saveAs: 'Save As...',
+    quit: 'Quit',
+    edit: 'Edit',
+    undo: 'Undo',
+    redo: 'Redo',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select All',
+    find: 'Find',
+    replace: 'Replace',
+    view: 'View',
+    outline: 'Outline',
+    branchGraph: 'Branch Graph',
+    problems: 'Problems Panel',
+    themeCenter: 'Theme Center...',
+    export: 'Export',
+    exportJson: 'Export JSON',
+    exportHtml: 'Export HTML',
+    exportTxt: 'Export TXT',
+    help: 'Help',
+    about: 'About PlotFlow',
+    docs: 'Documentation',
+  },
+};
 
-/**
- * 发送 IPC 事件到当前聚焦窗口的渲染进程。
- * 如果无聚焦窗口，静默忽略。
- */
 function sendToRenderer(channel: string, ...args: unknown[]): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
   if (win?.webContents && !win.webContents.isDestroyed()) {
@@ -45,26 +105,10 @@ function sendToRenderer(channel: string, ...args: unknown[]): void {
   }
 }
 
-// ============================================================================
-// 菜单模板构建
-// ============================================================================
+export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
+  const text = labels[language] ?? labels['zh-CN'];
 
-/**
- * 构建 PlotFlow 完整应用菜单栏。
- *
- * 五菜单结构：
- * 1. 文件 — 新建/打开/保存/另存为/退出
- * 2. 编辑 — 撤销/重做/剪切/复制/粘贴/全选/查找/替换
- * 3. 视图 — 大纲/分支图/问题面板/切换主题
- * 4. 导出 — JSON/HTML/TXT
- * 5. 帮助 — 关于/文档
- */
-export function buildMenu(): Menu {
   const template: MenuItemConstructorOptions[] = [
-    // ── macOS 应用菜单 ──────────────────────────────────────────────
-    //
-    // macOS 在"文件"前有应用名称菜单（含关于/退出等）。
-    // Windows/Linux 没有此菜单，"关于"放在"帮助"菜单，"退出"放在"文件"菜单。
     ...(IS_MAC
       ? [
           {
@@ -81,160 +125,132 @@ export function buildMenu(): Menu {
           },
         ]
       : []),
-
-    // ── 文件 ────────────────────────────────────────────────────────
     {
-      label: '文件',
+      label: text.file,
       submenu: [
         {
-          label: '新建',
+          label: text.new,
           accelerator: 'CmdOrCtrl+N',
           click: () => sendToRenderer('menu:file:new'),
         },
         {
-          label: '打开...',
+          label: text.open,
           accelerator: 'CmdOrCtrl+O',
           click: () => sendToRenderer('menu:file:open'),
         },
         { type: 'separator' },
         {
-          label: '保存',
+          label: text.save,
           accelerator: 'CmdOrCtrl+S',
           click: () => sendToRenderer('menu:file:save'),
         },
         {
-          label: '另存为...',
+          label: text.saveAs,
           accelerator: 'CmdOrCtrl+Shift+S',
           click: () => sendToRenderer('menu:file:saveAs'),
         },
         { type: 'separator' },
-        // Windows/Linux 退出放在文件菜单末尾
-        ...(IS_MAC ? [] : [{ role: 'quit' as const }]),
+        ...(IS_MAC
+          ? []
+          : [
+              {
+                label: text.quit,
+                accelerator: 'Alt+F4',
+                click: () => app.quit(),
+              },
+            ]),
       ],
     },
-
-    // ── 编辑 ────────────────────────────────────────────────────────
     {
-      label: '编辑',
+      label: text.edit,
       submenu: [
         {
-          label: '撤销',
+          label: text.undo,
           accelerator: 'CmdOrCtrl+Z',
           click: () => sendToRenderer('menu:edit:undo'),
         },
         {
-          label: '重做',
+          label: text.redo,
           accelerator: IS_MAC ? 'Cmd+Shift+Z' : 'CmdOrCtrl+Y',
           click: () => sendToRenderer('menu:edit:redo'),
         },
         { type: 'separator' },
-        {
-          label: '剪切',
-          accelerator: 'CmdOrCtrl+X',
-          role: 'cut',
-        },
-        {
-          label: '复制',
-          accelerator: 'CmdOrCtrl+C',
-          role: 'copy',
-        },
-        {
-          label: '粘贴',
-          accelerator: 'CmdOrCtrl+V',
-          role: 'paste',
-        },
-        {
-          label: '全选',
-          accelerator: 'CmdOrCtrl+A',
-          role: 'selectAll',
-        },
+        { label: text.cut, accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: text.copy, accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: text.paste, accelerator: 'CmdOrCtrl+V', role: 'paste' },
+        { label: text.selectAll, accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
         { type: 'separator' },
         {
-          label: '查找',
+          label: text.find,
           accelerator: 'CmdOrCtrl+F',
           click: () => sendToRenderer('menu:edit:find'),
         },
         {
-          label: '替换',
+          label: text.replace,
           accelerator: 'CmdOrCtrl+H',
           click: () => sendToRenderer('menu:edit:replace'),
         },
       ],
     },
-
-    // ── 视图 ────────────────────────────────────────────────────────
     {
-      label: '视图',
+      label: text.view,
       submenu: [
         {
-          label: '大纲',
+          label: text.outline,
           accelerator: 'CmdOrCtrl+Shift+O',
           click: () => sendToRenderer('menu:view:toggleOutline'),
         },
         {
-          label: '分支图',
+          label: text.branchGraph,
           accelerator: 'CmdOrCtrl+Shift+G',
           click: () => sendToRenderer('menu:view:toggleGraph'),
         },
         {
-          label: '问题面板',
+          label: text.problems,
           accelerator: 'CmdOrCtrl+Shift+M',
           click: () => sendToRenderer('menu:view:toggleProblems'),
         },
         { type: 'separator' },
         {
-          label: '主题与美学拓展...',
+          label: text.themeCenter,
           click: () => sendToRenderer('menu:view:themeBrowser'),
         },
       ],
     },
-
-    // ── 导出 ────────────────────────────────────────────────────────
-    //
-    // 注：Electron 不支持 VSCode 风格的多键和弦 (Ctrl+E J)，
-    // 此处使用单组合键替代：
-    //   Ctrl+E          → JSON
-    //   Ctrl+Shift+E    → HTML
-    //   Ctrl+Alt+E      → TXT
     {
-      label: '导出',
+      label: text.export,
       submenu: [
         {
-          label: '导出 JSON',
+          label: text.exportJson,
           accelerator: 'CmdOrCtrl+E',
           click: () => sendToRenderer('menu:export:json'),
         },
         {
-          label: '导出 HTML',
+          label: text.exportHtml,
           accelerator: 'CmdOrCtrl+Shift+E',
           click: () => sendToRenderer('menu:export:html'),
         },
         {
-          label: '导出 TXT',
+          label: text.exportTxt,
           accelerator: 'CmdOrCtrl+Alt+E',
           click: () => sendToRenderer('menu:export:txt'),
         },
       ],
     },
-
-    // ── 帮助 ────────────────────────────────────────────────────────
-    //
-    // macOS 的"关于"已放在应用名菜单，此处不再重复；
-    // Windows/Linux 将"关于"放在帮助菜单顶部。
     {
-      label: '帮助',
+      label: text.help,
       submenu: [
         ...(IS_MAC
           ? []
           : [
               {
-                label: '关于 PlotFlow',
+                label: text.about,
                 click: () => sendToRenderer('menu:help:about'),
               },
               { type: 'separator' as const },
             ]),
         {
-          label: '文档',
+          label: text.docs,
           click: () => sendToRenderer('menu:help:docs'),
         },
       ],

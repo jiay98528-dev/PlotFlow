@@ -15,7 +15,7 @@ import type * as monaco from 'monaco-editor';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useUIStore } from '../../stores/uiStore';
-import { debouncedSave } from '../../services/autoSaveService';
+import { debouncedSave, saveOrSaveAs } from '../../services/autoSaveService';
 import { debouncedParsePipeline, parsePipelineNow } from '../../services/parsePipeline';
 import {
   initMonacoEditor,
@@ -175,8 +175,9 @@ export function MonacoEditor(): React.ReactElement {
   // 浏览器弹出"保存网页"对话框干扰编辑器操作。
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
+        void saveOrSaveAs();
       }
     },
     [],

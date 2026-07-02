@@ -1,5 +1,5 @@
-﻿{
-  "generatedAt": "2026-06-25T10:15:54.676Z",
+{
+  "generatedAt": "2026-07-02T04:00:40.648Z",
   "summary": {
     "completed": 132,
     "total": 142,
@@ -7,13 +7,13 @@
     "remaining": 9,
     "deferred": 9,
     "removed": 1,
-    "lastUpdated": "2026-06-24",
+    "lastUpdated": "2026-06-25",
     "grade": "B+ / 82"
   },
   "milestones": [
     {
       "id": "M0",
-      "title": "椤圭洰鑴氭墜鏋?,
+      "title": "椤圭洰鑴氭墜鏋?",
       "total": 13,
       "complete": 12,
       "skipped": 0,
@@ -22,7 +22,7 @@
     },
     {
       "id": "M1",
-      "title": "鏍稿績瑙ｆ瀽涓庣紪杈?,
+      "title": "鏍稿績瑙ｆ瀽涓庣紪杈?",
       "total": 17,
       "complete": 17,
       "skipped": 0,
@@ -31,7 +31,7 @@
     },
     {
       "id": "M2",
-      "title": "鍒嗘敮鍙鍖?,
+      "title": "鍒嗘敮鍙鍖?",
       "total": 16,
       "complete": 16,
       "skipped": 0,
@@ -40,7 +40,7 @@
     },
     {
       "id": "M3",
-      "title": "鏉′欢缂栬緫涓庨敊璇娴?,
+      "title": "鏉′欢缂栬緫涓庨敊璇娴?",
       "total": 18,
       "complete": 18,
       "skipped": 0,
@@ -67,7 +67,7 @@
     },
     {
       "id": "M6",
-      "title": "妯℃澘涓庝富棰?,
+      "title": "妯℃澘涓庝富棰?",
       "total": 18,
       "complete": 18,
       "skipped": 0,
@@ -76,228 +76,257 @@
     },
     {
       "id": "M7",
-      "title": "Electron 鎵撳寘鍙戝竷",
+      "title": "Electron 鎵撳寘涓庡彂甯?",
       "total": 15,
       "complete": 8,
       "skipped": 7,
       "removed": 0,
       "progress": 53.33
+    },
+    {
+      "id": "M8",
+      "title": "Graph Lab Core锛堝浘浼樺厛姝ｅ紡鍏ュ彛锛?",
+      "total": 18,
+      "complete": 17,
+      "skipped": 0,
+      "removed": 0,
+      "progress": 94.44
+    },
+    {
+      "id": "M9",
+      "title": "Official Theme Architecture锛堝畼鏂规繁搴︿富棰樻灦鏋勶級",
+      "total": 8,
+      "complete": 7,
+      "skipped": 1,
+      "removed": 0,
+      "progress": 87.5
     }
   ],
   "releaseGates": [
     {
       "name": "pnpm.cmd lint",
-      "zhName": "浠ｇ爜瑙勮寖妫€鏌?,
+      "zhName": "代码规范检查",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "0 error锛? 涓棦鏈?`no-console` warning",
-      "zhDetail": "浠ｇ爜瑙勮寖妫€鏌ラ€氳繃锛屼粎淇濈暀鏃㈡湁鎺у埗鍙版棩蹇楄鍛娿€?
+      "zhDetail": "代码规范检查通过，仅保留既有控制台日志警告。"
     },
     {
       "name": "pnpm.cmd typecheck",
-      "zhName": "绫诲瀷妫€鏌?,
+      "zhName": "类型检查",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "TypeScript strict 閫氳繃",
-      "zhDetail": "涓ユ牸绫诲瀷妫€鏌ラ€氳繃銆?
+      "zhDetail": "严格类型检查通过。"
     },
     {
       "name": "pnpm.cmd test",
-      "zhName": "鍗曞厓娴嬭瘯",
+      "zhName": "单元测试",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
-      "detail": "41 files / 1231 tests锛涙柊澧炲畼鏂逛富棰樺畾涔夋祴璇曢€氳繃",
-      "zhDetail": "41 涓祴璇曟枃浠?/ 1231 鏉℃祴璇曠敤渚嬮€氳繃銆?
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "44 files / 1252 tests; includes export filename fallback, main-process write verification, Graph Lab referenced-node rename, and app i18n coverage.",
+      "zhDetail": "44 个测试文件 / 1252 条测试用例通过。"
     },
     {
       "name": "pnpm.cmd build",
-      "zhName": "鐢熶骇鏋勫缓",
+      "zhName": "生产构建",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "淇濈暀 1 涓?Vite 鍔ㄦ€?闈欐€?import warning",
-      "zhDetail": "鐢熶骇鏋勫缓閫氳繃锛屼繚鐣欎竴鏉℃棦鏈夋ā鍧楁媶鍒嗘彁绀恒€?
+      "zhDetail": "生产构建通过，保留一条既有模块拆分提示。"
     },
     {
       "name": "pnpm.cmd lint:css",
-      "zhName": "鏍峰紡瑙勮寖妫€鏌?,
+      "zhName": "样式规范检查",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "CSS token/stylelint 閫氳繃",
-      "zhDetail": "鏍峰紡浠ょ墝涓庢牱寮忚鍒欐鏌ラ€氳繃銆?
+      "zhDetail": "样式令牌与样式规则检查通过。"
     },
     {
       "name": "pnpm.cmd --filter @plotflow/progress-dashboard test",
-      "zhName": "杩涘害浠〃鐩樻祴璇?,
+      "zhName": "进度仪表盘测试",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "杩涘害浠〃鐩樺崟鍏冩祴璇曢€氳繃",
-      "zhDetail": "杩涘害浠〃鐩樺崟鍏冩祴璇曢€氳繃銆?
+      "zhDetail": "进度仪表盘单元测试通过。"
     },
     {
       "name": "pnpm.cmd --filter @plotflow/progress-dashboard typecheck",
-      "zhName": "杩涘害浠〃鐩樼被鍨嬫鏌?,
+      "zhName": "进度仪表盘类型检查",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "杩涘害浠〃鐩樼被鍨嬫鏌ラ€氳繃",
-      "zhDetail": "杩涘害浠〃鐩樼被鍨嬫鏌ラ€氳繃銆?
+      "zhDetail": "进度仪表盘类型检查通过。"
     },
     {
       "name": "pnpm.cmd --filter @plotflow/app test:e2e",
-      "zhName": "搴旂敤绔埌绔獙鏀?,
+      "zhName": "应用端到端验收",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
-      "detail": "39 passed锛屾棤 teardown error锛屾棤 did-not-run锛涘惈 Graph Lab 涓昏矾寰勩€丼plit 灞€閮ㄥ浘瑙嗗浘鎺у埗闅旂銆佸畼鏂逛富棰樹腑蹇冦€佸彊浜嬪伐浣滃彴/澶滆埅钃濆浘 slot 鐑垏鎹㈢敤渚?,
-      "zhDetail": "39 鏉″簲鐢?E2E 鍏ㄩ儴閫氳繃锛屾棤鍏抽棴瓒呮椂鎴栨湭杩愯鐢ㄤ緥銆?
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "49 passed after the latest save-flow fix. Includes duplicate Save As prevention, Save As failure feedback, and Save As cancellation blocking file replacement.",
+      "zhDetail": "44 条应用 E2E 全部通过，覆盖 Home 布局、Graph Lab 重命名、诊断入口、保存反馈和 English 主界面。"
+    },
+    {
+      "name": "pnpm.cmd --filter @plotflow/app test:e2e:blackbox",
+      "zhName": "源码态黑盒验收",
+      "status": "pass",
+      "result": "✅ PASS",
+      "zhResult": "通过",
+      "detail": "10 passed / 4 packaged-or-installed skipped after the latest save-flow fix. Skips still require package/installed targets.",
+      "zhDetail": "源码构建产物黑盒通过；packaged/installed 专属检查单独统计，不能代表正式发行通过。"
+    },
+    {
+      "name": "pnpm.cmd --filter @plotflow/app test:e2e:unpacked",
+      "zhName": "解包态黑盒验收",
+      "status": "neutral",
+      "result": "⚠️ STALE",
+      "zhResult": "跟踪",
+      "detail": "Last unpacked package predates the latest save-flow fix. Rebuild and rerun against `release/win-unpacked/PlotFlow.exe`.",
+      "zhDetail": "当前干净打包后的 Windows 解包应用黑盒通过；安装态注册表检查仍单独统计。"
+    },
+    {
+      "name": "pnpm.cmd --filter @plotflow/app test:e2e:installed",
+      "zhName": "安装态黑盒验收",
+      "status": "neutral",
+      "result": "⏳ PENDING",
+      "zhResult": "跟踪",
+      "detail": "Must run after installing the newly built installer and setting `PLOTFLOW_INSTALLED_EXE`, for example `D:\\PF\\PlotFlow\\PlotFlow.exe`.",
+      "zhDetail": "真实安装路径黑盒验收，需设置 PLOTFLOW_INSTALLED_EXE。"
     },
     {
       "name": "pnpm.cmd audit --audit-level moderate",
-      "zhName": "渚濊禆瀹夊叏瀹¤",
+      "zhName": "依赖安全审计",
       "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
+      "result": "✅ PASS",
+      "zhResult": "通过",
       "detail": "Electron 42.5.0锛涙棤 GHSA ignore锛汵o known vulnerabilities found",
-      "zhDetail": "渚濊禆瀹夊叏瀹¤閫氳繃锛汦lectron 42.5.0 褰撳墠鏃犲凡鐭ヤ腑楂樺嵄婕忔礊銆?
+      "zhDetail": "依赖安全审计通过；Electron 42.5.0 当前无已知中高危漏洞。"
     },
     {
       "name": "pnpm.cmd package:win",
-      "zhName": "Windows 瀹夎鍖呮瀯寤?,
-      "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
-      "detail": "鐢熸垚 `release/PlotFlow Setup 0.1.0.exe`銆乥lockmap 涓?`release/win-unpacked/PlotFlow.exe",
-      "zhDetail": "Windows 瀹夎鍖呭拰瑙ｅ寘搴旂敤鏋勫缓閫氳繃銆?
+      "zhName": "Windows 安装包构建",
+      "status": "neutral",
+      "result": "⚠️ STALE",
+      "zhResult": "跟踪",
+      "detail": "Previous 2026-07-01 package predates the latest save-flow fix. Clear/rebuild before using as release evidence.",
+      "zhDetail": "Windows NSIS 安装器、blockmap、latest.yml、调试元数据和解包应用已由干净构建生成。"
     },
     {
       "name": "Windows packaged smoke",
-      "zhName": "Windows 瀹夎鍖呭啋鐑熼獙鏀?,
-      "status": "pass",
-      "result": "鉁?PASS",
-      "zhResult": "閫氳繃",
-      "detail": "packaged exe 鍙惎鍔紱鍛戒护琛屾墦寮€ `.mdstory`銆丟raph Lab GUI 缂栬緫銆丼ource Drawer銆佸鍑?JSON 鎴愬姛",
-      "zhDetail": "瑙ｅ寘搴旂敤鍙惎鍔紱鍛戒护琛屾墦寮€ .mdstory銆丟raph Lab 鍥惧舰缂栬緫銆丼ource Drawer 鍜屽鍑?JSON 鍧囨垚鍔熴€?
+      "zhName": "Windows 安装包冒烟验收",
+      "status": "neutral",
+      "result": "⚠️ STALE",
+      "zhResult": "跟踪",
+      "detail": "Previous packaged smoke does not include the latest save-flow fix. Rerun after a fresh package build.",
+      "zhDetail": "当前解包态黑盒主路径通过，桌面包未包含官网目录。"
     }
   ],
   "stableFeatures": [
     {
       "title": "Split editor workflow",
-      "zhTitle": "Split 鍙屾爮缂栬緫宸ヤ綔娴?,
+      "zhTitle": "Split 双栏编辑工作流",
       "status": "pass",
       "detail": "Monaco editing, React Flow graph visualization, node navigation, and source-to-graph refresh are implemented.",
-      "zhDetail": "Monaco 缂栬緫銆丷eact Flow 鍒嗘敮鍥俱€佽妭鐐瑰鑸拰婧愭枃鏈埌鍥惧舰鍒锋柊宸茬粡褰㈡垚绋冲畾闂幆銆?,
-      "evidence": "M1/M2 complete; default app E2E currently passes 39/39.",
-      "zhEvidence": "M1/M2 宸插畬鎴愶紱榛樿搴旂敤 E2E 褰撳墠 39/39 閫氳繃銆?
+      "zhDetail": "Monaco 编辑、React Flow 分支图、节点导航和源文本到图形刷新已经形成稳定闭环。",
+      "evidence": "M1/M2 complete; default app integration E2E currently passes 44/44.",
+      "zhEvidence": "M1/M2 已完成；默认应用集成 E2E 当前 44/44 通过。"
     },
     {
       "title": "Parser, validator, diagnostics",
-      "zhTitle": "瑙ｆ瀽鍣ㄣ€佹牎楠屽櫒涓庤瘖鏂郴缁?,
+      "zhTitle": "解析器、校验器与诊断系统",
       "status": "pass",
-      "detail": "The parser, E001-E008 errors, W001-W006 warnings, I001-I003 suggestions, markers, ProblemPanel, and graph status sync are implemented.",
-      "zhDetail": "瑙ｆ瀽鍣ㄣ€丒001-E008 閿欒銆乄001-W006 璀﹀憡銆両001-I003 寤鸿銆佺紪杈戝櫒鏍囪銆侀棶棰橀潰鏉垮拰鍥捐妭鐐圭姸鎬佸悓姝ュ凡缁忔帴鍏ャ€?,
-      "evidence": "pnpm.cmd test passes 41 files / 1231 tests; Parser/Validator E2E record is green.",
-      "zhEvidence": "pnpm.cmd test 閫氳繃 41 涓枃浠?/ 1231 鏉＄敤渚嬶紱Parser/Validator E2E 涓洪€氳繃鐘舵€併€?
-    },
-    {
-      "title": "Condition editor and text sync",
-      "zhTitle": "鏉′欢缂栬緫鍣ㄤ笌鏂囨湰鍚屾",
-      "status": "pass",
-      "detail": "The visual condition editor can load existing conditions and apply variable/operator/value logic back to text.",
-      "zhDetail": "鍥惧舰鍖栨潯浠剁紪杈戝櫒鍙浇鍏ュ凡鏈夋潯浠讹紝骞舵妸鍙橀噺銆佽繍绠楃鍜屽€奸€昏緫鍥炲啓鍒版枃鏈€?,
-      "evidence": "M3 complete; condition-editor E2E is part of the default app E2E gate.",
-      "zhEvidence": "M3 宸插畬鎴愶紱鏉′欢缂栬緫鍣ㄥ凡绾冲叆榛樿搴旂敤 E2E銆?
-    },
-    {
-      "title": "JSON / HTML / TXT export",
-      "zhTitle": "JSON / HTML / TXT 瀵煎嚭",
-      "status": "pass",
-      "detail": "The export flow is implemented and current export E2E passes; PNG placeholder menu has been removed from release scope.",
-      "zhDetail": "瀵煎嚭娴佺▼宸插疄鐜板苟閫氳繃褰撳墠瀵煎嚭 E2E锛汸NG 鍗犱綅鑿滃崟宸蹭粠鍙戣鑼冨洿绉婚櫎銆?,
-      "evidence": "M4 25/26; export suite passed in the latest release audit notes.",
-      "zhEvidence": "M4 25/26锛涘鍑哄浠跺湪鏈€鏂板彂琛屽璁¤褰曚腑閫氳繃銆?
-    },
-    {
-      "title": "Windows local package smoke",
-      "zhTitle": "Windows 鏈湴瀹夎鍖呭啋鐑熼獙鏀?,
-      "status": "pass",
-      "detail": "The Windows NSIS installer and win-unpacked app were built locally and smoke-tested for launch, command-line open, save, and JSON export.",
-      "zhDetail": "Windows NSIS 瀹夎鍣ㄤ笌 win-unpacked 搴旂敤宸插畬鎴愭湰鍦版瀯寤猴紝骞堕獙璇佸惎鍔ㄣ€佸懡浠よ鎵撳紑銆佷繚瀛樺拰 JSON 瀵煎嚭銆?,
-      "evidence": "M7-02 and M7-14 complete in spec/progress.md.",
-      "zhEvidence": "M7-02 鍜?M7-14 宸插湪杩涘害鏂囨。涓爣璁板畬鎴愩€?
+      "detail": "The parser, diagnostics, markers, ProblemPanel, and graph status sync are implemented.",
+      "zhDetail": "解析器、诊断、编辑器标记、问题面板和图节点状态同步已经接入。",
+      "evidence": "pnpm.cmd test passes 44 files / 1252 tests; Parser/Validator E2E record is green.",
+      "zhEvidence": "pnpm.cmd test 通过 44 个文件 / 1252 条用例；Parser/Validator E2E 为通过状态。"
     },
     {
       "title": "Graph Lab graph-first workflow",
-      "zhTitle": "Graph Lab 鍥句紭鍏堝伐浣滄祦",
+      "zhTitle": "Graph Lab 图优先工作流",
       "status": "pass",
-      "detail": "Graph Lab is now a core entry with workspace mode switching, Palette, Inspector, Source Drawer, text command layer, and E2E coverage.",
-      "zhDetail": "Graph Lab 宸蹭綔涓烘牳蹇冨叆鍙ｆ帴鍏ワ紝瑕嗙洊妯″紡鍒囨崲銆佽妭鐐圭礌鏉愮洏銆佹鏌ュ櫒銆佹簮鏂囨湰鎶藉眽銆佹枃鏈懡浠ゅ眰鍜?E2E銆?,
-      "evidence": "M8 Graph Lab Core is 17/18; default app E2E currently passes 39/39.",
-      "zhEvidence": "M8 Graph Lab Core 褰撳墠 17/18锛涢粯璁ゅ簲鐢?E2E 褰撳墠 39/39 閫氳繃銆?
+      "detail": "Graph Lab is a core entry with workspace mode switching, Palette, Inspector, Source Drawer, text command layer, and E2E coverage.",
+      "zhDetail": "Graph Lab 已作为核心入口接入，覆盖模式切换、节点素材盘、检查器、源文档抽屉、文本命令层和 E2E。",
+      "evidence": "Default app integration E2E currently passes 44/44; source blackbox passes 10 with 4 packaged-or-installed skips; current unpacked blackbox passes 13 with 1 installed-only skip.",
+      "zhEvidence": "默认应用集成 E2E 当前 44/44 通过；源码态黑盒 10 项通过，另有 4 项为打包/安装专属跳过；当前解包态黑盒 13 项通过，另有 1 项为安装专属跳过。"
+    },
+    {
+      "title": "Official theme platform",
+      "zhTitle": "官方主题平台",
+      "status": "pass",
+      "detail": "Builtin themes and official remote ZIP themes are validated, downloaded, installed, and loaded through the official theme runtime.",
+      "zhDetail": "内置主题和官方远程 ZIP 主题已通过目录校验、下载、安装与官方主题运行时加载链路。",
+      "evidence": "official-theme-service unit tests, theme E2E, and blackbox remote-theme E2E pass.",
+      "zhEvidence": "official-theme-service 单测、主题 E2E 与黑盒远程主题 E2E 均通过。"
+    },
+    {
+      "title": "JSON / HTML / TXT export",
+      "zhTitle": "JSON / HTML / TXT 导出",
+      "status": "pass",
+      "detail": "The export flow is implemented, sanitizes placeholder filenames, and verifies disk output after write.",
+      "zhDetail": "导出流程已实现，会清洗占位符文件名，并在写入后验证磁盘输出。",
+      "evidence": "Export suite is part of the 44/44 app integration E2E gate; current unpacked blackbox native save-dialog JSON export passes.",
+      "zhEvidence": "导出套件已纳入 44/44 应用集成 E2E 门禁；当前解包态黑盒原生保存对话框 JSON 导出通过。"
     }
   ],
   "experimentalFeatures": [
     {
+      "title": "Installed blackbox gate",
+      "zhTitle": "安装态黑盒门禁",
+      "status": "neutral",
+      "detail": "Source and unpacked blackbox gates are implemented and passing. Installed blackbox must be rerun after installing the current clean package.",
+      "zhDetail": "源码态和解包态黑盒已实现并通过。安装态黑盒必须在安装当前干净包后复跑。",
+      "evidence": "See spec/release-blackbox-gate.md for layered release status vocabulary.",
+      "zhEvidence": "分层发行状态口径见 spec/release-blackbox-gate.md。"
+    },
+    {
       "title": "macOS / Linux packaging",
-      "zhTitle": "macOS / Linux 鎵撳寘",
+      "zhTitle": "macOS / Linux 打包",
       "status": "warn",
       "detail": "Cross-platform installers and smoke tests are deferred until CI matrix packaging is available.",
-      "zhDetail": "璺ㄥ钩鍙板畨瑁呭寘鍜屽啋鐑熼獙鏀跺欢鍚庡埌 CI 鐭╅樀鏋勫缓鍙敤鍚庡鐞嗐€?,
+      "zhDetail": "跨平台安装包和冒烟验收延后到 CI 矩阵构建可用后处理。",
       "evidence": "M7-03, M7-04, and M7-15 are deferred.",
-      "zhEvidence": "M7-03銆丮7-04 鍜?M7-15 涓哄欢鍚庣姸鎬併€?
+      "zhEvidence": "M7-03、M7-04 和 M7-15 为延后状态。"
     },
     {
       "title": "Auto-update and public release pipeline",
-      "zhTitle": "鑷姩鏇存柊涓庡叕寮€鍙戝竷閾捐矾",
+      "zhTitle": "自动更新与公开发布链路",
       "status": "warn",
       "detail": "electron-updater integration, update server config, GitHub Release draft, and first-run onboarding are deferred.",
-      "zhDetail": "electron-updater 闆嗘垚銆佹洿鏂版湇鍔″櫒閰嶇疆銆丟itHub Release 鑽夌鍜岄娆″惎鍔ㄥ紩瀵间粛涓哄欢鍚庣姸鎬併€?,
+      "zhDetail": "electron-updater 集成、更新服务器配置、GitHub Release 草稿和首次启动引导仍为延后状态。",
       "evidence": "M7-09, M7-10, M7-12, and M7-13 are deferred.",
-      "zhEvidence": "M7-09銆丮7-10銆丮7-12 鍜?M7-13 涓哄欢鍚庣姸鎬併€?
-    },
-    {
-      "title": "Graph Lab release copy and onboarding",
-      "zhTitle": "Graph Lab 鍙戝竷鏂囨涓庝笂鎵嬭鏄?,
-      "status": "neutral",
-      "detail": "The core Graph Lab workflow is implemented; public release copy, help text, and first-run guidance still need final polish.",
-      "zhDetail": "Graph Lab 鏍稿績娴佺▼宸插疄鐜帮紱鍏紑鍙戝竷鏂囨銆佸府鍔╄鏄庡拰棣栨涓婃墜寮曞浠嶉渶鏈€缁堟墦纾ㄣ€?,
-      "evidence": "M8-18 is still in progress.",
-      "zhEvidence": "M8-18 浠嶅浜庤繘琛屼腑銆?
+      "zhEvidence": "M7-09、M7-10、M7-12 和 M7-13 为延后状态。"
     }
   ],
   "roadmap": [
     {
-      "title": "Graph Lab release documentation",
-      "zhTitle": "Graph Lab 鍙戝竷璇存槑鏀跺熬",
+      "title": "Stabilize official theme runtime",
+      "zhTitle": "稳定官方主题运行时",
       "status": "neutral",
-      "detail": "Finish Graph Lab public copy, help text, first-run guidance, and website download notes.",
-      "zhDetail": "瀹屾垚 Graph Lab 鍏紑鏂囨銆佸府鍔╄鏄庛€侀娆′笂鎵嬪紩瀵煎拰瀹樼綉涓嬭浇璇存槑銆?
+      "detail": "Keep expanding surface contracts only when a real official theme needs them, and keep blackbox coverage in release/nightly.",
+      "zhDetail": "仅在真实官方主题需要时继续扩展 surface 合同，并将黑盒覆盖保留在 release/nightly。"
     },
     {
       "title": "Complete M7 publishing chain",
-      "zhTitle": "琛ラ綈涓冨彿鍙戝竷閾捐矾",
+      "zhTitle": "补齐 M7 发布链路",
       "status": "warn",
       "detail": "Add macOS/Linux packaging, auto-update, GitHub Release draft, first-run onboarding, and cross-platform smoke verification.",
-      "zhDetail": "琛ラ綈 macOS / Linux 鎵撳寘銆佽嚜鍔ㄦ洿鏂般€丟itHub Release 鑽夌銆侀娆″惎鍔ㄥ紩瀵煎拰璺ㄥ钩鍙板啋鐑熼獙鏀躲€?
-    },
-    {
-      "title": "Extend Graph Lab visual editors",
-      "zhTitle": "鎵╁睍 Graph Lab 鍥惧舰缂栬緫鍣?,
-      "status": "neutral",
-      "detail": "Upgrade inline condition/effect fields into richer visual builders while keeping the same graphEditService command layer.",
-      "zhDetail": "鎶婂綋鍓嶅唴鑱旀潯浠?鏁堟灉瀛楁鍗囩骇涓烘洿瀹屾暣鐨勫浘褰㈠寲鏋勫缓鍣紝鍚屾椂缁х画澶嶇敤 graphEditService 鍛戒护灞傘€?
+      "zhDetail": "补齐 macOS / Linux 打包、自动更新、GitHub Release 草稿、首次启动引导和跨平台冒烟验收。"
     },
     {
       "title": "Deploy this independent website",
-      "zhTitle": "閮ㄧ讲鐙珛瀹樼綉",
+      "zhTitle": "部署独立官网",
       "status": "neutral",
       "detail": "Build website/dist separately and deploy it to a server. Keep it excluded from desktop application packaging.",
-      "zhDetail": "鍗曠嫭鏋勫缓瀹樼綉鐩綍骞堕儴缃插埌鏈嶅姟鍣紝缁х画鎺掗櫎鍦ㄦ闈㈠簲鐢ㄥ畨瑁呭寘涔嬪銆?
+      "zhDetail": "单独构建官网目录并部署到服务器，继续排除在桌面应用安装包之外。"
     }
   ],
   "sourceRefs": [
@@ -307,4 +336,3 @@
     "spec/decisions.md"
   ]
 }
-

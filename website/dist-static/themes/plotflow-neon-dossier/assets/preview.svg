@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Neon Dossier Preview</title>
+  <desc id="desc">A high contrast dossier style PlotFlow theme preview.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#25214f" />
+      <stop offset="1" stop-color="#09101e" />
+    </linearGradient>
+    <linearGradient id="line" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#57d7ff" />
+      <stop offset="1" stop-color="#f05cd5" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" rx="28" fill="url(#bg)" />
+  <circle cx="128" cy="74" r="130" fill="#9d4edd" opacity="0.2" />
+  <circle cx="524" cy="104" r="110" fill="#00d4ff" opacity="0.16" />
+  <g fill="none" stroke="#57d7ff" opacity="0.18" stroke-width="1">
+    <path d="M40 80H600" />
+    <path d="M40 140H600" />
+    <path d="M40 200H600" />
+    <path d="M40 260H600" />
+    <path d="M120 40V320" />
+    <path d="M240 40V320" />
+    <path d="M360 40V320" />
+    <path d="M480 40V320" />
+  </g>
+  <path d="M210 160 C282 84 372 100 436 146" fill="none" stroke="url(#line)" stroke-width="10" stroke-linecap="round" opacity="0.8" />
+  <path d="M212 210 C294 272 394 260 476 206" fill="none" stroke="url(#line)" stroke-width="8" stroke-linecap="round" opacity="0.65" />
+  <g>
+    <rect x="88" y="112" width="160" height="116" rx="18" fill="#18263d" stroke="#57d7ff" stroke-width="3" />
+    <rect x="116" y="138" width="92" height="10" rx="5" fill="#57d7ff" opacity="0.85" />
+    <rect x="116" y="164" width="106" height="8" rx="4" fill="#c7d2fe" opacity="0.62" />
+    <rect x="116" y="186" width="70" height="8" rx="4" fill="#f05cd5" opacity="0.72" />
+  </g>
+  <g>
+    <rect x="414" y="126" width="150" height="104" rx="18" fill="#1e1b4b" stroke="#f05cd5" stroke-width="3" />
+    <rect x="442" y="152" width="78" height="10" rx="5" fill="#f05cd5" opacity="0.85" />
+    <rect x="442" y="178" width="96" height="8" rx="4" fill="#c7d2fe" opacity="0.62" />
+  </g>
+  <text x="90" y="306" fill="#e0f2fe" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700">Neon Dossier</text>
+</svg>

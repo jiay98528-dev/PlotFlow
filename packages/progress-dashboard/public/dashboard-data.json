@@ -2,7 +2,7 @@
   "meta": {
     "projectName": "PlotFlow",
     "schemaVersion": "2026-06-25.v1",
-    "generatedAt": "2026-06-25T10:32:44.824Z",
+    "generatedAt": "2026-07-01T12:21:35.404Z",
     "repoRoot": "D:/VibeCoding/PlotFlow"
   },
   "summary": {
@@ -195,7 +195,7 @@
     "items": [
       {
         "id": "M0",
-        "title": "项目脚手架",
+        "title": "椤圭洰鑴氭墜鏋?",
         "totalTasks": 13,
         "computedCounts": {
           "complete": 12,
@@ -220,27 +220,9 @@
             "id": "M0-01",
             "title": "pnpm workspace monorepo 初始化",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 46,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M0-02",
-            "title": "Electron 主进程骨架",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "当前发行运行时为 Electron 42.5.0",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -252,12 +234,13 @@
             ]
           },
           {
-            "id": "M0-03",
-            "title": "React 18 + TypeScript 5 渲染进程骨架",
+            "id": "M0-02",
+            "title": "Electron 主进程骨架",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
+            "note": "褰撳墠鍙戣杩愯鏃朵负 Electron 42.5.0",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -269,10 +252,10 @@
             ]
           },
           {
-            "id": "M0-04",
-            "title": "TypeScript strict mode",
+            "id": "M0-03",
+            "title": "React 18 + TypeScript 5 渲染进程骨架",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -286,10 +269,10 @@
             ]
           },
           {
-            "id": "M0-05",
-            "title": "ESLint + Prettier 配置",
+            "id": "M0-04",
+            "title": "TypeScript strict mode",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -303,10 +286,10 @@
             ]
           },
           {
-            "id": "M0-06",
-            "title": "Vitest 单元测试框架",
+            "id": "M0-05",
+            "title": "ESLint + Prettier 配置",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -320,13 +303,12 @@
             ]
           },
           {
-            "id": "M0-07",
-            "title": "Playwright E2E 框架",
-            "status": "removed",
-            "rawStatus": "❌",
+            "id": "M0-06",
+            "title": "Vitest 单元测试框架",
+            "status": "complete",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-16",
-            "note": "V0.1.1 移除",
+            "completedAt": "2026-06-13",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -338,12 +320,13 @@
             ]
           },
           {
-            "id": "M0-08",
-            "title": "GitHub Actions CI 骨架",
-            "status": "complete",
-            "rawStatus": "✅",
+            "id": "M0-07",
+            "title": "Playwright E2E 框架",
+            "status": "removed",
+            "rawStatus": "鉂?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
+            "completedAt": "2026-06-16",
+            "note": "V0.1.1 绉婚櫎",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -355,10 +338,10 @@
             ]
           },
           {
-            "id": "M0-09",
-            "title": "Git Hooks（pre-commit + commit-msg）",
+            "id": "M0-08",
+            "title": "GitHub Actions CI 骨架",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -372,10 +355,10 @@
             ]
           },
           {
-            "id": "M0-10",
-            "title": "目录结构全量建立",
+            "id": "M0-09",
+            "title": "Git Hooks（pre-commit + commit-msg）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -389,10 +372,10 @@
             ]
           },
           {
-            "id": "M0-11",
-            "title": "Zustand 状态管理初始化",
+            "id": "M0-10",
+            "title": "目录结构全量建立",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -406,10 +389,10 @@
             ]
           },
           {
-            "id": "M0-12",
-            "title": "Monaco Editor 占位集成",
+            "id": "M0-11",
+            "title": "Zustand 状态管理初始化",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -423,10 +406,10 @@
             ]
           },
           {
-            "id": "M0-13",
-            "title": "`@plotflow/core` 包骨架",
+            "id": "M0-12",
+            "title": "Monaco Editor 占位集成",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -435,6 +418,23 @@
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 58,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-13",
+            "title": "`@plotflow/core` 包骨架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 59,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -451,14 +451,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 40,
+            "line": 41,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M1",
-        "title": "核心解析与编辑",
+        "title": "鏍稿績瑙ｆ瀽涓庣紪杈?",
         "totalTasks": 17,
         "computedCounts": {
           "complete": 17,
@@ -483,28 +483,10 @@
             "id": "M1-01",
             "title": "YAML Frontmatter 解析器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "note": "parser/frontmatter.ts",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 70,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M1-02",
-            "title": "Markdown 节点解析器",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "parser/parser.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -516,13 +498,13 @@
             ]
           },
           {
-            "id": "M1-03",
-            "title": "选项语法解析（含条件/效果子行）",
+            "id": "M1-02",
+            "title": "Markdown 节点解析器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "parser/options.ts",
+            "note": "parser/parser.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -534,13 +516,13 @@
             ]
           },
           {
-            "id": "M1-04",
-            "title": "条件表达式解析器",
+            "id": "M1-03",
+            "title": "选项语法解析（含条件/效果子行）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "parser/conditions.ts",
+            "note": "parser/options.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -552,13 +534,13 @@
             ]
           },
           {
-            "id": "M1-05",
-            "title": "变量操作解析器",
+            "id": "M1-04",
+            "title": "条件表达式解析器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "parser/effects.ts",
+            "note": "parser/conditions.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -570,13 +552,13 @@
             ]
           },
           {
-            "id": "M1-06",
-            "title": "PlotFlowData 中间表示模型",
+            "id": "M1-05",
+            "title": "变量操作解析器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "types/ast.ts (301 行)",
+            "note": "parser/effects.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -588,13 +570,13 @@
             ]
           },
           {
-            "id": "M1-07",
-            "title": "解析器单元测试",
+            "id": "M1-06",
+            "title": "PlotFlowData 中间表示模型",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "__tests__/parser/ 目录",
+            "note": "types/ast.ts (301 琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -606,31 +588,31 @@
             ]
           },
           {
-            "id": "M1-08",
-            "title": "Monaco 语法高亮 — Tokenizer",
+            "id": "M1-07",
+            "title": "解析器单元测试",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "monaco-tokenizer.ts (V0.2 修复章节标题正则)",
+            "completedAt": "2026-06-13",
+            "note": "__tests__/parser/ 鐩綍",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 82,
+                "line": 77,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M1-09",
-            "title": "Monaco 语法高亮 — Theme",
+            "id": "M1-08",
+            "title": "Monaco 语法高亮 — Tokenizer",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "monaco-theme-dark.json + light.json",
+            "completedAt": "2026-06-17",
+            "note": "monaco-tokenizer.ts (V0.2 淇绔犺妭鏍囬姝ｅ垯)",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -642,12 +624,13 @@
             ]
           },
           {
-            "id": "M1-10",
-            "title": "括号自动闭合",
+            "id": "M1-09",
+            "title": "Monaco 语法高亮 — Theme",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
+            "note": "monaco-theme-dark.json + light.json",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -659,10 +642,10 @@
             ]
           },
           {
-            "id": "M1-11",
-            "title": "节点折叠（Code Folding）",
+            "id": "M1-10",
+            "title": "括号自动闭合",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -676,10 +659,10 @@
             ]
           },
           {
-            "id": "M1-12",
-            "title": "响应式保存（500ms debounce）",
+            "id": "M1-11",
+            "title": "节点折叠（Code Folding）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -693,10 +676,10 @@
             ]
           },
           {
-            "id": "M1-13",
-            "title": "文件操作服务",
+            "id": "M1-12",
+            "title": "响应式保存（500ms debounce）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -710,10 +693,10 @@
             ]
           },
           {
-            "id": "M1-14",
-            "title": "OutlinePanel 组件",
+            "id": "M1-13",
+            "title": "文件操作服务",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -721,16 +704,16 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 93,
+                "line": 88,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M1-15",
-            "title": "大纲与编辑器联动",
+            "id": "M1-14",
+            "title": "OutlinePanel 组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -744,10 +727,10 @@
             ]
           },
           {
-            "id": "M1-16",
-            "title": "StatusBar 组件",
+            "id": "M1-15",
+            "title": "大纲与编辑器联动",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -755,16 +738,16 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 100,
+                "line": 95,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M1-17",
-            "title": "应用菜单栏（Electron Menu API）",
+            "id": "M1-16",
+            "title": "StatusBar 组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -773,6 +756,23 @@
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 101,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-17",
+            "title": "应用菜单栏（Electron Menu API）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 102,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -789,14 +789,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 62,
+            "line": 63,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M2",
-        "title": "分支可视化",
+        "title": "鍒嗘敮鍙鍖?",
         "totalTasks": 16,
         "computedCounts": {
           "complete": 16,
@@ -821,28 +821,10 @@
             "id": "M2-01",
             "title": "React Flow 画布集成",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "note": "GraphCanvas.tsx",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 111,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M2-02",
-            "title": "Dagre 布局引擎适配",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "layout.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -854,13 +836,13 @@
             ]
           },
           {
-            "id": "M2-03",
-            "title": "AST → React Flow 数据适配器",
+            "id": "M2-02",
+            "title": "Dagre 布局引擎适配",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "adapter.ts (V0.2 Edge ID 编码加固)",
+            "completedAt": "2026-06-13",
+            "note": "layout.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -872,13 +854,13 @@
             ]
           },
           {
-            "id": "M2-04",
-            "title": "StoryNodeCard 自定义节点组件",
+            "id": "M2-03",
+            "title": "AST → React Flow 数据适配器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "StoryNodeCard.tsx",
+            "completedAt": "2026-06-17",
+            "note": "adapter.ts (V0.2 Edge ID 缂栫爜鍔犲浐)",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -890,13 +872,13 @@
             ]
           },
           {
-            "id": "M2-05",
-            "title": "节点状态着色（5 种状态）",
+            "id": "M2-04",
+            "title": "StoryNodeCard 自定义节点组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "adapter-helpers.ts",
+            "note": "StoryNodeCard.tsx",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -908,13 +890,13 @@
             ]
           },
           {
-            "id": "M2-06",
-            "title": "StoryEdge 自定义连线组件",
+            "id": "M2-05",
+            "title": "节点状态着色（5 种状态）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "StoryEdge.tsx (V0.2 全交互升级)",
+            "completedAt": "2026-06-13",
+            "note": "adapter-helpers.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -926,13 +908,13 @@
             ]
           },
           {
-            "id": "M2-07",
-            "title": "单击节点 → 编辑器跳转",
+            "id": "M2-06",
+            "title": "StoryEdge 自定义连线组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "handleNodeClick",
+            "completedAt": "2026-06-17",
+            "note": "StoryEdge.tsx (V0.2 鍏ㄤ氦浜掑崌绾?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -944,13 +926,13 @@
             ]
           },
           {
-            "id": "M2-08",
-            "title": "双击节点 → 重命名模式",
+            "id": "M2-07",
+            "title": "单击节点 → 编辑器跳转",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "handleNodeDoubleClick + StoryNodeCard",
+            "completedAt": "2026-06-13",
+            "note": "handleNodeClick",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -962,13 +944,13 @@
             ]
           },
           {
-            "id": "M2-09",
-            "title": "拖拽连线端点 → 修改跳转目标",
+            "id": "M2-08",
+            "title": "双击节点 → 重命名模式",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "handleConnect",
+            "completedAt": "2026-06-17",
+            "note": "handleNodeDoubleClick + StoryNodeCard",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -980,12 +962,13 @@
             ]
           },
           {
-            "id": "M2-10",
-            "title": "右键菜单（节点/空白）",
+            "id": "M2-09",
+            "title": "拖拽连线端点 → 修改跳转目标",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
+            "note": "handleConnect",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -997,10 +980,10 @@
             ]
           },
           {
-            "id": "M2-11",
-            "title": "Ctrl+点击 → 多选节点",
+            "id": "M2-10",
+            "title": "右键菜单（节点/空白）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1014,10 +997,10 @@
             ]
           },
           {
-            "id": "M2-12",
-            "title": "缩放（10%~200%）",
+            "id": "M2-11",
+            "title": "Ctrl+点击 → 多选节点",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1031,10 +1014,10 @@
             ]
           },
           {
-            "id": "M2-13",
-            "title": "中键拖拽平移",
+            "id": "M2-12",
+            "title": "缩放（10%~200%）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1048,10 +1031,10 @@
             ]
           },
           {
-            "id": "M2-14",
-            "title": "200 节点虚拟滚动",
+            "id": "M2-13",
+            "title": "中键拖拽平移",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1065,10 +1048,10 @@
             ]
           },
           {
-            "id": "M2-15",
-            "title": "同层节点水平折叠",
+            "id": "M2-14",
+            "title": "200 节点虚拟滚动",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1082,10 +1065,10 @@
             ]
           },
           {
-            "id": "M2-16",
-            "title": "编辑器修改 → 分支图实时更新",
+            "id": "M2-15",
+            "title": "同层节点水平折叠",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1094,6 +1077,23 @@
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 126,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-16",
+            "title": "编辑器修改 → 分支图实时更新",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 127,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1110,14 +1110,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 105,
+            "line": 106,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M3",
-        "title": "条件编辑与错误检测",
+        "title": "鏉′欢缂栬緫涓庨敊璇娴?",
         "totalTasks": 18,
         "computedCounts": {
           "complete": 18,
@@ -1142,28 +1142,10 @@
             "id": "M3-01",
             "title": "ConditionEditor 弹出面板组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "ConditionEditor.tsx (1,948 行, V0.2 接线完成)",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 138,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M3-02",
-            "title": "变量下拉框（读取 Frontmatter/引擎）",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "类型感知下拉",
+            "note": "ConditionEditor.tsx (1,948 琛? V0.2 鎺ョ嚎瀹屾垚)",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1175,13 +1157,13 @@
             ]
           },
           {
-            "id": "M3-03",
-            "title": "比较运算符下拉框",
+            "id": "M3-02",
+            "title": "变量下拉框（读取 Frontmatter/引擎）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "按变量类型过滤",
+            "note": "绫诲瀷鎰熺煡涓嬫媺",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1193,13 +1175,13 @@
             ]
           },
           {
-            "id": "M3-04",
-            "title": "值输入框（类型感知）",
+            "id": "M3-03",
+            "title": "比较运算符下拉框",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "int/float/bool/enum/string",
+            "note": "鎸夊彉閲忕被鍨嬭繃婊?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1211,13 +1193,13 @@
             ]
           },
           {
-            "id": "M3-05",
-            "title": "AND/OR 逻辑组构建器",
+            "id": "M3-04",
+            "title": "值输入框（类型感知）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "嵌套最多 3 层",
+            "note": "int/float/bool/enum/string",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1229,13 +1211,13 @@
             ]
           },
           {
-            "id": "M3-06",
-            "title": "条件预览行（实时文本）",
+            "id": "M3-05",
+            "title": "AND/OR 逻辑组构建器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "实时文本表达式",
+            "note": "宓屽鏈€澶?3 灞?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1247,13 +1229,13 @@
             ]
           },
           {
-            "id": "M3-07",
-            "title": "双向同步（面板 ↔ 文本）",
+            "id": "M3-06",
+            "title": "条件预览行（实时文本）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "V0.2 添加 AST→面板加载",
+            "completedAt": "2026-06-13",
+            "note": "瀹炴椂鏂囨湰琛ㄨ揪寮?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1265,13 +1247,13 @@
             ]
           },
           {
-            "id": "M3-08",
-            "title": "触发入口",
+            "id": "M3-07",
+            "title": "双向同步（面板 ↔ 文本）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "V0.2 连线双击 + [🔧条件] 图标",
+            "note": "V0.2 娣诲姞 AST鈫掗潰鏉垮姞杞?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1283,30 +1265,31 @@
             ]
           },
           {
-            "id": "M3-09",
-            "title": "验证器引擎 — 8 种错误（E001-E008）",
+            "id": "M3-08",
+            "title": "触发入口",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "validator.ts",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 杩炵嚎鍙屽嚮 + [馃敡鏉′欢] 鍥炬爣",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 151,
+                "line": 146,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M3-10",
-            "title": "验证器引擎 — 6 种警告（W001-W006）",
+            "id": "M3-09",
+            "title": "验证器引擎 — 8 种错误（E001-E008）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
+            "note": "validator.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1318,10 +1301,10 @@
             ]
           },
           {
-            "id": "M3-11",
-            "title": "验证器引擎 — 3 种建议（I001-I003）",
+            "id": "M3-10",
+            "title": "验证器引擎 — 6 种警告（W001-W006）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1335,10 +1318,10 @@
             ]
           },
           {
-            "id": "M3-12",
-            "title": "验证器单元测试",
+            "id": "M3-11",
+            "title": "验证器引擎 — 3 种建议（I001-I003）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "sourceRefs": [
@@ -1352,28 +1335,27 @@
             ]
           },
           {
-            "id": "M3-13",
-            "title": "Monaco 波浪线装饰（Decorations）",
+            "id": "M3-12",
+            "title": "验证器单元测试",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "diagnosticsDecorator.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 160,
+                "line": 155,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M3-14",
-            "title": "侧边栏标记点（Gutter Glyphs）",
+            "id": "M3-13",
+            "title": "Monaco 波浪线装饰（Decorations）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "note": "diagnosticsDecorator.ts",
@@ -1388,10 +1370,10 @@
             ]
           },
           {
-            "id": "M3-15",
-            "title": "Hover Tooltip（错误说明+修复建议）",
+            "id": "M3-14",
+            "title": "侧边栏标记点（Gutter Glyphs）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "note": "diagnosticsDecorator.ts",
@@ -1406,13 +1388,13 @@
             ]
           },
           {
-            "id": "M3-16",
-            "title": "ProblemPanel 问题面板",
+            "id": "M3-15",
+            "title": "Hover Tooltip（错误说明+修复建议）",
             "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-15",
-            "completedAt": "2026-06-15",
-            "note": "ProblemPanel 挂载到 App.tsx",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "diagnosticsDecorator.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1424,13 +1406,13 @@
             ]
           },
           {
-            "id": "M3-17",
-            "title": "状态栏错误计数",
+            "id": "M3-16",
+            "title": "ProblemPanel 问题面板",
             "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "StatusBar.tsx 已实现",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-15",
+            "completedAt": "2026-06-15",
+            "note": "ProblemPanel 鎸傝浇鍒?App.tsx",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1442,19 +1424,37 @@
             ]
           },
           {
-            "id": "M3-18",
-            "title": "错误状态 → 分支图节点着色同步",
+            "id": "M3-17",
+            "title": "状态栏错误计数",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-15",
-            "note": "adapter.ts getNodeStatus 读取 diagnostics",
+            "completedAt": "2026-06-13",
+            "note": "StatusBar.tsx 宸插疄鐜?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 165,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-18",
+            "title": "错误状态 → 分支图节点着色同步",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-15",
+            "note": "adapter.ts getNodeStatus 璇诲彇 diagnostics",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 166,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1471,14 +1471,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 130,
+            "line": 131,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M4",
-        "title": "导出系统",
+        "title": "瀵煎嚭绯荤粺",
         "totalTasks": 26,
         "computedCounts": {
           "complete": 25,
@@ -1503,28 +1503,10 @@
             "id": "M4-01",
             "title": "JSON 导出器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 177,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M4-02",
-            "title": "JSON Schema 验证",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "已接入验证流程",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1536,13 +1518,13 @@
             ]
           },
           {
-            "id": "M4-03",
-            "title": "往返一致性测试",
+            "id": "M4-02",
+            "title": "JSON Schema 验证",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已覆盖核心路径",
+            "note": "宸叉帴鍏ラ獙璇佹祦绋?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1554,13 +1536,13 @@
             ]
           },
           {
-            "id": "M4-04",
-            "title": "特殊字符/边界测试",
+            "id": "M4-03",
+            "title": "往返一致性测试",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已覆盖边界输入",
+            "note": "宸茶鐩栨牳蹇冭矾寰?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1572,31 +1554,31 @@
             ]
           },
           {
-            "id": "M4-05",
-            "title": "HTML 导出器（单文件自包含）",
+            "id": "M4-04",
+            "title": "特殊字符/边界测试",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
+            "note": "宸茶鐩栬竟鐣岃緭鍏?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 186,
+                "line": 181,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M4-06",
-            "title": "HTML 交互逻辑",
+            "id": "M4-05",
+            "title": "HTML 导出器（单文件自包含）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1608,13 +1590,13 @@
             ]
           },
           {
-            "id": "M4-07",
-            "title": "HTML 变量面板",
+            "id": "M4-06",
+            "title": "HTML 交互逻辑",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1626,13 +1608,13 @@
             ]
           },
           {
-            "id": "M4-08",
-            "title": "HTML 面包屑导航",
+            "id": "M4-07",
+            "title": "HTML 变量面板",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1644,13 +1626,13 @@
             ]
           },
           {
-            "id": "M4-09",
-            "title": "HTML 响应式布局",
+            "id": "M4-08",
+            "title": "HTML 面包屑导航",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1662,19 +1644,37 @@
             ]
           },
           {
-            "id": "M4-10",
-            "title": "TXT 导出器",
+            "id": "M4-09",
+            "title": "HTML 响应式布局",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 196,
+                "line": 191,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-10",
+            "title": "TXT 导出器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 197,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1683,28 +1683,10 @@
             "id": "M4-11",
             "title": "ExportDialog 组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "已实现并验证",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 202,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M4-12",
-            "title": "导出快捷键 + 菜单入口",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "已接入菜单与快捷键",
+            "note": "宸插疄鐜板苟楠岃瘉",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1716,31 +1698,31 @@
             ]
           },
           {
-            "id": "M4-13",
-            "title": "Godot 编辑器插件入口",
+            "id": "M4-12",
+            "title": "导出快捷键 + 菜单入口",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/plugin.gd` + `plugin.cfg`",
+            "note": "宸叉帴鍏ヨ彍鍗曚笌蹇嵎閿?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 209,
+                "line": 204,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M4-14",
-            "title": "Godot Dock 面板",
+            "id": "M4-13",
+            "title": "Godot 编辑器插件入口",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/PlotFlowDock.gd` (147行)",
+            "note": "`addons/plotflow/plugin.gd` + `plugin.cfg`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1752,13 +1734,13 @@
             ]
           },
           {
-            "id": "M4-15",
-            "title": "Godot 变量同步器",
+            "id": "M4-14",
+            "title": "Godot Dock 面板",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/VariableSync.gd` (126行)",
+            "note": "`addons/plotflow/PlotFlowDock.gd` (147琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1770,13 +1752,13 @@
             ]
           },
           {
-            "id": "M4-16",
-            "title": "Godot 导出触发器",
+            "id": "M4-15",
+            "title": "Godot 变量同步器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/ExportTrigger.gd` (48行)",
+            "note": "`addons/plotflow/VariableSync.gd` (126琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1788,13 +1770,13 @@
             ]
           },
           {
-            "id": "M4-17",
-            "title": "Godot 运行时库 — StoryLoader",
+            "id": "M4-16",
+            "title": "Godot 导出触发器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/runtime/StoryLoader.gd` (99行)",
+            "note": "`addons/plotflow/ExportTrigger.gd` (48琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1806,13 +1788,13 @@
             ]
           },
           {
-            "id": "M4-18",
-            "title": "Godot 运行时库 — StoryNode",
+            "id": "M4-17",
+            "title": "Godot 运行时库 — StoryLoader",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/runtime/StoryNode.gd` (80行)",
+            "note": "`addons/plotflow/runtime/StoryLoader.gd` (99琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1824,13 +1806,13 @@
             ]
           },
           {
-            "id": "M4-19",
-            "title": "Godot 运行时库 — ConditionEval",
+            "id": "M4-18",
+            "title": "Godot 运行时库 — StoryNode",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/runtime/ConditionEval.gd` (146行)",
+            "note": "`addons/plotflow/runtime/StoryNode.gd` (80琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1842,13 +1824,13 @@
             ]
           },
           {
-            "id": "M4-20",
-            "title": "Godot 运行时库 — VariableStore",
+            "id": "M4-19",
+            "title": "Godot 运行时库 — ConditionEval",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`addons/plotflow/runtime/VariableStore.gd` (53行)",
+            "note": "`addons/plotflow/runtime/ConditionEval.gd` (146琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1860,13 +1842,13 @@
             ]
           },
           {
-            "id": "M4-21",
-            "title": "Godot 插件单元测试",
+            "id": "M4-20",
+            "title": "Godot 运行时库 — VariableStore",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "运行时库完整（条件评估/变量存储/故事加载）",
+            "note": "`addons/plotflow/runtime/VariableStore.gd` (53琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1878,31 +1860,31 @@
             ]
           },
           {
-            "id": "M4-22",
-            "title": "Unity C# 接口定义",
+            "id": "M4-21",
+            "title": "Godot 插件单元测试",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`plugins/unity/IPlotFlowReader.cs` (277行)",
+            "note": "杩愯鏃跺簱瀹屾暣锛堟潯浠惰瘎浼?鍙橀噺瀛樺偍/鏁呬簨鍔犺浇锛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 223,
+                "line": 218,
                 "capturedAt": "2026-06-25"
               }
             ]
           },
           {
-            "id": "M4-23",
-            "title": "Unity 示例实现",
+            "id": "M4-22",
+            "title": "Unity C# 接口定义",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`plugins/unity/PlotFlowJsonReader.cs` (549行)",
+            "note": "`plugins/unity/IPlotFlowReader.cs` (277琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1914,11 +1896,13 @@
             ]
           },
           {
-            "id": "M4-24",
-            "title": "Unity 示例场景",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3（不影响核心导出功能）",
+            "id": "M4-23",
+            "title": "Unity 示例实现",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`plugins/unity/PlotFlowJsonReader.cs` (549琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -1930,19 +1914,35 @@
             ]
           },
           {
-            "id": "M4-25",
-            "title": "Unreal 蓝图接口",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "`plugins/unreal/BPI_PlotFlowReader.uasset.md` 接口参考",
+            "id": "M4-24",
+            "title": "Unity 示例场景",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3锛堜笉褰卞搷鏍稿績瀵煎嚭鍔熻兘锛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 231,
+                "line": 226,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-25",
+            "title": "Unreal 蓝图接口",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`plugins/unreal/BPI_PlotFlowReader.uasset.md` 鎺ュ彛鍙傝€?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 232,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1951,7 +1951,7 @@
             "id": "M4-26",
             "title": "Unreal C++ 数据模型",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "note": "`plugins/unreal/PlotFlowDataTypes.h` (15KB)",
@@ -1960,7 +1960,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 232,
+                "line": 233,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1977,14 +1977,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 169,
+            "line": 170,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M5",
-        "title": "补全引擎",
+        "title": "琛ュ叏寮曟搸",
         "totalTasks": 19,
         "computedCounts": {
           "complete": 18,
@@ -2009,24 +2009,8 @@
             "id": "M5-01",
             "title": "NGramEngine 核心",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "note": "`packages/core/src/completion/NGramEngine.ts`",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 244,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M5-02",
-            "title": "预置语料库加载器",
-            "status": "complete",
-            "rawStatus": "✅",
-            "note": "`packages/core/src/completion/CorpusLoader.ts`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2038,11 +2022,11 @@
             ]
           },
           {
-            "id": "M5-03",
-            "title": "倒排索引",
+            "id": "M5-02",
+            "title": "预置语料库加载器",
             "status": "complete",
-            "rawStatus": "✅",
-            "note": "`packages/core/src/completion/InvertedIndex.ts`",
+            "rawStatus": "鉁?",
+            "note": "`packages/core/src/completion/CorpusLoader.ts`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2054,11 +2038,11 @@
             ]
           },
           {
-            "id": "M5-04",
-            "title": "引擎单元测试",
+            "id": "M5-03",
+            "title": "倒排索引",
             "status": "complete",
-            "rawStatus": "✅",
-            "note": "658 用例（含 11 新增 CorpusLoader 测试）",
+            "rawStatus": "鉁?",
+            "note": "`packages/core/src/completion/InvertedIndex.ts`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2070,11 +2054,11 @@
             ]
           },
           {
-            "id": "M5-05",
-            "title": "中文语料包（3.5MB）",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3",
+            "id": "M5-04",
+            "title": "引擎单元测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "note": "658 鐢ㄤ緥锛堝惈 11 鏂板 CorpusLoader 娴嬭瘯锛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2086,13 +2070,11 @@
             ]
           },
           {
-            "id": "M5-06",
-            "title": "英文语料包（1.5MB）",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "`packages/core/corpus/en.json` — 152 句，50% 游戏+50% 文学",
+            "id": "M5-05",
+            "title": "中文语料包（3.5MB）",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2104,13 +2086,13 @@
             ]
           },
           {
-            "id": "M5-07",
-            "title": "语料预处理脚本",
+            "id": "M5-06",
+            "title": "英文语料包（1.5MB）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`scripts/preprocess-corpus.ts` — 空格分词+分类推断+输出",
+            "note": "`packages/core/corpus/en.json` 鈥?152 鍙ワ紝50% 娓告垙+50% 鏂囧",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2122,13 +2104,13 @@
             ]
           },
           {
-            "id": "M5-08",
-            "title": "GhostTextPlugin（Monaco 扩展）",
+            "id": "M5-07",
+            "title": "语料预处理脚本",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "V0.2 接线到 setupEditor.ts",
+            "completedAt": "2026-06-13",
+            "note": "`scripts/preprocess-corpus.ts` 鈥?绌烘牸鍒嗚瘝+鍒嗙被鎺ㄦ柇+杈撳嚭",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2140,13 +2122,13 @@
             ]
           },
           {
-            "id": "M5-09",
-            "title": "四维触发检测",
+            "id": "M5-08",
+            "title": "GhostTextPlugin（Monaco 扩展）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "V0.2 全 4 维度就绪",
+            "note": "V0.2 鎺ョ嚎鍒?setupEditor.ts",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2158,13 +2140,13 @@
             ]
           },
           {
-            "id": "M5-10",
-            "title": "幽灵字符渲染逻辑",
+            "id": "M5-09",
+            "title": "四维触发检测",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "InlineCompletionItem 灰色半透明",
+            "note": "V0.2 鍏?4 缁村害灏辩华",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2176,13 +2158,13 @@
             ]
           },
           {
-            "id": "M5-11",
-            "title": "Tab 接受 / Esc 忽略 / 输入覆盖",
+            "id": "M5-10",
+            "title": "幽灵字符渲染逻辑",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "Monaco 原生行为",
+            "note": "InlineCompletionItem 鐏拌壊鍗婇€忔槑",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2194,13 +2176,13 @@
             ]
           },
           {
-            "id": "M5-12",
-            "title": "Ctrl+Space 多候选下拉菜单",
+            "id": "M5-11",
+            "title": "Tab 接受 / Esc 忽略 / 输入覆盖",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "CompletionItemProvider 注册",
+            "note": "Monaco 鍘熺敓琛屼负",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2212,13 +2194,13 @@
             ]
           },
           {
-            "id": "M5-13",
-            "title": "频率控制（<100ms 不触发）",
+            "id": "M5-12",
+            "title": "Ctrl+Space 多候选下拉菜单",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-17",
-            "note": "MIN_TRIGGER_INTERVAL_MS=100",
+            "note": "CompletionItemProvider 娉ㄥ唽",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2230,13 +2212,13 @@
             ]
           },
           {
-            "id": "M5-14",
-            "title": "增量学习器",
+            "id": "M5-13",
+            "title": "频率控制（<100ms 不触发）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "`packages/core/src/completion/Learner.ts` (359行)",
+            "completedAt": "2026-06-17",
+            "note": "MIN_TRIGGER_INTERVAL_MS=100",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2248,13 +2230,13 @@
             ]
           },
           {
-            "id": "M5-15",
-            "title": "N-gram 权重衰减（90 天机制）",
+            "id": "M5-14",
+            "title": "增量学习器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "Learner.ts 实现 90 天半衰 / 180 天移除策略",
+            "note": "`packages/core/src/completion/Learner.ts` (359琛?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2266,13 +2248,13 @@
             ]
           },
           {
-            "id": "M5-16",
-            "title": "学习数据持久化",
+            "id": "M5-15",
+            "title": "N-gram 权重衰减（90 天机制）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`Persistence.ts` (373行)，JSON 文件持久化",
+            "note": "Learner.ts 瀹炵幇 90 澶╁崐琛?/ 180 澶╃Щ闄ょ瓥鐣?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2284,13 +2266,13 @@
             ]
           },
           {
-            "id": "M5-17",
-            "title": "语言料导入器",
+            "id": "M5-16",
+            "title": "学习数据持久化",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`CorpusImporter.ts` (654行)，支持 .txt/.mdstory/.csv",
+            "note": "`Persistence.ts` (373琛?锛孞SON 鏂囦欢鎸佷箙鍖?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2302,13 +2284,13 @@
             ]
           },
           {
-            "id": "M5-18",
-            "title": "导入预处理",
+            "id": "M5-17",
+            "title": "语言料导入器",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`PreprocessingPipeline.ts` (337行)，去重+分段+清洗",
+            "note": "`CorpusImporter.ts` (654琛?锛屾敮鎸?.txt/.mdstory/.csv",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2320,19 +2302,37 @@
             ]
           },
           {
-            "id": "M5-19",
-            "title": "CorpusManager 设置面板",
+            "id": "M5-18",
+            "title": "导入预处理",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`CorpusManager.tsx` (1029行)，语料列表+导入/禁用/删除",
+            "note": "`PreprocessingPipeline.ts` (337琛?锛屽幓閲?鍒嗘+娓呮礂",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 262,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-19",
+            "title": "CorpusManager 设置面板",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`CorpusManager.tsx` (1029琛?锛岃鏂欏垪琛?瀵煎叆/绂佺敤/鍒犻櫎",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 263,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2349,14 +2349,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 236,
+            "line": 237,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M6",
-        "title": "模板与主题",
+        "title": "妯℃澘涓庝富棰?",
         "totalTasks": 18,
         "computedCounts": {
           "complete": 18,
@@ -2381,28 +2381,10 @@
             "id": "M6-01",
             "title": "模板引擎",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`packages/core/src/template/TemplateEngine.ts`，保留未知占位符",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 272,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M6-02",
-            "title": "RPG 对话模板（8 节点）",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "`templates/rpg-dialogue.mdstory`，单元测试验证节点数",
+            "note": "`packages/core/src/template/TemplateEngine.ts`锛屼繚鐣欐湭鐭ュ崰浣嶇",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2414,13 +2396,13 @@
             ]
           },
           {
-            "id": "M6-03",
-            "title": "视觉小说模板（6 节点）",
+            "id": "M6-02",
+            "title": "RPG 对话模板（8 节点）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`templates/visual-novel.mdstory`，单元测试验证节点数",
+            "note": "`templates/rpg-dialogue.mdstory`锛屽崟鍏冩祴璇曢獙璇佽妭鐐规暟",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2432,13 +2414,13 @@
             ]
           },
           {
-            "id": "M6-04",
-            "title": "解谜游戏模板（10 节点）",
+            "id": "M6-03",
+            "title": "视觉小说模板（6 节点）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`templates/puzzle-escape.mdstory`，单元测试验证节点数",
+            "note": "`templates/visual-novel.mdstory`锛屽崟鍏冩祴璇曢獙璇佽妭鐐规暟",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2450,13 +2432,13 @@
             ]
           },
           {
-            "id": "M6-05",
-            "title": "Godot 示例项目模板（10 节点）",
+            "id": "M6-04",
+            "title": "解谜游戏模板（10 节点）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`templates/godot-example/`，含 story、README、project、runtime script",
+            "note": "`templates/puzzle-escape.mdstory`锛屽崟鍏冩祴璇曢獙璇佽妭鐐规暟",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2468,13 +2450,13 @@
             ]
           },
           {
-            "id": "M6-06",
-            "title": "NewFileDialog 组件",
+            "id": "M6-05",
+            "title": "Godot 示例项目模板（10 节点）",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "模板选择、标题/作者输入、预览、创建闭环已接入 App",
+            "note": "`templates/godot-example/`锛屽惈 story銆丷EADME銆乸roject銆乺untime script",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2486,13 +2468,13 @@
             ]
           },
           {
-            "id": "M6-07",
-            "title": "暗色主题 CSS 变量",
+            "id": "M6-06",
+            "title": "NewFileDialog 组件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`tokens-dark.css`，CSS 变量驱动",
+            "note": "妯℃澘閫夋嫨銆佹爣棰?浣滆€呰緭鍏ャ€侀瑙堛€佸垱寤洪棴鐜凡鎺ュ叆 App",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2504,13 +2486,13 @@
             ]
           },
           {
-            "id": "M6-08",
-            "title": "暗色主题 Monaco 主题",
+            "id": "M6-07",
+            "title": "暗色主题 CSS 变量",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`ThemeProvider` 同步 Monaco theme",
+            "note": "`tokens-dark.css`锛孋SS 鍙橀噺椹卞姩",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2522,13 +2504,13 @@
             ]
           },
           {
-            "id": "M6-09",
-            "title": "暗色主题分支图节点样式",
+            "id": "M6-08",
+            "title": "暗色主题 Monaco 主题",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`branch-graph.css` 使用 token 状态色",
+            "note": "`ThemeProvider` 鍚屾 Monaco theme",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2540,13 +2522,13 @@
             ]
           },
           {
-            "id": "M6-10",
-            "title": "亮色主题 CSS 变量",
+            "id": "M6-09",
+            "title": "暗色主题分支图节点样式",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`tokens-light.css`，默认亮色主题",
+            "note": "`branch-graph.css` 浣跨敤 token 鐘舵€佽壊",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2558,13 +2540,13 @@
             ]
           },
           {
-            "id": "M6-11",
-            "title": "亮色主题 Monaco 主题",
+            "id": "M6-10",
+            "title": "亮色主题 CSS 变量",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`ThemeProvider` 同步 Monaco theme",
+            "note": "`tokens-light.css`锛岄粯璁や寒鑹蹭富棰?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2576,13 +2558,13 @@
             ]
           },
           {
-            "id": "M6-12",
-            "title": "亮色主题分支图节点样式",
+            "id": "M6-11",
+            "title": "亮色主题 Monaco 主题",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "默认亮色 token 覆盖节点和连线状态",
+            "note": "`ThemeProvider` 鍚屾 Monaco theme",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2594,13 +2576,13 @@
             ]
           },
           {
-            "id": "M6-13",
-            "title": "ThemeProvider 机制",
+            "id": "M6-12",
+            "title": "亮色主题分支图节点样式",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`html[data-theme]` + Monaco 主题即时同步",
+            "note": "榛樿浜壊 token 瑕嗙洊鑺傜偣鍜岃繛绾跨姸鎬?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2612,13 +2594,13 @@
             ]
           },
           {
-            "id": "M6-14",
-            "title": "ThemeToggle 工具栏按钮",
+            "id": "M6-13",
+            "title": "ThemeProvider 机制",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "工具栏图标按钮 + `Ctrl+Shift+T` 菜单事件",
+            "note": "`html[data-theme]` + Monaco 涓婚鍗虫椂鍚屾",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2630,13 +2612,13 @@
             ]
           },
           {
-            "id": "M6-15",
-            "title": "i18n 框架",
+            "id": "M6-14",
+            "title": "ThemeToggle 工具栏按钮",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`packages/core/src/i18n/i18n.ts`，轻量本地资源订阅",
+            "note": "宸ュ叿鏍忓浘鏍囨寜閽?+ `Ctrl+Shift+T` 鑿滃崟浜嬩欢",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2648,13 +2630,13 @@
             ]
           },
           {
-            "id": "M6-16",
-            "title": "中文翻译文件",
+            "id": "M6-15",
+            "title": "i18n 框架",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`locales/zh-CN.json` + core runtime resources",
+            "note": "`packages/core/src/i18n/i18n.ts`锛岃交閲忔湰鍦拌祫婧愯闃?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2666,13 +2648,13 @@
             ]
           },
           {
-            "id": "M6-17",
-            "title": "英文翻译文件",
+            "id": "M6-16",
+            "title": "中文翻译文件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "`locales/en-US.json` + core runtime resources",
+            "note": "`locales/zh-CN.json` + core runtime resources",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2684,19 +2666,37 @@
             ]
           },
           {
-            "id": "M6-18",
-            "title": "语言切换器",
+            "id": "M6-17",
+            "title": "英文翻译文件",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "工具栏语言 select，即时切换，无刷新",
+            "note": "`locales/en-US.json` + core runtime resources",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 289,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-18",
+            "title": "语言切换器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸ュ叿鏍忚瑷€ select锛屽嵆鏃跺垏鎹紝鏃犲埛鏂?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 290,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2713,14 +2713,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 266,
+            "line": 267,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M7",
-        "title": "Electron 打包与发布",
+        "title": "Electron 鎵撳寘涓庡彂甯?",
         "totalTasks": 15,
         "computedCounts": {
           "complete": 8,
@@ -2745,28 +2745,10 @@
             "id": "M7-01",
             "title": "electron-builder 配置",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
             "note": "electron-builder.config.js",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 310,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M7-02",
-            "title": "Windows 构建（.exe + .msi）",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-23",
-            "completedAt": "2026-06-24",
-            "note": "`pnpm.cmd package:win` 显式加载 `electron-builder.config.js`，生成 `release/PlotFlow Setup 0.1.0.exe`、blockmap 与 `release/win-unpacked/PlotFlow.exe`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2778,11 +2760,13 @@
             ]
           },
           {
-            "id": "M7-03",
-            "title": "macOS 构建（.dmg）",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "需 CI 矩阵构建",
+            "id": "M7-02",
+            "title": "Windows 构建（.exe + .msi）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-23",
+            "completedAt": "2026-06-24",
+            "note": "`pnpm.cmd package:win` 鏄惧紡鍔犺浇 `electron-builder.config.js`锛岀敓鎴?`release/PlotFlow Setup 0.1.0.exe`銆乥lockmap 涓?`release/win-unpacked/PlotFlow.exe`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2794,11 +2778,11 @@
             ]
           },
           {
-            "id": "M7-04",
-            "title": "Linux 构建（.AppImage + .deb）",
+            "id": "M7-03",
+            "title": "macOS 构建（.dmg）",
             "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "需 CI 矩阵构建",
+            "rawStatus": "鈴笍",
+            "note": "闇€ CI 鐭╅樀鏋勫缓",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2810,13 +2794,11 @@
             ]
           },
           {
-            "id": "M7-05",
-            "title": "应用图标",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-13",
-            "note": "`build/app-icons/` 多分辨率 + `.ico`/`.icns`/`.png`",
+            "id": "M7-04",
+            "title": "Linux 构建（.AppImage + .deb）",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "闇€ CI 鐭╅樀鏋勫缓",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2828,13 +2810,13 @@
             ]
           },
           {
-            "id": "M7-06",
-            "title": "应用信息",
+            "id": "M7-05",
+            "title": "应用图标",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "package.json",
+            "note": "`build/app-icons/` 澶氬垎杈ㄧ巼 + `.ico`/`.icns`/`.png`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2846,13 +2828,13 @@
             ]
           },
           {
-            "id": "M7-07",
-            "title": "`.mdstory` 文件关联",
+            "id": "M7-06",
+            "title": "应用信息",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "electron-builder.config.js 配置注册",
+            "note": "package.json",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2864,13 +2846,13 @@
             ]
           },
           {
-            "id": "M7-08",
-            "title": "双击 `.mdstory` → 应用打开",
+            "id": "M7-07",
+            "title": "`.mdstory` 文件关联",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-13",
             "completedAt": "2026-06-13",
-            "note": "mainProcessUtils.ts `findStoryFileArgument`",
+            "note": "electron-builder.config.js 閰嶇疆娉ㄥ唽",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2882,11 +2864,13 @@
             ]
           },
           {
-            "id": "M7-09",
-            "title": "electron-updater 集成",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3",
+            "id": "M7-08",
+            "title": "双击 `.mdstory` → 应用打开",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "mainProcessUtils.ts `findStoryFileArgument`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2898,11 +2882,11 @@
             ]
           },
           {
-            "id": "M7-10",
-            "title": "更新服务器配置",
+            "id": "M7-09",
+            "title": "electron-updater 集成",
             "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2914,13 +2898,11 @@
             ]
           },
           {
-            "id": "M7-11",
-            "title": "CHANGELOG.md",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-13",
-            "completedAt": "2026-06-17",
-            "note": "V0.2 更新",
+            "id": "M7-10",
+            "title": "更新服务器配置",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2932,11 +2914,13 @@
             ]
           },
           {
-            "id": "M7-12",
-            "title": "GitHub Release 草稿",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3",
+            "id": "M7-11",
+            "title": "CHANGELOG.md",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 鏇存柊",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2948,11 +2932,11 @@
             ]
           },
           {
-            "id": "M7-13",
-            "title": "安装后首次启动引导",
+            "id": "M7-12",
+            "title": "GitHub Release 草稿",
             "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2964,13 +2948,11 @@
             ]
           },
           {
-            "id": "M7-14",
-            "title": "Windows 安装包冒烟测试",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-23",
-            "completedAt": "2026-06-24",
-            "note": "packaged exe 启动、命令行打开 `.mdstory`、Graph Lab GUI 编辑、Source Drawer、导出 JSON smoke 通过",
+            "id": "M7-13",
+            "title": "安装后首次启动引导",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -2982,17 +2964,35 @@
             ]
           },
           {
-            "id": "M7-15",
-            "title": "macOS/Linux 基础冒烟测试",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "延后至 V0.3",
+            "id": "M7-14",
+            "title": "Windows 安装包冒烟测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-23",
+            "completedAt": "2026-06-24",
+            "note": "packaged exe 鍚姩銆佸懡浠よ鎵撳紑 `.mdstory`銆丟raph Lab GUI 缂栬緫銆丼ource Drawer銆佸鍑?JSON smoke 閫氳繃",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 324,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-15",
+            "title": "macOS/Linux 基础冒烟测试",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 325,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3009,14 +3009,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 304,
+            "line": 305,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M8",
-        "title": "Graph Lab Core（图优先正式入口）",
+        "title": "Graph Lab Core锛堝浘浼樺厛姝ｅ紡鍏ュ彛锛?",
         "totalTasks": 18,
         "computedCounts": {
           "complete": 17,
@@ -3033,12 +3033,48 @@
         "tasks": [
           {
             "id": "M8-01",
-            "title": "`workspaceMode: 'split' \\ | 'graphLab'` 状态与持久化",
+            "title": "`workspaceMode: 'split' \\ | 'graphLab'` 鐘舵€佷笌鎸佷箙鍖?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "`useUIStore` 持久化模式，测试桥接可读写",
+            "note": "`useUIStore` 鎸佷箙鍖栨ā寮忥紝娴嬭瘯妗ユ帴鍙鍐?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 334,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-02",
+            "title": "椤堕儴妯″紡鍒囨崲鎸夐挳涓庡揩鎹烽敭",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Toolbar Split/Graph Lab 鎸夐挳涓?`Ctrl+Shift+G`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 335,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-03",
+            "title": "Graph Lab 鍏ㄥ睆鐢诲竷澹?",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "`GraphLabWorkspace` 涓夋爮鍥句紭鍏堝竷灞€",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3050,13 +3086,13 @@
             ]
           },
           {
-            "id": "M8-02",
-            "title": "顶部模式切换按钮与快捷键",
+            "id": "M8-04",
+            "title": "鑺傜偣 palette 涓庣┖鐧界敾甯冨垱寤哄叆鍙?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Toolbar Split/Graph Lab 按钮与 `Ctrl+Shift+G`",
+            "note": "`GraphLabPalette` 鍒涘缓绔犺妭/鑺傜偣/缁撳眬涓庨噸鏂板竷灞€",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3068,13 +3104,13 @@
             ]
           },
           {
-            "id": "M8-03",
-            "title": "Graph Lab 全屏画布壳",
+            "id": "M8-05",
+            "title": "`graphEditService` 鍛戒护灞?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "`GraphLabWorkspace` 三栏图优先布局",
+            "note": "GUI 鎿嶄綔缁熶竴鐢熸垚 `.mdstory` 鏂囨湰缂栬緫骞惰蛋瑙ｆ瀽绠＄嚎",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3086,13 +3122,13 @@
             ]
           },
           {
-            "id": "M8-04",
-            "title": "节点 palette 与空白画布创建入口",
+            "id": "M8-06",
+            "title": "GUI 鍒涘缓/鍒犻櫎鑺傜偣",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "`GraphLabPalette` 创建章节/节点/结局与重新布局",
+            "note": "Palette 鍒涘缓锛孖nspector 鍒犻櫎",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3104,13 +3140,13 @@
             ]
           },
           {
-            "id": "M8-05",
-            "title": "`graphEditService` 命令层",
+            "id": "M8-07",
+            "title": "Inspector 缂栬緫鑺傜偣鏍囬銆佺珷鑺傘€佹鏂?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "GUI 操作统一生成 `.mdstory` 文本编辑并走解析管线",
+            "note": "鏀瑰悕鍚庡悓姝ラ€変腑鑺傜偣 id锛岄伩鍏?Inspector 涓㈠け涓婁笅鏂?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3122,13 +3158,13 @@
             ]
           },
           {
-            "id": "M8-06",
-            "title": "GUI 创建/删除节点",
+            "id": "M8-08",
+            "title": "GUI 鍒涘缓/缂栬緫/鍒犻櫎/鎺掑簭閫夐」",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Palette 创建，Inspector 删除",
+            "note": "鏀寔鎻忚堪銆佺洰鏍囥€佹潯浠躲€佹晥鏋溿€佷笂绉?涓嬬Щ/鍒犻櫎",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3140,13 +3176,13 @@
             ]
           },
           {
-            "id": "M8-07",
-            "title": "Inspector 编辑节点标题、章节、正文",
+            "id": "M8-09",
+            "title": "鎷栫嚎杩炴帴宸叉湁鐩爣鑺傜偣",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "改名后同步选中节点 id，避免 Inspector 丢失上下文",
+            "note": "钃濆浘寮忕嚎缂嗙儹鍖猴紱鎷栧埌宸叉湁鑺傜偣鐩存帴鍐欏洖閫夐」鐩爣",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3158,13 +3194,13 @@
             ]
           },
           {
-            "id": "M8-08",
-            "title": "GUI 创建/编辑/删除/排序选项",
+            "id": "M8-10",
+            "title": "鎷栫嚎鍒扮┖鐧藉鍒涘缓鐩爣鑺傜偣骞惰繛鎺?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "支持描述、目标、条件、效果、上移/下移/删除",
+            "note": "绌烘姇鍔ㄤ綔鑿滃崟鏀寔鍒涘缓鏅€氳妭鐐广€佸垱寤虹粨灞€鑺傜偣銆佹悳绱㈠凡鏈夎妭鐐广€佸彇娑?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3176,13 +3212,13 @@
             ]
           },
           {
-            "id": "M8-09",
-            "title": "拖线连接已有目标节点",
+            "id": "M8-11",
+            "title": "鏉′欢缂栬緫鍣ㄥ祵鍏?Inspector",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "蓝图式线缆热区；拖到已有节点直接写回选项目标",
+            "note": "Inspector 鍐呰仈缂栬緫 `[鏉′欢]`锛屼繚鐣欏師娴眰鏉′欢缂栬緫鍣?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3194,13 +3230,13 @@
             ]
           },
           {
-            "id": "M8-10",
-            "title": "拖线到空白处创建目标节点并连接",
+            "id": "M8-12",
+            "title": "鏁堟灉缂栬緫鍣?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "空投动作菜单支持创建普通节点、创建结局节点、搜索已有节点、取消",
+            "note": "Inspector 鍐呰仈缂栬緫 `[鏁堟灉]`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3212,13 +3248,13 @@
             ]
           },
           {
-            "id": "M8-11",
-            "title": "条件编辑器嵌入 Inspector",
+            "id": "M8-13",
+            "title": "鍙橀噺鍜?meta 缂栬緫鍏ュ彛",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Inspector 内联编辑 `[条件]`，保留原浮层条件编辑器",
+            "note": "Meta title/author 涓?`vars:` 绫诲瀷澹版槑缂栬緫",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3230,13 +3266,13 @@
             ]
           },
           {
-            "id": "M8-12",
-            "title": "效果编辑器",
+            "id": "M8-14",
+            "title": "鍥炬ā寮忚瘖鏂姸鎬佷笌 ProblemPanel 鑱斿姩",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Inspector 内联编辑 `[效果]`",
+            "note": "Graph Lab 澶嶇敤 ProblemPanel 涓庤瘖鏂悓姝ョ姸鎬?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3248,13 +3284,13 @@
             ]
           },
           {
-            "id": "M8-13",
-            "title": "变量和 meta 编辑入口",
+            "id": "M8-15",
+            "title": "鍙姌鍙?Source Drawer",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Meta title/author 与 `vars:` 类型声明编辑",
+            "note": "婧愭枃鏈彧璇?瀹氫綅杈呭姪鎶藉眽锛孏raph Lab 鍐呭彲灞曞紑",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3266,13 +3302,13 @@
             ]
           },
           {
-            "id": "M8-14",
-            "title": "图模式诊断状态与 ProblemPanel 联动",
+            "id": "M8-16",
+            "title": "GUI 鎿嶄綔涓?Monaco 鎾ら攢鏍堝悓姝?",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Graph Lab 复用 ProblemPanel 与诊断同步状态",
+            "note": "浼樺厛 `executeEdits()`锛屾棤 editor 瀹炰緥鏃?fallback 鍒?store",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3284,13 +3320,13 @@
             ]
           },
           {
-            "id": "M8-15",
-            "title": "可折叠 Source Drawer",
+            "id": "M8-17",
+            "title": "Graph Lab 瀹屾暣鐢ㄦ埛鏃呯▼ E2E",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "源文本只读/定位辅助抽屉，Graph Lab 内可展开",
+            "note": "`graph-lab.e2e.spec.ts` 瑕嗙洊鍒涘缓銆佺紪杈戙€佽妭鐐逛綅缃寔涔呭寲銆佹嫋绾垮埌宸叉湁鑺傜偣銆佺┖鎶曞垱寤鸿妭鐐广€佹柇寮€绾跨紗銆佸彉閲忋€丼ource Drawer銆佸鍑?JSON",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3302,54 +3338,18 @@
             ]
           },
           {
-            "id": "M8-16",
-            "title": "GUI 操作与 Monaco 撤销栈同步",
-            "status": "complete",
-            "rawStatus": "✅",
+            "id": "M8-18",
+            "title": "鍙戝竷璇存槑銆佸府鍔╂枃妗堛€佸叕寮€涓嬭浇椤垫敹灏?",
+            "status": "in_progress",
+            "rawStatus": "馃數",
             "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "优先 `executeEdits()`，无 editor 实例时 fallback 到 store",
+            "note": "Graph Lab 宸茶浆姝ｅ紡鍏ュ彛锛涘叕寮€鍙戝竷鏂囨寰呴殢涓嬭浇椤电粺涓€鏀跺熬",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 351,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-17",
-            "title": "Graph Lab 完整用户旅程 E2E",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "`graph-lab.e2e.spec.ts` 覆盖创建、编辑、节点位置持久化、拖线到已有节点、空投创建节点、断开线缆、变量、Source Drawer、导出 JSON",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 352,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-18",
-            "title": "发布说明、帮助文案、公开下载页收尾",
-            "status": "in_progress",
-            "rawStatus": "🔵",
-            "startedAt": "2026-06-24",
-            "note": "Graph Lab 已转正式入口；公开发布文案待随下载页统一收尾",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 353,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3360,14 +3360,14 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 328,
+            "line": 329,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M9",
-        "title": "Official Theme Architecture（官方深度主题架构）",
+        "title": "Official Theme Architecture锛堝畼鏂规繁搴︿富棰樻灦鏋勶級",
         "totalTasks": 8,
         "computedCounts": {
           "complete": 7,
@@ -3384,12 +3384,84 @@
         "tasks": [
           {
             "id": "M9-01",
-            "title": "OfficialThemeDefinition 合同",
+            "title": "OfficialThemeDefinition 鍚堝悓",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-25",
             "completedAt": "2026-06-25",
-            "note": "manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta、React slots",
+            "note": "manifest銆乼okens銆丮onaco銆乤ssets銆乴ayoutRecipe銆乵otionRecipe銆乻toreMeta銆丷eact slots",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 361,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-02",
+            "title": "瀹樻柟涓婚 provider",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "`activeOfficialThemeId`銆佹棫 `themePack` 杩佺Щ銆丆SS var/data attribute銆丮onaco 娉ㄥ唽",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 362,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-03",
+            "title": "鍙欎簨宸ヤ綔鍙板畼鏂逛富棰?",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "`plotflow-narrative-workbench`锛氭殩绾稿伐浣滃彴 + 钃濆浘绾跨紗",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 363,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-04",
+            "title": "澶滆埅钃濆浘瀹樻柟涓婚",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "`plotflow-neon-dossier`锛氫綆鍏夌紪杈戝 + 鍙戝厜绾跨紗",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 364,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-05",
+            "title": "Theme Slots 鎺ュ叆 GraphCanvas",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "鑺傜偣銆佺嚎缂嗐€侀瑙?slot 闅忓畼鏂逛富棰樺垏鎹紱涓嶅啀鍥哄畾鏃?`StoryNodeCard`/`StoryEdge`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3401,13 +3473,13 @@
             ]
           },
           {
-            "id": "M9-02",
-            "title": "官方主题 provider",
+            "id": "M9-06",
+            "title": "HomeSurface 涓?ThemeCenter",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-25",
             "completedAt": "2026-06-25",
-            "note": "`activeOfficialThemeId`、旧 `themePack` 迁移、CSS var/data attribute、Monaco 注册",
+            "note": "璧峰椤典富棰樻ā鍧椼€乀opbar 涓婚鍏ュ彛銆佸畼鏂逛富棰樺惎鐢?閲嶇疆/鍟嗗簵璺宠浆锛涗笉鏆撮湶瀵煎叆涓婚鍖?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3419,13 +3491,13 @@
             ]
           },
           {
-            "id": "M9-03",
-            "title": "叙事工作台官方主题",
+            "id": "M9-07",
+            "title": "瀹樼綉瀹樻柟涓婚灞曠ず",
             "status": "complete",
-            "rawStatus": "✅",
+            "rawStatus": "鉁?",
             "startedAt": "2026-06-25",
             "completedAt": "2026-06-25",
-            "note": "`plotflow-narrative-workbench`：暖纸工作台 + 蓝图线缆",
+            "note": "棣栭〉灞曠ず `鍙欎簨宸ヤ綔鍙癭 涓?`澶滆埅钃濆浘`锛屽紑鍙戦〉鍙ｅ緞鏀逛负瀹樻柟涓婚",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3437,89 +3509,17 @@
             ]
           },
           {
-            "id": "M9-04",
-            "title": "夜航蓝图官方主题",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-25",
-            "completedAt": "2026-06-25",
-            "note": "`plotflow-blueprint-nightwatch`：低光编辑室 + 发光线缆",
+            "id": "M9-08",
+            "title": "绀惧尯涓婚/鏈湴瀵煎叆/鍐呯疆甯傚満",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "鏆備笉寮€鏀撅紱鍚庣画鍙︾珛涓婚甯傚満涓庢巿鏉冭寖鍥?",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 368,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M9-05",
-            "title": "Theme Slots 接入 GraphCanvas",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-25",
-            "completedAt": "2026-06-25",
-            "note": "节点、线缆、预览 slot 随官方主题切换；不再固定旧 `StoryNodeCard`/`StoryEdge`",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 369,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M9-06",
-            "title": "HomeSurface 与 ThemeCenter",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-25",
-            "completedAt": "2026-06-25",
-            "note": "起始页主题模块、Topbar 主题入口、官方主题启用/重置/商店跳转；不暴露导入主题包",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 370,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M9-07",
-            "title": "官网官方主题展示",
-            "status": "complete",
-            "rawStatus": "✅",
-            "startedAt": "2026-06-25",
-            "completedAt": "2026-06-25",
-            "note": "首页展示 `叙事工作台` 与 `夜航蓝图`，开发页口径改为官方主题",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 371,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M9-08",
-            "title": "社区主题/本地导入/内置市场",
-            "status": "skipped",
-            "rawStatus": "⏭️",
-            "note": "暂不开放；后续另立主题市场与授权范围",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 372,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3530,7 +3530,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 357,
+            "line": 355,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4753,7 +4753,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 40,
+            "line": 41,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4771,7 +4771,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 62,
+            "line": 63,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4789,7 +4789,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 105,
+            "line": 106,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4807,7 +4807,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 130,
+            "line": 131,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4825,7 +4825,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 169,
+            "line": 170,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4843,7 +4843,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 236,
+            "line": 237,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4861,7 +4861,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 266,
+            "line": 267,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4879,7 +4879,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 304,
+            "line": 305,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4891,7 +4891,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 328,
+            "line": 329,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4903,7 +4903,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 357,
+            "line": 355,
             "capturedAt": "2026-06-25"
           }
         ]

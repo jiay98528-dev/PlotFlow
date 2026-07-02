@@ -33,6 +33,7 @@ import {
   NGramEngine,
 } from '@plotflow/core';
 import { useUIStore } from '../../stores/uiStore';
+import { useAppText } from '../../i18n/appI18n';
 
 // ============================================================================
 // 类型定义
@@ -70,14 +71,6 @@ type ConfirmDialogType = 'delete' | 'disable' | null;
 
 /** 总计最大限制 (50MB) */
 const TOTAL_MAX_SIZE_BYTES = 50 * 1024 * 1024;
-
-/** 状态中文标签 */
-const STATUS_LABELS: Record<CorpusEntryStatus, string> = {
-  active: '已启用',
-  disabled: '已禁用',
-  processing: '处理中...',
-  error: '导入失败',
-};
 
 /** 状态颜色映射 */
 const STATUS_COLORS: Record<CorpusEntryStatus, string> = {
@@ -123,15 +116,28 @@ function formatFileSize(bytes: number): string {
 /**
  * 格式化时间为本地字符串。
  */
-function formatTime(timestamp: number): string {
+function formatTime(timestamp: number, locale: string): string {
   const date = new Date(timestamp);
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function statusLabel(status: CorpusEntryStatus, text: ReturnType<typeof useAppText>): string {
+  switch (status) {
+    case 'active':
+      return text('corpus.active');
+    case 'disabled':
+      return text('corpus.disabled');
+    case 'processing':
+      return text('corpus.processing');
+    case 'error':
+      return text('corpus.error');
+  }
 }
 
 /**
@@ -149,6 +155,8 @@ export function CorpusManager(): React.ReactElement | null {
   const isOpen = useUIStore((s) => s.isCorpusManagerOpen);
   const closeCorpusManager = useUIStore((s) => s.closeCorpusManager);
   const setStatusMessage = useUIStore((s) => s.setStatusMessage);
+  const language = useUIStore((s) => s.language);
+  const text = useAppText();
 
   // ── 语料源列表 ──
   const [sources, setSources] = useState<CorpusSourceItem[]>(() => {
@@ -232,7 +240,7 @@ export function CorpusManager(): React.ReactElement | null {
 
     // 检查总计大小
     if (totalInfo.totalSize >= TOTAL_MAX_SIZE_BYTES) {
-      setStatusMessage(`语料总计大小已达上限 (${formatFileSize(TOTAL_MAX_SIZE_BYTES)})`);
+      setStatusMessage(text('corpus.sizeLimitReached', { size: formatFileSize(TOTAL_MAX_SIZE_BYTES) }));
       return;
     }
 
@@ -243,7 +251,7 @@ export function CorpusManager(): React.ReactElement | null {
       const fileAPI = window.plotflow?.file;
       if (!fileAPI) {
         // 开发降级：模拟导入
-        setStatusMessage('模拟导入 — Electron IPC 不可用');
+        setStatusMessage(text('corpus.ipcUnavailable'));
         setIsImporting(false);
         return;
       }
@@ -257,14 +265,14 @@ export function CorpusManager(): React.ReactElement | null {
       // 1. 先尝试通过 saveExport 风格的通用对话框（需扩展 preload）
       // 2. 不可用时降级为从剪贴板或手动输入
 
-      setStatusMessage('请使用文本导入功能（暂未集成通用文件对话框）');
+      setStatusMessage(text('corpus.genericImportUnavailable'));
       setIsImporting(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setStatusMessage(`导入失败: ${message}`);
+      setStatusMessage(text('corpus.importFailed', { message }));
       setIsImporting(false);
     }
-  }, [isImporting, totalInfo.totalSize, setStatusMessage]);
+  }, [isImporting, totalInfo.totalSize, setStatusMessage, text]);
 
   // ========================================================================
   // 从文本导入（开发/降级用）
@@ -298,13 +306,13 @@ export function CorpusManager(): React.ReactElement | null {
 
       setSources((prev) => [...prev, newItem]);
       setStatusMessage(
-        `导入完成: 新增 ${result.newEntriesCount} 条, 跳过 ${result.skippedDuplicates} 条重复`,
+        text('corpus.importDone', { added: result.newEntriesCount, skipped: result.skippedDuplicates }),
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setStatusMessage(`导入失败: ${message}`);
+      setStatusMessage(text('corpus.importFailed', { message }));
     }
-  }, [isImporting, setStatusMessage]);
+  }, [isImporting, setStatusMessage, text]);
 
   // ========================================================================
   // 切换禁用状态
@@ -347,14 +355,14 @@ export function CorpusManager(): React.ReactElement | null {
           s.id === item.id ? { ...s, status: 'disabled' as CorpusEntryStatus } : s,
         ),
       );
-      setStatusMessage(`已禁用: ${item.fileName}`);
+      setStatusMessage(text('corpus.disabledFile', { file: item.fileName }));
     } else if (type === 'delete') {
       setSources((prev) => prev.filter((s) => s.id !== item.id));
-      setStatusMessage(`已删除: ${item.fileName}`);
+      setStatusMessage(text('corpus.deletedFile', { file: item.fileName }));
     }
 
     setConfirmDialog(null);
-  }, [confirmDialog, setStatusMessage]);
+  }, [confirmDialog, setStatusMessage, text]);
 
   // ========================================================================
   // 取消确认
@@ -382,10 +390,10 @@ export function CorpusManager(): React.ReactElement | null {
           s.id === item.id ? { ...s, status: 'active' as CorpusEntryStatus } : s,
         ),
       );
-      setStatusMessage(`已重新处理: ${item.fileName}`);
+      setStatusMessage(text('corpus.reprocessedFile', { file: item.fileName }));
       reprocessTimerRef.current = null;
     }, 1000);
-  }, [setStatusMessage]);
+  }, [setStatusMessage, text]);
 
   // ========================================================================
   // 点击遮罩层关闭
@@ -417,7 +425,7 @@ export function CorpusManager(): React.ReactElement | null {
       style={overlayStyle}
       role="dialog"
       aria-modal="true"
-      aria-label="语料库管理"
+      aria-label={text('corpus.aria')}
     >
       <div
         className="corpus-manager__panel"
@@ -434,14 +442,14 @@ export function CorpusManager(): React.ReactElement | null {
       >
         {/* ── 标题栏 ── */}
         <div style={headerStyle}>
-          <span style={headerTitleStyle}>语料库管理</span>
+          <span style={headerTitleStyle}>{text('corpus.title')}</span>
           <span style={badgeStyle}>
-            {totalInfo.total} 个源
+            {text('corpus.sourceCount', { count: totalInfo.total })}
           </span>
           <button
             type="button"
             onClick={closeCorpusManager}
-            title="关闭语料管理"
+            title={text('common.close')}
             style={closeButtonStyle}
           >
             ✕
@@ -451,16 +459,16 @@ export function CorpusManager(): React.ReactElement | null {
         {/* ── 统计概览 ── */}
         <div style={statsBarStyle}>
           <span style={statItemStyle}>
-            已启用: <strong style={statValueStyle}>{totalInfo.activeCount}</strong>
+            {text('corpus.active')}: <strong style={statValueStyle}>{totalInfo.activeCount}</strong>
           </span>
           <span style={statItemStyle}>
-            已禁用: <strong style={statValueStyle}>{totalInfo.disabledCount}</strong>
+            {text('corpus.disabled')}: <strong style={statValueStyle}>{totalInfo.disabledCount}</strong>
           </span>
           <span style={statItemStyle}>
-            总计大小: <strong style={statValueStyle}>{formatFileSize(totalInfo.totalSize)}</strong>
+            {text('corpus.totalSize')}: <strong style={statValueStyle}>{formatFileSize(totalInfo.totalSize)}</strong>
           </span>
           <span style={statItemStyle}>
-            语料条目: <strong style={statValueStyle}>{totalInfo.totalEntries}</strong>
+            {text('corpus.entries')}: <strong style={statValueStyle}>{totalInfo.totalEntries}</strong>
           </span>
         </div>
 
@@ -473,20 +481,20 @@ export function CorpusManager(): React.ReactElement | null {
             disabled={isImporting || totalInfo.totalSize >= TOTAL_MAX_SIZE_BYTES}
             title={
               totalInfo.totalSize >= TOTAL_MAX_SIZE_BYTES
-                ? '语料总计大小已达上限 (50MB)'
-                : '导入语料文件'
+                ? text('corpus.sizeLimitReached', { size: '50MB' })
+                : text('corpus.importFileTitle')
             }
           >
-            {isImporting ? '导入中...' : '导入语料'}
+            {isImporting ? text('corpus.importing') : text('corpus.importCorpus')}
           </button>
           <button
             type="button"
             onClick={handleImportFromText}
             style={secondaryButtonStyle}
             disabled={isImporting}
-            title="从文本导入（开发调试用）"
+            title={text('corpus.importTextTitle')}
           >
-            从文本导入
+            {text('corpus.importFromText')}
           </button>
         </div>
 
@@ -496,9 +504,9 @@ export function CorpusManager(): React.ReactElement | null {
             /* 空状态 */
             <div style={emptyStyle}>
               <span style={emptyIconStyle}>📂</span>
-              <span>暂无导入的语料</span>
+              <span>{text('corpus.empty')}</span>
               <span style={emptyHintStyle}>
-                点击"导入语料"添加 .txt / .mdstory / .csv 文件
+                {text('corpus.emptyHint')}
               </span>
             </div>
           ) : (
@@ -522,9 +530,9 @@ export function CorpusManager(): React.ReactElement | null {
                   <div style={itemMetaStyle}>
                     <span style={metaItemStyle}>{formatFileSize(item.size)}</span>
                     <span style={metaDividerStyle}>|</span>
-                    <span style={metaItemStyle}>{item.entryCount} 条</span>
+                    <span style={metaItemStyle}>{text('corpus.itemEntries', { count: item.entryCount })}</span>
                     <span style={metaDividerStyle}>|</span>
-                    <span style={metaItemStyle}>{formatTime(item.importedAt)}</span>
+                    <span style={metaItemStyle}>{formatTime(item.importedAt, language)}</span>
                   </div>
                 </div>
 
@@ -545,7 +553,7 @@ export function CorpusManager(): React.ReactElement | null {
                               : 'var(--color-warning-subtle, rgba(249,168,37,0.08))',
                     }}
                   >
-                    {STATUS_LABELS[item.status]}
+                    {statusLabel(item.status, text)}
                   </span>
 
                   {/* 操作按钮 */}
@@ -555,31 +563,31 @@ export function CorpusManager(): React.ReactElement | null {
                         type="button"
                         onClick={() => handleToggleDisable(item)}
                         style={actionBtnStyle}
-                        title={item.status === 'disabled' ? '启用' : '禁用'}
+                        title={item.status === 'disabled' ? text('corpus.enable') : text('corpus.disable')}
                       >
-                        {item.status === 'disabled' ? '启用' : '禁用'}
+                        {item.status === 'disabled' ? text('corpus.enable') : text('corpus.disable')}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleReprocess(item)}
                         style={actionBtnStyle}
-                        title="重新处理（重新分词和训练）"
+                        title={text('corpus.reprocessTitle')}
                       >
-                        重新处理
+                        {text('corpus.reprocess')}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item)}
                         style={{ ...actionBtnStyle, color: 'var(--color-error, #C62828)' }}
-                        title="删除此语料源（不可恢复）"
+                        title={text('corpus.deleteTitle')}
                       >
-                        删除
+                        {text('corpus.delete')}
                       </button>
                     </div>
                   )}
                   {item.status === 'processing' && (
                     <span style={processingHintStyle}>
-                      正在处理...
+                      {text('corpus.processingHint')}
                     </span>
                   )}
                 </div>
@@ -590,7 +598,7 @@ export function CorpusManager(): React.ReactElement | null {
 
         {/* ── 提示信息 ── */}
         <div style={footerHintStyle}>
-          <span>单文件 ≤ 10MB，总计 ≤ 50MB。支持 .txt / .mdstory / .csv 格式。</span>
+          <span>{text('corpus.footer')}</span>
         </div>
       </div>
 
@@ -602,33 +610,33 @@ export function CorpusManager(): React.ReactElement | null {
             style={confirmDialogStyle}
             role="alertdialog"
             aria-modal="true"
-            aria-label="确认操作"
+            aria-label={text('corpus.confirmAria')}
           >
             <div style={confirmHeaderStyle}>
               <span style={confirmIconStyle}>
                 {confirmDialog.type === 'delete' ? '⚠️' : '❓'}
               </span>
               <span style={confirmTitleStyle}>
-                {confirmDialog.type === 'delete' ? '删除语料源' : '禁用语料源'}
+                {confirmDialog.type === 'delete' ? text('corpus.confirmDeleteTitle') : text('corpus.confirmDisableTitle')}
               </span>
             </div>
             <div style={confirmBodyStyle}>
               {confirmDialog.type === 'delete' ? (
                 <>
                   <p style={confirmMsgStyle}>
-                    确定要删除 <strong>{confirmDialog.item.fileName}</strong> 吗？
+                    {text('corpus.confirmDelete', { file: confirmDialog.item.fileName })}
                   </p>
                   <p style={confirmWarningStyle}>
-                    此操作<strong>不可恢复</strong>。该语料源的所有条目将被从引擎中移除。
+                    {text('corpus.deleteWarning')}
                   </p>
                 </>
               ) : (
                 <>
                   <p style={confirmMsgStyle}>
-                    确定要禁用 <strong>{confirmDialog.item.fileName}</strong> 吗？
+                    {text('corpus.confirmDisable', { file: confirmDialog.item.fileName })}
                   </p>
                   <p style={confirmHintStyle}>
-                    禁用后该语料源不会出现在补全建议中，但仍保留数据，可随时重新启用。
+                    {text('corpus.disableHint')}
                   </p>
                 </>
               )}
@@ -639,7 +647,7 @@ export function CorpusManager(): React.ReactElement | null {
                 onClick={handleCancelConfirm}
                 style={cancelButtonStyle}
               >
-                取消
+                {text('common.cancel')}
               </button>
               <button
                 type="button"
@@ -652,7 +660,7 @@ export function CorpusManager(): React.ReactElement | null {
                       : 'var(--color-accent, #A0703A)',
                 }}
               >
-                {confirmDialog.type === 'delete' ? '确认删除' : '确认禁用'}
+                {confirmDialog.type === 'delete' ? text('corpus.confirmDeleteAction') : text('corpus.confirmDisableAction')}
               </button>
             </div>
           </div>

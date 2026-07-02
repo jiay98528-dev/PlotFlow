@@ -5,6 +5,12 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "test:e2e": "playwright test --config e2e/playwright.config.ts --workers=1",
+    "test:e2e:blackbox": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1",
+    "test:e2e:unpacked": "set PLOTFLOW_BLACKBOX_TARGET=winUnpacked&& playwright test --config e2e-blackbox/playwright.config.ts --workers=1",
+    "test:e2e:installed": "set PLOTFLOW_BLACKBOX_TARGET=installedExe&& playwright test --config e2e-blackbox/playwright.config.ts --workers=1",
+    "test:e2e:blackbox:journey": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep @journey",
+    "test:e2e:blackbox:edge": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep @edge",
+    "test:e2e:blackbox:perf": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep @perf",
     "test:e2e:ghost": "playwright test --config playwright.config.ts"
   },
   "dependencies": {

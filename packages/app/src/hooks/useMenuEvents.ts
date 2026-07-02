@@ -21,14 +21,19 @@ import { useEffect } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { useStoryStore } from '../stores/storyStore';
-import { clearPendingSave, saveOrSaveAs } from '../services/autoSaveService';
+import { clearPendingSave, saveAsCurrentFile, saveOrSaveAs } from '../services/autoSaveService';
 import { FileService } from '../services/fileService';
+import { appT } from '../i18n/appI18n';
 
 // ============================================================================
 // 模块级实例
 // ============================================================================
 
 const fileService = new FileService();
+
+function menuText(key: string, params?: Readonly<Record<string, string | number>>): string {
+  return appT(key, params, useUIStore.getState().language);
+}
 
 // ============================================================================
 // Hook
@@ -51,16 +56,16 @@ const fileService = new FileService();
 export function useMenuEvents(): void {
   useEffect(() => {
     if (!window.plotflow?.menu) {
-      useUIStore.getState().setStatusMessage('Browser preview mode');
+      useUIStore.getState().setStatusMessage(menuText('menu.browserPreview'));
       return undefined;
     }
 
     const menu = window.plotflow.menu;
 
     // ── 统一错误处理 ──
-    function handleError(context: string, error: unknown): void {
+    function handleError(contextKey: string, error: unknown): void {
       const message = error instanceof Error ? error.message : String(error);
-      useUIStore.getState().setStatusMessage(`${context}: ${message}`);
+      useUIStore.getState().setStatusMessage(`${menuText(contextKey)}: ${message}`);
     }
 
     // ====================================================================
@@ -80,15 +85,16 @@ export function useMenuEvents(): void {
         if (editor.isDirty) {
           const choice = await window.plotflow.dialog.confirm({
             type: 'warning',
-            message: '放弃未保存的更改？',
+            message: menuText('file.unsavedTitle'),
             detail: editor.filePath
-              ? `"${editor.filePath}" 有未保存的修改。打开其他文件前是否保存？`
-              : '未命名的文件有未保存的修改。打开其他文件前是否保存？',
-            buttons: ['保存并打开', '不保存并打开', '取消'],
+              ? menuText('file.openDirtyNamed', { path: editor.filePath })
+              : menuText('file.openDirtyUnnamed'),
+            buttons: [menuText('home.saveAndOpen'), menuText('home.discardAndOpen'), menuText('common.cancel')],
           });
 
           if (choice === 0) {
-            await saveOrSaveAs();
+            const saved = await saveOrSaveAs();
+            if (!saved) return;
           } else if (choice === 2) {
             return; // 取消打开
           }
@@ -111,10 +117,10 @@ export function useMenuEvents(): void {
         // 清除旧 AST 数据（新内容将在解析后自动更新）
         useStoryStore.getState().clearParseData();
         // 状态栏反馈
-        useUIStore.getState().setStatusMessage(`已打开: ${result.path}`);
+        useUIStore.getState().setStatusMessage(menuText('status.opened', { path: result.path }));
       } catch (error) {
         // 用户取消操作属正常行为，不显示为"失败"
-        handleError('打开文件', error);
+        handleError('menu.openError', error);
       }
     });
 
@@ -123,19 +129,15 @@ export function useMenuEvents(): void {
         // P0-3: 使用 saveOrSaveAs 替代 forceSave，新文件自动弹出另存为对话框
         await saveOrSaveAs();
       } catch (error) {
-        handleError('保存失败', error);
+        handleError('menu.saveError', error);
       }
     });
 
     menu.onEvent('menu:file:saveAs', async () => {
       try {
-        const editor = useEditorStore.getState();
-        const path = await fileService.saveFileAs(editor.content);
-        editor.setFilePath(path);
-        editor.markSaved();
-        useUIStore.getState().setStatusMessage(`已保存至: ${path}`);
+        await saveAsCurrentFile();
       } catch (error) {
-        handleError('另存为', error);
+        handleError('menu.saveAsError', error);
       }
     });
 
@@ -179,7 +181,7 @@ export function useMenuEvents(): void {
       const nextPanel = ui.activeRightPanel === 'graph' ? 'none' : 'graph';
       ui.setActiveRightPanel(nextPanel);
       useUIStore.getState().setStatusMessage(
-        nextPanel === 'graph' ? '分支图: 显示' : '分支图: 隐藏',
+        nextPanel === 'graph' ? menuText('menu.graphShown') : menuText('menu.graphHidden'),
       );
     });
 
@@ -213,12 +215,12 @@ export function useMenuEvents(): void {
 
     menu.onEvent('menu:help:about', () => {
       // M7 启用：使用 dialog.showMessageBox 显示完整关于信息
-      useUIStore.getState().setStatusMessage('PlotFlow V0.1 — 叙事分支管理工具');
+      useUIStore.getState().setStatusMessage(menuText('menu.about'));
     });
 
     menu.onEvent('menu:help:docs', () => {
       // M7 启用：使用 shell.openExternal 或 shell.openPath 打开文档
-      useUIStore.getState().setStatusMessage('帮助文档 — 请访问 PlotFlow GitHub 仓库');
+      useUIStore.getState().setStatusMessage(menuText('menu.docs'));
     });
 
     // ── 组件卸载时清理所有监听器 ──

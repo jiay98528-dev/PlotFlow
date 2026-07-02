@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStory, type PlotFlowData, type StoryNode } from '@plotflow/core';
+import { parseStory, validateAll, type PlotFlowData, type StoryNode } from '@plotflow/core';
 import {
   addOptionText,
   createNodeAndConnectText,
@@ -79,6 +79,18 @@ describe('graphEditService text commands', () => {
     expect(result.content).toContain('广场上有一口旧井。');
     expect(result.content).toContain('[选项] 去森林 -> 节点：森林');
     expect(findNode(result.content, '村口广场').options).toHaveLength(2);
+  });
+
+  it('renames incoming option targets when renaming a referenced node', () => {
+    const forest = findNode(BASE_STORY, '森林');
+    const result = updateNodeText(BASE_STORY, forest, { title: '深林营地' });
+
+    expect(result.content).toContain('## 节点：深林营地');
+    expect(result.content).toContain('[选项] 去森林 -> 节点：深林营地');
+    expect(result.content).not.toContain('-> 节点：森林');
+
+    const validation = validateAll(parse(result.content));
+    expect(validation.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('E001');
   });
 
   it('adds, edits, reorders and deletes options through source text patches', () => {

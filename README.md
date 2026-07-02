@@ -117,7 +117,7 @@ PlotFlow/
 
 详见 [`spec/milestones.md`](spec/milestones.md)
 
-当前 M0-M7 历史总进度见 [`spec/progress.md`](spec/progress.md)：132/142 项完成（92.96%），9 项延后，1 项移除。发行门禁当前本地通过：默认 app E2E 为 39/39 passed；`pnpm audit --audit-level moderate` 无已知漏洞；Windows NSIS 正式包与 packaged smoke 已通过。M8 Graph Lab Core 是新增图优先范围，不混入旧 142 项统计；当前 17/18，剩余发布说明/帮助文案收尾。
+Current M0-M7 historical progress is tracked in [spec/progress.md](spec/progress.md): 132/142 complete, 9 deferred, 1 removed. As of 2026-07-01, the latest save-flow source fix has passed full source integration E2E (49/49) and source blackbox (10 passed / 4 packaged-or-installed skipped). The Windows NSIS package, unpacked blackbox, installed blackbox, and manual patrol must still be rerun before any release-candidate claim. M8 Graph Lab Core remains tracked separately from the historical 142 tasks.
 
 ---
 

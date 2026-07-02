@@ -134,6 +134,10 @@ contextBridge.exposeInMainWorld('plotflow', {
       menuListeners.forEach((remove) => remove());
       menuListeners.clear();
     },
+
+    setLanguage: (language: 'zh-CN' | 'en-US'): void => {
+      ipcRenderer.send('menu:setLanguage', language);
+    },
   },
 
   theme: {

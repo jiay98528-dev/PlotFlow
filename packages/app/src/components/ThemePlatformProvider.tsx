@@ -69,7 +69,7 @@ export function ThemePlatformProvider({ children }: ThemePlatformProviderProps):
     const installed = await window.plotflow?.theme?.listOfficialInstalled?.();
     let changed = false;
     for (const summary of installed ?? []) {
-      const descriptor = getInstalledOfficialThemeDescriptor(summary);
+      const descriptor = await getInstalledOfficialThemeDescriptor(summary);
       if (!descriptor) continue;
       registerTheme(descriptor);
       changed = true;

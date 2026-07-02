@@ -11,7 +11,6 @@ import {
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react';
-import { t } from '@plotflow/core';
 import { MonacoEditor } from '../components/editor/MonacoEditor';
 import { OutlinePanel } from '../components/layout/OutlinePanel';
 import { GraphCanvas } from '../components/branch-graph/GraphCanvas';
@@ -35,6 +34,7 @@ import { HomeSurface } from '../components/home/HomeSurface';
 import { clearPendingSave, saveOrSaveAs } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
+import { useAppText } from '../i18n/appI18n';
 
 // ============================================================================
 // P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
@@ -51,7 +51,7 @@ window.__getEditorDirtyState__ = () => {
 };
 
 window.__forceSave__ = async () => {
-  await saveOrSaveAs();
+  return saveOrSaveAs();
 };
 
 /**
@@ -91,6 +91,7 @@ function AppContent(): React.ReactElement {
   const workspaceMode = useUIStore((state) => state.workspaceMode);
   const setWorkspaceMode = useUIStore((state) => state.setWorkspaceMode);
   const toggleWorkspaceMode = useUIStore((state) => state.toggleWorkspaceMode);
+  const text = useAppText();
 
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
@@ -172,17 +173,18 @@ function AppContent(): React.ReactElement {
       if (editor.isDirty) {
         const choice = await window.plotflow.dialog.confirm({
           type: 'warning',
-          message: '当前文件有未保存修改',
+          message: text('file.unsavedTitle'),
           detail: editor.filePath
-            ? `"${editor.filePath}" 有未保存修改。打开新文件前是否保存？`
-            : '未命名文件有未保存修改。打开新文件前是否保存？',
-          buttons: ['保存并打开', '不保存并打开', '取消'],
+            ? text('file.openDirtyNamed', { path: editor.filePath })
+            : text('file.openDirtyUnnamed'),
+          buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
         });
 
         if (cancelled) return;
 
         if (choice === 0) {
-          await saveOrSaveAs();
+          const saved = await saveOrSaveAs();
+          if (!saved) return;
         } else if (choice === 2) {
           return; // 鍙栨秷鎵撳紑
         }
@@ -203,13 +205,13 @@ function AppContent(): React.ReactElement {
       freshEditor.markSaved();
       parsePipelineNow(content);
       setHomeSurfaceOpen(false);
-      setStatusMessage(`已打开: ${filePath}`);
+      setStatusMessage(text('status.opened', { path: filePath }));
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [setStatusMessage]);
+  }, [setHomeSurfaceOpen, setStatusMessage, text]);
 
   // P0-6: 杩愯鏃剁洃鍚郴缁熸枃浠舵墦寮€閫氱煡锛堝簲鐢ㄥ凡杩愯锛岀敤鎴峰弻鍑?.mdstory 鏂囦欢鏃惰Е鍙戯級
   useEffect(() => {
@@ -222,15 +224,16 @@ function AppContent(): React.ReactElement {
       if (editor.isDirty) {
         const choice = await window.plotflow.dialog.confirm({
           type: 'warning',
-          message: '当前文件有未保存修改',
+          message: text('file.unsavedTitle'),
           detail: editor.filePath
-            ? `"${editor.filePath}" 有未保存修改。打开新文件前是否保存？`
-            : '未命名文件有未保存修改。打开新文件前是否保存？',
-          buttons: ['保存并打开', '不保存并打开', '取消'],
+            ? text('file.openDirtyNamed', { path: editor.filePath })
+            : text('file.openDirtyUnnamed'),
+          buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
         });
 
         if (choice === 0) {
-          await saveOrSaveAs();
+          const saved = await saveOrSaveAs();
+          if (!saved) return;
         } else if (choice === 2) {
           return; // 鍙栨秷鎵撳紑
         }
@@ -239,13 +242,13 @@ function AppContent(): React.ReactElement {
 
       // 閫氳繃 IPC 璇诲彇鏂囦欢鍐呭
       if (!window.plotflow?.file?.readByPath) {
-        setStatusMessage('读取文件失败: IPC 接口不可用');
+        setStatusMessage(text('file.readIpcUnavailable'));
         return;
       }
 
       const result = await window.plotflow.file.readByPath(filePath);
       if (!result) {
-        setStatusMessage(`无法读取文件: ${filePath}`);
+        setStatusMessage(text('file.cannotRead', { path: filePath }));
         return;
       }
 
@@ -261,11 +264,11 @@ function AppContent(): React.ReactElement {
       freshEditor.markSaved();
       parsePipelineNow(result.content);
       setHomeSurfaceOpen(false);
-      setStatusMessage(`已打开: ${result.filePath}`);
+      setStatusMessage(text('status.opened', { path: result.filePath }));
     });
 
     return cleanup;
-  }, [setStatusMessage]);
+  }, [setHomeSurfaceOpen, setStatusMessage, text]);
 
   const handleTemplateSelected = useCallback(
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
@@ -275,15 +278,16 @@ function AppContent(): React.ReactElement {
       if (editor.isDirty) {
         const choice = await window.plotflow.dialog.confirm({
           type: 'warning',
-          message: '当前文件有未保存修改',
+          message: text('file.unsavedTitle'),
           detail: editor.filePath
-            ? `"${editor.filePath}" 有未保存修改。创建新文件前是否保存？`
-            : '未命名文件有未保存修改。创建新文件前是否保存？',
-          buttons: ['保存并新建', '不保存并新建', '取消'],
+            ? text('file.newDirtyNamed', { path: editor.filePath })
+            : text('file.newDirtyUnnamed'),
+          buttons: [text('file.saveAndNew'), text('file.discardAndNew'), text('common.cancel')],
         });
 
         if (choice === 0) {
-          await saveOrSaveAs();
+          const saved = await saveOrSaveAs();
+          if (!saved) return;
         } else if (choice === 2) {
           return; // 鍙栨秷鏂板缓
         }
@@ -302,9 +306,9 @@ function AppContent(): React.ReactElement {
       freshEditor.setContent(template);
       parsePipelineNow(template);
       setHomeSurfaceOpen(false);
-      setStatusMessage(`新建: ${meta.title}`);
+      setStatusMessage(text('file.created', { title: meta.title }));
     },
-    [setStatusMessage],
+    [setHomeSurfaceOpen, setStatusMessage, text],
   );
 
   const handleLanguageChange = useCallback(
@@ -315,7 +319,17 @@ function AppContent(): React.ReactElement {
   );
 
   useEffect(() => {
+    window.plotflow?.menu?.setLanguage(language);
+  }, [language]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void saveOrSaveAs();
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'g') {
         event.preventDefault();
         toggleWorkspaceMode();
@@ -342,6 +356,7 @@ function AppContent(): React.ReactElement {
         clearPendingSave();
 
         const editor = useEditorStore.getState();
+        editor.setFilePath(null);
         editor.setDiagnostics([]);
         editor.setActiveNodeId(null);
         editor.setCursorPosition(1, 1);
@@ -406,7 +421,7 @@ function AppContent(): React.ReactElement {
   const showSplitGraph = activeRightPanel === 'graph' && viewMode === 'split';
   const showMinimap = activeRightPanel === 'graph' && viewMode === 'minimap';
   const graphModeLabel =
-    viewMode === 'split' ? t('toolbar.graphSplit') : t('toolbar.graphMinimap');
+    viewMode === 'split' ? text('toolbar.splitGraph') : text('toolbar.minimap');
   const { activeTheme } = useThemePlatform();
   const Surfaces = activeTheme.surfaces;
   return (
@@ -424,7 +439,7 @@ function AppContent(): React.ReactElement {
               </span>
               <div>
                 <h1 className="app-title">PlotFlow V0.1</h1>
-                <p className="app-subtitle">{t('statusBar.phase')}</p>
+                <p className="app-subtitle">{text('toolbar.phase')}</p>
               </div>
               <Home aria-hidden="true" size={15} strokeWidth={2} />
             </button>
@@ -433,11 +448,11 @@ function AppContent(): React.ReactElement {
             <>
               <button type="button" className="button button--primary" onClick={openNewFileDialog}>
                 <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-                <span>{t('toolbar.newFile')}</span>
+                <span>{text('toolbar.newFile')}</span>
               </button>
               <button type="button" className="toolbar-button" data-testid="toolbar-export" onClick={() => openExportDialog()}>
                 <Download aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{t('toolbar.export')}</span>
+                <span>{text('toolbar.export')}</span>
               </button>
             </>
           )}
@@ -468,31 +483,31 @@ function AppContent(): React.ReactElement {
               >
                 <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
                 <span>Graph Lab</span>
-                <span className="toolbar-button__meta">官方主题</span>
+                <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
               </button>
               <button type="button" className="toolbar-button" onClick={openCorpusManager}>
                 <Database aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{t('toolbar.corpus')}</span>
+                <span>{text('toolbar.corpus')}</span>
               </button>
               <button
                 type="button"
                 className="toolbar-button"
                 data-testid="toolbar-theme-center"
                 onClick={openThemeCenter}
-                title="官方主题中心"
+                title={text('toolbar.themeCenter')}
               >
                 <Palette aria-hidden="true" size={15} strokeWidth={2} />
-                <span>主题</span>
+                <span>{text('toolbar.theme')}</span>
               </button>
             </>
           )}
           preferenceControls={(
             <label className="toolbar-select">
               <Languages aria-hidden="true" size={15} strokeWidth={2} />
-              <span className="visually-hidden">{t('toolbar.language')}</span>
+              <span className="visually-hidden">{text('toolbar.language')}</span>
               <select
                 className="language-select"
-                aria-label={t('toolbar.language')}
+                aria-label={text('toolbar.language')}
                 value={language}
                 onChange={handleLanguageChange}
               >
@@ -512,14 +527,14 @@ function AppContent(): React.ReactElement {
               <div className="split-viewbar" aria-label="Split workspace controls">
                 <div className="split-viewbar__label">
                   <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-                  <span>{t('toolbar.graph')}</span>
+                  <span>{text('toolbar.graph')}</span>
                 </div>
                 <button
                   type="button"
                   className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
                   data-testid="toolbar-graph-view-toggle"
                   onClick={toggleViewMode}
-                  title={viewMode === 'split' ? t('toolbar.graphMinimap') : t('toolbar.graphSplit')}
+                  title={viewMode === 'split' ? text('toolbar.minimap') : text('toolbar.splitGraph')}
                   aria-pressed={viewMode === 'split'}
                 >
                   {viewMode === 'split' ? (
@@ -527,14 +542,14 @@ function AppContent(): React.ReactElement {
                   ) : (
                     <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
                   )}
-                  <span>{t('toolbar.graph')}: {graphModeLabel}</span>
+                  <span>{text('toolbar.graph')}: {graphModeLabel}</span>
                 </button>
               </div>
             )}
             outline={<OutlinePanel onNodeClick={navigateToNode} />}
             editor={<MonacoEditor />}
             graph={showSplitGraph ? (
-              <aside className="graph-pane" aria-label={t('toolbar.graph')}>
+              <aside className="graph-pane" aria-label={text('toolbar.graph')}>
                 <GraphCanvas viewMode="split" />
               </aside>
             ) : null}

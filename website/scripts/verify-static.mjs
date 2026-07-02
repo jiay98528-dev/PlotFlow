@@ -20,7 +20,11 @@ for (const file of requiredFiles) {
 const html = await readFile(path.join(distDir, 'index.html'), 'utf8');
 const js = await readFile(path.join(distDir, 'app.js'), 'utf8');
 const css = await readFile(path.join(distDir, 'styles.css'), 'utf8');
-const status = JSON.parse(await readFile(path.join(distDir, 'data', 'project-status.json'), 'utf8'));
+const readJson = async (filePath) => {
+  const raw = await readFile(filePath, 'utf8');
+  return JSON.parse(raw.replace(/^\uFEFF/, ''));
+};
+const status = await readJson(path.join(distDir, 'data', 'project-status.json'));
 
 const assertions = [
   [html.includes('PlotFlow -'), 'index.html should include the PlotFlow title'],

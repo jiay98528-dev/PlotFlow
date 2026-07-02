@@ -181,16 +181,13 @@ async function selectFormat(page: Page, format: 'json' | 'html' | 'txt'): Promis
 
 /**
  * 点击"导出"按钮并等待导出操作完成。
- * 成功状态下按钮文字变为"导出成功"。
+ * 成功状态通过稳定状态属性暴露，避免受 UI 语言或文案调整影响。
  */
 async function clickExportAndWait(page: Page): Promise<void> {
-  // 点击导出按钮
-  const exportBtn = page.locator('.export-dialog__panel button').filter({ hasText: '导出' });
+  const exportBtn = page.getByTestId('export-dialog-submit');
   await exportBtn.click();
 
-  // 等待成功状态（"导出成功" 文字出现），超时 10 秒
-  const successBtn = page.locator('.export-dialog__panel button').filter({ hasText: '导出成功' });
-  await successBtn.waitFor({ state: 'visible', timeout: 10000 });
+  await expect(exportBtn).toHaveAttribute('data-export-status', 'success', { timeout: 10000 });
 
   // 给自动关闭 timer 一点时间（ExportDialog setTimeout 1.5s 后自动关闭）
   await page.waitForTimeout(500);

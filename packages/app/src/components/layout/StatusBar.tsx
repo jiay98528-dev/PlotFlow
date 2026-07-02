@@ -15,6 +15,13 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useAppText } from '../../i18n/appI18n';
+
+function formatStatusMessage(message: string): string {
+  if (message.startsWith('save:')) return message.slice('save:'.length);
+  if (message.startsWith('parse:')) return message.slice('parse:'.length);
+  return message;
+}
 
 export function StatusBar(): React.ReactElement {
   // --- editorStore ---
@@ -31,6 +38,7 @@ export function StatusBar(): React.ReactElement {
 
   // --- uiStore ---
   const statusMessage = useUIStore((s) => s.statusMessage);
+  const text = useAppText();
 
   // ==========================================================================
   // Derived state
@@ -59,10 +67,11 @@ export function StatusBar(): React.ReactElement {
   /* 文件路径（截取末两段） */
   const displayPath = filePath
     ? filePath.split(/[/\\]/).slice(-2).join('/')
-    : '未保存';
+    : text('statusBar.unsaved');
 
   /* 缩放比例（百分比显示） */
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
+  const visibleStatusMessage = statusMessage ? formatStatusMessage(statusMessage) : '';
 
   return (
     <div className="status-bar" style={barStyle}>
@@ -76,9 +85,9 @@ export function StatusBar(): React.ReactElement {
 
       {/* -------- 中间：节点 / 选项 / 诊断计数 -------- */}
       <span style={centerSectionStyle}>
-        <span>节点 {nodeCount}</span>
+        <span>{text('statusBar.nodes', { count: nodeCount })}</span>
         <span style={separatorStyle}>/</span>
-        <span>选项 {optionCount}</span>
+        <span>{text('statusBar.options', { count: optionCount })}</span>
         <span style={separatorStyle}>|</span>
         {errors > 0 && <span style={errorStyle}>🔴{errors}</span>}
         {warnings > 0 && <span style={warnStyle}>🟡{warnings}</span>}
@@ -91,11 +100,11 @@ export function StatusBar(): React.ReactElement {
       {/* -------- 右侧：光标位置 + 缩放比例 -------- */}
       <span style={sectionStyle}>
         <span>
-          行 {cursorPosition.line}:{cursorPosition.column}
+          {text('statusBar.lineColumn', { line: cursorPosition.line, column: cursorPosition.column })}
         </span>
         <span style={separatorStyle}>{'  '}</span>
         <span>{zoomPercent}</span>
-        {statusMessage && !statusMessage.startsWith('save:') && (
+        {visibleStatusMessage && (
           <>
             <span style={{ flex: 1, minWidth: 8 }} />
             <span style={{
@@ -104,7 +113,7 @@ export function StatusBar(): React.ReactElement {
               whiteSpace: 'nowrap',
               maxWidth: 300,
             }}>
-              {statusMessage}
+              {visibleStatusMessage}
             </span>
           </>
         )}

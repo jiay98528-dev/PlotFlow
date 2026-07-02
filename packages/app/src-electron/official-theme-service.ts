@@ -1,19 +1,27 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
-import { join, normalize, relative, resolve } from 'node:path';
-import { app } from 'electron';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
+import AdmZip from 'adm-zip';
+import { app, protocol } from 'electron';
 import type {
+  InstalledOfficialThemeRuntime,
   InstalledOfficialThemeSummary,
   OfficialThemeCatalogResult,
   OfficialThemeDownloadResult,
   OfficialThemeRegistryEntry,
   OfficialThemeRemoteView,
+  OfficialThemeRuntimeManifest,
 } from '../src/theme-platform/types';
 
 const DEFAULT_OFFICIAL_THEME_REGISTRY_URL = 'https://plotflow.app/data/official-themes.json';
 const MAX_OFFICIAL_THEME_BUNDLE_BYTES = 12 * 1024 * 1024;
-const THEME_API_VERSION = 1;
+const MAX_OFFICIAL_THEME_EXTRACTED_BYTES = 18 * 1024 * 1024;
+const OFFICIAL_THEME_PROTOCOL = 'plotflow-theme';
+export const OFFICIAL_THEME_API_VERSION = 1;
+
+let protocolHandlerRegistered = false;
+let protocolSchemeRegistered = false;
 
 export interface OfficialThemeServiceDeps {
   readonly fetchBytes?: (url: string) => Promise<Uint8Array>;
@@ -34,7 +42,7 @@ function assertPathInside(root: string, target: string): void {
   const resolvedRoot = resolve(root);
   const resolvedTarget = resolve(target);
   const rel = relative(resolvedRoot, resolvedTarget);
-  if (rel.startsWith('..') || rel === '..' || rel.includes(`..\\`) || rel.includes('../')) {
+  if (rel.startsWith('..') || rel === '..' || isAbsolute(rel)) {
     throw new Error('官方主题安装路径越界');
   }
 }
@@ -62,6 +70,130 @@ function normalizeLocaleName(value: unknown): { 'zh-CN': string; 'en-US': string
   const en = record['en-US'];
   if (typeof zh !== 'string' || typeof en !== 'string' || zh.length === 0 || en.length === 0) return null;
   return { 'zh-CN': zh, 'en-US': en };
+}
+
+export function normalizeOfficialThemePackagePath(input: string): string {
+  const raw = input.trim();
+  if (raw.length === 0 || raw.includes('\0')) {
+    throw new Error('官方主题包路径为空或非法');
+  }
+  if (
+    raw.startsWith('/') ||
+    raw.startsWith('\\') ||
+    /^[a-zA-Z]:/.test(raw) ||
+    raw.includes('://')
+  ) {
+    throw new Error(`官方主题包路径不能是绝对路径: ${input}`);
+  }
+
+  const parts = raw.replace(/\\/g, '/').split('/').filter((part) => part.length > 0);
+  if (parts.length === 0) {
+    throw new Error('官方主题包路径为空');
+  }
+  for (const part of parts) {
+    if (part === '.' || part === '..') {
+      throw new Error(`官方主题包路径越界: ${input}`);
+    }
+  }
+  return parts.join('/');
+}
+
+function createOfficialThemeProtocolUrl(themeId: string, version: string, packagePath: string): string {
+  const normalizedPath = normalizeOfficialThemePackagePath(packagePath);
+  const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/');
+  return `${OFFICIAL_THEME_PROTOCOL}://official/${encodeURIComponent(themeId)}/${encodeURIComponent(version)}/${encodedPath}`;
+}
+
+function createOfficialThemeAssetBaseUrl(themeId: string, version: string, assetsBase: string | undefined): string {
+  const basePath = normalizeOfficialThemePackagePath(assetsBase ?? 'assets');
+  return `${createOfficialThemeProtocolUrl(themeId, version, basePath)}/`;
+}
+
+function createRuntime(entry: OfficialThemeRegistryEntry, manifest: OfficialThemeRuntimeManifest): InstalledOfficialThemeRuntime {
+  return {
+    moduleUrl: createOfficialThemeProtocolUrl(entry.id, entry.version, manifest.entry),
+    styleUrls: (manifest.styles ?? []).map((style) => createOfficialThemeProtocolUrl(entry.id, entry.version, style)),
+    assetBaseUrl: createOfficialThemeAssetBaseUrl(entry.id, entry.version, manifest.assetsBase),
+  };
+}
+
+function parseOfficialThemeProtocolUrl(rawUrl: string): string {
+  const parsed = new URL(rawUrl);
+  if (parsed.protocol !== `${OFFICIAL_THEME_PROTOCOL}:` || parsed.hostname !== 'official') {
+    throw new Error('非法官方主题协议 URL');
+  }
+  const parts = parsed.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const themeId = parts[0];
+  const version = parts[1];
+  const rest = parts.slice(2);
+  if (!themeId || !version || rest.length === 0) {
+    throw new Error('官方主题协议 URL 缺少路径');
+  }
+  assertOfficialThemeId(themeId);
+  const packagePath = normalizeOfficialThemePackagePath(rest.join('/'));
+  const root = getOfficialThemeRootPath();
+  const filePath = normalize(join(root, themeId, version, packagePath));
+  assertPathInside(root, filePath);
+  return filePath;
+}
+
+function contentTypeForPath(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.mjs':
+    case '.js':
+      return 'text/javascript; charset=utf-8';
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.svg':
+      return 'image/svg+xml; charset=utf-8';
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+export function registerOfficialThemeProtocolScheme(): void {
+  if (protocolSchemeRegistered) return;
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: OFFICIAL_THEME_PROTOCOL,
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+        stream: true,
+      },
+    },
+  ]);
+  protocolSchemeRegistered = true;
+}
+
+export function registerOfficialThemeProtocolHandler(): void {
+  if (protocolHandlerRegistered) return;
+  protocol.handle(OFFICIAL_THEME_PROTOCOL, async (request) => {
+    try {
+      const filePath = parseOfficialThemeProtocolUrl(request.url);
+      const body = await readFile(filePath);
+      return new Response(body, {
+        headers: {
+          'content-type': contentTypeForPath(filePath),
+          'cache-control': 'no-store',
+        },
+      });
+    } catch {
+      return new Response('Official theme asset not found', { status: 404 });
+    }
+  });
+  protocolHandlerRegistered = true;
 }
 
 export function validateOfficialThemeRegistry(input: unknown): readonly OfficialThemeRegistryEntry[] {
@@ -102,11 +234,14 @@ export function validateOfficialThemeRegistry(input: unknown): readonly Official
     assertOfficialUrl(manifestUrl);
     assertOfficialUrl(bundleUrl);
     assertOfficialUrl(previewUrl);
+    if (!bundleUrl.endsWith('.pf-official-theme.zip')) {
+      throw new Error(`官方主题 ${id} bundleUrl 必须指向 .pf-official-theme.zip`);
+    }
     if (typeof sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(sha256)) {
       throw new Error(`官方主题 ${id} sha256 非法`);
     }
     if (typeof minAppVersion !== 'string' || minAppVersion.length === 0) throw new Error(`官方主题 ${id} 缺少 minAppVersion`);
-    if (themeApiVersion !== THEME_API_VERSION) throw new Error(`官方主题 ${id} themeApiVersion 不兼容`);
+    if (themeApiVersion !== OFFICIAL_THEME_API_VERSION) throw new Error(`官方主题 ${id} themeApiVersion 不兼容`);
     if (typeof changelog !== 'string') throw new Error(`官方主题 ${id} 缺少 changelog`);
 
     return {
@@ -124,6 +259,93 @@ export function validateOfficialThemeRegistry(input: unknown): readonly Official
       changelog,
     };
   });
+}
+
+function validateOfficialThemeRuntimeManifest(raw: unknown, entry: OfficialThemeRegistryEntry): OfficialThemeRuntimeManifest {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('官方主题 manifest 必须是对象');
+  }
+  const data = raw as Record<string, unknown>;
+  const id = data['id'];
+  const version = data['version'];
+  const themeApiVersion = data['themeApiVersion'];
+  const rawEntry = data['entry'];
+  const rawStyles = data['styles'];
+  const rawAssetsBase = data['assetsBase'];
+
+  if (id !== entry.id) throw new Error('官方主题 manifest id 与 registry 不一致');
+  if (version !== entry.version) throw new Error('官方主题 manifest version 与 registry 不一致');
+  if (themeApiVersion !== OFFICIAL_THEME_API_VERSION) throw new Error('官方主题 manifest themeApiVersion 不兼容');
+  if (typeof rawEntry !== 'string') throw new Error('官方主题 manifest 缺少 entry');
+
+  const moduleEntry = normalizeOfficialThemePackagePath(rawEntry);
+  if (!moduleEntry.endsWith('.mjs')) {
+    throw new Error('官方主题 entry 必须是 .mjs 模块');
+  }
+
+  const styles = Array.isArray(rawStyles)
+    ? rawStyles.map((style) => {
+      if (typeof style !== 'string') throw new Error('官方主题 styles 必须是字符串数组');
+      const normalized = normalizeOfficialThemePackagePath(style);
+      if (!normalized.endsWith('.css')) throw new Error('官方主题 style 必须是 .css 文件');
+      return normalized;
+    })
+    : undefined;
+
+  const assetsBase = typeof rawAssetsBase === 'string'
+    ? normalizeOfficialThemePackagePath(rawAssetsBase)
+    : undefined;
+
+  return {
+    id: entry.id,
+    version: entry.version,
+    themeApiVersion: OFFICIAL_THEME_API_VERSION,
+    entry: moduleEntry,
+    ...(styles ? { styles } : {}),
+    ...(assetsBase ? { assetsBase } : {}),
+  };
+}
+
+function readZipText(entry: AdmZip.IZipEntry): string {
+  return entry.getData().toString('utf-8');
+}
+
+function readRuntimeManifestFromZip(zip: AdmZip, registryEntry: OfficialThemeRegistryEntry): {
+  readonly manifest: OfficialThemeRuntimeManifest;
+  readonly files: ReadonlyMap<string, AdmZip.IZipEntry>;
+} {
+  const files = new Map<string, AdmZip.IZipEntry>();
+  let extractedBytes = 0;
+
+  for (const zipEntry of zip.getEntries()) {
+    if (zipEntry.isDirectory) continue;
+    const normalized = normalizeOfficialThemePackagePath(zipEntry.entryName);
+    if (files.has(normalized)) {
+      throw new Error(`官方主题包存在重复文件: ${normalized}`);
+    }
+    extractedBytes += zipEntry.header.size;
+    if (extractedBytes > MAX_OFFICIAL_THEME_EXTRACTED_BYTES) {
+      throw new Error('官方主题包解压后体积过大');
+    }
+    files.set(normalized, zipEntry);
+  }
+
+  const manifestEntry = files.get('manifest.json');
+  if (!manifestEntry) {
+    throw new Error('官方主题包缺少 manifest.json');
+  }
+
+  const manifest = validateOfficialThemeRuntimeManifest(JSON.parse(readZipText(manifestEntry)) as unknown, registryEntry);
+  if (!files.has(manifest.entry)) {
+    throw new Error(`官方主题包缺少 entry: ${manifest.entry}`);
+  }
+  for (const style of manifest.styles ?? []) {
+    if (!files.has(style)) {
+      throw new Error(`官方主题包缺少 style: ${style}`);
+    }
+  }
+
+  return { manifest, files };
 }
 
 async function defaultFetchJson(url: string): Promise<unknown> {
@@ -152,7 +374,17 @@ async function readInstalledManifest(themeDir: string): Promise<InstalledOfficia
   try {
     const raw = await readFile(join(themeDir, 'install.json'), 'utf-8');
     const parsed = JSON.parse(raw) as Partial<InstalledOfficialThemeSummary>;
-    if (!parsed.id || !parsed.version || !parsed.name || !parsed.priceLabel || !parsed.installedAt) return null;
+    if (
+      !parsed.id ||
+      !parsed.version ||
+      !parsed.name ||
+      !parsed.priceLabel ||
+      !parsed.installedAt ||
+      !parsed.runtime?.moduleUrl ||
+      !parsed.runtime.assetBaseUrl
+    ) {
+      return null;
+    }
     return parsed as InstalledOfficialThemeSummary;
   } catch {
     return null;
@@ -231,6 +463,8 @@ export async function downloadOfficialTheme(themeId: string, deps?: OfficialThem
       };
     }
 
+    const zip = new AdmZip(Buffer.from(bytes));
+    const { manifest, files } = readRuntimeManifestFromZip(zip, entry);
     const root = getOfficialThemeRootPath();
     const targetDir = normalize(join(root, entry.id));
     assertPathInside(root, targetDir);
@@ -238,8 +472,15 @@ export async function downloadOfficialTheme(themeId: string, deps?: OfficialThem
 
     const versionDir = normalize(join(targetDir, entry.version));
     assertPathInside(root, versionDir);
+    await rm(versionDir, { recursive: true, force: true });
     await mkdir(versionDir, { recursive: true });
-    await writeFile(join(versionDir, 'theme.bundle.json'), bytes);
+
+    for (const [packagePath, zipEntry] of files) {
+      const targetPath = normalize(join(versionDir, packagePath));
+      assertPathInside(versionDir, targetPath);
+      await mkdir(dirname(targetPath), { recursive: true });
+      await writeFile(targetPath, zipEntry.getData());
+    }
 
     const installManifest: InstalledOfficialThemeSummary = {
       id: entry.id,
@@ -247,6 +488,7 @@ export async function downloadOfficialTheme(themeId: string, deps?: OfficialThem
       name: entry.name,
       priceLabel: entry.priceLabel,
       installedAt: deps?.now?.() ?? Date.now(),
+      runtime: createRuntime(entry, manifest),
     };
     await writeFile(join(targetDir, 'install.json'), `${JSON.stringify(installManifest, null, 2)}\n`, 'utf-8');
 
@@ -264,8 +506,8 @@ export async function downloadOfficialTheme(themeId: string, deps?: OfficialThem
 
 export async function readOfficialThemeBundleSize(themeId: string, version: string): Promise<number | null> {
   const root = getOfficialThemeRootPath();
-  const bundlePath = normalize(join(root, themeId, version, 'theme.bundle.json'));
-  assertPathInside(root, bundlePath);
-  if (!existsSync(bundlePath)) return null;
-  return (await stat(bundlePath)).size;
+  const modulePath = normalize(join(root, themeId, version, 'index.mjs'));
+  assertPathInside(root, modulePath);
+  if (!existsSync(modulePath)) return null;
+  return (await stat(modulePath)).size;
 }

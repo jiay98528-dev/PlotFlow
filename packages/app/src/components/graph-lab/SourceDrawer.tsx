@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileCode2 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
+import { useAppText } from '../../i18n/appI18n';
 
 interface SourceDrawerProps {
   readonly children: React.ReactNode;
@@ -8,19 +9,20 @@ interface SourceDrawerProps {
 
 export function SourceDrawer({ children }: SourceDrawerProps): React.ReactElement {
   const isOpen = useUIStore((state) => state.isSourceDrawerOpen);
+  const text = useAppText();
 
   return (
     <section
       className={`source-drawer${isOpen ? ' source-drawer--open' : ''}`}
-      aria-label="Graph Lab Source Dock"
+      aria-label={text('sourceDock.aria')}
       data-testid="graph-lab-source-drawer"
     >
       <header className="source-drawer__header">
         <span>
           <FileCode2 aria-hidden="true" size={15} strokeWidth={2} />
-          源文本 Dock
+          {text('sourceDock.title')}
         </span>
-        <small>{isOpen ? 'GUI 操作会同步写回 .mdstory' : '从顶部按钮展开源文本'}</small>
+        <small>{isOpen ? text('sourceDock.openHint') : text('sourceDock.closedHint')}</small>
       </header>
       <div className="source-drawer__body" aria-hidden={!isOpen}>
         {children}

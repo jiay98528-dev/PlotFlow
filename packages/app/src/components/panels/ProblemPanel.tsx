@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Diagnostic, DiagnosticSeverity } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useAppText } from '../../i18n/appI18n';
 
 // ============================================================================
 // 类型定义
@@ -27,25 +28,29 @@ import { useUIStore } from '../../stores/uiStore';
 /** 严重级别过滤选项 */
 type SeverityFilter = 'all' | DiagnosticSeverity;
 
+const EN_DIAGNOSTIC_MESSAGES: Readonly<Record<string, string>> = {
+  E001: 'Target node is undefined',
+  E002: 'Variable is not declared in Frontmatter',
+  E003: 'Value is not in the allowed enum list',
+  E004: 'Value type does not match the variable declaration',
+  E005: 'Syntax parsing failed',
+  E006: 'Object nesting exceeds the maximum depth of 3',
+  E007: 'Duplicate node ID',
+  E008: 'Duplicate variable declaration',
+  W001: 'Node has no incoming option target (orphan node)',
+  W002: 'Node has no outgoing options (dead end)',
+  W003: 'Variable is not used in the story',
+  W004: 'Option text duplicates another option at the same level',
+  W005: 'Node body is empty',
+  W006: 'Formatting is not standard',
+  I001: 'All options have conditions and may block progress',
+  I002: 'Node body is too short',
+  I003: 'Node is not assigned to any chapter',
+};
+
 // ============================================================================
 // 常量
 // ============================================================================
-
-/** 过滤选项配置 */
-interface FilterOption {
-  readonly key: SeverityFilter;
-  /** 中文标签 */
-  readonly label: string;
-  /** 对应的 severity 值（'all' 时无） */
-  readonly severity?: DiagnosticSeverity;
-}
-
-const FILTER_OPTIONS: readonly FilterOption[] = [
-  { key: 'all', label: '全部' },
-  { key: 'error', label: '错误', severity: 'error' },
-  { key: 'warning', label: '警告', severity: 'warning' },
-  { key: 'info', label: '建议', severity: 'info' },
-] as const;
 
 /** 严重级别 → 图标映射 */
 const SEVERITY_ICON: Readonly<Record<DiagnosticSeverity, string>> = {
@@ -76,6 +81,8 @@ export function ProblemPanel(): React.ReactElement {
   const editorInstance = useEditorStore((s) => s.editorInstance);
   const isProblemPanelOpen = useUIStore((s) => s.isProblemPanelOpen);
   const toggleProblemPanel = useUIStore((s) => s.toggleProblemPanel);
+  const language = useUIStore((s) => s.language);
+  const text = useAppText();
 
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [panelHeight, setPanelHeight] = useState(PANEL_DEFAULT_HEIGHT);
@@ -102,6 +109,16 @@ export function ProblemPanel(): React.ReactElement {
     if (severityFilter === 'all') return diagnostics;
     return diagnostics.filter((d) => d.severity === severityFilter);
   }, [diagnostics, severityFilter]);
+
+  const filterOptions = useMemo(
+    () => [
+      { key: 'all' as const, label: text('problemPanel.all') },
+      { key: 'error' as const, label: text('problemPanel.errors') },
+      { key: 'warning' as const, label: text('problemPanel.warnings') },
+      { key: 'info' as const, label: text('problemPanel.infos') },
+    ],
+    [text],
+  );
 
   // ========================================================================
   // 跳转到编辑器对应行
@@ -222,13 +239,13 @@ export function ProblemPanel(): React.ReactElement {
           标题栏
           ================================================================ */}
           <div style={headerStyle}>
-            <span style={headerTitleStyle}>问题</span>
-            <span style={shortcutHintStyle}>Ctrl+Shift+M</span>
+            <span style={headerTitleStyle}>{text('problemPanel.title')}</span>
+            <span style={shortcutHintStyle}>{text('problemPanel.shortcut')}</span>
             <div style={headerActionsStyle}>
               <button
                 type="button"
                 onClick={toggleProblemPanel}
-                title="关闭问题面板"
+                title={text('problemPanel.close')}
                 style={closeButtonStyle}
               >
                 ✕
@@ -240,7 +257,7 @@ export function ProblemPanel(): React.ReactElement {
           过滤栏
           ================================================================ */}
           <div style={filterBarStyle}>
-            {FILTER_OPTIONS.map((opt) => {
+            {filterOptions.map((opt) => {
               const count =
                 opt.key === 'all'
                   ? counts.total
@@ -280,13 +297,20 @@ export function ProblemPanel(): React.ReactElement {
               /* ---- 空状态 ---- */
               <div style={emptyStyle}>
                 <span style={emptyIconStyle}>&#x2705;</span>
-                <span>未发现问题</span>
+                <span>{text('problemPanel.empty')}</span>
               </div>
             ) : (
               /* ---- 诊断条目 ---- */
               filteredDiagnostics.map((diagnostic) => {
                 const icon = SEVERITY_ICON[diagnostic.severity];
-                const location = `行 ${diagnostic.range.startLine}:${diagnostic.range.startColumn}`;
+                const message =
+                  language === 'en-US'
+                    ? EN_DIAGNOSTIC_MESSAGES[diagnostic.code] ?? diagnostic.message
+                    : diagnostic.message;
+                const location = text('problemPanel.location', {
+                  line: diagnostic.range.startLine,
+                  column: diagnostic.range.startColumn,
+                });
 
                 return (
                   <div
@@ -294,7 +318,7 @@ export function ProblemPanel(): React.ReactElement {
                     className="problem-panel__item"
                     onClick={() => handleJumpToLine(diagnostic)}
                     title={
-                      `跳转到行 ${diagnostic.range.startLine}` +
+                      text('problemPanel.jump', { line: diagnostic.range.startLine }) +
                       (diagnostic.detail ? `\n${diagnostic.detail}` : '')
                     }
                     style={itemStyle}
@@ -313,8 +337,8 @@ export function ProblemPanel(): React.ReactElement {
                     <span style={codeBadgeStyle}>{diagnostic.code}</span>
 
                     {/* 消息文本 */}
-                    <span style={messageStyle} title={diagnostic.message}>
-                      {diagnostic.message}
+                    <span style={messageStyle} title={message}>
+                      {message}
                     </span>
 
                     {/* 文件位置 */}

@@ -75,13 +75,14 @@ describe('site content', () => {
       priceLabel: '免费主题',
       themeApiVersion: 1,
     });
+    expect(registry.themes[0].bundleUrl).toMatch(/\.pf-official-theme\.zip$/);
     expect(registry.themes[0].sha256).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('has generated project status data for the development page', () => {
     let status: {
       summary: { completed: number; total: number };
-      releaseGates: unknown[];
+      releaseGates: Array<{ name: string; zhName?: string; zhDetail?: string; result?: string }>;
       stableFeatures: Array<{ title: string; zhTitle?: string }>;
     };
     try {
@@ -89,8 +90,22 @@ describe('site content', () => {
     } catch {
       status = fallbackProjectStatus;
     }
+    expect(status.summary.completed).toBeGreaterThan(0);
     expect(status.summary.total).toBeGreaterThanOrEqual(status.summary.completed);
     expect(status.releaseGates.length).toBeGreaterThan(0);
+
+    const unitGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd test');
+    const appE2eGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd --filter @plotflow/app test:e2e');
+    const packageGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd package:win');
+
+    expect(unitGate?.zhDetail).toContain('44 个测试文件 / 1252 条测试用例通过');
+    expect(unitGate?.result).toContain('✅');
+    expect(appE2eGate?.zhDetail).toContain('44 条应用 E2E 全部通过');
+    expect(packageGate?.result).toContain('✅');
+
+    const visibleStatus = collectVisibleStrings(status).join('\n');
+    expect(visibleStatus).not.toContain('39 条应用 E2E');
+    expect(visibleStatus).not.toContain('43 个测试文件 / 1248 条测试用例');
   });
 
   it('builds project status paths from the Vite base URL', () => {

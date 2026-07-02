@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { registerTheme, getTheme, getThemeOrDefault, DEFAULT_THEME_ID } from '../theme-platform/registry';
 import { builtinThemes } from './builtin/index';
-import { getInstalledOfficialThemeDescriptor } from './officialRemoteThemes';
-import type { ThemeDescriptor } from '../theme-platform/types';
+import { createInstalledOfficialThemeDescriptor } from './officialRemoteThemes';
+import type { OfficialThemeRuntimeModule, ThemeDescriptor } from '../theme-platform/types';
 
 // Register builtin themes before registry assertions.
 function registerAllBuiltin(): void {
@@ -12,9 +12,10 @@ function registerAllBuiltin(): void {
 }
 
 describe('builtin theme definitions', () => {
-  it('ships at least one built-in theme (narrative-workbench)', () => {
-    expect(builtinThemes.length).toBeGreaterThanOrEqual(1);
+  it('ships built-in official themes with narrative-workbench as default', () => {
+    expect(builtinThemes.length).toBeGreaterThanOrEqual(2);
     expect(builtinThemes[0]!.id).toBe('plotflow-narrative-workbench');
+    expect(builtinThemes.map((theme) => theme.id)).toContain('plotflow-engine-telemetry');
   });
 
   it('provides full production slots and recipes for every builtin theme', () => {
@@ -51,6 +52,7 @@ describe('builtin theme definitions', () => {
     registerAllBuiltin();
 
     expect(getTheme('plotflow-narrative-workbench')).toBeTruthy();
+    expect(getTheme('plotflow-engine-telemetry')).toBeTruthy();
     expect(getTheme('unknown-theme')).toBeUndefined();
 
     const fallback = getThemeOrDefault('unknown-theme');
@@ -61,21 +63,62 @@ describe('builtin theme definitions', () => {
     expect(DEFAULT_THEME_ID).toBe('plotflow-narrative-workbench');
   });
 
-  it('maps installed official remote theme summaries to controlled prebuilt descriptors', () => {
-    const descriptor = getInstalledOfficialThemeDescriptor({
+  it('materializes official remote runtime modules into full descriptors', async () => {
+    const remoteNode = (): null => null;
+    const remoteEdge = (): null => null;
+    const remoteAppShell = (): null => null;
+    const runtimeModule: OfficialThemeRuntimeModule = {
+      createTheme: (host) => ({
+        descriptor: {
+          ...builtinThemes[0]!,
+          id: host.themeId,
+          version: host.version,
+          name: { 'zh-CN': '霓虹档案', 'en-US': 'Neon Dossier' },
+          tagline: { 'zh-CN': '官方免费主题', 'en-US': 'Free official theme' },
+          description: { 'zh-CN': '远程包主题', 'en-US': 'Remote package theme' },
+          defaultMode: 'dark',
+          storeMeta: {
+            availability: 'officialRemote',
+            priceLabel: '免费主题',
+            storeUrl: 'https://plotflow.app/themes/plotflow-neon-dossier',
+          },
+          slots: {
+            ...host.baseSlots,
+            StoryNodeCard: remoteNode,
+            StoryEdge: remoteEdge,
+          },
+          surfaces: {
+            ...host.defaultThemeSurfaces,
+            AppShell: remoteAppShell,
+          },
+          assets: {
+            preview: host.assetUrl('preview.svg'),
+          },
+        },
+        cssText: '[data-theme-id="plotflow-neon-dossier"] { --remote-test: 1; }',
+      }),
+    };
+
+    const descriptor = await createInstalledOfficialThemeDescriptor({
       id: 'plotflow-neon-dossier',
       version: '1.0.0',
       name: { 'zh-CN': '霓虹档案', 'en-US': 'Neon Dossier' },
       priceLabel: '免费主题',
       installedAt: 123,
-    });
+      runtime: {
+        moduleUrl: 'plotflow-theme://official/plotflow-neon-dossier/1.0.0/index.mjs',
+        styleUrls: ['plotflow-theme://official/plotflow-neon-dossier/1.0.0/theme.css'],
+        assetBaseUrl: 'plotflow-theme://official/plotflow-neon-dossier/1.0.0/assets/',
+      },
+    }, runtimeModule);
 
-    expect(descriptor?.id).toBe('plotflow-neon-dossier');
-    expect(descriptor?.storeMeta.availability).toBe('officialRemote');
-    expect(descriptor?.uxRecipe?.node?.width).toBeTruthy();
-    expect(descriptor?.surfaces.AppShell).toBeTypeOf('function');
-    expect(descriptor?.surfaces.GraphLabShell).toBeTypeOf('function');
-    expect(descriptor?.surfaces.ThemeCenterSurface).toBeTypeOf('function');
-    expect(descriptor?.surfaces.AppShell).not.toBe(builtinThemes[0]!.surfaces.AppShell);
+    expect(descriptor.id).toBe('plotflow-neon-dossier');
+    expect(descriptor.storeMeta.availability).toBe('officialRemote');
+    expect(descriptor.assets.preview).toBe('plotflow-theme://official/plotflow-neon-dossier/1.0.0/assets/preview.svg');
+    expect(descriptor.slots.StoryNodeCard).toBe(remoteNode);
+    expect(descriptor.slots.StoryEdge).toBe(remoteEdge);
+    expect(descriptor.surfaces.AppShell).toBe(remoteAppShell);
+    expect(descriptor.surfaces.GraphLabShell).toBeTypeOf('function');
+    expect(descriptor.surfaces.ThemeCenterSurface).toBeTypeOf('function');
   });
 });

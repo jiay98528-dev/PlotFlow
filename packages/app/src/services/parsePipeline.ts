@@ -13,6 +13,7 @@ import { useStoryStore } from '../stores/storyStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useGraphStore } from '../stores/graphStore';
 import { useUIStore } from '../stores/uiStore';
+import { appT } from '../i18n/appI18n';
 
 // ============================================================================
 // 模块级状态
@@ -20,6 +21,12 @@ import { useUIStore } from '../stores/uiStore';
 
 let parseTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_MS = 500;
+const PARSE_STATUS_PREFIX = 'parse:';
+const SAVE_STATUS_PREFIX = 'save:';
+
+function pipelineText(key: string, params?: Readonly<Record<string, string | number>>): string {
+  return appT(key, params, useUIStore.getState().language);
+}
 
 // ============================================================================
 // 主函数
@@ -70,7 +77,10 @@ function executePipeline(raw: string): void {
     // 意外崩溃 — 极其罕见但必须兜底
     // eslint-disable-next-line no-console
     console.error('[ParsePipeline] parseStory threw unexpectedly:', err);
-    useUIStore.getState().setStatusMessage('⚠️ 解析器异常，请检查文件格式');
+    const ui = useUIStore.getState();
+    if (!ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
+      ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.exception')}`);
+    }
     return;
   }
 
@@ -104,15 +114,18 @@ function executePipeline(raw: string): void {
 
   // 6. 状态栏消息：有错误时提示用户分支图可能不完整 (V02-033)
   const errorCount = allDiagnostics.filter((d) => d.severity === 'error').length;
+  const ui = useUIStore.getState();
+  if (ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
+    return;
+  }
+
   if (errorCount > 0) {
-    useUIStore.getState().setStatusMessage(
-      `⚠️ 语法错误 — 分支图可能不完整 (${errorCount} 个错误)`,
-    );
+    ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.syntaxErrors', { count: errorCount })}`);
   } else {
     // 无错误时清除之前可能残留的错误消息
-    const current = useUIStore.getState().statusMessage;
-    if (current.startsWith('⚠️')) {
-      useUIStore.getState().setStatusMessage('');
+    const current = ui.statusMessage;
+    if (current.startsWith(PARSE_STATUS_PREFIX)) {
+      ui.setStatusMessage('');
     }
   }
 }

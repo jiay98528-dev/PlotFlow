@@ -119,7 +119,7 @@
 - M7 核心配置/图标/文件关联/双击打开/CHANGELOG/Windows NSIS 正式包/Windows packaged smoke 完成，其余 7 项延后
 - V0.2 QA 审计 2 CRITICAL + 8 HIGH 全部修复验证通过
 - 基础门禁：lint/typecheck/test/build/lint:css 均通过；`pnpm.cmd test` 为 39 files / 1222 tests
-- 当前发行门禁：默认 app E2E 为 37/37 passed；`pnpm.cmd audit --audit-level moderate` 无已知漏洞；Electron 已迁移到 42.5.0；Windows NSIS 正式包与 packaged smoke 已通过
+- 当前发行门禁：最新 save-flow 源码修复已通过 Graph Lab 窄回归 18/18、完整 app 集成 E2E 49/49 和 source blackbox 10 passed / 4 packaged-or-installed skipped；unpacked blackbox、installed blackbox 和人工巡检必须在本次修复后重跑。历史 package/unpacked 结果只能作为 stale evidence，详见 spec/release-blackbox-gate.md
 - M8 Graph Lab Core：18 项新增图优先任务，当前 17/18，不混入旧 142 项统计；剩余发布说明/帮助文案收尾
 
 ### V0.1 核心交付范围
@@ -172,6 +172,7 @@
 | 6 | `spec/syntax-formal.md` | 语法形式化规范（ISO 14977 EBNF/正则/解析规则，1,441 行） | ✅ |
 | 7 | `spec/json-schema.md` | JSON 导出格式 Schema 规范（draft-2020-12，1,697 行） | ✅ |
 | 8 | `spec/milestones.md` | 里程碑拆分与进度（M0-M7，142 项任务，依赖关系图） | ✅ |
+| 9 | `doc/standards-theme-development.md` | **主题开发唯一标准**（官方主题边界、ThemeDescriptor、Surface/Slot、官方远程包 runtime） | ✅ |
 
 ### 🎨 UX 设计权威来源
 
@@ -269,6 +270,13 @@ PlotFlowData AST (中间表示)
 - 文件读写显式指定 UTF-8 编码
 - `.mdstory` 文件扩展名：全小写
 - 导入路径使用相对路径（`../`），避免绝对路径依赖
+
+### 6.6 主题开发约束（强制）
+
+- 任何新增主题、修改主题 API、扩展 Surface/Slot、扩展官方远程主题 loader，必须先遵循并同步 `doc/standards-theme-development.md`
+- PlotFlow 当前只支持官方主题：内置官方主题和官方远程免费主题；不开放第三方、社区上传、本地导入、购买或授权
+- 官方远程主题必须通过 registry → ZIP 下载 → `sha256` 校验 → 安全解包 → `plotflow-theme://` 动态加载链路，不得直接执行 HTTPS JS
+- 主题可以控制 UX/视觉/布局/Surface/Slot/Monaco/assets，但不得改变 `.mdstory` 语义、parser/exporter、保存流程或 Graph Lab 命令层
 
 ---
 
@@ -475,6 +483,7 @@ PlotFlow/
 - `main.ts`、`preload.ts`、Electron IPC、文件系统、ZIP/解压、路径安全、签名/权限边界
 - Zustand/React Flow/Monaco 的交互状态同步、E2E 真实用户路径、拖拽/点击命中逻辑
 - 安全校验器、迁移逻辑、数据持久化、跨模块架构合同、删除旧系统入口
+- 主题 API、Theme Surface/Slot 扩展、官方远程主题 loader、Graph Lab 节点/连线真实交互行为
 - 任何需要判断“测试是否覆盖真实路径”而不是只覆盖 helper 的任务
 
 **交接流程**：

@@ -162,6 +162,8 @@ export interface MenuAPI {
    * 搴旂敤鍗歌浇鏃惰皟鐢ㄣ€?
    */
   removeAllEventListeners: () => void;
+
+  setLanguage: (language: 'zh-CN' | 'en-US') => void;
 }
 
 // ============================================================================
@@ -273,7 +275,7 @@ declare global {
      * 瑙﹀彂寮哄埗淇濆瓨锛堝寘鎷柊鏂囦欢鍜屽凡鏈夋枃浠讹級銆?
      * 鐢变富杩涚▼閫氳繃 executeJavaScript 璋冪敤锛岀敤浜庣獥鍙ｅ叧闂椂淇濆瓨鏈繚瀛樺唴瀹广€?
      */
-    __forceSave__?: () => Promise<void>;
+    __forceSave__?: () => Promise<boolean>;
 
     /**
      * 浠呭湪 Playwright / E2E 娴嬭瘯鐜鏆撮湶鐨勭姸鎬佹ˉ鎺ャ€?

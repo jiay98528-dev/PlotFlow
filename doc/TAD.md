@@ -1,6 +1,6 @@
 ﻿# PlotFlow 鎶€鏈灦鏋勮璁?(TAD)
 
-> **主题架构权威口径（2026-06-26）**：主题系统只服务官方主题。内置官方主题随应用编译发布；官方远程免费主题通过 `website/public/data/official-themes.json` 注册，经 Electron 主进程下载和 `sha256` 校验后安装。主题拥有全 UX 展示控制权，包括位置、尺寸、布局类型、颜色、透明度、z-index、半径、字体、动效、React slots、Monaco 配色和 assets。第三方上传、社区主题、本地 `.pf-theme.zip` 导入、支付和授权均不属于当前架构。
+> **主题架构权威口径（2026-06-27）**：主题系统只服务官方主题。内置官方主题随应用编译发布；官方远程免费主题通过 `website/public/data/official-themes.json` 注册，下载 `.pf-official-theme.zip` 后由 Electron 主进程执行 `sha256` 校验、路径安全校验和 manifest 校验，再通过 `plotflow-theme://` 动态加载包内 `index.mjs`。远程包与内置主题拥有同等当前主题能力：`ThemeDescriptor`、React `surfaces`、React `slots`、tokens、layout/UX recipes、Monaco 配色、CSS 和 assets。第三方上传、社区主题、本地 `.pf-theme.zip` 导入、支付和授权均不属于当前架构。完整开发标准见 `doc/standards-theme-development.md`。
 
 
 **鐗堟湰**锛歏0.1 | **鏃ユ湡**锛?026-06-10 | **鐘舵€?*锛歁VP 瀹炵幇钃濆浘

@@ -1,154 +1,155 @@
-import { createElement } from 'react';
-import type { InstalledOfficialThemeSummary, ThemeDescriptor, ThemeSurfaces } from '../theme-platform/types';
+import React, { Fragment, createElement } from 'react';
+import type {
+  InstalledOfficialThemeSummary,
+  OfficialThemeRuntimeHost,
+  OfficialThemeRuntimeModule,
+  OfficialThemeRuntimeResult,
+  ThemeDescriptor,
+} from '../theme-platform/types';
 import { narrativeWorkbenchSlots } from './builtin/plotflow-narrative-workbench/slots';
 import { defaultThemeSurfaces } from './surfaces/defaultSurfaces';
 
-const neonDossierSurfaces: ThemeSurfaces = {
-  ...defaultThemeSurfaces,
+const OFFICIAL_THEME_API_VERSION = 1;
 
-  AppShell({ workspaceMode, topbar, children, overlays, statusBar }) {
-    return createElement(
-      'div',
-      {
-        className: `app-shell neon-dossier-shell${workspaceMode === 'graphLab' ? ' app-shell--graph-lab neon-dossier-shell--graph-lab' : ''}`,
-        'data-theme-surface': 'neon-dossier-app-shell',
-      },
-      topbar,
-      children,
-      overlays,
-      statusBar,
-    );
-  },
+function normalizeRuntimeAssetPath(input: string): string {
+  const raw = input.trim();
+  if (
+    raw.length === 0 ||
+    raw.includes('\0') ||
+    raw.startsWith('/') ||
+    raw.startsWith('\\') ||
+    /^[a-zA-Z]:/.test(raw) ||
+    raw.includes('://')
+  ) {
+    throw new Error(`非法官方主题资源路径: ${input}`);
+  }
+  const parts = raw.replace(/\\/g, '/').split('/').filter(Boolean);
+  for (const part of parts) {
+    if (part === '.' || part === '..') {
+      throw new Error(`官方主题资源路径越界: ${input}`);
+    }
+  }
+  return parts.map(encodeURIComponent).join('/');
+}
 
-  GraphLabShell({ isSourceDrawerOpen, commandbar, palette, canvas, inspector, sourceDrawer }) {
-    return createElement(
-      'main',
-      {
-        className: `graph-lab neon-dossier-graph-lab${isSourceDrawerOpen ? ' graph-lab--source-open' : ''}`,
-        'data-theme-surface': 'neon-dossier-graph-lab-shell',
-      },
-      commandbar,
-      palette,
-      canvas,
-      inspector,
-      sourceDrawer,
-    );
-  },
+function assetUrl(baseUrl: string, path: string): string {
+  return `${baseUrl}${normalizeRuntimeAssetPath(path)}`;
+}
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
-    return createElement(
-      'div',
-      {
-        className: 'official-theme-center neon-dossier-theme-center',
-        role: 'dialog',
-        'aria-modal': 'true',
-        'data-theme-surface': 'neon-dossier-theme-center-surface',
-      },
-      header,
-      createElement(
-        'div',
-        { className: 'official-theme-center__layout neon-dossier-theme-center__layout' },
-        sidebar,
-        createElement(
-          'main',
-          { className: 'official-theme-center__content neon-dossier-theme-center__content' },
-          installedThemes,
-          remoteThemes,
-        ),
-      ),
-      footer,
-    );
-  },
-};
+function injectRemoteStyleLink(themeId: string, href: string): void {
+  if (typeof document === 'undefined') return;
+  const id = `official-theme-style-link-${themeId}-${btoa(href).replace(/=+$/g, '')}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = href;
+  link.dataset['officialThemeStyle'] = themeId;
+  document.head.appendChild(link);
+}
 
-const neonDossierTheme: ThemeDescriptor = {
-  id: 'plotflow-neon-dossier',
-  name: { 'zh-CN': '霓虹档案', 'en-US': 'Neon Dossier' },
-  tagline: { 'zh-CN': '官方免费主题 · 高对比档案工作台', 'en-US': 'Free official theme · high-contrast dossier desk' },
-  description: { 'zh-CN': '用于验证官方远程主题下载、更新与注册链路的预置代码主题。', 'en-US': 'Prebuilt code theme used to verify the official remote theme pipeline.' },
-  version: '1.0.0',
-  defaultMode: 'dark',
-  tokens: {
-    shared: {
-      '--theme-graph-lab-paper': 'var(--theme-workbench-paper)',
-      '--theme-graph-lab-surface': 'var(--theme-workbench-panel)',
-      '--theme-panel-surface': 'color-mix(in oklch, var(--theme-workbench-panel), transparent 6%)',
-      '--theme-grid-size': '24px',
-      '--theme-card-radius': '16px',
-      '--theme-graph-cable-default': 'var(--theme-blueprint-cable)',
-      '--theme-graph-cable-conditional': 'var(--theme-effect-line)',
-      '--theme-port-fill': 'var(--theme-blueprint-cable)',
-      '--theme-source-dock-height': '360px',
-    },
-    dark: {
-      '--theme-workbench-paper': 'oklch(0.17 0.034 274)',
-      '--theme-workbench-panel': 'oklch(0.23 0.042 272)',
-      '--theme-blueprint-canvas': 'radial-gradient(circle at 18% 20%, oklch(0.42 0.17 318 / 0.28), transparent 34%), linear-gradient(135deg, oklch(0.16 0.036 268), oklch(0.09 0.028 263))',
-      '--theme-blueprint-cable': 'oklch(0.78 0.19 205)',
-      '--theme-effect-line': 'oklch(0.76 0.19 335)',
-      '--theme-node-surface': 'oklch(0.25 0.045 273)',
-      '--theme-node-surface-strong': 'oklch(0.32 0.055 276)',
-      '--theme-node-border': 'oklch(0.63 0.13 210)',
-      '--theme-node-ink': 'oklch(0.93 0.025 245)',
-      '--theme-node-muted': 'oklch(0.75 0.04 248)',
-      '--theme-workbench-shadow': '0 24px 70px oklch(0.04 0.02 268 / 0.6)',
-    },
-  },
-  monacoTheme: undefined,
-  assets: { preview: 'official-remote://plotflow-neon-dossier/preview.svg' },
-  layoutRecipe: {
-    density: 'cinematic',
-    graphLab: {
-      paletteWidth: 304,
-      railWidth: 304,
-      inspectorWidth: 392,
-      sourceDockHeight: 360,
-      sourceDock: 'bottom',
-      nodeCardStyle: 'neon-dossier-card',
-      cableStyle: 'neon-dossier-cable',
-      motionIntensity: 'expressive',
-    },
-  },
-  uxRecipe: {
-    home: { layout: 'cinematic-archive', inset: '64px 0 26px', opacity: '1' },
-    themeCenter: { layout: 'market-catalog', width: 'min(1200px, 100%)', opacity: '1' },
-    graphLab: { layout: 'wide-canvas', gap: 'var(--space-4)' },
-    node: { width: '280px', minHeight: '158px', radius: '16px', opacity: '1' },
-    edge: { width: '40px', opacity: '1' },
-  },
-  entryRecipe: {
-    graphLabDefaultEntry: 'canvasFirst',
-    sourceDockDefault: 'collapsed',
-    primaryActionLabel: { 'zh-CN': '进入档案', 'en-US': 'Open dossier' },
-  },
-  interactionRecipe: {
-    density: 'balanced',
-    realtimeWirePreview: true,
-    highlightConnectTargets: true,
-    prominentPorts: true,
-  },
-  motionRecipe: {
-    intensity: 'expressive',
-    nodeHoverLift: true,
-    cableGlow: true,
-    backgroundDrift: true,
-  },
-  storeMeta: {
-    availability: 'officialRemote',
-    priceLabel: '免费主题',
-    storeUrl: 'https://plotflow.app/themes/plotflow-neon-dossier',
-  },
-  slots: narrativeWorkbenchSlots,
-  surfaces: neonDossierSurfaces,
-};
+function injectRemoteCssText(themeId: string, cssText: string): void {
+  if (typeof document === 'undefined') return;
+  if (cssText.trim().length === 0) return;
+  const id = `official-theme-css-text-${themeId}`;
+  const existing = document.getElementById(id);
+  if (existing) {
+    existing.textContent = cssText;
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = id;
+  style.dataset['officialThemeStyle'] = themeId;
+  style.textContent = cssText;
+  document.head.appendChild(style);
+}
 
-const officialRemoteThemeModules: Record<string, ThemeDescriptor> = {
-  [neonDossierTheme.id]: neonDossierTheme,
-};
-
-export function getInstalledOfficialThemeDescriptor(summary: InstalledOfficialThemeSummary): ThemeDescriptor | null {
-  const descriptor = officialRemoteThemeModules[summary.id];
-  if (!descriptor) return null;
-  if (descriptor.version !== summary.version) return null;
+function assertThemeDescriptor(value: unknown, summary: InstalledOfficialThemeSummary): ThemeDescriptor {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`官方主题 ${summary.id} 未返回 descriptor`);
+  }
+  const descriptor = value as ThemeDescriptor;
+  if (descriptor.id !== summary.id) {
+    throw new Error(`官方主题 ${summary.id} descriptor id 不一致`);
+  }
+  if (descriptor.version !== summary.version) {
+    throw new Error(`官方主题 ${summary.id} descriptor version 不一致`);
+  }
+  if (descriptor.storeMeta.availability !== 'officialRemote') {
+    throw new Error(`官方主题 ${summary.id} 必须声明为 officialRemote`);
+  }
+  if (
+    typeof descriptor.slots?.StoryNodeCard !== 'function' ||
+    typeof descriptor.slots.StoryEdge !== 'function' ||
+    typeof descriptor.slots.ThemePreview !== 'function' ||
+    typeof descriptor.slots.HomePreview !== 'function'
+  ) {
+    throw new Error(`官方主题 ${summary.id} 缺少完整 slots`);
+  }
+  if (
+    typeof descriptor.surfaces?.AppShell !== 'function' ||
+    typeof descriptor.surfaces.Toolbar !== 'function' ||
+    typeof descriptor.surfaces.SplitShell !== 'function' ||
+    typeof descriptor.surfaces.GraphLabShell !== 'function' ||
+    typeof descriptor.surfaces.HomeSurface !== 'function' ||
+    typeof descriptor.surfaces.ThemeCenterSurface !== 'function' ||
+    typeof descriptor.surfaces.PanelFrame !== 'function' ||
+    typeof descriptor.surfaces.DockFrame !== 'function'
+  ) {
+    throw new Error(`官方主题 ${summary.id} 缺少完整 surfaces`);
+  }
   return descriptor;
+}
+
+function createHost(summary: InstalledOfficialThemeSummary): OfficialThemeRuntimeHost {
+  return {
+    React,
+    createElement,
+    Fragment,
+    defaultThemeSurfaces,
+    baseSlots: narrativeWorkbenchSlots,
+    assetUrl: (path: string) => assetUrl(summary.runtime.assetBaseUrl, path),
+    themeId: summary.id,
+    version: summary.version,
+    apiVersion: OFFICIAL_THEME_API_VERSION,
+  };
+}
+
+export async function loadOfficialThemeRuntimeModule(moduleUrl: string): Promise<OfficialThemeRuntimeModule> {
+  return import(/* @vite-ignore */ moduleUrl) as Promise<OfficialThemeRuntimeModule>;
+}
+
+export async function createInstalledOfficialThemeDescriptor(
+  summary: InstalledOfficialThemeSummary,
+  runtimeModule: OfficialThemeRuntimeModule,
+): Promise<ThemeDescriptor> {
+  if (typeof runtimeModule.createTheme !== 'function') {
+    throw new Error(`官方主题 ${summary.id} 缺少 createTheme(host)`);
+  }
+
+  const result: OfficialThemeRuntimeResult = await runtimeModule.createTheme(createHost(summary));
+  const descriptor = assertThemeDescriptor(result.descriptor, summary);
+
+  for (const href of summary.runtime.styleUrls) {
+    injectRemoteStyleLink(summary.id, href);
+  }
+  for (const href of result.styleUrls ?? []) {
+    injectRemoteStyleLink(summary.id, href);
+  }
+  if (result.cssText) {
+    injectRemoteCssText(summary.id, result.cssText);
+  }
+
+  return descriptor;
+}
+
+export async function getInstalledOfficialThemeDescriptor(
+  summary: InstalledOfficialThemeSummary,
+): Promise<ThemeDescriptor | null> {
+  try {
+    const runtimeModule = await loadOfficialThemeRuntimeModule(summary.runtime.moduleUrl);
+    return await createInstalledOfficialThemeDescriptor(summary, runtimeModule);
+  } catch {
+    return null;
+  }
 }

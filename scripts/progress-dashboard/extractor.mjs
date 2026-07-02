@@ -17,11 +17,17 @@ function sortMilestoneIds(ids) {
 
 const STATUS_MAP = new Map([
   ['✅', 'complete'],
+  ['鉁?', 'complete'],
   ['🔵', 'in_progress'],
+  ['馃數', 'in_progress'],
   ['⬜', 'not_started'],
+  ['猬?', 'not_started'],
   ['🔴', 'blocked'],
+  ['馃敶', 'blocked'],
   ['⏭️', 'skipped'],
+  ['鈴笍', 'skipped'],
   ['❌', 'removed'],
+  ['鉂?', 'removed'],
 ]);
 
 function sourceRef(filePath, kind, extra = {}) {
@@ -136,6 +142,21 @@ function extractFirstTableAfter(content, marker) {
     .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ''])));
 }
 
+function extractFirstTableAfterAny(content, markers) {
+  for (const marker of markers) {
+    const rows = extractFirstTableAfter(content, marker);
+    if (rows.length > 0) return rows;
+  }
+  return [];
+}
+
+function rowValue(row, keys, index) {
+  for (const key of keys) {
+    if (row[key] !== undefined) return row[key];
+  }
+  return Object.values(row)[index] ?? '';
+}
+
 function findLineNumber(content, pattern) {
   const lines = content.split(/\r?\n/);
   const index = lines.findIndex((line) => pattern.test(line));
@@ -149,8 +170,8 @@ function normalizeDate(value) {
 }
 
 function parseUpdateDateFromHeader(content) {
-  const match = content.match(/更新[^0-9\n]*(\d{4}-\d{2}-\d{2})/);
-  return match?.[1];
+  const match = content.match(/(?:更新|鏇存柊)[^0-9\n?]*(\d{4}-\d{2}-\d{2}|\?026-\d{2}-\d{2})/);
+  return match?.[1]?.replace(/^\?026/, '2026');
 }
 
 function parseReadmePublicProgress(readmeContent) {
@@ -218,8 +239,8 @@ function parseMilestoneUniverse(milestonesContent) {
 function parseProgressDetails(progressContent, milestoneTitles) {
   const lines = progressContent.split(/\r?\n/);
   const tasksByMilestone = new Map();
-  const overviewRows = extractFirstTableAfter(progressContent, '## 总览');
-  const blockingRows = extractFirstTableAfter(progressContent, '## 阻塞项');
+  const overviewRows = extractFirstTableAfterAny(progressContent, ['## 总览', '## 鎬昏']);
+  const blockingRows = extractFirstTableAfterAny(progressContent, ['## 阻塞项', '## 当前卡点', '## 褰撳墠鍗＄偣']);
   const timelineMap = new Map();
   const sectionTitles = new Map();
   const milestoneIds = new Set();
@@ -274,24 +295,24 @@ function parseProgressDetails(progressContent, milestoneTitles) {
   });
 
   const overview = overviewRows
-    .filter((row) => isMilestoneId(row['里程碑'] ?? '') && Number((row['里程碑'] ?? 'M0').slice(1)) <= 7)
+    .filter((row) => isMilestoneId(rowValue(row, ['里程碑', '閲岀▼纰?'], 0)) && Number(rowValue(row, ['里程碑', '閲岀▼纰?'], 0).slice(1)) <= 7)
     .map((row) => ({
-      id: row['里程碑'],
-      title: row['名称'],
-      totalTasks: Number(row['任务数']),
-      complete: Number(row['完成']),
-      inProgress: Number(row['进行中']),
-      notStarted: Number(row['未开始']),
-      blocked: Number(row['阻塞']),
-      progress: Number((row['进度'] ?? '0').replace('%', '')),
+      id: rowValue(row, ['里程碑', '閲岀▼纰?'], 0),
+      title: rowValue(row, ['名称', '鍚嶇О'], 1),
+      totalTasks: Number(rowValue(row, ['任务数', '浠诲姟鏁?'], 2)),
+      complete: Number(rowValue(row, ['完成', '瀹屾垚'], 3)),
+      inProgress: Number(rowValue(row, ['进行中', '杩涜涓?'], 4)),
+      notStarted: Number(rowValue(row, ['未开始', '鏈紑濮?'], 5)),
+      blocked: Number(rowValue(row, ['阻塞', '闃诲'], 6)),
+      progress: Number((rowValue(row, ['进度', '杩涘害'], 9) || '0').replace('%', '')),
     }));
 
   const blocking = blockingRows
-    .filter((row) => isMilestoneId(row['里程碑'] ?? '') && Number((row['里程碑'] ?? 'M0').slice(1)) <= 7)
+    .filter((row) => isMilestoneId(rowValue(row, ['里程碑', '閲岀▼纰?'], 0)) && Number(rowValue(row, ['里程碑', '閲岀▼纰?'], 0).slice(1)) <= 7)
     .map((row) => ({
-      id: row['里程碑'],
-      blockers: Number(row['阻塞数']),
-      note: row['说明'],
+      id: rowValue(row, ['里程碑', '閲岀▼纰?'], 0),
+      blockers: Number(rowValue(row, ['阻塞数', '闃诲鏁?'], 1)),
+      note: rowValue(row, ['说明', '璇存槑'], 2),
     }));
 
   const timeline = Array.from(timelineMap.entries())

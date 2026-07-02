@@ -514,6 +514,10 @@ export function updateNodeText(content: string, node: StoryNode, patch: NodePatc
     next = migrateGraphLayoutNodeText(next, oldFullId, newFullId).content;
   }
 
+  if (nextNodeId !== node.id) {
+    next = replaceOptionTargetReferencesText(next, node.id, nextNodeId).content;
+  }
+
   return patchResult(normalized, next);
 }
 
@@ -568,6 +572,38 @@ export function updateOptionText(
   });
   lines[index] = line;
   return patchResult(normalized, lines.join('\n'));
+}
+
+function replaceOptionTargetReferencesText(
+  content: string,
+  fromTargetNodeId: string,
+  toTargetNodeId: string,
+): GraphEditResult {
+  const normalized = normalizeText(content);
+  const fromTarget = fromTargetNodeId.trim();
+  const toTarget = toTargetNodeId.trim();
+  if (!fromTarget || !toTarget || fromTarget === toTarget) {
+    return { content: normalized, changed: false };
+  }
+
+  const lines = linesOf(normalized);
+  let changed = false;
+
+  lines.forEach((line, index) => {
+    const parsed = parseOptionLine(line);
+    if (!parsed || parsed.targetNodeId !== fromTarget) return;
+
+    lines[index] = serializeOptionLine({
+      prefix: parsed.prefix,
+      description: parsed.description,
+      targetNodeId: toTarget,
+      conditionRaw: parsed.conditionRaw,
+      effectsRaw: parsed.effectsRaw,
+    });
+    changed = true;
+  });
+
+  return changed ? patchResult(normalized, lines.join('\n')) : { content: normalized, changed: false };
 }
 
 export function deleteOptionText(content: string, option: Option): GraphEditResult {

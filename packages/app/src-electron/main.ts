@@ -1,17 +1,21 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { basename, isAbsolute, join, normalize, relative, resolve } from 'node:path';
-import { writeFile, readFile, stat, readdir } from 'node:fs/promises';
+import { readFile, stat, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { buildMenu } from './menu';
+import { buildMenu, type AppMenuLanguage } from './menu';
 import {
   assertWritableContent,
   findStoryFileArgument,
+  sanitizeExportDefaultPath,
   withTimeout,
+  writeTextFileAndVerify,
 } from './mainProcessUtils';
 import {
   downloadOfficialTheme,
   listInstalledOfficialThemes,
   listOfficialRemoteThemeViews,
+  registerOfficialThemeProtocolHandler,
+  registerOfficialThemeProtocolScheme,
 } from './official-theme-service';
 
 // Note: electron-squirrel-startup check is skipped in M0 (dependency not installed).
@@ -19,6 +23,8 @@ import {
 // See: https://github.com/mongodb-js/electron-squirrel-startup
 
 let mainWindow: BrowserWindow | null = null;
+
+registerOfficialThemeProtocolScheme();
 
 /** 褰撶敤鎴峰湪鑴忔鏌ョ‘璁ゅ悗锛屽己鍒堕€€鍑烘祦绋嬩腑璺宠繃閲嶅纭鐨勬爣璁?*/
 let forceQuitting = false;
@@ -34,6 +40,13 @@ let pendingFilePath: string | null = null;
 const APP_ID = 'com.plotflow.app';
 const RENDERER_QUERY_TIMEOUT_MS = 5_000;
 const RENDERER_SAVE_TIMEOUT_MS = 15_000;
+
+if (
+  process.env['PLOTFLOW_TEST_USER_DATA_DIR']
+  && (process.env['NODE_ENV'] === 'test' || process.env['PLOTFLOW_BLACKBOX_E2E'] === '1')
+) {
+  app.setPath('userData', normalize(process.env['PLOTFLOW_TEST_USER_DATA_DIR']));
+}
 
 function resolveWindowIconPath(): string | undefined {
   const packagedIconPath = join(process.resourcesPath, 'icon.png');
@@ -243,7 +256,7 @@ ipcMain.handle('file:save', async (_event, payload: { path: string; content: str
       throw new Error('浠呮敮鎸佷繚瀛?.mdstory 鏂囦欢');
     }
 
-    await writeFile(normalizedPath, content, 'utf-8');
+    await writeTextFileAndVerify(normalizedPath, content);
     return { success: true, timestamp: Date.now() };
   } catch (error) {
     throw new Error(`鏃犳硶淇濆瓨鏂囦欢: ${(error as Error).message}`);
@@ -300,7 +313,7 @@ ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
       filePath += '.mdstory';
     }
 
-    await writeFile(filePath, payload.content, 'utf-8');
+    await writeTextFileAndVerify(filePath, payload.content);
     return { filePath };
   } catch (error) {
     throw new Error(`鏂囦欢鍙﹀瓨涓哄け璐? ${(error as Error).message}`);
@@ -339,14 +352,14 @@ ipcMain.handle('file:export', async (_event, payload: {
     const result = await dialog.showSaveDialog(mainWindow!, {
       title: '瀵煎嚭鏂囦欢',
       filters: payload.filters,
-      defaultPath: payload.defaultPath,
+      defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
     });
 
     if (result.canceled || !result.filePath) {
       return null;
     }
 
-    await writeFile(result.filePath, payload.content, 'utf-8');
+    await writeTextFileAndVerify(result.filePath, payload.content);
     return { filePath: result.filePath };
   } catch (error) {
     throw new Error(`瀵煎嚭澶辫触: ${(error as Error).message}`);
@@ -463,6 +476,11 @@ ipcMain.handle('theme:openOfficialThemeStore', async () => {
   await shell.openExternal('https://plotflow.app/themes');
 });
 
+ipcMain.on('menu:setLanguage', (_event, language: AppMenuLanguage) => {
+  const nextLanguage = language === 'en-US' ? 'en-US' : 'zh-CN';
+  Menu.setApplicationMenu(buildMenu(nextLanguage));
+});
+
 // ============================================================================
 // Window Management
 // ============================================================================
@@ -550,11 +568,14 @@ function createWindow(): void {
         });
 
         if (result.response === 0) {
-          await withTimeout(
+          const saved = await withTimeout(
             mainWindow.webContents.executeJavaScript(`window.__forceSave__ && window.__forceSave__()`),
             RENDERER_SAVE_TIMEOUT_MS,
             '保存操作超时',
           );
+          if (!saved) {
+            return;
+          }
         } else if (result.response === 2) {
           return;
         }
@@ -564,7 +585,7 @@ function createWindow(): void {
     }
 
     forceQuitting = true;
-    mainWindow.close();
+    mainWindow.destroy();
   });
 }
 
@@ -634,6 +655,7 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     checkCommandLineArgs();
+    registerOfficialThemeProtocolHandler();
     Menu.setApplicationMenu(buildMenu());
     createWindow();
 
@@ -660,7 +682,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  forceQuitting = true;
+  // Keep dirty-state arbitration in BrowserWindow 'close'.
 });
 
 

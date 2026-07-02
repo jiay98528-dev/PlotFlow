@@ -174,6 +174,21 @@ export interface OfficialThemeRegistryEntry {
   readonly changelog: string;
 }
 
+export interface OfficialThemeRuntimeManifest {
+  readonly id: string;
+  readonly version: string;
+  readonly themeApiVersion: number;
+  readonly entry: string;
+  readonly styles?: readonly string[];
+  readonly assetsBase?: string;
+}
+
+export interface InstalledOfficialThemeRuntime {
+  readonly moduleUrl: string;
+  readonly styleUrls: readonly string[];
+  readonly assetBaseUrl: string;
+}
+
 export interface OfficialThemeCatalogResult {
   readonly ok: boolean;
   readonly entries: readonly OfficialThemeRegistryEntry[];
@@ -186,6 +201,7 @@ export interface InstalledOfficialThemeSummary {
   readonly name: ThemeLocaleString;
   readonly priceLabel: '免费主题';
   readonly installedAt: number;
+  readonly runtime: InstalledOfficialThemeRuntime;
 }
 
 export type OfficialThemeRemoteStatus = 'installed' | 'updateAvailable' | 'notInstalled';
@@ -201,6 +217,30 @@ export interface OfficialThemeDownloadResult {
   readonly version?: string;
   readonly message: string;
   readonly errors?: readonly string[];
+}
+
+export interface OfficialThemeRuntimeHost {
+  readonly React: typeof React;
+  readonly createElement: typeof React.createElement;
+  readonly Fragment: typeof React.Fragment;
+  readonly defaultThemeSurfaces: ThemeSurfaces;
+  readonly baseSlots: ThemeSlots;
+  readonly assetUrl: (path: string) => string;
+  readonly themeId: string;
+  readonly version: string;
+  readonly apiVersion: number;
+}
+
+export interface OfficialThemeRuntimeResult {
+  readonly descriptor: ThemeDescriptor;
+  readonly cssText?: string;
+  readonly styleUrls?: readonly string[];
+}
+
+export interface OfficialThemeRuntimeModule {
+  readonly createTheme: (
+    host: OfficialThemeRuntimeHost,
+  ) => OfficialThemeRuntimeResult | Promise<OfficialThemeRuntimeResult>;
 }
 
 // ============================================================================

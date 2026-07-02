@@ -99,12 +99,26 @@
   font-weight: 680;
 }
 
-.graph-lab__commandbar-stats span {
+.graph-lab__commandbar-stats span,
+.graph-lab__commandbar-stats button {
   padding: 3px var(--space-2);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-full);
+  color: inherit;
   background: var(--color-control-group-bg);
+  font: inherit;
+  font-weight: inherit;
   white-space: nowrap;
+}
+
+.graph-lab__commandbar-stats button {
+  cursor: pointer;
+}
+
+.graph-lab__commandbar-stats button:hover,
+.graph-lab__commandbar-stats button:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .graph-lab__commandbar-stats .is-warning {

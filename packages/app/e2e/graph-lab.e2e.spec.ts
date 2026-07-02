@@ -40,12 +40,17 @@ interface MockWorkspace {
 
 interface TestStoreBridge {
   getEditorContent: () => string;
+  getDiagnostics: () => ReadonlyArray<{ readonly code: string }>;
   getGraphNodes: () => ReadonlyArray<{
     readonly id: string;
     readonly position: { readonly x: number; readonly y: number };
   }>;
   setEditorContent: (content: string) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
+  setTheme: (themeId: string) => void;
+  setHomeSurfaceOpen: (open: boolean) => void;
+  openThemeCenter: () => void;
+  selectNode: (nodeId: string) => void;
   getUIState: () => {
     readonly workspaceMode: 'split' | 'graphLab';
     readonly isSourceDrawerOpen: boolean;
@@ -134,6 +139,104 @@ async function mockWorkspaceIpcHandler(app: ElectronApplication, workspace: Mock
     },
     workspace,
   );
+}
+
+async function mockDelayedSaveAsIpcHandler(app: ElectronApplication, delayMs: number): Promise<void> {
+  await app.evaluate(({ ipcMain }, delay: number) => {
+    ipcMain.removeHandler('file:saveAs');
+    ipcMain.handle('file:saveAs', async () => {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return { filePath: 'D:\\PlotFlowE2E\\save-feedback.mdstory' };
+    });
+  }, delayMs);
+}
+
+async function resetDefaultDialogAndSaveAsIpcHandlers(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler('dialog:confirm');
+    ipcMain.handle('dialog:confirm', async () => 1);
+    ipcMain.removeHandler('file:saveAs');
+    ipcMain.handle('file:saveAs', async () => ({ filePath: 'D:\\PlotFlowE2E\\default-save-as.mdstory' }));
+  });
+}
+
+async function mockCountingSaveAsIpcHandler(app: ElectronApplication, delayMs: number): Promise<void> {
+  await app.evaluate(({ ipcMain }, delay: number) => {
+    (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount = 0;
+    ipcMain.removeHandler('file:saveAs');
+    ipcMain.handle('file:saveAs', async () => {
+      (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount =
+        ((globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount ?? 0) + 1;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return { filePath: 'D:\\PlotFlowE2E\\save-feedback.mdstory' };
+    });
+  }, delayMs);
+}
+
+async function readSaveAsCallCount(app: ElectronApplication): Promise<number> {
+  return app.evaluate(() =>
+    (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount ?? 0,
+  );
+}
+
+async function mockFailingSaveAsIpcHandler(app: ElectronApplication, message: string): Promise<void> {
+  await app.evaluate(({ ipcMain }, errorMessage: string) => {
+    ipcMain.removeHandler('file:saveAs');
+    ipcMain.handle('file:saveAs', async () => {
+      throw new Error(errorMessage);
+    });
+  }, message);
+}
+
+async function mockSaveThenOpenCancelFlow(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ ipcMain }) => {
+    (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount = 0;
+    ipcMain.removeHandler('dialog:confirm');
+    ipcMain.handle('dialog:confirm', async () => 0);
+    ipcMain.removeHandler('file:saveAs');
+    ipcMain.handle('file:saveAs', async () => null);
+    ipcMain.removeHandler('file:open');
+    ipcMain.handle('file:open', async () => {
+      (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount =
+        ((globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount ?? 0) + 1;
+      return {
+        filePath: 'D:\\PlotFlowE2E\\should-not-open.mdstory',
+        content: '# 故事：Should Not Replace\n\n## 节点：替换\n\n不应出现。',
+      };
+    });
+  });
+}
+
+async function readOpenFileCallCount(app: ElectronApplication): Promise<number> {
+  return app.evaluate(() =>
+    (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount ?? 0,
+  );
+}
+
+async function mockCloseDialogResponse(app: ElectronApplication, response: number): Promise<void> {
+  await app.evaluate(({ dialog }, nextResponse: number) => {
+    (globalThis as typeof globalThis & { __plotflowCloseResponse?: number }).__plotflowCloseResponse = nextResponse;
+    dialog.showMessageBox = async () => ({
+      response: (globalThis as typeof globalThis & { __plotflowCloseResponse?: number }).__plotflowCloseResponse ?? 2,
+      checkboxChecked: false,
+    });
+  }, response);
+}
+
+async function requestMainWindowClose(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win || win.isDestroyed()) throw new Error('No BrowserWindow available');
+    win.close();
+  });
+}
+
+async function sendMenuEvent(app: ElectronApplication, channel: string): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, eventChannel: string) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win || win.isDestroyed()) throw new Error('No BrowserWindow available');
+    win.webContents.send(eventChannel);
+  }, channel);
 }
 
 async function readCapturedExport(app: ElectronApplication): Promise<CapturedExport | null> {
@@ -227,6 +330,66 @@ async function getEditorContent(page: Page): Promise<string> {
   });
 }
 
+async function waitForNoDiagnostic(page: Page, code: string): Promise<void> {
+  await page.waitForFunction(
+    (diagnosticCode: string) =>
+      !((window as TestWindow).__test_store__?.getDiagnostics?.() ?? [])
+        .some((diagnostic) => diagnostic.code === diagnosticCode),
+    code,
+    { timeout: 10_000 },
+  );
+}
+
+async function expectHomeSurfaceHasNoOverlap(page: Page): Promise<void> {
+  const overlaps = await page.evaluate(() => {
+    const selectors = [
+      ['title', '.home-surface__copy h2'],
+      ['body', '.home-surface__copy > p:not(.home-surface__eyebrow)'],
+      ['actions', '.home-surface__actions'],
+      ['preview', '.home-surface__preview'],
+      ['cards', '.home-surface__grid'],
+      ['status', '.home-surface__status'],
+    ] as const;
+
+    const rects = selectors
+      .map(([name, selector]) => {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return {
+          name,
+          rect: {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+          },
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> =>
+        Boolean(entry && entry.rect.width > 1 && entry.rect.height > 1),
+      );
+
+    const pairs: string[] = [];
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i]!;
+        const b = rects[j]!;
+        const horizontal = Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left);
+        const vertical = Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top);
+        if (horizontal > 2 && vertical > 2) {
+          pairs.push(`${a.name}/${b.name}`);
+        }
+      }
+    }
+    return pairs;
+  });
+
+  expect(overlaps).toEqual([]);
+}
+
 async function dragFromTo(
   page: Page,
   from: { readonly x: number; readonly y: number },
@@ -262,6 +425,14 @@ async function nodeBodyPoint(page: Page, title: string): Promise<{ x: number; y:
   const box = await node.boundingBox();
   if (!box) throw new Error(`node has no bounding box: ${title}`);
   return { x: box.x + box.width / 2, y: box.y + Math.min(40, box.height * 0.35) };
+}
+
+async function nodeDragPoint(page: Page, title: string): Promise<{ x: number; y: number }> {
+  const node = page.locator('.react-flow__node').filter({ hasText: title }).first();
+  await expect(node).toBeVisible({ timeout: 10_000 });
+  const box = await node.boundingBox();
+  if (!box) throw new Error(`node has no bounding box: ${title}`);
+  return { x: box.x + Math.min(28, box.width * 0.2), y: box.y + Math.min(28, box.height * 0.2) };
 }
 
 async function findBlankCanvasPoint(
@@ -363,8 +534,178 @@ test.describe('Graph Lab E2E', () => {
     await mockExportIpcHandler(electronApp);
   });
 
+  test.beforeEach(async () => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.keyboard.up('Control').catch(() => {});
+    await page.keyboard.up('Shift').catch(() => {});
+    await page.keyboard.up('Alt').catch(() => {});
+    await page.mouse.up().catch(() => {});
+    await resetDefaultDialogAndSaveAsIpcHandlers(electronApp);
+    await page.locator('select.language-select').selectOption('zh-CN').catch(() => {});
+    await page.evaluate(() => {
+      (window as TestWindow).__test_store__?.setTheme('plotflow-narrative-workbench');
+      (window as TestWindow).__test_store__?.setHomeSurfaceOpen(false);
+    });
+  });
+
   test.afterAll(async () => {
     await closeElectronAppSafely(electronApp, page);
+  });
+
+  test('keeps Home hero readable across official themes and viewports', async () => {
+    const originalViewport = page.viewportSize() ?? { width: 1440, height: 900 };
+    const themes = ['plotflow-narrative-workbench', 'plotflow-engine-telemetry'];
+    const viewports = [
+      { width: 1440, height: 900 },
+      { width: 1280, height: 720 },
+      { width: 390, height: 844 },
+    ];
+
+    try {
+      for (const themeId of themes) {
+        for (const viewport of viewports) {
+          await page.setViewportSize(viewport);
+          await page.evaluate((id: string) => {
+            (window as TestWindow).__test_store__?.setTheme(id);
+            (window as TestWindow).__test_store__?.setHomeSurfaceOpen(true);
+          }, themeId);
+          await expect(page.getByTestId('home-surface')).toBeVisible({ timeout: 10_000 });
+          await page.waitForTimeout(150);
+          await expectHomeSurfaceHasNoOverlap(page);
+        }
+      }
+    } finally {
+      await page.setViewportSize(originalViewport);
+      await page.evaluate(() => (window as TestWindow).__test_store__?.setHomeSurfaceOpen(false));
+    }
+  });
+
+  test('opens Problems panel from the Graph Lab diagnostics chip', async () => {
+    await setEditorContent(page, `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：不存在')}`);
+    await switchToGraphLab(page);
+    await page.waitForFunction(
+      () => ((window as TestWindow).__test_store__?.getDiagnostics?.() ?? [])
+        .some((diagnostic) => diagnostic.code === 'E001'),
+      { timeout: 10_000 },
+    );
+
+    await page.getByTestId('graph-lab-diagnostics-button').click();
+
+    await expect(page.locator('.problem-panel')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.problem-panel__item').first()).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('renames a referenced node without creating an undefined-target diagnostic', async () => {
+    await setEditorContent(page, `${START_STORY}
+
+## 节点：目标
+
+目标正文。
+`.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：目标'));
+    await switchToGraphLab(page);
+    await page.evaluate(() => (window as TestWindow).__test_store__?.selectNode('第一章-目标'));
+
+    const titleInput = page.getByTestId('graph-inspector-node-title');
+    await expect(titleInput).toHaveValue('目标', { timeout: 10_000 });
+    await titleInput.fill('重命名目标');
+    await blur(titleInput);
+
+    await waitForContent(page, '## 节点：重命名目标');
+    await waitForContent(page, '[选项] 查看四周 -> 节点：重命名目标');
+    await waitForNoDiagnostic(page, 'E001');
+  });
+
+  test('shows immediate Save As feedback from menu actions', async () => {
+    await mockDelayedSaveAsIpcHandler(electronApp, 700);
+    await setEditorContent(page, START_STORY);
+
+    await sendMenuEvent(electronApp, 'menu:file:saveAs');
+
+    await expect(page.locator('.status-bar')).toContainText('正在打开保存对话框', { timeout: 300 });
+    await expect(page.locator('.status-bar')).toContainText('已保存至', { timeout: 2_000 });
+  });
+
+  test('Ctrl+S opens Save As feedback while Graph Lab has focus', async () => {
+    await mockDelayedSaveAsIpcHandler(electronApp, 700);
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+
+    await expect(page.locator('.status-bar')).toContainText('正在打开保存对话框', { timeout: 300 });
+    await expect(page.locator('.status-bar')).toContainText('已保存至', { timeout: 2_000 });
+  });
+
+  test('does not open duplicate Save As dialogs from concurrent shortcuts', async () => {
+    await mockCountingSaveAsIpcHandler(electronApp, 900);
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    await Promise.all([
+      page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S'),
+      sendMenuEvent(electronApp, 'menu:file:save'),
+    ]);
+
+    await expect(page.locator('.status-bar')).toContainText('正在打开保存对话框', { timeout: 300 });
+    await expect(page.locator('.status-bar')).toContainText('已保存至', { timeout: 2_000 });
+    expect(await readSaveAsCallCount(electronApp)).toBe(1);
+  });
+
+  test('shows Save As failures instead of treating them as cancellation', async () => {
+    await mockFailingSaveAsIpcHandler(electronApp, 'disk write rejected');
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+
+    await expect(page.locator('.status-bar')).toContainText('保存失败', { timeout: 2_000 });
+    await expect(page.locator('.status-bar')).toContainText('disk write rejected');
+  });
+
+  test('does not continue opening another file when Save As is cancelled', async () => {
+    await mockSaveThenOpenCancelFlow(electronApp);
+    await setEditorContent(page, START_STORY);
+
+    await sendMenuEvent(electronApp, 'menu:file:open');
+
+    await expect(page.locator('.status-bar')).toContainText('已取消保存', { timeout: 2_000 });
+    await expect.poll(() => readOpenFileCallCount(electronApp)).toBe(0);
+    expect(await getEditorContent(page)).toContain('title: Graph Lab E2E');
+    expect(await getEditorContent(page)).toContain('## 节点：起点');
+    expect(await getEditorContent(page)).not.toContain('Should Not Replace');
+  });
+
+  test('localizes primary UI surfaces in English mode without translating story content', async () => {
+    await setEditorContent(page, START_STORY);
+    await page.locator('select.language-select').selectOption('en-US');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
+    const menuLabels = await electronApp.evaluate(({ Menu }) => {
+      const menu = Menu.getApplicationMenu();
+      return menu?.items.map((item) => item.label) ?? [];
+    });
+    expect(menuLabels).toEqual(expect.arrayContaining(['File', 'Edit', 'View', 'Export', 'Help']));
+    expect(menuLabels).not.toEqual(expect.arrayContaining(['文件', '编辑', '视图', '导出', '帮助']));
+    await switchToGraphLab(page);
+
+    await expect(page.getByTestId('toolbar-export')).toContainText('Export');
+    await expect(page.getByText('Graph Lab · Narrative Workbench')).toBeVisible();
+    await expect(page.getByTestId('graph-lab-inspector')).toContainText('Story Info');
+    await expect(page.getByTestId('graph-lab-inspector')).toContainText('No node selected');
+
+    await page.getByTestId('graph-lab-diagnostics-button').click();
+    await expect(page.locator('.problem-panel')).toContainText('Problems');
+    await expect(page.locator('.problem-panel')).toContainText('All');
+    await expect(page.locator('.problem-panel')).toContainText('Syntax parsing failed');
+
+    await page.getByTestId('toolbar-export').click();
+    await expect(page.locator('.export-dialog__overlay')).toContainText('Export story');
+    await expect(page.locator('.export-dialog__overlay')).toContainText('Export format');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.export-dialog__overlay')).toHaveCount(0);
+
+    await page.getByTestId('toolbar-theme-center').click();
+    await expect(page.getByTestId('theme-center')).toContainText('Official Theme Center');
+    await expect(page.getByTestId('theme-center')).toContainText('Installed official themes');
   });
 
   test('creates and exports a branch entirely from Graph Lab controls', async () => {
@@ -536,7 +877,7 @@ author: QA
 
     const before = await node.boundingBox();
     expect(before).not.toBeNull();
-    const start = await nodeBodyPoint(page, '起点');
+    const start = await nodeDragPoint(page, '起点');
     await dragFromTo(page, start, { x: start.x + 120, y: start.y + 80 });
 
     await page.waitForFunction(
@@ -620,5 +961,22 @@ author: QA
     await waitForContent(page, '[选项] 查看四周');
     const content = await getEditorContent(page);
     expect(content).not.toContain('[选项] 查看四周 -> 节点：树林');
+  });
+
+  test('keeps dirty window open on close cancel and closes only after discard', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    await mockCloseDialogResponse(electronApp, 2);
+    await requestMainWindowClose(electronApp);
+    await expect(page.getByTestId('graph-lab-workspace')).toBeVisible({ timeout: 2_000 });
+
+    await mockCloseDialogResponse(electronApp, 1);
+    const closed = page.waitForEvent('close', { timeout: 5_000 });
+    await requestMainWindowClose(electronApp);
+    await closed;
+    await electronApp.evaluate(({ app }) => {
+      app.exit(0);
+    }).catch(() => {});
   });
 });

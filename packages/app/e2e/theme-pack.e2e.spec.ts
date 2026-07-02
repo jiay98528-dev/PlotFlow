@@ -1,9 +1,14 @@
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { createHash } from 'crypto';
+import { createServer, type Server } from 'http';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 const MAIN_JS = path.join(PROJECT_ROOT, 'out', 'main', 'main.js');
+const REMOTE_THEME_ROOT = path.join(PROJECT_ROOT, 'website', 'public', 'themes', 'plotflow-neon-dossier');
+const REMOTE_THEME_ZIP = path.join(REMOTE_THEME_ROOT, 'plotflow-neon-dossier-1.0.0.pf-official-theme.zip');
 
 const THEME_STORY = `---
 plotflow: 0.1
@@ -21,7 +26,67 @@ author: QA
 线缆通向另一个叙事节点。
 `;
 
-async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
+async function startOfficialThemeServer(): Promise<{ server: Server; registryUrl: string }> {
+  const bundleBytes = fs.readFileSync(REMOTE_THEME_ZIP);
+  const sha256 = createHash('sha256').update(bundleBytes).digest('hex');
+
+  const server = createServer((request, response) => {
+    const url = request.url ?? '/';
+    if (url === '/data/official-themes.json') {
+      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({
+        themes: [
+          {
+            id: 'plotflow-neon-dossier',
+            name: { 'zh-CN': '霓虹档案', 'en-US': 'Neon Dossier' },
+            version: '1.0.0',
+            channel: 'stable',
+            priceLabel: '免费主题',
+            manifestUrl: 'http://127.0.0.1:0/themes/plotflow-neon-dossier/manifest.json',
+            bundleUrl: 'http://127.0.0.1:0/themes/plotflow-neon-dossier/plotflow-neon-dossier-1.0.0.pf-official-theme.zip',
+            sha256,
+            minAppVersion: '0.1.0',
+            themeApiVersion: 1,
+            previewUrl: 'http://127.0.0.1:0/themes/plotflow-neon-dossier/assets/preview.svg',
+            changelog: '官方远程 ZIP 代码主题 E2E fixture。',
+          },
+        ],
+      }).replaceAll('127.0.0.1:0', request.headers.host ?? '127.0.0.1'));
+      return;
+    }
+    if (url === '/themes/plotflow-neon-dossier/plotflow-neon-dossier-1.0.0.pf-official-theme.zip') {
+      response.writeHead(200, { 'content-type': 'application/zip' });
+      response.end(bundleBytes);
+      return;
+    }
+    if (url === '/themes/plotflow-neon-dossier/manifest.json') {
+      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      response.end(fs.readFileSync(path.join(REMOTE_THEME_ROOT, 'manifest.json')));
+      return;
+    }
+    if (url === '/themes/plotflow-neon-dossier/assets/preview.svg') {
+      response.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8' });
+      response.end(fs.readFileSync(path.join(REMOTE_THEME_ROOT, 'assets', 'preview.svg')));
+      return;
+    }
+    response.writeHead(404);
+    response.end('not found');
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('无法启动官方主题测试服务器');
+  }
+  return {
+    server,
+    registryUrl: `http://127.0.0.1:${address.port}/data/official-themes.json`,
+  };
+}
+
+async function launchApp(env: Record<string, string> = {}): Promise<{ app: ElectronApplication; page: Page }> {
   if (!fs.existsSync(MAIN_JS)) {
     throw new Error(`构建产物未找到: ${MAIN_JS}。请先执行 pnpm build。`);
   }
@@ -31,6 +96,7 @@ async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
     env: {
       ...process.env as Record<string, string>,
       NODE_ENV: 'test',
+      ...env,
     },
   });
   const page = await app.firstWindow();
@@ -72,9 +138,17 @@ async function closeElectronApp(app: ElectronApplication | undefined, page: Page
 test.describe('Official Theme Center E2E', () => {
   let app: ElectronApplication;
   let page: Page;
+  let server: Server;
+  let testUserDataDir: string;
 
   test.beforeAll(async () => {
-    const launched = await launchApp();
+    const officialThemeServer = await startOfficialThemeServer();
+    server = officialThemeServer.server;
+    testUserDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plotflow-theme-e2e-'));
+    const launched = await launchApp({
+      PLOTFLOW_OFFICIAL_THEME_REGISTRY_URL: officialThemeServer.registryUrl,
+      PLOTFLOW_TEST_USER_DATA_DIR: testUserDataDir,
+    });
     app = launched.app;
     page = launched.page;
     await page.evaluate(() => {
@@ -85,6 +159,10 @@ test.describe('Official Theme Center E2E', () => {
 
   test.afterAll(async () => {
     await closeElectronApp(app, page);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (testUserDataDir) {
+      fs.rmSync(testUserDataDir, { recursive: true, force: true });
+    }
   });
 
   test('opens Home and Theme Center without exposing local theme import', async () => {
@@ -123,5 +201,53 @@ test.describe('Official Theme Center E2E', () => {
       getComputedStyle(document.documentElement).getPropertyValue('--theme-graph-lab-paper').trim(),
     );
     expect(paperColor).toContain('oklch');
+
+    await page.getByTestId('theme-center').getByRole('button', { name: '完成' }).click();
+  });
+
+  test('applies engine telemetry theme from Theme Center and verifies Graph Lab shell', async () => {
+    await page.getByTestId('toolbar-theme-center').click();
+    await expect(page.getByTestId('theme-center')).toBeVisible();
+
+    const telemetryCard = page.locator('[data-theme-card-id="plotflow-engine-telemetry"]');
+    await expect(telemetryCard).toBeVisible({ timeout: 5_000 });
+    await telemetryCard.getByTestId('theme-center-apply').click();
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-engine-telemetry');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByTestId('theme-center')).toHaveAttribute('data-theme-surface', 'engine-telemetry-theme-center-surface');
+
+    await page.getByTestId('theme-center').locator('.theme-center__footer .button').click();
+
+    await expect(page.locator('[data-theme-surface="engine-telemetry-graph-lab-shell"]')).toBeVisible();
+    await expect(page.locator('.graph-lab-rail')).toBeVisible();
+    await expect(page.locator('.graph-lab__canvas')).toBeVisible();
+    await expect(page.locator('.graph-lab-inspector')).toBeVisible();
+    await expect(page.getByTestId('graph-lab-source-drawer')).toBeVisible();
+    await expect(page.locator('[data-official-node-theme="plotflow-engine-telemetry"]').first()).toBeVisible();
+    await expect(page.locator('[data-official-node-variant="engine-telemetry"]').first()).toBeVisible();
+    await expect(page.locator('.official-graph-node--engine-telemetry').first()).toBeVisible();
+    await expect(page.locator('[data-official-edge-theme="plotflow-engine-telemetry"]')).toHaveCount(1);
+  });
+
+  test('downloads and applies an official remote code theme package', async () => {
+    await page.getByTestId('toolbar-theme-center').click();
+    await expect(page.getByTestId('theme-center')).toBeVisible();
+
+    const remoteCard = page.getByTestId('official-remote-theme-card').filter({ hasText: '霓虹档案' });
+    await expect(remoteCard).toBeVisible({ timeout: 10_000 });
+    await expect(remoteCard.getByText('免费主题')).toBeVisible();
+
+    await remoteCard.getByTestId('theme-center-remote-action').click();
+    const installedRemoteCard = page.locator('.official-theme-card').filter({ hasText: '远程代码包' });
+    await expect(installedRemoteCard).toBeVisible({ timeout: 20_000 });
+
+    await expect(remoteCard.getByTestId('theme-center-remote-action')).toContainText('启用', { timeout: 20_000 });
+    await remoteCard.getByTestId('theme-center-remote-action').click();
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-neon-dossier', { timeout: 20_000 });
+    await expect(page.locator('[data-theme-surface="neon-dossier-graph-lab-shell"]')).toBeVisible();
+    await expect(page.locator('[data-remote-slot="neon-dossier-node"]').first()).toBeVisible();
+    await expect(page.locator('[data-remote-slot="neon-dossier-edge"]').first()).toBeVisible();
   });
 });

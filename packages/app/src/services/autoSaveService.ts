@@ -17,6 +17,7 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import type { FileSaveResult } from '../types/electron';
+import { appT } from '../i18n/appI18n';
 
 // ============================================================================
 // 模块级状态
@@ -36,6 +37,9 @@ let lastSavedContent: string | null = null;
 
 /** 是否正在执行保存操作（防止并发） */
 let isSaving = false;
+
+/** 是否已有原生另存为对话框处于打开流程中 */
+let isSaveAsDialogOpen = false;
 
 // ============================================================================
 // 常量
@@ -59,23 +63,24 @@ const SAVE_STATUS_PREFIX = 'save:';
  */
 function updateStatusMessage(type: 'saving' | 'success' | 'failed', detail?: string): void {
   const uiStore = useUIStore.getState();
+  const language = uiStore.language;
 
   switch (type) {
     case 'saving':
-      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}saving⏳ 保存中...`);
+      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}saving⏳ ${appT('status.saving', undefined, language)}`);
       break;
     case 'success':
-      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}success✅ 已保存`);
+      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}success✅ ${appT('status.saved', undefined, language)}`);
       // 短暂显示后清除
       setTimeout(() => {
         const current = useUIStore.getState().statusMessage;
-        if (current === `${SAVE_STATUS_PREFIX}success✅ 已保存`) {
+        if (current === `${SAVE_STATUS_PREFIX}success✅ ${appT('status.saved', undefined, language)}`) {
           useUIStore.getState().setStatusMessage('');
         }
       }, STATUS_DISPLAY_MS);
       break;
     case 'failed':
-      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}failed❌ 保存失败: ${detail ?? '未知错误'}`);
+      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}failed❌ ${appT('status.saveFailed', { detail: detail ?? 'unknown error' }, language)}`);
       // 失败消息保留更久
       setTimeout(() => {
         const current = useUIStore.getState().statusMessage;
@@ -87,16 +92,42 @@ function updateStatusMessage(type: 'saving' | 'success' | 'failed', detail?: str
   }
 }
 
+function updateSaveDialogStatus(type: 'opening' | 'cancelled' | 'success' | 'failed', detail?: string): void {
+  const uiStore = useUIStore.getState();
+  const language = uiStore.language;
+  switch (type) {
+    case 'opening':
+      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}saving⏳ ${appT('status.saveOpening', undefined, language)}`);
+      break;
+    case 'cancelled':
+      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}cancelled ${appT('status.saveCancelled', undefined, language)}`);
+      setTimeout(() => {
+        const current = useUIStore.getState().statusMessage;
+        if (current === `${SAVE_STATUS_PREFIX}cancelled ${appT('status.saveCancelled', undefined, language)}`) {
+          useUIStore.getState().setStatusMessage('');
+        }
+      }, STATUS_DISPLAY_MS);
+      break;
+    case 'success':
+      uiStore.setStatusMessage(`${SAVE_STATUS_PREFIX}success✅ ${appT('status.savedTo', { path: detail ?? '' }, language)}`);
+      break;
+    case 'failed':
+      updateStatusMessage('failed', detail);
+      break;
+  }
+
+}
+
 /**
  * 执行实际的保存操作
  */
-async function performSave(content: string, path: string): Promise<void> {
-  if (isSaving) return;
+async function performSave(content: string, path: string): Promise<boolean> {
+  if (isSaving) return false;
 
   // 双重脏检测：内容对比（防竞态）+ isDirty 标记
   // 当异步保存过程中用户继续输入时，isDirty 可能被旧保存完成重置为 false，
   // 但 lastSavedContent !== content 能兜住这种情况。
-  if (content === lastSavedContent && !useEditorStore.getState().isDirty) return;
+  if (content === lastSavedContent && !useEditorStore.getState().isDirty) return true;
 
   isSaving = true;
   updateStatusMessage('saving');
@@ -138,6 +169,7 @@ async function performSave(content: string, path: string): Promise<void> {
     }
     // 保存失败 → 保留 pendingContent/pendingPath，等待下次触发重试
   }
+  return succeeded;
 }
 
 // ============================================================================
@@ -183,7 +215,7 @@ export function debouncedSave(content: string, path: string | null): void {
  * 跳过防抖等待，立即执行保存。
  * 如果没有待保存的内容，不做任何操作。
  */
-export async function forceSave(): Promise<void> {
+export async function forceSave(): Promise<boolean> {
   // 清除防抖定时器
   if (saveTimer !== null) {
     clearTimeout(saveTimer);
@@ -201,16 +233,17 @@ export async function forceSave(): Promise<void> {
 
   // 如果有待保存的内容，立即保存
   if (pendingContent !== null && pendingPath !== null) {
-    await performSave(pendingContent, pendingPath);
-    return;
+    return performSave(pendingContent, pendingPath);
   }
 
   // 没有待保存内容，但可能存储已被 markSaved() 清空
   // 检查编辑器是否有脏内容但未被 debouncedSave 捕获
   const editorState = useEditorStore.getState();
   if (editorState.isDirty && editorState.filePath !== null) {
-    await performSave(editorState.content, editorState.filePath);
+    return performSave(editorState.content, editorState.filePath);
   }
+
+  return true;
 }
 
 /**
@@ -219,35 +252,80 @@ export async function forceSave(): Promise<void> {
  * P0-3: 解决新建文件 Ctrl+S 被静默忽略的问题。
  * 供 Ctrl+S 快捷键和 File > Save 菜单使用。
  */
-export async function saveOrSaveAs(): Promise<void> {
-  await forceSave();
-
+export async function saveOrSaveAs(): Promise<boolean> {
+  const directSaveSucceeded = await forceSave();
   const editorState = useEditorStore.getState();
-  // forceSave 未处理的情况：新文件（有脏内容但无文件路径）
+
+  if (!directSaveSucceeded && editorState.filePath !== null) {
+    return false;
+  }
+
   if (editorState.isDirty && editorState.filePath === null && editorState.content.length > 0) {
-    // 动态导入 FileService 避免循环依赖
-    const { FileService } = await import('./fileService');
-    const fileService = new FileService();
+    if (isSaveAsDialogOpen) {
+      updateSaveDialogStatus('opening');
+      return false;
+    }
+
+    isSaveAsDialogOpen = true;
+    updateSaveDialogStatus('opening');
     try {
-      const newPath = await fileService.saveFileAs(editorState.content);
+      const result = await window.plotflow.file.saveAs(editorState.content);
+      if (!result) {
+        updateSaveDialogStatus('cancelled');
+        return false;
+      }
+      const newPath = result.filePath.replace(/\\/g, '/');
       editorState.setFilePath(newPath);
       editorState.markSaved();
-      // 更新模块级缓存，使后续 debouncedSave 能正常工作
       pendingPath = newPath;
       pendingContent = null;
       lastSavedContent = editorState.content;
-      useUIStore.getState().setStatusMessage(`已保存至: ${newPath}`);
-    } catch {
-      // 用户取消另存为对话框 → 正常行为，静默处理
+      updateSaveDialogStatus('success', newPath);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateSaveDialogStatus('failed', message);
+      return false;
+    } finally {
+      isSaveAsDialogOpen = false;
     }
+  }
+
+  return !useEditorStore.getState().isDirty;
+}
+
+export async function saveAsCurrentFile(): Promise<boolean> {
+  if (isSaveAsDialogOpen) {
+    updateSaveDialogStatus('opening');
+    return false;
+  }
+
+  const editorState = useEditorStore.getState();
+  isSaveAsDialogOpen = true;
+  updateSaveDialogStatus('opening');
+  try {
+    const result = await window.plotflow.file.saveAs(editorState.content);
+    if (!result) {
+      updateSaveDialogStatus('cancelled');
+      return false;
+    }
+    const newPath = result.filePath.replace(/\\/g, '/');
+    editorState.setFilePath(newPath);
+    editorState.markSaved();
+    pendingPath = newPath;
+    pendingContent = null;
+    lastSavedContent = editorState.content;
+    updateSaveDialogStatus('success', newPath);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    updateSaveDialogStatus('failed', message);
+    return false;
+  } finally {
+    isSaveAsDialogOpen = false;
   }
 }
 
-/**
- * 清除防抖定时器和待保存状态
- *
- * 在组件卸载、切换文件或应用关闭时调用。
- */
 export function clearPendingSave(): void {
   if (saveTimer !== null) {
     clearTimeout(saveTimer);
