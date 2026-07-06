@@ -8,7 +8,7 @@
     var(--theme-graph-lab-rail-width, var(--theme-graph-lab-palette-width, 288px))
     minmax(420px, 1fr)
     minmax(320px, var(--theme-graph-lab-inspector-width, 372px));
-  grid-template-rows: 58px minmax(0, 1fr) 42px;
+  grid-template-rows: auto minmax(0, 1fr) 42px;
   min-height: 0;
   overflow: hidden;
   background:
@@ -16,20 +16,27 @@
 }
 
 .graph-lab--source-open {
-  grid-template-rows: 58px minmax(0, 1fr) var(--theme-graph-lab-source-dock-height, 340px);
+  grid-template-rows: auto minmax(0, 1fr) var(--theme-graph-lab-source-dock-height, 340px);
 }
 
 .graph-lab__commandbar {
   grid-column: 1 / 4;
-  display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) auto minmax(180px, 1fr) minmax(220px, auto);
-  align-items: center;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-border-default);
   background: color-mix(in oklch, var(--theme-workbench-panel, var(--color-bg-elevated)) 86%, transparent);
   box-shadow: var(--shadow-sm);
+}
+
+.graph-lab__commandbar-top {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(180px, 1fr) minmax(220px, auto);
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .graph-lab__commandbar-main,
@@ -92,10 +99,17 @@
 }
 
 .graph-lab__chapter-tabs {
+  width: 100%;
   min-width: 0;
   gap: var(--space-1);
+  padding-block: 1px;
   overflow-x: auto;
   scrollbar-width: thin;
+}
+
+.graph-lab__chapter-tabs-empty {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }
 
 .graph-lab__chapter-tabs button {
@@ -666,6 +680,10 @@ html[data-theme-id='plotflow-narrative-workbench'] .graph-lab__canvas .react-flo
   }
 
   .graph-lab__commandbar {
+    gap: var(--space-3);
+  }
+
+  .graph-lab__commandbar-top {
     grid-template-columns: minmax(220px, 1fr) auto;
   }
 
@@ -692,6 +710,9 @@ html[data-theme-id='plotflow-narrative-workbench'] .graph-lab__canvas .react-flo
 
   .graph-lab__commandbar {
     grid-row: 1;
+  }
+
+  .graph-lab__commandbar-top {
     grid-template-columns: minmax(0, 1fr);
   }
 

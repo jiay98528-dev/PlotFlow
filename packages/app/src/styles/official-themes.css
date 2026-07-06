@@ -733,7 +733,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.grap
     minmax(260px, var(--theme-graph-lab-rail-width, 292px))
     minmax(430px, 1fr)
     minmax(320px, var(--theme-graph-lab-inspector-width, 360px));
-  grid-template-rows: 54px minmax(0, 1fr) 42px;
+  grid-template-rows: auto minmax(0, 1fr) 42px;
   gap: 0;
   background:
     linear-gradient(90deg, var(--theme-telemetry-canvas-grid) 1px, transparent 1px),
@@ -743,7 +743,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.grap
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab--source-open {
-  grid-template-rows: 54px minmax(0, 1fr) minmax(220px, var(--theme-graph-lab-source-dock-height, 300px));
+  grid-template-rows: auto minmax(0, 1fr) minmax(220px, var(--theme-graph-lab-source-dock-height, 300px));
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__commandbar {

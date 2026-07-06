@@ -1,5 +1,6 @@
 ﻿import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'path';
+import type { TestInfo } from '@playwright/test';
 import fs from 'fs';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -327,6 +328,22 @@ async function waitForGraphSettled(page: Page): Promise<void> {
   }
 }
 
+async function attachVisibleScreenshot(
+  testInfo: TestInfo,
+  locator: ReturnType<Page['locator']>,
+  name: string,
+): Promise<void> {
+  await expect(locator).toBeVisible({ timeout: 10_000 });
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThan(120);
+  expect(box!.height).toBeGreaterThan(20);
+  const screenshot = await locator.screenshot();
+  expect(screenshot.length).toBeGreaterThan(500);
+  fs.writeFileSync(testInfo.outputPath(name), screenshot);
+  await testInfo.attach(name, { body: screenshot, contentType: 'image/png' });
+}
+
 async function getEditorContent(page: Page): Promise<string> {
   return page.evaluate(() => {
     const store = (window as TestWindow).__test_store__;
@@ -598,6 +615,35 @@ test.describe('Graph Lab E2E', () => {
 
     await expect(page.locator('.problem-panel')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('.problem-panel__item').first()).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('shows chapter tabs visibly and screenshots newly created chapter tab bar', async ({ browserName }, testInfo) => {
+    expect(browserName).toBeTruthy();
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    const workspace = page.getByTestId('graph-lab-workspace');
+    const tabs = page.getByTestId('graph-lab-chapter-tabs');
+    const tab = page.getByTestId('graph-lab-chapter-tab');
+
+    await attachVisibleScreenshot(testInfo, tabs, 'graph-lab-chapter-tabs-before-create.png');
+    await expect(tab).toHaveCount(1);
+    await expect(tab.first()).toHaveAttribute('aria-selected', 'true');
+
+    await page.getByTestId('graph-lab-create-chapter').click();
+
+    await expect(tab).toHaveCount(2, { timeout: 10_000 });
+    await expect(tab.nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+    await waitForContent(page, '# ');
+
+    await attachVisibleScreenshot(testInfo, tabs, 'graph-lab-chapter-tabs-after-create.png');
+    const workspaceScreenshot = await workspace.screenshot();
+    expect(workspaceScreenshot.length).toBeGreaterThan(5_000);
+    fs.writeFileSync(testInfo.outputPath('graph-lab-workspace-with-chapter-tabs.png'), workspaceScreenshot);
+    await testInfo.attach('graph-lab-workspace-with-chapter-tabs.png', {
+      body: workspaceScreenshot,
+      contentType: 'image/png',
+    });
   });
 
   test('renames a referenced node without creating an undefined-target diagnostic', async () => {

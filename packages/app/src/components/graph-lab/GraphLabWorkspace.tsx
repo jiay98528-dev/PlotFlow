@@ -147,68 +147,78 @@ export function GraphLabWorkspace(): React.ReactElement {
       isSourceDrawerOpen={isSourceDrawerOpen}
       commandbar={(
         <header className="graph-lab__commandbar">
-          <div className="graph-lab__commandbar-main">
-            <span className="graph-lab__mark" aria-hidden="true">
-              <GitBranch size={16} strokeWidth={2.2} />
-            </span>
-            <div>
-              <p className="graph-lab__mode">{text('graphLab.mode')}</p>
-              <h2>{getFileName(filePath, text('graphLab.unsavedStory'))}</h2>
+          <div className="graph-lab__commandbar-top">
+            <div className="graph-lab__commandbar-main">
+              <span className="graph-lab__mark" aria-hidden="true">
+                <GitBranch size={16} strokeWidth={2.2} />
+              </span>
+              <div>
+                <p className="graph-lab__mode">{text('graphLab.mode')}</p>
+                <h2>{getFileName(filePath, text('graphLab.unsavedStory'))}</h2>
+              </div>
+            </div>
+
+            <div className="graph-lab__commandbar-stats" aria-label={text('graphLab.statsLabel')}>
+              <span>{text('graphLab.chapters', { count: stats.chapters })}</span>
+              <span>{text('graphLab.nodes', { count: stats.nodes })}</span>
+              <span>{text('graphLab.options', { count: stats.options })}</span>
+              <button
+                type="button"
+                className={diagnostics.length > 0 ? 'is-warning' : ''}
+                data-testid="graph-lab-diagnostics-button"
+                onClick={() => setProblemPanelOpen(true)}
+                aria-label={text('graphLab.openProblems', { count: diagnostics.length })}
+              >
+                {text('graphLab.diagnostics', { count: diagnostics.length })}
+              </button>
+            </div>
+
+            <div className="graph-lab__commandbar-actions">
+              <span className="graph-lab__selection" title={selectedLabel}>
+                <Activity aria-hidden="true" size={14} strokeWidth={2} />
+                {selectedLabel}
+              </span>
+              <button
+                type="button"
+                className="graph-lab-dock-toggle"
+                data-testid="graph-lab-source-toggle"
+                onClick={toggleSourceDrawer}
+                aria-expanded={isSourceDrawerOpen}
+              >
+                <FileText aria-hidden="true" size={15} strokeWidth={2} />
+                <span>{text('graphLab.sourceText')}</span>
+                {isSourceDrawerOpen ? (
+                  <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
+                ) : (
+                  <PanelBottomOpen aria-hidden="true" size={15} strokeWidth={2} />
+                )}
+              </button>
             </div>
           </div>
 
-          <div className="graph-lab__commandbar-stats" aria-label={text('graphLab.statsLabel')}>
-            <span>{text('graphLab.chapters', { count: stats.chapters })}</span>
-            <span>{text('graphLab.nodes', { count: stats.nodes })}</span>
-            <span>{text('graphLab.options', { count: stats.options })}</span>
-            <button
-              type="button"
-              className={diagnostics.length > 0 ? 'is-warning' : ''}
-              data-testid="graph-lab-diagnostics-button"
-              onClick={() => setProblemPanelOpen(true)}
-              aria-label={text('graphLab.openProblems', { count: diagnostics.length })}
-            >
-              {text('graphLab.diagnostics', { count: diagnostics.length })}
-            </button>
-          </div>
-
-          {chapters.length > 0 && (
-            <div className="graph-lab__chapter-tabs" role="tablist" aria-label="Chapters">
-              {chapters.map((chapter) => (
+          <div
+            className="graph-lab__chapter-tabs"
+            role="tablist"
+            aria-label="Chapters"
+            data-testid="graph-lab-chapter-tabs"
+          >
+            {chapters.length > 0 ? (
+              chapters.map((chapter) => (
                 <button
                   key={chapter.id}
                   type="button"
                   role="tab"
+                  data-testid="graph-lab-chapter-tab"
                   className={chapter.id === activeChapterId ? 'is-active' : ''}
                   aria-selected={chapter.id === activeChapterId}
                   onClick={() => setActiveChapterId(chapter.id)}
                 >
                   {chapter.title || chapter.id}
                 </button>
-              ))}
-            </div>
-          )}
-
-          <div className="graph-lab__commandbar-actions">
-            <span className="graph-lab__selection" title={selectedLabel}>
-              <Activity aria-hidden="true" size={14} strokeWidth={2} />
-              {selectedLabel}
-            </span>
-            <button
-              type="button"
-              className="graph-lab-dock-toggle"
-              data-testid="graph-lab-source-toggle"
-              onClick={toggleSourceDrawer}
-              aria-expanded={isSourceDrawerOpen}
-            >
-              <FileText aria-hidden="true" size={15} strokeWidth={2} />
-              <span>{text('graphLab.sourceText')}</span>
-              {isSourceDrawerOpen ? (
-                <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
-              ) : (
-                <PanelBottomOpen aria-hidden="true" size={15} strokeWidth={2} />
-              )}
-            </button>
+              ))
+            ) : (
+              <span className="graph-lab__chapter-tabs-empty">{text('palette.outlineEmpty')}</span>
+            )}
           </div>
         </header>
       )}
