@@ -113,6 +113,8 @@ export function useMenuEvents(): void {
         freshEditor.setCursorPosition(1, 1);
         freshEditor.setContent(result.content);
         freshEditor.setFilePath(result.path);
+        freshEditor.setFileBaseline(result.hash, result.modifiedAt);
+        freshEditor.clearPendingExternalChange();
         freshEditor.markSaved();
         // 清除旧 AST 数据（新内容将在解析后自动更新）
         useStoryStore.getState().clearParseData();

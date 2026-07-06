@@ -46,13 +46,17 @@ import { useThemePlatform } from '../ThemePlatformProvider';
 import { parsePipelineNow } from '../../services/parsePipeline';
 import { graphEditService } from '../../services/graphEditService';
 import { parseEdgeId } from '../../stores/edgeStore';
-import type { StoryFlowNodeData } from './adapter';
+import {
+  resolveStoryFullIdForFlowNodeId,
+  type StoryFlowNodeData,
+} from './adapter';
 import { type StoryEdgeData } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
 import type { ContextMenuType } from './GraphContextMenu';
 import { CollapseNode } from './CollapseNode';
 import { collapseSiblingNodes, COLLAPSE_THRESHOLD } from './layout';
 import type { CollapseNodeData } from './layout';
+import { layoutNodesInWorker } from './graphLayoutClient';
 
 // ============================================================================
 // 自定义节点类型注册表
@@ -91,6 +95,11 @@ function eventToClientPoint(event: globalThis.MouseEvent | globalThis.TouchEvent
     if (touch) return { x: touch.clientX, y: touch.clientY };
   }
   return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+}
+
+function readCssToken(name: string): string {
+  if (typeof window === 'undefined') return `var(${name})`;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || `var(${name})`;
 }
 
 const EDGE_HIT_FALLBACK_RADIUS = 24;
@@ -136,7 +145,10 @@ function findOfficialEdgeIdAtPoint(clientX: number, clientY: number): string | n
   return best && best.distance <= EDGE_HIT_FALLBACK_RADIUS ? best.edgeId : null;
 }
 
-function getStoryNodeIdFromPoint(point: { readonly x: number; readonly y: number }): string | null {
+function getStoryNodeIdFromPoint(
+  point: { readonly x: number; readonly y: number },
+  graphNodes: readonly Pick<Node, 'id' | 'data'>[],
+): string | null {
   const element = document.elementFromPoint(point.x, point.y);
   const nodeElement = element instanceof Element
     ? element.closest('.react-flow__node')
@@ -151,7 +163,7 @@ function getStoryNodeIdFromPoint(point: { readonly x: number; readonly y: number
 
   const normalized = rawId.trim();
   if (!normalized || normalized.includes('collapse')) return null;
-  return normalized.replace(/#\d+$/, '');
+  return resolveStoryFullIdForFlowNodeId(normalized, graphNodes);
 }
 
 function isPointInsideReactFlow(point: { readonly x: number; readonly y: number }): boolean {
@@ -177,7 +189,7 @@ function getWireDragSourceFromTarget(target: EventTarget | null): WireDragSource
   const optionIndex = Number.parseInt(optionIndexRaw, 10);
 
   if (!sourceFullId || !Number.isInteger(optionIndex) || optionIndex < 0) return null;
-  return { sourceFullId: sourceFullId.replace(/#\d+$/, ''), optionIndex };
+  return { sourceFullId, optionIndex };
 }
 
 function ReactFlowRuntimeBridge({
@@ -356,19 +368,22 @@ function ZoomResetShortcut(): null {
 function AutoFitOnGraphChange({
   enabled,
   nodeCount,
+  suppressRef,
 }: {
   readonly enabled: boolean;
   readonly nodeCount: number;
+  readonly suppressRef: React.RefObject<boolean>;
 }): null {
   const { fitView } = useReactFlow();
 
   useEffect(() => {
     if (!enabled || nodeCount === 0) return;
     const frame = requestAnimationFrame(() => {
+      if (suppressRef.current) return;
       fitView({ padding: 0.2, duration: 200 });
     });
     return () => cancelAnimationFrame(frame);
-  }, [enabled, fitView, nodeCount]);
+  }, [enabled, fitView, nodeCount, suppressRef]);
 
   return null;
 }
@@ -409,7 +424,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
   // StoryStore — 用于查找 AST 节点信息（选项行号、targetNodeId 等）
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
-  const hasManualLayout = useStoryStore((state) => (state.plotFlowData?.layout?.graph.nodes.length ?? 0) > 0);
+  const hasAnyManualLayout = useStoryStore((state) => (state.plotFlowData?.layout?.graph.nodes.length ?? 0) > 0);
 
   // UIStore — 条件编辑器面板控制
   const openConditionEditor = useUIStore((state) => state.openConditionEditor);
@@ -421,7 +436,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const reconnectEdgeRef = React.useRef<Edge | null>(null);
   const screenToFlowPositionRef = React.useRef<ScreenToFlowPosition | null>(null);
   const manualWireDragRef = React.useRef<ManualWireDrag | null>(null);
+  const asyncLayoutSignatureRef = React.useRef<string | null>(null);
   const altPressedRef = React.useRef(false);
+  const suppressAutoFitRef = React.useRef(false);
+  const suppressAutoFitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextPaneClickRef = React.useRef(false);
   const [liveWirePreview, setLiveWirePreview] = useState<LiveWirePreview | null>(null);
   const [wireDropContext, setWireDropContext] = useState<WireDropContext | null>(null);
 
@@ -460,6 +479,25 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       window.removeEventListener('keyup', handleKeyUp, true);
       window.removeEventListener('blur', handleBlur);
     };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (suppressAutoFitTimerRef.current !== null) {
+        clearTimeout(suppressAutoFitTimerRef.current);
+      }
+    };
+  }, []);
+
+  const suppressAutoFitForUserViewportChange = useCallback(() => {
+    suppressAutoFitRef.current = true;
+    if (suppressAutoFitTimerRef.current !== null) {
+      clearTimeout(suppressAutoFitTimerRef.current);
+    }
+    suppressAutoFitTimerRef.current = setTimeout(() => {
+      suppressAutoFitRef.current = false;
+      suppressAutoFitTimerRef.current = null;
+    }, 800);
   }, []);
 
   // ==========================================================================
@@ -510,7 +548,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           const option = sourceNode?.options[optionIndex];
           const clientPoint = eventToClientPoint(event);
           const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
-          const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint);
+          const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint, nodes);
           if (sourceNode && option && dropTargetFullId && dropTargetFullId !== sourceFullId) {
             const targetNode = getNodeByFullId(dropTargetFullId);
             if (targetNode) {
@@ -537,7 +575,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const editor = useEditorStore.getState().editorInstance;
       if (editor) { parsePipelineNow(editor.getValue()); }
     },
-    [getNodeByFullId, setEditing, setStatusMessage],
+    [getNodeByFullId, nodes, setEditing, setStatusMessage],
   );
 
   /**
@@ -893,6 +931,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const handlePaneClick = useCallback(() => {
     // 操作锁 (M2-08)：内联重命名期间忽略空白点击
     if (renamingNodeId !== null) return;
+    if (suppressNextPaneClickRef.current) {
+      suppressNextPaneClickRef.current = false;
+      return;
+    }
     setWireDropContext(null);
     selectNode(null);
   }, [selectNode, renamingNodeId]);
@@ -966,7 +1008,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
       const clientPoint = eventToClientPoint(event);
       const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
-      const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint);
+      const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint, nodes);
       if (dropTargetFullId && dropTargetFullId !== sourceNode.fullId) {
         const targetNode = getNodeByFullId(dropTargetFullId);
         if (targetNode) {
@@ -1049,6 +1091,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       setEditing(false);
       const distance = Math.hypot(clientPoint.x - drag.startPoint.x, clientPoint.y - drag.startPoint.y);
       if (distance < 4) return true;
+      suppressNextPaneClickRef.current = true;
 
       if (!isPointInsideReactFlow(clientPoint)) {
         setStatusMessage('Graph Lab 已取消线缆拖拽');
@@ -1062,7 +1105,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         return true;
       }
 
-      const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint);
+      const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint, nodes);
       if (dropTargetFullId && dropTargetFullId !== sourceNode.fullId) {
         const targetNode = getNodeByFullId(dropTargetFullId);
         if (targetNode) {
@@ -1083,7 +1126,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       setStatusMessage('Graph Lab 请选择线缆目标');
       return true;
     },
-    [getNodeByFullId, setEditing, setStatusMessage],
+    [getNodeByFullId, nodes, setEditing, setStatusMessage],
   );
 
   const handleManualWirePointerUp = useCallback(
@@ -1231,6 +1274,47 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   /** 性能模式下 fitView 动画时长（更大值 = 更低帧率体感） */
   const fitViewDuration = isGraphLab ? 0 : (isPerfMode ? 120 : 200);
 
+  const hasCompleteManualLayout = useMemo(() => {
+    return nodes.length > 0 && nodes.every((node) => {
+      const data = node.data as StoryFlowNodeData | undefined;
+      return Boolean(data?.persistedPosition);
+    });
+  }, [nodes]);
+
+  useEffect(() => {
+    if (hasCompleteManualLayout || nodes.length === 0) return;
+    const signature = [
+      nodes.map((node) => node.id).join('|'),
+      edges.map((edge) => `${edge.source}->${edge.target}`).join('|'),
+      nodes
+        .map((node) => {
+          const data = node.data as StoryFlowNodeData | undefined;
+          const persisted = data?.persistedPosition;
+          return persisted ? `${node.id}:${persisted.x}:${persisted.y}` : `${node.id}:auto`;
+        })
+        .join('|'),
+    ].join('::');
+    if (asyncLayoutSignatureRef.current === signature) return;
+    asyncLayoutSignatureRef.current = signature;
+
+    void layoutNodesInWorker(nodes, edges)
+      .then((result) => {
+        if (result.stale || asyncLayoutSignatureRef.current !== signature) return;
+        setNodes(result.nodes.map((node) => {
+          const data = node.data as StoryFlowNodeData | undefined;
+          const persisted = data?.persistedPosition;
+          return persisted ? { ...node, position: { ...persisted } } : node;
+        }));
+        if (result.elapsedMs > 250) {
+          setStatusMessage(`Graph layout completed in ${Math.round(result.elapsedMs)}ms`);
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatusMessage(message);
+      });
+  }, [edges, hasCompleteManualLayout, nodes, setNodes, setStatusMessage]);
+
   // ==========================================================================
   // 同层折叠 + 节点高亮派生 (M2-15, M2-04)
   // ==========================================================================
@@ -1283,8 +1367,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'var(--color-bg-secondary, #F5F5F6)',
-          color: 'var(--color-text-muted, #8A8A8A)',
+          background: 'var(--color-bg-secondary)',
+          color: 'var(--color-text-muted)',
           fontSize: 'var(--text-sm, 14px)',
           gap: 'var(--space-2, 8px)',
           userSelect: 'none',
@@ -1307,7 +1391,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         </svg>
         {hasParseErrors ? (
           <>
-            <span style={{ color: 'var(--color-diagnostic-error, #D32F2F)' }}>
+            <span style={{ color: 'var(--color-diagnostic-error)' }}>
               解析遇到 {errorDiagnostics.length} 个错误
             </span>
             <span style={{ fontSize: 'var(--text-xs, 12px)', opacity: 0.7 }}>
@@ -1338,11 +1422,12 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         onPointerCancelCapture={canEditGraph ? handleManualWirePointerCancel : undefined}
         onMouseDownCapture={canEditGraph ? handleManualWireMouseDown : undefined}
         onMouseUpCapture={canEditGraph ? handleManualWireMouseUp : undefined}
+        onWheelCapture={canEditGraph ? suppressAutoFitForUserViewportChange : undefined}
         onClickCapture={canEditGraph ? handleEdgeHitAreaClickCapture : undefined}
       >
         <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
         <ZoomResetShortcut />
-        <AutoFitOnGraphChange enabled={!hasManualLayout} nodeCount={displayedNodes.length} />
+        <AutoFitOnGraphChange enabled={!hasAnyManualLayout} nodeCount={displayedNodes.length} suppressRef={suppressAutoFitRef} />
         <ReactFlow
           nodes={displayedNodes}
           edges={displayedEdges}
@@ -1360,21 +1445,14 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           onEdgeClick={canEditGraph ? handleEdgeClick : undefined}
           onEdgeDoubleClick={canEditGraph ? handleEdgeDoubleClick : undefined}
           onEdgeContextMenu={canEditGraph ? handleEdgeContextMenu : undefined}
-          onConnect={canEditGraph ? handleConnectWithTrack : undefined}
           onConnectStart={canEditGraph ? handleConnectStart : undefined}
+          onConnect={canEditGraph ? handleConnectWithTrack : undefined}
           onConnectEnd={canEditGraph ? handleConnectEndWithCreate : undefined}
-          isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
-          edgesReconnectable={canEditGraph}
-          onReconnect={canEditGraph ? handleReconnect : undefined}
           onReconnectStart={canEditGraph ? handleReconnectStart : undefined}
+          onReconnect={canEditGraph ? handleReconnect : undefined}
           onReconnectEnd={canEditGraph ? handleReconnectEnd : undefined}
-          nodesDraggable={true}
-          nodesConnectable={canEditGraph}
-          elementsSelectable={canEditGraph}
-          panOnDrag={[1, 2]}
-          panOnScroll={true}
+          isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
           selectionMode={SelectionMode.Partial}
-          onlyRenderVisibleElements={canEditGraph}
           elevateNodesOnSelect={false}
           fitView
           fitViewOptions={{ padding: 0.2, duration: fitViewDuration }}
@@ -1384,16 +1462,16 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           attributionPosition="bottom-left"
           proOptions={{ hideAttribution: true }}
           connectionLineStyle={{
-            stroke: 'var(--color-accent, #1976D2)',
+            stroke: 'var(--color-accent)',
             strokeWidth: 2,
             strokeDasharray: '5,4',
           }}
-          style={{ background: 'var(--color-bg-secondary, #F5F5F6)' }}
+          style={{ background: 'var(--color-bg-secondary)' }}
         >
         {/* 网格背景 — 仅 split 模式 */}
         {canEditGraph && (
           <Background
-            color="var(--color-border-light, #E8E8E8)"
+            color="var(--color-border-light)"
             gap={20}
             size={1}
           />
@@ -1414,26 +1492,25 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         {/* 迷你地图 — 仅 split 模式（minimap 下自身就是小地图） */}
         {isSplit && (
           <MiniMap
-          position="bottom-left"
-          style={{
-            background: 'var(--color-bg-primary, #FFFFFF)',
-            border: '1px solid var(--color-border-default, #E0E0E0)',
-          }}
-          maskColor="rgba(0,0,0,0.2)"
-          nodeColor={(node) => {
-            // MINIMAP_SVG_COLORS: 字面量色值 — SVG fill 不保证 CSS 变量解析
-            if (node.type === 'collapseNode') return '#8A8A8A'; // MINIMAP_SVG
-            const nodeData = node.data as unknown as StoryFlowNodeData | undefined;
-            const status = nodeData?.status;
-            switch (status) {
-              case 'error': return '#DC2626'; // MINIMAP_SVG
-              case 'orphan': return '#F59E0B'; // MINIMAP_SVG
-              case 'deadend': return '#9CA3AF'; // MINIMAP_SVG
-              case 'root': return '#2563EB'; // MINIMAP_SVG
-              default: return '#4CAF50'; // MINIMAP_SVG
-            }
-          }}
-        />
+            position="bottom-left"
+            style={{
+              background: 'var(--color-bg-primary)',
+              border: '1px solid var(--color-border-default)',
+            }}
+            maskColor={readCssToken('--color-overlay-subtle')}
+            nodeColor={(node: Node) => {
+              if (node.type === 'collapseNode') return readCssToken('--color-text-muted');
+              const nodeData = node.data as unknown as StoryFlowNodeData | undefined;
+              const status = nodeData?.status;
+              switch (status) {
+                case 'error': return readCssToken('--color-diagnostic-error');
+                case 'orphan': return readCssToken('--color-diagnostic-warning');
+                case 'deadend': return readCssToken('--color-text-muted');
+                case 'root': return readCssToken('--color-accent');
+                default: return readCssToken('--color-success');
+              }
+            }}
+          />
         )}
       </ReactFlow>
       {canEditGraph && liveWirePreview && (
@@ -1457,8 +1534,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             right: 0,
             zIndex: 10,
             padding: '6px 16px',
-            background: 'var(--color-diagnostic-error, #D32F2F)',
-            color: 'var(--color-text-inverse, #FFFFFF)',
+            background: 'var(--color-diagnostic-error)',
+            color: 'var(--color-text-inverse)',
             fontSize: '12px',
             fontFamily: 'var(--font-ui, system-ui, sans-serif)',
             textAlign: 'center',

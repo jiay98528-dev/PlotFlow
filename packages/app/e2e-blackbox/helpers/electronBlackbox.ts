@@ -1,4 +1,6 @@
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -118,9 +120,65 @@ export async function waitForAppReady(page: Page): Promise<void> {
 }
 
 export async function closeBlackboxApp(app: ElectronApplication): Promise<void> {
-  await app.close().catch(() => {
-    app.process().kill();
-  });
+  const isCleanupError = (error: unknown): boolean => {
+    const message = error instanceof Error ? error.message : String(error);
+    return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(message);
+  };
+  const withTimeout = async (promise: Promise<unknown>, timeoutMs: number, label: string): Promise<void> => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    try {
+      await Promise.race([
+        promise,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
+  const waitForProcessExit = async (child: ChildProcess, timeoutMs: number): Promise<void> => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+      child.once('exit', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  };
+  const forceKillProcessTree = async (child: ChildProcess): Promise<void> => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    if (process.platform === 'win32' && child.pid) {
+      await new Promise<void>((resolve) => {
+        execFile(
+          'taskkill',
+          ['/pid', String(child.pid), '/T', '/F'],
+          { windowsHide: true },
+          () => resolve(),
+        );
+      });
+      return;
+    }
+    child.kill('SIGKILL');
+  };
+
+  const closePromise = app.close();
+  void closePromise.catch(() => {});
+  try {
+    await withTimeout(closePromise, 5_000, 'blackbox app.close');
+    return;
+  } catch (error) {
+    if (!isCleanupError(error) && !(error instanceof Error && /timed out/.test(error.message))) {
+      throw error;
+    }
+  }
+
+  const child = app.process();
+  await forceKillProcessTree(child);
+  await waitForProcessExit(child, 3_000);
+  await withTimeout(closePromise.catch(() => undefined), 5_000, 'blackbox app.close after kill').catch(() => {});
 }
 
 export async function ensureDir(path: string): Promise<string> {

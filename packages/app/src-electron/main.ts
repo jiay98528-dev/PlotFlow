@@ -1,11 +1,13 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { basename, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, watch, type FSWatcher } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { buildMenu, type AppMenuLanguage } from './menu';
 import {
   assertWritableContent,
   findStoryFileArgument,
+  preflightFileSaveHash,
   sanitizeExportDefaultPath,
   withTimeout,
   writeTextFileAndVerify,
@@ -28,6 +30,95 @@ registerOfficialThemeProtocolScheme();
 
 /** 褰撶敤鎴峰湪鑴忔鏌ョ‘璁ゅ悗锛屽己鍒堕€€鍑烘祦绋嬩腑璺宠繃閲嶅纭鐨勬爣璁?*/
 let forceQuitting = false;
+
+interface WatchedStoryFile {
+  readonly path: string;
+  watcher: FSWatcher | null;
+  pollingTimer: ReturnType<typeof setInterval> | null;
+  lastHash: string;
+  lastNotifiedHash: string | null;
+  debounceTimer: ReturnType<typeof setTimeout> | null;
+}
+
+let watchedStoryFile: WatchedStoryFile | null = null;
+
+function hashContent(content: string): string {
+  return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+function stopWatchingStoryFile(): void {
+  if (watchedStoryFile?.watcher) {
+    watchedStoryFile.watcher.close();
+  }
+  if (watchedStoryFile?.pollingTimer) {
+    clearInterval(watchedStoryFile.pollingTimer);
+  }
+  if (watchedStoryFile?.debounceTimer) {
+    clearTimeout(watchedStoryFile.debounceTimer);
+  }
+  watchedStoryFile = null;
+}
+
+async function notifyExternalStoryChange(filePath: string): Promise<void> {
+  if (!watchedStoryFile || watchedStoryFile.path !== filePath) return;
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    const fileStat = await stat(filePath);
+    const hash = hashContent(content);
+    if (!watchedStoryFile || watchedStoryFile.path !== filePath || watchedStoryFile.lastHash === hash) return;
+    if (watchedStoryFile.lastNotifiedHash === hash) return;
+    watchedStoryFile.lastNotifiedHash = hash;
+    mainWindow?.webContents.send('file:external-change', {
+      filePath,
+      content,
+      hash,
+      modifiedAt: fileStat.mtimeMs,
+    });
+  } catch {
+    stopWatchingStoryFile();
+  }
+}
+
+function scheduleExternalStoryCheck(filePath: string): void {
+  if (!watchedStoryFile || watchedStoryFile.path !== filePath) return;
+  if (watchedStoryFile.debounceTimer) {
+    clearTimeout(watchedStoryFile.debounceTimer);
+  }
+  watchedStoryFile.debounceTimer = setTimeout(() => {
+    if (watchedStoryFile) watchedStoryFile.debounceTimer = null;
+    void notifyExternalStoryChange(filePath);
+  }, 150);
+}
+
+function startWatchingStoryFile(filePath: string, content: string): void {
+  const normalizedPath = normalize(filePath);
+  const hash = hashContent(content);
+  if (watchedStoryFile?.path === normalizedPath) {
+    watchedStoryFile.lastHash = hash;
+    watchedStoryFile.lastNotifiedHash = null;
+    return;
+  }
+
+  stopWatchingStoryFile();
+  watchedStoryFile = {
+    path: normalizedPath,
+    watcher: null,
+    pollingTimer: null,
+    lastHash: hash,
+    lastNotifiedHash: null,
+    debounceTimer: null,
+  };
+
+  try {
+    watchedStoryFile.watcher = watch(normalizedPath, { persistent: false }, () => {
+      scheduleExternalStoryCheck(normalizedPath);
+    });
+  } catch {
+    watchedStoryFile.pollingTimer = setInterval(() => {
+      scheduleExternalStoryCheck(normalizedPath);
+    }, 2000);
+  }
+}
 
 /**
  * 绯荤粺锛堝弻鍑?鍛戒护琛岋級鎵撳紑鐨?.mdstory 鏂囦欢璺緞锛圡7-08锛夈€? *
@@ -141,10 +232,13 @@ async function assertReadableStoryFile(filePath: string): Promise<string> {
   return normalizedPath;
 }
 
-async function readStoryFile(filePath: string): Promise<{ filePath: string; content: string }> {
+async function readStoryFile(filePath: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number }> {
   const normalizedPath = await assertReadableStoryFile(filePath);
   const content = await readFile(normalizedPath, 'utf-8');
-  return { filePath: normalizedPath, content };
+  const fileStat = await stat(normalizedPath);
+  const hash = hashContent(content);
+  startWatchingStoryFile(normalizedPath, content);
+  return { filePath: normalizedPath, content, hash, modifiedAt: fileStat.mtimeMs };
 }
 
 interface WorkspaceStoryFile {
@@ -233,8 +327,15 @@ async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesR
 
 /**
  * file:save 鈥?灏嗗唴瀹瑰啓鍏ユ寚瀹氭枃浠? *
- * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.save(path, content) 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.2 AutoSaveManager 鐨勪富杩涚▼鍐欐枃浠堕€昏緫銆? */
-ipcMain.handle('file:save', async (_event, payload: { path: string; content: string }) => {
+ * 由渲染进程通过 window.plotflow.file.save({ path, content, expectedHash }) 触发。
+ * 对应 TAD.md §4.2 AutoSaveManager 的主进程写文件逻辑。
+ */
+ipcMain.handle('file:save', async (_event, payload: {
+  path: string;
+  content: string;
+  expectedHash: string | null;
+  overwriteConflict?: boolean;
+}) => {
   try {
     const rawPath = payload?.path;
     const content = payload?.content;
@@ -256,8 +357,40 @@ ipcMain.handle('file:save', async (_event, payload: { path: string; content: str
       throw new Error('浠呮敮鎸佷繚瀛?.mdstory 鏂囦欢');
     }
 
+    if (typeof payload.expectedHash === 'string') {
+      try {
+        const preflight = await preflightFileSaveHash({
+          filePath: normalizedPath,
+          expectedHash: payload.expectedHash,
+          overwriteConflict: payload.overwriteConflict,
+          hashContent,
+        });
+        if (!preflight.canWrite) {
+          return {
+            success: false,
+            conflict: true,
+            filePath: normalizedPath,
+            content: preflight.content,
+            hash: preflight.hash,
+            modifiedAt: preflight.modifiedAt,
+          };
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          conflict: false,
+          timestamp: Date.now(),
+          message: `保存前无法校验磁盘文件: ${message}`,
+        };
+      }
+    }
+
     await writeTextFileAndVerify(normalizedPath, content);
-    return { success: true, timestamp: Date.now() };
+    const fileStat = await stat(normalizedPath);
+    const hash = hashContent(content);
+    startWatchingStoryFile(normalizedPath, content);
+    return { success: true, timestamp: Date.now(), hash, modifiedAt: fileStat.mtimeMs };
   } catch (error) {
     throw new Error(`鏃犳硶淇濆瓨鏂囦欢: ${(error as Error).message}`);
   }
@@ -314,7 +447,10 @@ ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
     }
 
     await writeTextFileAndVerify(filePath, payload.content);
-    return { filePath };
+    const fileStat = await stat(filePath);
+    const hash = hashContent(payload.content);
+    startWatchingStoryFile(filePath, payload.content);
+    return { filePath, content: payload.content, hash, modifiedAt: fileStat.mtimeMs };
   } catch (error) {
     throw new Error(`鏂囦欢鍙﹀瓨涓哄け璐? ${(error as Error).message}`);
   }
@@ -513,6 +649,7 @@ function createWindow(): void {
   }
 
   mainWindow.on('closed', () => {
+    stopWatchingStoryFile();
     mainWindow = null;
   });
 
@@ -682,6 +819,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  stopWatchingStoryFile();
   // Keep dirty-state arbitration in BrowserWindow 'close'.
 });
 

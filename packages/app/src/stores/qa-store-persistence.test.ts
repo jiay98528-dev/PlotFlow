@@ -1012,9 +1012,9 @@ describe('数据完整性集成测试', () => {
     const win = globalThis.window as unknown as Record<string, unknown>;
     win['plotflow'] = {
       file: {
-        save: vi.fn(async (_path: string, content: string) => {
-          capturedContent = content;
-          return { success: true, timestamp: Date.now() };
+        save: vi.fn(async (request: { readonly content: string }) => {
+          capturedContent = request.content;
+          return { success: true, timestamp: Date.now(), hash: 'qa-save-hash', modifiedAt: Date.now() };
         }),
       },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

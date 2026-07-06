@@ -91,6 +91,20 @@ export type {
 } from './parser/frontmatter.js';
 
 export {
+  analyzeStorySource,
+  normalizeStorySource,
+  restoreStoryNewline,
+} from './parser/source.js';
+
+export type {
+  SourceNewline,
+  StoryFrontmatterRange,
+  StorySourceAnalysis,
+  StorySourceLine,
+  StorySourceRange,
+} from './parser/source.js';
+
+export {
   parseStory,
   parseChaptersAndNodes,
 } from './parser/parser.js';

@@ -16,9 +16,9 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useStoryStore, useEditorStore, useUIStore } from '../../stores';
+import { useStoryStore, useUIStore } from '../../stores';
+import { graphEditService } from '../../services/graphEditService';
 import {
-  parseCondition,
   type ConditionNode,
   type ComparisonExpression,
   type Operand,
@@ -97,8 +97,8 @@ const OPERATOR_LABELS: Readonly<Record<ComparisonOperator, string>> = {
 
 /** 逻辑运算符颜色映射 */
 const LOGIC_GROUP_COLORS: Readonly<Record<'AND' | 'OR', string>> = {
-  AND: 'var(--color-syntax-heading, #1A6FB5)',
-  OR: 'var(--color-syntax-condition, #C5662A)',
+  AND: 'var(--color-syntax-heading)',
+  OR: 'var(--color-syntax-condition)',
 };
 
 /** 最大嵌套深度（不含根组） */
@@ -383,61 +383,6 @@ function createEmptyConditionGroup(): ConditionGroup {
   };
 }
 
-function getNodeTitleFromNodeId(nodeId: string): string | null {
-  const marker = '--node-';
-  const idx = nodeId.indexOf(marker);
-  if (idx === -1) return null;
-  const title = nodeId.slice(idx + marker.length);
-  return title || null;
-}
-
-function findConditionExpressionInContent(
-  content: string,
-  nodeTitle: string,
-  optionIndex: number,
-): string | null {
-  if (!content || optionIndex < 0) return null;
-
-  const lines = content.split('\n');
-  const headingRe = new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`);
-  const nextHeadingRe = /^##\s+节点：/;
-  let inTargetNode = false;
-  let currentOptionIndex = -1;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i]!;
-
-    if (headingRe.test(line)) {
-      inTargetNode = true;
-      currentOptionIndex = -1;
-      continue;
-    }
-
-    if (inTargetNode && nextHeadingRe.test(line)) {
-      break;
-    }
-
-    if (!inTargetNode || !/^\[选项\]/.test(line)) {
-      continue;
-    }
-
-    currentOptionIndex += 1;
-    if (currentOptionIndex !== optionIndex) {
-      continue;
-    }
-
-    const nextLine = lines[i + 1]?.trimStart();
-    if (!nextLine || !nextLine.startsWith('条件:')) {
-      return null;
-    }
-
-    const expression = nextLine.replace(/^条件:\s*/, '').trim();
-    return expression || null;
-  }
-
-  return null;
-}
-
 // ============================================================================
 // 辅助函数：表达式预览字符串生成
 // ============================================================================
@@ -475,142 +420,6 @@ function builderToExpression(group: ConditionGroup): string {
   if (parts.length === 0) return '';
   if (parts.length === 1) return parts[0]!;
   return parts.join(` ${group.operator} `);
-}
-
-// ============================================================================
-// 辅助函数：编辑器文本同步
-// ============================================================================
-
-/**
- * 在编辑器文本中查找选项行的索引（0-based）。
- */
-function findOptionLineIndex(
-  lines: string[],
-  nodeTitle: string,
-  optionLineNumber: number,
-): number {
-  const idx = optionLineNumber - 1;
-  if (idx < 0 || idx >= lines.length) return -1;
-
-  // 防御性检查：确认该行是选项行
-  if (!lines[idx]!.includes('[选项]')) return -1;
-
-  // 验证我们在正确的节点内
-  let inTargetNode = false;
-  for (let i = 0; i <= idx; i++) {
-    const line = lines[i]!;
-    if (new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`).test(line)) {
-      inTargetNode = true;
-    } else if (inTargetNode && /^##\s+节点：/.test(line)) {
-      inTargetNode = false;
-    }
-  }
-
-  if (!inTargetNode) return -1;
-
-  return idx;
-}
-
-/**
- * 在编辑器文本中查找条件子行的索引（从 optionLineIndex 之后开始扫描）。
- * 返回 -1 表示不存在。
- */
-function findConditionSubLineIndex(
-  lines: string[],
-  optionLineIndex: number,
-): number {
-  for (let i = optionLineIndex + 1; i < lines.length; i++) {
-    const line = lines[i]!;
-
-    // 遇到下一个 [选项] 或节点标题则停止
-    if (/^\[选项\]/.test(line) || /^##\s+节点：/.test(line) || /^#\s+/.test(line)) {
-      break;
-    }
-
-    if (/^\s+条件:/.test(line)) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-/**
- * 更新编辑器文本中的条件子行。
- */
-function updateEditorConditionText(
-  content: string,
-  nodeTitle: string,
-  optionLineNumber: number,
-  optionIndex: number,
-  newExpression: string,
-): string {
-  const lines = content.split('\n');
-  const optionLineIdx = findOptionLineIndex(lines, nodeTitle, optionLineNumber);
-  const fallbackOptionLineIdx =
-    optionLineIdx === -1 ? findOptionLineIndexByOrdinal(lines, nodeTitle, optionIndex) : optionLineIdx;
-
-  if (fallbackOptionLineIdx === -1) return content;
-
-  const condLineIdx = findConditionSubLineIndex(lines, fallbackOptionLineIdx);
-
-    if (newExpression) {
-      const newLine = `  条件: ${newExpression}`;
-      if (condLineIdx !== -1) {
-        // 替换现有条件行
-        lines[condLineIdx] = newLine;
-      } else {
-        // 在选项行之后插入
-        lines.splice(fallbackOptionLineIdx + 1, 0, newLine);
-      }
-    } else {
-    // 空表达式 → 删除条件行
-    if (condLineIdx !== -1) {
-      lines.splice(condLineIdx, 1);
-    }
-  }
-
-  return lines.join('\n');
-}
-
-function findOptionLineIndexByOrdinal(
-  lines: string[],
-  nodeTitle: string,
-  optionIndex: number,
-): number {
-  if (optionIndex < 0) return -1;
-
-  let inTargetNode = false;
-  let currentOptionIndex = -1;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i]!;
-
-    if (new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`).test(line)) {
-      inTargetNode = true;
-      currentOptionIndex = -1;
-      continue;
-    }
-
-    if (inTargetNode && /^##\s+节点：/.test(line)) {
-      break;
-    }
-
-    if (inTargetNode && /^\[选项\]/.test(line)) {
-      currentOptionIndex += 1;
-      if (currentOptionIndex === optionIndex) {
-        return i;
-      }
-    }
-  }
-
-  return -1;
-}
-
-/**
- * 转义正则表达式特殊字符。
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // ============================================================================
@@ -773,7 +582,7 @@ function OperatorDropdown({
 
   if (operators.length === 0) {
     return (
-      <div style={{ ...dropdownButtonStyle, color: 'var(--color-text-muted, #8A8A8A)', cursor: 'not-allowed' }}>
+      <div style={{ ...dropdownButtonStyle, color: 'var(--color-text-muted)', cursor: 'not-allowed' }}>
         不可比较
       </div>
     );
@@ -808,7 +617,7 @@ function OperatorDropdown({
               }}
             >
               <span style={{ fontWeight: 600 }}>{OPERATOR_LABELS[op]}</span>
-              <span style={{ marginLeft: 8, fontSize: '10px', color: 'var(--color-text-muted, #8A8A8A)' }}>
+              <span style={{ marginLeft: 8, fontSize: '10px', color: 'var(--color-text-muted)' }}>
                 {op}
               </span>
             </button>
@@ -1111,7 +920,7 @@ function ConditionGroupView({
             style={{
               ...operatorToggleBtnStyle,
               ...(group.operator === 'AND'
-                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.AND, color: 'var(--color-text-on-accent, #FFFFFF)' }
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.AND, color: 'var(--color-text-on-accent)' }
                 : {}),
             }}
             onClick={() => onUpdate({ ...group, operator: 'AND' })}
@@ -1123,7 +932,7 @@ function ConditionGroupView({
             style={{
               ...operatorToggleBtnStyle,
               ...(group.operator === 'OR'
-                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.OR, color: 'var(--color-text-on-accent, #FFFFFF)' }
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.OR, color: 'var(--color-text-on-accent)' }
                 : {}),
             }}
             onClick={() => onUpdate({ ...group, operator: 'OR' })}
@@ -1218,8 +1027,6 @@ export function ConditionEditor({
   // ==========================================================================
 
   const plotFlowData = useStoryStore((s) => s.plotFlowData);
-  const editorContent = useEditorStore((s) => s.content);
-  const setEditorContent = useEditorStore((s) => s.setContent);
   const isOpen = useUIStore((s) => s.isConditionEditorOpen);
 
   const variables = useMemo<readonly VariableDeclaration[]>(
@@ -1227,47 +1034,29 @@ export function ConditionEditor({
     [plotFlowData],
   );
 
+  const selectedOption = useMemo(() => {
+    if (nodeId === undefined || optionIndex === undefined || !plotFlowData) {
+      return null;
+    }
+
+    for (const chapter of plotFlowData.chapters) {
+      for (const node of chapter.nodes) {
+        if (node.fullId === nodeId) {
+          return node.options[optionIndex] ?? null;
+        }
+      }
+    }
+    return null;
+  }, [nodeId, optionIndex, plotFlowData]);
+
   // ==========================================================================
   // 从 AST 中解析当前选项的已有条件（text → panel 同步）
   // ==========================================================================
 
   /** 当 nodeId + optionIndex 提供时，从 AST 查找已有条件 */
   const resolvedCondition = useMemo<ConditionNode | null>(() => {
-    if (nodeId === undefined || optionIndex === undefined) {
-      return null;
-    }
-
-    if (plotFlowData) {
-      for (const chapter of plotFlowData.chapters) {
-        for (const node of chapter.nodes) {
-          if (node.fullId === nodeId) {
-            const option = node.options[optionIndex];
-            if (option?.condition) {
-              return option.condition;
-            }
-            break;
-          }
-        }
-      }
-    }
-
-    const nodeTitle = getNodeTitleFromNodeId(nodeId);
-    if (!nodeTitle) {
-      return null;
-    }
-
-    const expression = findConditionExpressionInContent(editorContent, nodeTitle, optionIndex);
-    if (!expression) {
-      return null;
-    }
-
-    const parsed = parseCondition(expression, variables);
-    if (!parsed.ok) {
-      return null;
-    }
-    return parsed.data;
-
-  }, [nodeId, optionIndex, plotFlowData, editorContent, variables]);
+    return selectedOption?.condition ?? null;
+  }, [selectedOption]);
 
   // ==========================================================================
   // Builder 内部状态
@@ -1324,61 +1113,17 @@ export function ConditionEditor({
     // 生成条件表达式字符串用于文本同步
     const expression = hasValidCondition ? builderToExpression(rootGroup) : '';
 
-    // M3-07: 面板 → 编辑器文本同步
-    if (nodeId && optionIndex !== undefined) {
-      // 查找目标节点和选项
-      let targetNodeTitle = '';
-      let targetOptionLineNumber = 0;
-
-      // Phase 1: AST 查找（主路径）
-      if (plotFlowData) {
-        for (const chapter of plotFlowData.chapters) {
-          const node = chapter.nodes.find((n) => n.fullId === nodeId);
-          if (node) {
-            targetNodeTitle = node.title;
-            const option = node.options[optionIndex];
-            if (option) {
-              targetOptionLineNumber = option.lineNumber;
-            }
-            break;
-          }
-        }
-      }
-
-      // Phase 2: 文本扫描回退（AST 查找失败时，与 resolvedCondition 对称）
-      if (!targetNodeTitle && editorContent) {
-        const fallbackTitle = getNodeTitleFromNodeId(nodeId);
-        if (fallbackTitle) {
-          targetNodeTitle = fallbackTitle;
-          // optionIndex 由 updateEditorConditionText 的 findOptionLineIndexByOrdinal 处理
-          targetOptionLineNumber = 0;
-        }
-      }
-
-      if (targetNodeTitle) {
-        const newContent = updateEditorConditionText(
-          editorContent,
-          targetNodeTitle,
-          targetOptionLineNumber,
-          optionIndex,
-          expression,
-        );
-        if (newContent !== editorContent) {
-          setEditorContent(newContent);
-        }
-      }
+    if (selectedOption) {
+      graphEditService.updateOption(selectedOption, {
+        conditionRaw: expression || null,
+      });
     }
 
     onClose();
   }, [
     rootGroup,
-    variables,
     hasValidCondition,
-    nodeId,
-    optionIndex,
-    plotFlowData,
-    editorContent,
-    setEditorContent,
+    selectedOption,
     onClose,
   ]);
 
@@ -1564,7 +1309,7 @@ const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 'var(--z-modal, 1000)',
-  background: 'var(--color-overlay-modal, rgba(0,0,0,0.35))',
+  background: 'var(--color-overlay-modal)',
 };
 
 // -------- Panel --------
@@ -1580,10 +1325,10 @@ const panelStyle: React.CSSProperties = {
   maxHeight: 'calc(100vh - 80px)',
   display: 'flex',
   flexDirection: 'column',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 8px)',
-  boxShadow: 'var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.16))',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  boxShadow: 'var(--shadow-xl)',
+  border: '1px solid var(--color-border-default)',
   overflow: 'hidden',
 };
 
@@ -1594,8 +1339,8 @@ const headerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: 'var(--space-3, 12px) var(--space-4, 16px)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-secondary)',
+  borderBottom: '1px solid var(--color-border-default)',
   flexShrink: 0,
   userSelect: 'none',
 };
@@ -1604,7 +1349,7 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 'var(--text-sm, 14px)',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
 };
 
 const headerActionsStyle: React.CSSProperties = {
@@ -1617,8 +1362,8 @@ const contextBadgeStyle: React.CSSProperties = {
   fontSize: '11px',
   padding: '1px 8px',
   borderRadius: 'var(--radius-full, 9999px)',
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
 };
 
@@ -1627,7 +1372,7 @@ const closeButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '14px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
   display: 'flex',
@@ -1653,14 +1398,14 @@ const emptyVarsStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '32px 16px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontSize: 'var(--text-sm, 14px)',
   gap: '4px',
 };
 
 const emptyVarsHintStyle: React.CSSProperties = {
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginTop: '4px',
 };
 
@@ -1678,8 +1423,8 @@ const groupHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '6px 10px',
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-tertiary)',
+  borderBottom: '1px solid var(--color-border-default)',
 };
 
 const groupBodyStyle: React.CSSProperties = {
@@ -1701,7 +1446,7 @@ const operatorToggleStyle: React.CSSProperties = {
   gap: 0,
   borderRadius: 'var(--radius-sm, 2px)',
   overflow: 'hidden',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  border: '1px solid var(--color-border-default)',
 };
 
 const operatorToggleBtnStyle: React.CSSProperties = {
@@ -1711,13 +1456,13 @@ const operatorToggleBtnStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-secondary)',
   transition: 'background 0.1s ease, color 0.1s ease',
 };
 
 const operatorToggleActiveStyle: React.CSSProperties = {
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
 };
 
 const removeGroupButtonStyle: React.CSSProperties = {
@@ -1725,7 +1470,7 @@ const removeGroupButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
   lineHeight: 1,
@@ -1742,7 +1487,7 @@ const conditionRowStyle: React.CSSProperties = {
 
 const dragHandleStyle: React.CSSProperties = {
   flexShrink: 0,
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   cursor: 'grab',
   fontSize: '12px',
   padding: '2px',
@@ -1755,7 +1500,7 @@ const removeRowButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 4px',
   borderRadius: 'var(--radius-sm, 2px)',
   lineHeight: 1,
@@ -1776,9 +1521,9 @@ const dropdownButtonStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   cursor: 'pointer',
@@ -1794,10 +1539,10 @@ const dropdownMenuStyle: React.CSSProperties = {
   minWidth: '100%',
   maxHeight: '220px',
   overflowY: 'auto',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-primary)',
+  border: '1px solid var(--color-border-default)',
   borderRadius: 'var(--radius-md, 4px)',
-  boxShadow: 'var(--shadow-md, 0 2px 8px rgba(0,0,0,0.10))',
+  boxShadow: 'var(--shadow-md)',
   zIndex: 10,
 };
 
@@ -1814,7 +1559,7 @@ const dropdownItemStyle: React.CSSProperties = {
   padding: '5px 10px',
   border: 'none',
   background: 'transparent',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   cursor: 'pointer',
@@ -1823,25 +1568,25 @@ const dropdownItemStyle: React.CSSProperties = {
 };
 
 const dropdownItemActiveStyle: React.CSSProperties = {
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
+  background: 'var(--color-accent-subtle)',
 };
 
 const emptyOptionStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
 };
 
 const chevronStyle: React.CSSProperties = {
   fontSize: '8px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginLeft: 'auto',
   lineHeight: 1,
 };
 
 const placeholderStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   flex: 1,
 };
 
@@ -1855,39 +1600,39 @@ const typeIconStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
   fontFamily: 'var(--font-editor, Consolas, monospace)',
-  color: 'var(--color-accent, #A0703A)',
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
+  color: 'var(--color-accent)',
+  background: 'var(--color-accent-subtle)',
   borderRadius: 'var(--radius-sm, 2px)',
 };
 
 const typeLabelStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   flexShrink: 0,
 };
 
 const noVarsHintStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
+  borderTop: '1px solid var(--color-border-default)',
 };
 
 // -------- Search --------
 
 const searchContainerStyle: React.CSSProperties = {
   padding: '6px 8px',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  borderBottom: '1px solid var(--color-border-default)',
 };
 
 const searchInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   outline: 'none',
@@ -1900,9 +1645,9 @@ const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
   outline: 'none',
@@ -1915,9 +1660,9 @@ const numberInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
   outline: 'none',
@@ -1934,9 +1679,9 @@ const disabledInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   height: '28px',
@@ -1948,13 +1693,13 @@ const disabledInputStyle: React.CSSProperties = {
 // -------- Add Buttons --------
 
 const addRowButtonStyle: React.CSSProperties = {
-  border: '1px dashed var(--color-border-default, #E0E0E0)',
+  border: '1px dashed var(--color-border-default)',
   background: 'transparent',
   cursor: 'pointer',
   padding: '3px 10px',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   borderRadius: 'var(--radius-sm, 2px)',
   lineHeight: '18px',
 };
@@ -1973,7 +1718,7 @@ const addGroupButtonStyle: React.CSSProperties = {
 
 const maxDepthHintStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
 };
 
@@ -1981,8 +1726,8 @@ const maxDepthHintStyle: React.CSSProperties = {
 
 const previewStyle: React.CSSProperties = {
   padding: 'var(--space-3, 12px) var(--space-4, 16px)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
   display: 'flex',
   alignItems: 'flex-start',
   gap: 'var(--space-2, 8px)',
@@ -1992,7 +1737,7 @@ const previewStyle: React.CSSProperties = {
 const previewLabelStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   flexShrink: 0,
   lineHeight: '20px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
@@ -2002,13 +1747,13 @@ const previewCodeStyle: React.CSSProperties = {
   flex: 1,
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
-  color: 'var(--color-syntax-condition, #C5662A)',
+  color: 'var(--color-syntax-condition)',
   wordBreak: 'break-all',
   lineHeight: '20px',
 };
 
 const previewPlaceholderStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontStyle: 'italic',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
 };
@@ -2020,40 +1765,40 @@ const footerStyle: React.CSSProperties = {
   justifyContent: 'flex-end',
   gap: 'var(--space-2, 8px)',
   padding: 'var(--space-3, 12px) var(--space-4, 16px)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
   flexShrink: 0,
 };
 
 const cancelButtonStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   padding: '6px 16px',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   fontWeight: 500,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   borderRadius: 'var(--radius-md, 4px)',
   lineHeight: '18px',
 };
 
 const applyButtonStyle: React.CSSProperties = {
   border: 'none',
-  background: 'var(--color-accent, #A0703A)',
+  background: 'var(--color-accent)',
   cursor: 'pointer',
   padding: '6px 20px',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   fontWeight: 600,
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
   borderRadius: 'var(--radius-md, 4px)',
   lineHeight: '18px',
 };
 
 const applyButtonDisabledStyle: React.CSSProperties = {
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   cursor: 'not-allowed',
 };
 
@@ -2063,23 +1808,23 @@ const triggerButtonStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '3px',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   padding: '1px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   lineHeight: '18px',
   transition: 'background 0.1s ease, color 0.1s ease, border-color 0.1s ease',
   userSelect: 'none',
 };
 
 const triggerActiveStyle: React.CSSProperties = {
-  color: 'var(--color-syntax-condition, #C5662A)',
-  borderColor: 'var(--color-syntax-condition, #C5662A)',
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
+  color: 'var(--color-syntax-condition)',
+  borderColor: 'var(--color-syntax-condition)',
+  background: 'var(--color-accent-subtle)',
 };
 
 const triggerLabelStyle: React.CSSProperties = {

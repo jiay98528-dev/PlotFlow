@@ -49,6 +49,8 @@ export function HomeSurface(): React.ReactElement | null {
     freshEditor.setCursorPosition(1, 1);
     freshEditor.setContent(result.content);
     freshEditor.setFilePath(result.path);
+    freshEditor.setFileBaseline(result.hash, result.modifiedAt);
+    freshEditor.clearPendingExternalChange();
     freshEditor.markSaved();
     useStoryStore.getState().clearParseData();
     useGraphStore.getState().syncFromAST(null);

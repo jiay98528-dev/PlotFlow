@@ -38,8 +38,8 @@ contextBridge.exposeInMainWorld('plotflow', {
   // 鈹€鈹€ 鏂囦欢鎿嶄綔 鈥?M1-13 鈹€鈹€
   file: {
     open: () => ipcRenderer.invoke('file:open'),
-    save: (path: string, content: string) =>
-      ipcRenderer.invoke('file:save', { path, content }),
+    save: (request: { path: string; content: string; expectedHash: string | null; overwriteConflict?: boolean }) =>
+      ipcRenderer.invoke('file:save', request),
     saveAs: (content: string) =>
       ipcRenderer.invoke('file:saveAs', { content }),
     saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }>; format: string }) =>
@@ -68,17 +68,27 @@ contextBridge.exposeInMainWorld('plotflow', {
       };
     },
 
+    onExternalChange: (callback: (event: { filePath: string; content: string; hash: string; modifiedAt: number }) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: { filePath: string; content: string; hash: string; modifiedAt: number }): void => {
+        callback(payload);
+      };
+      ipcRenderer.on('file:external-change', listener);
+      return () => {
+        ipcRenderer.removeListener('file:external-change', listener);
+      };
+    },
+
     /**
      * 鎸夎矾寰勮鍙?.mdstory 鏂囦欢鍐呭銆?
      * 鐢ㄤ簬杩愯鏃剁郴缁熸枃浠舵墦寮€閫氱煡鍚庡姞杞芥枃浠跺唴瀹广€?
      */
-    readByPath: (path: string): Promise<{ filePath: string; content: string } | null> =>
+    readByPath: (path: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
       ipcRenderer.invoke('file:readByPath', { path }),
     chooseWorkspaceFolder: () =>
       ipcRenderer.invoke('file:chooseWorkspaceFolder'),
     listWorkspaceStories: (rootPath: string) =>
       ipcRenderer.invoke('file:listWorkspaceStories', { rootPath }),
-    readWorkspaceStory: (rootPath: string, filePath: string): Promise<{ filePath: string; content: string } | null> =>
+    readWorkspaceStory: (rootPath: string, filePath: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
       ipcRenderer.invoke('file:readWorkspaceStory', { rootPath, filePath }),
   },
 

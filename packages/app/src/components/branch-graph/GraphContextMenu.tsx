@@ -28,10 +28,13 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { parseEdgeId } from '../../stores/edgeStore';
-import type { StoryFlowNodeData } from './adapter';
-import { findTargetArrowIndex } from './adapter-helpers';
+import {
+  resolveStoryFullIdForFlowNodeId,
+  type StoryFlowNodeData,
+} from './adapter';
+import { graphEditService } from '../../services/graphEditService';
 
-import { layoutNodes } from './layout';
+import { layoutNodesInWorker } from './graphLayoutClient';
 import type { StoryNode } from '@plotflow/core';
 
 // ============================================================================
@@ -75,60 +78,6 @@ const MENU_ITEM_HEIGHT = 32;
 
 /** 分隔线高度（像素） */
 const DIVIDER_HEIGHT = 1;
-
-/** 新节点模板文本 */
-// V02-032: 使用 ASCII "-> 节点：" 而非 Unicode "→"，
-// 否则 parser 的 OPTION_LINE_RE 正则无法匹配，生成 E005 错误，
-// 导致 parseStory 返回 failure → executePipeline 不更新 AST → 分支图不渲染。
-const TEMPLATE_NEW_NODE =
-  '## 节点：新节点\n\n新节点的描述内容\n\n[选项] 继续 -> 节点：选择目标节点';
-
-/** 新选项行模板文本 */
-// V02-032: 同 TEMPLATE_NEW_NODE — 使用 ASCII "-> 节点：" 确保 parser 正常解析
-const TEMPLATE_NEW_OPTION = '[选项] 新选项 -> 节点：选择目标节点';
-
-// ============================================================================
-// 辅助函数：编辑器文本操作
-// ============================================================================
-
-/**
- * 在编辑器文本中查找节点内容的结束行索引（0-based，exclusive）。
- *
- * 从节点标题行的下一行开始扫描，直到遇到下一个「## 节点：」或「# 」章节标题，
- * 或文件末尾。返回的值可直接用于 splice 的 deleteCount 或插入位置。
- *
- * @param lines - 编辑器文本按行分割后的数组
- * @param titleLineIndex - 节点标题行的 0-based 索引
- * @returns 节点内容结束位置的 0-based 索引（不含该行本身）
- */
-function findNodeEndLineIndex(lines: string[], titleLineIndex: number): number {
-  let i = titleLineIndex + 1;
-  while (i < lines.length) {
-    const line = lines[i]!;
-    if (/^##\s+节点：/.test(line) || /^#\s+/.test(line)) {
-      break;
-    }
-    i++;
-  }
-  return i;
-}
-
-/**
- * 获取节点在编辑器文本中的行范围（0-based，endLine exclusive）。
- *
- * @param content - 编辑器完整文本
- * @param storyNode - AST 中的节点对象
- * @returns 行范围对象
- */
-function getNodeLineRange(
-  content: string,
-  storyNode: StoryNode,
-): { startLine: number; endLine: number } {
-  const lines = content.split('\n');
-  const startLine = storyNode.lineNumber - 1; // StoryNode.lineNumber 是 1-based
-  const endLine = findNodeEndLineIndex(lines, startLine);
-  return { startLine, endLine };
-}
 
 // ============================================================================
 // MenuItem 子组件
@@ -180,13 +129,13 @@ const MenuItem: React.FC<MenuItemProps> = ({
         cursor: disabled ? 'not-allowed' : 'pointer',
         background:
           hovered && !disabled
-            ? 'var(--color-accent-subtle, rgba(160,112,58,0.08))'
+            ? 'var(--color-accent-subtle)'
             : 'transparent',
         color: disabled
-          ? 'var(--color-text-muted, #BDBDBD)'
+          ? 'var(--color-text-muted)'
           : danger
-            ? 'var(--color-error, #C62828)'
-            : 'var(--color-text-primary, #333333)',
+            ? 'var(--color-error)'
+            : 'var(--color-text-primary)',
         fontSize: 'var(--text-sm, 13px)',
         fontFamily: 'var(--font-ui, system-ui, sans-serif)',
         userSelect: 'none',
@@ -203,7 +152,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
           style={{
             marginLeft: 16,
             fontSize: 'var(--text-2xs, 11px)',
-            color: 'var(--color-text-muted, #BDBDBD)',
+            color: 'var(--color-text-muted)',
             flexShrink: 0,
           }}
         >
@@ -275,7 +224,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-overlay-modal, rgba(0,0,0,0.25))',
+        background: 'var(--color-overlay-modal)',
       }}
       onClick={handleBackdropClick}
     >
@@ -286,17 +235,17 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
           gap: 12,
           padding: 16,
           width: 320,
-          background: 'var(--color-bg-primary, #FFFFFF)',
+          background: 'var(--color-bg-primary)',
           borderRadius: 'var(--radius-md, 8px)',
-          boxShadow: 'var(--shadow-lg, 0 4px 16px rgba(0,0,0,0.12))',
-          border: '1px solid var(--color-border-default, #E0E0E0)',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--color-border-default)',
         }}
       >
         <label
           style={{
             fontSize: 'var(--text-sm, 13px)',
             fontWeight: 600,
-            color: 'var(--color-text-primary, #333333)',
+            color: 'var(--color-text-primary)',
             fontFamily: 'var(--font-ui, system-ui, sans-serif)',
           }}
         >
@@ -311,9 +260,9 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
           style={{
             padding: '6px 10px',
             borderRadius: 'var(--radius-sm, 4px)',
-            border: '1px solid var(--color-border-default, #E0E0E0)',
-            background: 'var(--color-bg-primary, #FFFFFF)',
-            color: 'var(--color-text-primary, #333333)',
+            border: '1px solid var(--color-border-default)',
+            background: 'var(--color-bg-primary)',
+            color: 'var(--color-text-primary)',
             fontSize: 'var(--text-sm, 13px)',
             fontFamily: 'var(--font-editor, Consolas, monospace)',
             outline: 'none',
@@ -329,12 +278,13 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
           <button
             type="button"
             onClick={onCancel}
+            data-testid="graph-confirm-cancel"
             style={{
               padding: '5px 14px',
               borderRadius: 'var(--radius-sm, 4px)',
-              border: '1px solid var(--color-border-default, #E0E0E0)',
-              background: 'var(--color-bg-primary, #FFFFFF)',
-              color: 'var(--color-text-primary, #333333)',
+              border: '1px solid var(--color-border-default)',
+              background: 'var(--color-bg-primary)',
+              color: 'var(--color-text-primary)',
               fontSize: 'var(--text-xs, 12px)',
               fontFamily: 'var(--font-ui, system-ui, sans-serif)',
               cursor: 'pointer',
@@ -350,8 +300,8 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
               padding: '5px 14px',
               borderRadius: 'var(--radius-sm, 4px)',
               border: 'none',
-              background: 'var(--color-accent, #A0703A)',
-              color: 'var(--color-text-on-accent, #FFFFFF)',
+              background: 'var(--color-accent)',
+              color: 'var(--color-text-on-accent)',
               fontSize: 'var(--text-xs, 12px)',
               fontFamily: 'var(--font-ui, system-ui, sans-serif)',
               cursor: 'pointer',
@@ -425,7 +375,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-overlay-modal, rgba(0,0,0,0.25))',
+        background: 'var(--color-overlay-modal)',
       }}
       onClick={handleBackdropClick}
     >
@@ -436,10 +386,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           gap: 12,
           padding: 16,
           width: 340,
-          background: 'var(--color-bg-primary, #FFFFFF)',
+          background: 'var(--color-bg-primary)',
           borderRadius: 'var(--radius-md, 8px)',
-          boxShadow: 'var(--shadow-lg, 0 4px 16px rgba(0,0,0,0.12))',
-          border: '1px solid var(--color-border-default, #E0E0E0)',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--color-border-default)',
         }}
       >
         <div
@@ -447,8 +397,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             fontSize: 'var(--text-sm, 13px)',
             fontWeight: 600,
             color: danger
-              ? 'var(--color-error, #C62828)'
-              : 'var(--color-text-primary, #333333)',
+              ? 'var(--color-error)'
+              : 'var(--color-text-primary)',
             fontFamily: 'var(--font-ui, system-ui, sans-serif)',
           }}
         >
@@ -457,7 +407,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <div
           style={{
             fontSize: 'var(--text-sm, 13px)',
-            color: 'var(--color-text-primary, #333333)',
+            color: 'var(--color-text-primary)',
             fontFamily: 'var(--font-ui, system-ui, sans-serif)',
             lineHeight: 1.5,
             whiteSpace: 'pre-wrap',
@@ -479,9 +429,9 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             style={{
               padding: '5px 14px',
               borderRadius: 'var(--radius-sm, 4px)',
-              border: '1px solid var(--color-border-default, #E0E0E0)',
-              background: 'var(--color-bg-primary, #FFFFFF)',
-              color: 'var(--color-text-primary, #333333)',
+              border: '1px solid var(--color-border-default)',
+              background: 'var(--color-bg-primary)',
+              color: 'var(--color-text-primary)',
               fontSize: 'var(--text-xs, 12px)',
               fontFamily: 'var(--font-ui, system-ui, sans-serif)',
               cursor: 'pointer',
@@ -493,14 +443,15 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <button
             type="button"
             onClick={onConfirm}
+            data-testid="graph-confirm-primary"
             style={{
               padding: '5px 14px',
               borderRadius: 'var(--radius-sm, 4px)',
               border: 'none',
               background: danger
-                ? 'var(--color-error, #C62828)'
-                : 'var(--color-accent, #A0703A)',
-              color: 'var(--color-text-on-accent, #FFFFFF)',
+                ? 'var(--color-error)'
+                : 'var(--color-accent)',
+              color: 'var(--color-text-on-accent)',
               fontSize: 'var(--text-xs, 12px)',
               fontFamily: 'var(--font-ui, system-ui, sans-serif)',
               cursor: 'pointer',
@@ -542,8 +493,6 @@ export function GraphContextMenu({
   // Store 订阅
   // ==========================================================================
 
-  const editorContent = useEditorStore((s) => s.content);
-  const setEditorContent = useEditorStore((s) => s.setContent);
   const editorInstance = useEditorStore((s) => s.editorInstance);
   const setCursorPosition = useEditorStore((s) => s.setCursorPosition);
   const plotFlowData = useStoryStore((s) => s.plotFlowData);
@@ -617,8 +566,9 @@ export function GraphContextMenu({
 
   const storyNode = useMemo<StoryNode | undefined>(() => {
     if (type !== 'node' || !node || !plotFlowData) return undefined;
-    return getNodeByFullId(node.id);
-  }, [type, node, plotFlowData, getNodeByFullId]);
+    const nodeData = node.data as StoryFlowNodeData | undefined;
+    return getNodeByFullId(nodeData?.fullId ?? resolveStoryFullIdForFlowNodeId(node.id, graphNodes));
+  }, [type, node, plotFlowData, graphNodes, getNodeByFullId]);
 
   const isNodeActionDisabled = !storyNode || !plotFlowData;
 
@@ -653,37 +603,12 @@ export function GraphContextMenu({
     (newTitle: string) => {
       if (!storyNode) return;
 
-      if (editorInstance) {
-        const model = editorInstance.getModel();
-        if (model) {
-          const titleLine = storyNode.lineNumber;
-          const oldLine = model.getLineContent(titleLine);
-          const prefixMatch = oldLine.match(/^(##\s+节点[：:]).*/);
-          if (prefixMatch) {
-            editorInstance.executeEdits('context-menu-rename', [{
-              range: {
-                startLineNumber: titleLine,
-                startColumn: 1,
-                endLineNumber: titleLine,
-                endColumn: oldLine.length + 1
-              },
-              text: prefixMatch[1] + newTitle
-            }]);
-            setStatusMessage(`节点已重命名为: ${newTitle}`);
-          }
-        }
-      } else {
-        const lines = editorContent.split('\n');
-        const titleIndex = storyNode.lineNumber - 1;
-        if (titleIndex >= 0 && titleIndex < lines.length) {
-          lines[titleIndex] = `## 节点：${newTitle}`;
-          setEditorContent(lines.join('\n'));
-          setStatusMessage(`节点已重命名为: ${newTitle}`);
-        }
+      if (graphEditService.updateNode(storyNode, { title: newTitle })) {
+        setStatusMessage(`节点已重命名为: ${newTitle}`);
       }
       setShowRenameDialog(false);
     },
-    [storyNode, editorInstance, editorContent, setEditorContent, setStatusMessage],
+    [storyNode, setStatusMessage],
   );
 
   /** 关闭重命名对话框 */
@@ -698,31 +623,14 @@ export function GraphContextMenu({
       return;
     }
 
-    if (editorInstance) {
-      const lines = editorContent.split('\n');
-      const endIndex = findNodeEndLineIndex(lines, storyNode.lineNumber - 1);
-      const insertionLine = endIndex + 1; // Monaco 1-based
-      editorInstance.executeEdits('context-menu-add-option', [{
-        range: {
-          startLineNumber: insertionLine,
-          startColumn: 1,
-          endLineNumber: insertionLine,
-          endColumn: 1
-        },
-        text: TEMPLATE_NEW_OPTION + '\n'
-      }]);
-      setStatusMessage(`已为「${storyNode.title}」添加新选项`);
-    } else {
-      const lines = editorContent.split('\n');
-      const endIndex = findNodeEndLineIndex(lines, storyNode.lineNumber - 1);
-
-      // 在节点内容末尾插入新选项行
-      lines.splice(endIndex, 0, TEMPLATE_NEW_OPTION);
-      setEditorContent(lines.join('\n'));
+    if (graphEditService.addOption(storyNode, {
+      description: '新选项',
+      targetNodeId: '选择目标节点',
+    })) {
       setStatusMessage(`已为「${storyNode.title}」添加新选项`);
     }
     onClose();
-  }, [storyNode, editorInstance, editorContent, setEditorContent, setStatusMessage, onClose]);
+  }, [storyNode, setStatusMessage, onClose]);
 
   /** 打开删除确认对话框 */
   const handleOpenDelete = useCallback(() => {
@@ -733,29 +641,24 @@ export function GraphContextMenu({
 
   /** 执行删除：从编辑器文本中移除节点全部行 */
   const handleDeleteConfirm = useCallback(() => {
-    if (!storyNode) return;
+    if (!storyNode) {
+      setStatusMessage('删除节点失败：未找到对应节点');
+      setShowDeleteDialog(false);
+      return;
+    }
 
-    if (editorInstance) {
-      const { startLine, endLine } = getNodeLineRange(editorContent, storyNode);
-      editorInstance.executeEdits('context-menu-delete-node', [{
-        range: {
-          startLineNumber: startLine + 1,
-          startColumn: 1,
-          endLineNumber: endLine + 1,
-          endColumn: 1
-        },
-        text: ''
-      }]);
-      setStatusMessage(`节点「${storyNode.title}」已删除`);
-    } else {
-      const { startLine, endLine } = getNodeLineRange(editorContent, storyNode);
-      const lines = editorContent.split('\n');
-      lines.splice(startLine, endLine - startLine);
-      setEditorContent(lines.join('\n'));
-      setStatusMessage(`节点「${storyNode.title}」已删除`);
+    try {
+      if (graphEditService.deleteNode(storyNode)) {
+        setStatusMessage(`节点「${storyNode.title}」已删除`);
+      } else {
+        setStatusMessage(`删除节点失败：源文本未发生变化（${storyNode.title}）`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatusMessage(`删除节点失败：${message}`);
     }
     setShowDeleteDialog(false);
-  }, [storyNode, editorInstance, editorContent, setEditorContent, setStatusMessage]);
+  }, [storyNode, setStatusMessage]);
 
   /** 关闭删除对话框 */
   const handleDeleteCancel = useCallback(() => {
@@ -768,32 +671,14 @@ export function GraphContextMenu({
 
   /** 在编辑器末尾插入新节点模板 */
   const handleAddNode = useCallback(() => {
-    if (editorInstance) {
-      const model = editorInstance.getModel();
-      if (model) {
-        const lastLine = model.getLineCount();
-        const lastCol = model.getLineMaxColumn(lastLine);
-        const prefix = editorContent ? '\n\n' : '';
-        editorInstance.executeEdits('context-menu-add-node', [{
-          range: {
-            startLineNumber: lastLine,
-            startColumn: lastCol,
-            endLineNumber: lastLine,
-            endColumn: lastCol
-          },
-          text: prefix + TEMPLATE_NEW_NODE
-        }]);
-        setStatusMessage('已添加新节点');
-      }
-    } else {
-      const newContent = editorContent
-        ? `${editorContent}\n\n${TEMPLATE_NEW_NODE}`
-        : TEMPLATE_NEW_NODE;
-      setEditorContent(newContent);
+    if (graphEditService.createNode({
+      title: '新节点',
+      body: '新节点的描述内容',
+    })) {
       setStatusMessage('已添加新节点');
     }
     onClose();
-  }, [editorInstance, editorContent, setEditorContent, setStatusMessage, onClose]);
+  }, [setStatusMessage, onClose]);
 
   /** 重新调用 Dagre 布局 */
   const handleRelayout = useCallback(() => {
@@ -802,9 +687,16 @@ export function GraphContextMenu({
       onClose();
       return;
     }
-    const { nodes: layoutedNodes } = layoutNodes(graphNodes, graphEdges);
-    setNodes(layoutedNodes);
-    setStatusMessage('分支图已重新布局');
+    void layoutNodesInWorker(graphNodes, graphEdges)
+      .then((result) => {
+        if (result.stale) return;
+        setNodes(result.nodes);
+        setStatusMessage('Layout complete');
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatusMessage(message);
+      });
     onClose();
   }, [graphNodes, graphEdges, setNodes, setStatusMessage, onClose]);
 
@@ -822,61 +714,41 @@ export function GraphContextMenu({
     }
   }, [type, edge]);
 
+  const edgeStoryIds = useMemo(() => {
+    if (!edgeParsed) return null;
+    return {
+      sourceFullId: resolveStoryFullIdForFlowNodeId(edgeParsed.sourceFullId, graphNodes),
+      targetFullId: resolveStoryFullIdForFlowNodeId(edgeParsed.targetFullId, graphNodes),
+      optionIndex: edgeParsed.optionIndex,
+    };
+  }, [edgeParsed, graphNodes]);
+
   /** 连线 → 编辑条件：打开 ConditionEditor 面板 (Fix 8) */
   const handleEdgeEditCondition = useCallback(() => {
-    if (!edgeParsed) { onClose(); return; }
-    openConditionEditor(edgeParsed.sourceFullId, edgeParsed.optionIndex);
+    if (!edgeStoryIds) { onClose(); return; }
+    openConditionEditor(edgeStoryIds.sourceFullId, edgeStoryIds.optionIndex);
     onClose();
-  }, [edgeParsed, openConditionEditor, onClose]);
+  }, [edgeStoryIds, openConditionEditor, onClose]);
 
   /** 连线 → 删除连线：移除 -> 节点：XXX 文本 */
   const handleEdgeDelete = useCallback(() => {
-    if (!edgeParsed || !plotFlowData) { onClose(); return; }
-    const sourceNode = getNodeByFullId(edgeParsed.sourceFullId);
+    if (!edgeStoryIds || !plotFlowData) { onClose(); return; }
+    const sourceNode = getNodeByFullId(edgeStoryIds.sourceFullId);
     if (!sourceNode) { onClose(); return; }
 
-    const option = sourceNode.options[edgeParsed.optionIndex];
+    const option = sourceNode.options[edgeStoryIds.optionIndex];
     if (!option) { onClose(); return; }
 
-    if (editorInstance) {
-      const model = editorInstance.getModel();
-      if (model) {
-        const lineIdx = option.lineNumber;
-        const lineContent = model.getLineContent(lineIdx);
-        const arrowIndex = findTargetArrowIndex(lineContent);
-        if (arrowIndex >= 0) {
-          editorInstance.executeEdits('context-menu-delete-edge', [{
-            range: {
-              startLineNumber: lineIdx,
-              startColumn: arrowIndex + 1,
-              endLineNumber: lineIdx,
-              endColumn: lineContent.length + 1
-            },
-            text: ''
-          }]);
-          setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeParsed.optionIndex + 1}`);
-        }
-      }
-    } else {
-      const lines = editorContent.split('\n');
-      const lineIndex = option.lineNumber - 1;
-      if (lineIndex >= 0 && lineIndex < lines.length) {
-        const line = lines[lineIndex]!;
-        const arrowIndex = findTargetArrowIndex(line);
-        if (arrowIndex >= 0) {
-          lines[lineIndex] = line.slice(0, arrowIndex).trimEnd();
-          setEditorContent(lines.join('\n'));
-          setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeParsed.optionIndex + 1}`);
-        }
-      }
+    if (graphEditService.connectOption(option, null)) {
+      setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeStoryIds.optionIndex + 1}`);
     }
     onClose();
-  }, [edgeParsed, plotFlowData, editorInstance, editorContent, getNodeByFullId, setEditorContent, setStatusMessage, onClose]);
+  }, [edgeStoryIds, plotFlowData, getNodeByFullId, setStatusMessage, onClose]);
 
   /** 连线 → 跳转到源节点 */
   const handleEdgeJumpToSource = useCallback(() => {
-    if (!edgeParsed || !editorInstance) { onClose(); return; }
-    const sourceNode = getNodeByFullId(edgeParsed.sourceFullId);
+    if (!edgeStoryIds || !editorInstance) { onClose(); return; }
+    const sourceNode = getNodeByFullId(edgeStoryIds.sourceFullId);
     if (sourceNode) {
       editorInstance.revealLineInCenter(sourceNode.lineNumber);
       editorInstance.setPosition({ lineNumber: sourceNode.lineNumber, column: 1 });
@@ -885,12 +757,12 @@ export function GraphContextMenu({
       setStatusMessage(`已跳转到源节点: ${sourceNode.title}`);
     }
     onClose();
-  }, [edgeParsed, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+  }, [edgeStoryIds, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
 
   /** 连线 → 跳转到目标节点 */
   const handleEdgeJumpToTarget = useCallback(() => {
-    if (!edgeParsed || !editorInstance) { onClose(); return; }
-    const targetNode = getNodeByFullId(edgeParsed.targetFullId);
+    if (!edgeStoryIds || !editorInstance) { onClose(); return; }
+    const targetNode = getNodeByFullId(edgeStoryIds.targetFullId);
     if (targetNode) {
       editorInstance.revealLineInCenter(targetNode.lineNumber);
       editorInstance.setPosition({ lineNumber: targetNode.lineNumber, column: 1 });
@@ -899,7 +771,7 @@ export function GraphContextMenu({
       setStatusMessage(`已跳转到目标节点: ${targetNode.title}`);
     }
     onClose();
-  }, [edgeParsed, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+  }, [edgeStoryIds, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
 
   // ==========================================================================
   // 菜单位置微调：防止溢出视口边缘
@@ -984,7 +856,7 @@ export function GraphContextMenu({
               key: 'editCondition',
               label: '编辑条件',
               shortcut: '双击',
-              disabled: !edgeParsed || !edgeParsed.sourceFullId,
+              disabled: !edgeStoryIds || !edgeStoryIds.sourceFullId,
               onClick: handleEdgeEditCondition,
             },
             {
@@ -992,19 +864,19 @@ export function GraphContextMenu({
               label: '删除连线',
               shortcut: 'Alt+点击',
               danger: true,
-              disabled: !edgeParsed,
+              disabled: !edgeStoryIds,
               onClick: handleEdgeDelete,
             },
             {
               key: 'jumpToSource',
               label: '跳转到源节点',
-              disabled: !edgeParsed || !editorInstance,
+              disabled: !edgeStoryIds || !editorInstance,
               onClick: handleEdgeJumpToSource,
             },
             {
               key: 'jumpToTarget',
               label: '跳转到目标节点',
-              disabled: !edgeParsed || !editorInstance,
+              disabled: !edgeStoryIds || !editorInstance,
               onClick: handleEdgeJumpToTarget,
             },
           ]
@@ -1038,10 +910,10 @@ export function GraphContextMenu({
           top: adjustedPosition.y,
           left: adjustedPosition.x,
           width: MENU_WIDTH,
-          background: 'var(--color-bg-primary, #FFFFFF)',
+          background: 'var(--color-bg-primary)',
           borderRadius: 'var(--radius-md, 8px)',
-          boxShadow: 'var(--shadow-lg, 0 4px 16px rgba(0,0,0,0.12))',
-          border: '1px solid var(--color-border-default, #E0E0E0)',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--color-border-default)',
           padding: '4px 0',
           overflow: 'hidden',
         }}
@@ -1053,7 +925,7 @@ export function GraphContextMenu({
                 style={{
                   height: DIVIDER_HEIGHT,
                   margin: '4px 0',
-                  background: 'var(--color-border-light, #E8E8E8)',
+                  background: 'var(--color-border-light)',
                 }}
               />
             )}

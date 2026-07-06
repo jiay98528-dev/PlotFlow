@@ -31,7 +31,13 @@ import { ProblemPanel } from '../components/panels/ProblemPanel';
 import { CorpusManager } from '../components/panels/CorpusManager';
 import { ThemeCenter } from '../components/panels/ThemeCenter';
 import { HomeSurface } from '../components/home/HomeSurface';
-import { clearPendingSave, saveOrSaveAs } from '../services/autoSaveService';
+import {
+  applyExternalFileContent,
+  clearPendingSave,
+  overwritePendingExternalChange,
+  saveAsCurrentFile,
+  saveOrSaveAs,
+} from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
@@ -166,7 +172,7 @@ function AppContent(): React.ReactElement {
       const pending = await window.plotflow.file.getPendingOpenFile();
       if (!pending || cancelled) return;
 
-      const { filePath, content } = pending;
+      const { filePath, content, hash, modifiedAt } = pending;
       const editor = useEditorStore.getState();
 
       // P0-5: 鏂囦欢鎵撳紑鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
@@ -196,6 +202,8 @@ function AppContent(): React.ReactElement {
       clearPendingSave();
       const freshEditor = useEditorStore.getState();
       freshEditor.setFilePath(filePath);
+      freshEditor.setFileBaseline(hash, modifiedAt);
+      freshEditor.clearPendingExternalChange();
       freshEditor.setDiagnostics([]);
       freshEditor.setActiveNodeId(null);
       freshEditor.setCursorPosition(1, 1);
@@ -255,6 +263,8 @@ function AppContent(): React.ReactElement {
       clearPendingSave();
       const freshEditor = useEditorStore.getState();
       freshEditor.setFilePath(result.filePath);
+      freshEditor.setFileBaseline(result.hash, result.modifiedAt);
+      freshEditor.clearPendingExternalChange();
       freshEditor.setDiagnostics([]);
       freshEditor.setActiveNodeId(null);
       freshEditor.setCursorPosition(1, 1);
@@ -269,6 +279,49 @@ function AppContent(): React.ReactElement {
 
     return cleanup;
   }, [setHomeSurfaceOpen, setStatusMessage, text]);
+
+  useEffect(() => {
+    if (!window.plotflow?.file?.onExternalChange) return;
+
+    const cleanup = window.plotflow.file.onExternalChange(async (event) => {
+      const normalizedEvent = {
+        ...event,
+        filePath: event.filePath.replace(/\\/g, '/'),
+      };
+      const editor = useEditorStore.getState();
+      if (editor.filePath && editor.filePath !== normalizedEvent.filePath) return;
+
+      if (!editor.isDirty) {
+        applyExternalFileContent(normalizedEvent);
+        setStatusMessage(`Reloaded external changes: ${normalizedEvent.filePath}`);
+        return;
+      }
+
+      editor.setPendingExternalChange(normalizedEvent);
+      const choice = await window.plotflow.dialog.confirm({
+        type: 'warning',
+        message: 'File changed on disk',
+        detail: `${normalizedEvent.filePath}\n\nThe file was modified outside PlotFlow. Save a copy of your current edits, reload the disk version, overwrite the disk version, or keep editing without reloading.`,
+        buttons: ['Save Copy', 'Reload Disk', 'Overwrite Disk', 'Keep Editing'],
+      });
+
+      if (choice === 0) {
+        const saved = await saveAsCurrentFile();
+        if (saved) {
+          setStatusMessage('Saved a copy; external change no longer blocks the new file');
+        }
+      } else if (choice === 1) {
+        applyExternalFileContent(normalizedEvent);
+        setStatusMessage(`Reloaded external changes: ${normalizedEvent.filePath}`);
+      } else if (choice === 2) {
+        void overwritePendingExternalChange();
+      } else {
+        setStatusMessage('External file change kept pending');
+      }
+    });
+
+    return cleanup;
+  }, [setStatusMessage]);
 
   const handleTemplateSelected = useCallback(
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
@@ -352,6 +405,7 @@ function AppContent(): React.ReactElement {
         id: node.id,
         position: { ...node.position },
       })),
+      getGraphZoom: () => useGraphStore.getState().zoomLevel,
       setEditorContent: (content: string) => {
         clearPendingSave();
 

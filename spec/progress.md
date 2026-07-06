@@ -1,4 +1,6 @@
-﻿# PlotFlow 瀹炴椂杩涘害璺熻釜
+# PlotFlow 实时进度跟踪
+
+> **Architecture gate update (2026-07-06)**: six release risks are closed for source, integration, source-blackbox, and unpacked layers: shared `.mdstory` source ranges, unified Graph Lab writeback, worker-backed layout, current-file conflict hash state, TS/TSX token lint, and build/bundle consistency. Follow-up audit fixes also closed save preflight read-failure handling and React Flow `#number` id mapping. Verified gates: `lint:tokens`, `typecheck`, `test` (48 files / 1267 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E (18/18), blackbox edge (5 passed / 3 skipped), full app E2E (49/49), source blackbox (10 passed / 4 skipped), `package:win`, and unpacked blackbox (13 passed / 1 installed-only skip). Installed blackbox and manual patrol remain pending; do not claim release-candidate passed yet.
 
 > **主题系统当前状态（2026-06-27）**：M9 主题方向已落地为“官方远程免费 ZIP 代码主题 + 当前主题架构完整能力”。`plotflow-blueprint-nightwatch` 已删除；远程主题由官方静态目录注册，下载 `.pf-official-theme.zip`，校验后通过 `plotflow-theme://` 动态加载 `index.mjs`，可提供完整 `ThemeDescriptor`、React surfaces、React slots、tokens、CSS、assets、Monaco 和 UX recipes；Theme Center 使用“官方免费主题库”心智，不做第三方、社区上传、本地导入、购买或授权。完整开发标准见 `doc/standards-theme-development.md`。
 

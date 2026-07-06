@@ -114,14 +114,18 @@ export function MonacoEditor(): React.ReactElement {
     const editor = editorRef.current;
     if (!editor) return;
 
-    // 若内容变更来源于编辑器自身（用户输入），不覆盖编辑器状态
-    if (isUserEditRef.current) {
+    const editorValue = editor.getValue();
+
+    // 若内容变更来源于编辑器自身且 Monaco 已经是同一份内容，不覆盖编辑器状态。
+    // 外部测试桥、文件打开和模板切换可能紧跟在用户编辑之后；若内容不同，仍必须同步。
+    if (isUserEditRef.current && editorValue === content) {
       isUserEditRef.current = false;
       return;
     }
+    isUserEditRef.current = false;
 
     // 外部内容变更（打开文件 / 模板新建）→ 同步到 Monaco
-    if (editor.getValue() !== content) {
+    if (editorValue !== content) {
       editor.setValue(content);
       if (content) {
         parsePipelineNow(content);

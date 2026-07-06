@@ -16,8 +16,9 @@
 
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
-import type { FileSaveResult } from '../types/electron';
+import type { FileExternalChangeEvent, FileSaveResult } from '../types/electron';
 import { appT } from '../i18n/appI18n';
+import { parsePipelineNow } from './parsePipeline';
 
 // ============================================================================
 // 模块级状态
@@ -118,10 +119,40 @@ function updateSaveDialogStatus(type: 'opening' | 'cancelled' | 'success' | 'fai
 
 }
 
+function updateConflictStatus(detail: string): void {
+  useUIStore.getState().setStatusMessage(`${SAVE_STATUS_PREFIX}conflict ${detail}`);
+}
+
+function normalizeExternalEvent(event: FileExternalChangeEvent): FileExternalChangeEvent {
+  return {
+    ...event,
+    filePath: event.filePath.replace(/\\/g, '/'),
+  };
+}
+
+export function applyExternalFileContent(event: FileExternalChangeEvent): void {
+  const normalizedEvent = normalizeExternalEvent(event);
+  clearPendingSave();
+  const editorState = useEditorStore.getState();
+  editorState.setFilePath(normalizedEvent.filePath);
+  editorState.setFileBaseline(normalizedEvent.hash, normalizedEvent.modifiedAt);
+  editorState.clearPendingExternalChange();
+  editorState.setDiagnostics([]);
+  editorState.setActiveNodeId(null);
+  editorState.setContent(normalizedEvent.content);
+  editorState.markSaved();
+  lastSavedContent = normalizedEvent.content;
+  parsePipelineNow(normalizedEvent.content);
+}
+
 /**
  * 执行实际的保存操作
  */
-async function performSave(content: string, path: string): Promise<boolean> {
+async function performSave(
+  content: string,
+  path: string,
+  options: { readonly overwriteConflict?: boolean; readonly expectedHash?: string | null } = {},
+): Promise<boolean> {
   if (isSaving) return false;
 
   // 双重脏检测：内容对比（防竞态）+ isDirty 标记
@@ -134,14 +165,31 @@ async function performSave(content: string, path: string): Promise<boolean> {
   let succeeded = false;
 
   try {
-    const result: FileSaveResult = await window.plotflow.file.save(path, content);
+    const editorState = useEditorStore.getState();
+    const result: FileSaveResult = await window.plotflow.file.save({
+      path,
+      content,
+      expectedHash: options.expectedHash !== undefined ? options.expectedHash : editorState.baseFileHash,
+      overwriteConflict: options.overwriteConflict,
+    });
 
     if (result.success) {
       // 标记为已保存，清除脏状态
       lastSavedContent = content;
-      useEditorStore.getState().markSaved();
+      const freshEditorState = useEditorStore.getState();
+      freshEditorState.setFileBaseline(result.hash, result.modifiedAt);
+      freshEditorState.clearPendingExternalChange();
+      freshEditorState.markSaved();
       updateStatusMessage('success');
       succeeded = true;
+    } else if (result.conflict) {
+      useEditorStore.getState().setPendingExternalChange(normalizeExternalEvent({
+        filePath: result.filePath,
+        content: result.content,
+        hash: result.hash,
+        modifiedAt: result.modifiedAt,
+      }));
+      updateConflictStatus('File changed on disk; autosave paused.');
     } else {
       updateStatusMessage('failed', '文件写入返回异常');
     }
@@ -194,6 +242,11 @@ export function debouncedSave(content: string, path: string | null): void {
   // 新建未保存文件时无法自动保存，但内容已缓存
   if (!path) return;
 
+  if (useEditorStore.getState().isSaveBlockedByConflict) {
+    updateConflictStatus('File changed on disk; autosave paused.');
+    return;
+  }
+
   // 清除上一次的定时器，重新计时
   if (saveTimer !== null) {
     clearTimeout(saveTimer);
@@ -231,6 +284,11 @@ export async function forceSave(): Promise<boolean> {
     waited += POLL_INTERVAL_MS;
   }
 
+  const blockedState = useEditorStore.getState();
+  if (blockedState.filePath !== null && blockedState.pendingExternalChange) {
+    return resolveExternalConflictBeforeSave();
+  }
+
   // 如果有待保存的内容，立即保存
   if (pendingContent !== null && pendingPath !== null) {
     return performSave(pendingContent, pendingPath);
@@ -252,6 +310,43 @@ export async function forceSave(): Promise<boolean> {
  * P0-3: 解决新建文件 Ctrl+S 被静默忽略的问题。
  * 供 Ctrl+S 快捷键和 File > Save 菜单使用。
  */
+async function resolveExternalConflictBeforeSave(): Promise<boolean> {
+  const editorState = useEditorStore.getState();
+  const pending = editorState.pendingExternalChange;
+  if (!pending || editorState.filePath === null) return false;
+
+  const choice = await window.plotflow.dialog.confirm({
+    type: 'warning',
+    message: 'File changed on disk',
+    detail: `${pending.filePath}\n\nThe file was modified outside PlotFlow. Save a copy, reload the disk version, overwrite the disk version, or keep editing without saving.`,
+    buttons: ['Save Copy', 'Reload Disk', 'Overwrite Disk', 'Keep Editing'],
+  });
+
+  if (choice === 0) {
+    const saved = await saveAsCurrentFile();
+    if (!saved) {
+      updateConflictStatus('External file change kept pending.');
+    }
+    return saved;
+  }
+
+  if (choice === 1) {
+    applyExternalFileContent(pending);
+    updateConflictStatus('Reloaded external changes.');
+    return true;
+  }
+
+  if (choice === 2) {
+    return performSave(editorState.content, editorState.filePath, {
+      overwriteConflict: true,
+      expectedHash: pending.hash,
+    });
+  }
+
+  updateConflictStatus('External file change kept pending.');
+  return false;
+}
+
 export async function saveOrSaveAs(): Promise<boolean> {
   const directSaveSucceeded = await forceSave();
   const editorState = useEditorStore.getState();
@@ -276,6 +371,8 @@ export async function saveOrSaveAs(): Promise<boolean> {
       }
       const newPath = result.filePath.replace(/\\/g, '/');
       editorState.setFilePath(newPath);
+      editorState.setFileBaseline(result.hash, result.modifiedAt);
+      editorState.clearPendingExternalChange();
       editorState.markSaved();
       pendingPath = newPath;
       pendingContent = null;
@@ -311,6 +408,8 @@ export async function saveAsCurrentFile(): Promise<boolean> {
     }
     const newPath = result.filePath.replace(/\\/g, '/');
     editorState.setFilePath(newPath);
+    editorState.setFileBaseline(result.hash, result.modifiedAt);
+    editorState.clearPendingExternalChange();
     editorState.markSaved();
     pendingPath = newPath;
     pendingContent = null;
@@ -324,6 +423,19 @@ export async function saveAsCurrentFile(): Promise<boolean> {
   } finally {
     isSaveAsDialogOpen = false;
   }
+}
+
+export async function overwritePendingExternalChange(): Promise<boolean> {
+  const editorState = useEditorStore.getState();
+  const pending = editorState.pendingExternalChange;
+  if (!pending || editorState.filePath === null) {
+    return false;
+  }
+
+  return performSave(editorState.content, editorState.filePath, {
+    overwriteConflict: true,
+    expectedHash: pending.hash,
+  });
 }
 
 export function clearPendingSave(): void {

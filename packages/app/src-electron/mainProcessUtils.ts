@@ -42,6 +42,42 @@ export function findStoryFileArgument(args: readonly string[]): string | null {
   return null;
 }
 
+export type SaveHashPreflightResult =
+  | { readonly canWrite: true }
+  | {
+      readonly canWrite: false;
+      readonly filePath: string;
+      readonly content: string;
+      readonly hash: string;
+      readonly modifiedAt: number;
+    };
+
+export async function preflightFileSaveHash(params: {
+  readonly filePath: string;
+  readonly expectedHash: string | null;
+  readonly overwriteConflict?: boolean;
+  readonly hashContent: (content: string) => string;
+}): Promise<SaveHashPreflightResult> {
+  if (typeof params.expectedHash !== 'string') {
+    return { canWrite: true };
+  }
+
+  const content = await readFile(params.filePath, 'utf-8');
+  const fileStat = await stat(params.filePath);
+  const hash = params.hashContent(content);
+  if (hash === params.expectedHash) {
+    return { canWrite: true };
+  }
+
+  return {
+    canWrite: false,
+    filePath: params.filePath,
+    content,
+    hash,
+    modifiedAt: fileStat.mtimeMs,
+  };
+}
+
 const EXPORT_EXTENSIONS = new Set(['json', 'html', 'txt']);
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
 const TEMPLATE_PLACEHOLDER = /\{\{[^}]+}}/;

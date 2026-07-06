@@ -9,7 +9,7 @@
  *
  * 约束（CLAUDE.md §6.3）：
  * - 节点状态着色通过 className 注入 — 但连线颜色是数据语义的一部分（无/有条件的可视化区分），
- *   此处直接使用指定的语义色值：#4EC9B0（无条件）、#CE9178（条件）。
+ *   Edge colors are provided by semantic theme tokens.
  * - 箭头通过 MarkerType.ArrowClosed 渲染，颜色自动继承连线 stroke。
  *
  * V0.2 新增交互能力（DG-1~5, FR-1）：

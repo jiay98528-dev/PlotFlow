@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "node ../../scripts/clean-app-local-out.mjs && pnpm --dir ../.. build",
     "test:e2e": "playwright test --config e2e/playwright.config.ts --workers=1",
     "test:e2e:blackbox": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1",
     "test:e2e:unpacked": "set PLOTFLOW_BLACKBOX_TARGET=winUnpacked&& playwright test --config e2e-blackbox/playwright.config.ts --workers=1",

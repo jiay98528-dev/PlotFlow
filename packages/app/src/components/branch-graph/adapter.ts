@@ -8,7 +8,7 @@
  * - StoryNode → React Flow Node
  *   - id: node.fullId
  *   - data: { title, body, optionCount, status }
- *   - position: 优先使用 .mdstory layout.graph.nodes，缺失时由 layoutNodes() 计算
+ *   - position: 优先使用 .mdstory layout.graph.nodes，缺失时使用 fast-grid 临时坐标
  * - Option → React Flow Edge
  *   - id: "{sourceFullId}->{targetFullId}#{optionIndex}"
  *   - source: node.fullId
@@ -25,7 +25,7 @@
  * - 使用 Map<string, StoryNode> 进行 O(1) 节点查找，替代 O(n) 的 Array.find
  * - 1000 选项的 AST → Flow 转换目标 < 500ms
  *
- * 对应 TAD.md §2.4.3 Dagre 布局配置 → 调用 layoutNodes()。
+ * Dagre 布局由 GraphCanvas 通过 layout worker 异步触发。
  *
  * @module components/branch-graph/adapter
  */
@@ -33,7 +33,7 @@
 import type { Node, Edge } from '@xyflow/react';
 import type { PlotFlowData, StoryNode } from '@plotflow/core';
 import { getNodeStatus, STATUS_TO_CLASS_MAP } from './adapter-helpers';
-import { layoutNodes, NODE_DIMENSIONS } from './layout';
+import { applyFastGridLayout, NODE_DIMENSIONS } from './layout';
 import { encodeEdgeId } from '../../stores/edgeStore';
 
 // ============================================================================
@@ -93,6 +93,15 @@ export type StoryFlowNodeData = Record<string, unknown> & {
   persistedPosition?: { x: number; y: number };
 };
 
+export function resolveStoryFullIdForFlowNodeId(
+  flowNodeId: string,
+  flowNodes: readonly Pick<Node, 'id' | 'data'>[],
+): string {
+  const matchedNode = flowNodes.find((node) => node.id === flowNodeId);
+  const fullId = matchedNode?.data['fullId'];
+  return typeof fullId === 'string' ? fullId : flowNodeId;
+}
+
 // ============================================================================
 // 核心转换函数
 // ============================================================================
@@ -104,7 +113,7 @@ export type StoryFlowNodeData = Record<string, unknown> & {
  * 1. 展开所有章节的所有节点到一个扁平列表
  * 2. 为每个选项创建一条连线（仅当 targetFullId 有效）
  * 3. 通过 validator diagnostics 判定每个节点的状态（error/orphan/deadend/normal）
- * 4. 调用 layoutNodes() 计算每个节点的画布位置
+ * 4. 使用 persisted 坐标或 deterministic fast-grid 临时坐标
  *
  * @param ast - 解析后的 PlotFlowData AST
  * @returns 包含 nodes 和 edges 的对象，可直接传入 ReactFlow 组件
@@ -177,7 +186,7 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
   // 通过 M3 验证器填充的 NodeDiagnostics（isOrphan/isDeadEnd/diagnosticIds）判定。
   // targetedNodeIds/sourceNodeIds 保留仅供后续可能使用，状态判定不再依赖它们。
 
-  // 步骤 5: 构建 React Flow 节点（初始 position 为 {0,0}，由 layoutNodes 计算）
+  // 步骤 5: 构建 React Flow 节点（初始 position 由 persisted/fast-grid 决定）
   const flowNodes: Node<StoryFlowNodeData>[] = allNodes.map((node, idx) => {
     const status = getNodeStatus(node);
     return {
@@ -211,18 +220,16 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
     return { nodes: flowNodes, edges: flowEdges };
   }
 
-  // 步骤 7: 调用 Dagre 布局计算位置，再用 .mdstory 手动坐标覆盖自动位置
-  const result = layoutNodes(flowNodes, flowEdges);
-  result.nodes = result.nodes.map((node) => {
+  // 步骤 7: 只应用 persisted/cached/fast-grid 坐标；Dagre 统一交给 worker 异步处理。
+  const gridNodes = applyFastGridLayout(flowNodes);
+  const resultNodes = flowNodes.map((node, index) => {
     const persistedPosition = node.data.persistedPosition as { x: number; y: number } | undefined;
-    const cachedPosition = layoutCache?.positions[node.id];
     if (persistedPosition) return { ...node, position: { ...persistedPosition } };
-    if (cachedPosition) return { ...node, position: { ...cachedPosition } };
-    return node;
+    return { ...node, position: { ...gridNodes[index]!.position } };
   });
   layoutCache = {
     hash: structuralHash,
-    positions: Object.fromEntries(result.nodes.map((n) => [n.id, { ...n.position }])),
+    positions: Object.fromEntries(resultNodes.map((n) => [n.id, { ...n.position }])),
   };
-  return result;
+  return { nodes: resultNodes, edges: flowEdges };
 }

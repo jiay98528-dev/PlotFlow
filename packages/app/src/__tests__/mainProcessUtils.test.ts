@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   MAX_WRITE_BYTES,
   assertWritableContent,
   findStoryFileArgument,
+  preflightFileSaveHash,
   sanitizeExportDefaultPath,
   withTimeout,
   writeTextFileAndVerify,
@@ -51,6 +52,54 @@ describe('main process boundaries', () => {
       const content = '{"nodes":[{"id":"start"}]}';
       await writeTextFileAndVerify(filePath, content);
       await expect(readFile(filePath, 'utf-8')).resolves.toBe(content);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('allows conflict overwrite only when disk still matches the confirmed hash', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'plotflow-save-preflight-'));
+    try {
+      const filePath = join(dir, 'story.mdstory');
+      const hashContent = (content: string) => content;
+      await writeFile(filePath, 'external version', 'utf-8');
+
+      await expect(preflightFileSaveHash({
+        filePath,
+        expectedHash: 'external version',
+        overwriteConflict: true,
+        hashContent,
+      })).resolves.toEqual({ canWrite: true });
+
+      await writeFile(filePath, 'newer external version', 'utf-8');
+      const result = await preflightFileSaveHash({
+        filePath,
+        expectedHash: 'external version',
+        overwriteConflict: true,
+        hashContent,
+      });
+
+      expect(result).toMatchObject({
+        canWrite: false,
+        filePath,
+        content: 'newer external version',
+        hash: 'newer external version',
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects hash preflight when the disk file cannot be read', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'plotflow-save-preflight-missing-'));
+    try {
+      const filePath = join(dir, 'missing.mdstory');
+      await expect(preflightFileSaveHash({
+        filePath,
+        expectedHash: 'known hash',
+        overwriteConflict: true,
+        hashContent: (content) => content,
+      })).rejects.toThrow();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

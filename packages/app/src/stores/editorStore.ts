@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type * as monaco from 'monaco-editor';
 import type { Diagnostic } from '@plotflow/core';
+import type { FileExternalChangeEvent } from '../types/electron';
 
 // ============================================================================
 // 类型定义
@@ -34,6 +35,14 @@ export interface EditorState {
 
   /** 当前打开文件的绝对路径（null 表示新建未保存文件） */
   readonly filePath: string | null;
+
+  readonly baseFileHash: string | null;
+
+  readonly baseModifiedAt: number | null;
+
+  readonly pendingExternalChange: FileExternalChangeEvent | null;
+
+  readonly isSaveBlockedByConflict: boolean;
 
   /** 当前光标位置（1-based 行号/列号） */
   readonly cursorPosition: CursorPosition;
@@ -57,6 +66,12 @@ export interface EditorState {
 
   /** 设置当前文件路径 */
   setFilePath: (path: string | null) => void;
+
+  setFileBaseline: (hash: string | null, modifiedAt: number | null) => void;
+
+  setPendingExternalChange: (event: FileExternalChangeEvent) => void;
+
+  clearPendingExternalChange: () => void;
 
   /** 设置光标位置 */
   setCursorPosition: (line: number, column: number) => void;
@@ -82,11 +97,15 @@ const initialState = {
   isDirty: false,
   content: '',
   filePath: null,
+  baseFileHash: null,
+  baseModifiedAt: null,
+  pendingExternalChange: null,
+  isSaveBlockedByConflict: false,
   cursorPosition: { line: 1, column: 1 },
   diagnostics: [],
   activeNodeId: null,
   editorInstance: null,
-} as const satisfies Omit<EditorState, 'setContent' | 'markSaved' | 'setFilePath' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
+} as const satisfies Omit<EditorState, 'setContent' | 'markSaved' | 'setFilePath' | 'setFileBaseline' | 'setPendingExternalChange' | 'clearPendingExternalChange' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
 
 // ============================================================================
 // Store
@@ -116,9 +135,32 @@ export const useEditorStore = create<EditorState>()(
 
       setFilePath: (path: string | null) =>
         set(
-          { filePath: path },
+          path === null
+            ? { filePath: null, baseFileHash: null, baseModifiedAt: null, pendingExternalChange: null, isSaveBlockedByConflict: false }
+            : { filePath: path },
           false,
           'editor/setFilePath',
+        ),
+
+      setFileBaseline: (hash: string | null, modifiedAt: number | null) =>
+        set(
+          { baseFileHash: hash, baseModifiedAt: modifiedAt },
+          false,
+          'editor/setFileBaseline',
+        ),
+
+      setPendingExternalChange: (event: FileExternalChangeEvent) =>
+        set(
+          { pendingExternalChange: event, isSaveBlockedByConflict: true },
+          false,
+          'editor/setPendingExternalChange',
+        ),
+
+      clearPendingExternalChange: () =>
+        set(
+          { pendingExternalChange: null, isSaveBlockedByConflict: false },
+          false,
+          'editor/clearPendingExternalChange',
         ),
 
       setCursorPosition: (line: number, column: number) =>

@@ -116,40 +116,61 @@ async function toggleSplitView(p: Page): Promise<void> {
  */
 async function readZoom(p: Page): Promise<number | null> {
   return p.evaluate(() => {
-    // 尝试多个可能的容器选择器
-    const selectors = [
-      '.react-flow__viewport',
-      '.react-flow__transformpane',
-      '.react-flow__pane',
-    ];
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      // 检查 el 自身和父元素
-      const srcEl = el.parentElement;
-      const style = (srcEl ? srcEl.getAttribute('style') : el.getAttribute('style')) || '';
-      const match = style.match(/scale\(\s*([\d.]+)\s*\)/);
-      if (match) return parseFloat(match[1]!);
+    const parseScale = (transform: string | null): number | null => {
+      if (!transform || transform === 'none') return null;
+      const scaleMatch = transform.match(/scale\(\s*([\d.]+)\s*\)/);
+      if (scaleMatch) return parseFloat(scaleMatch[1]!);
+      const matrixMatch = transform.match(/matrix\(([^)]+)\)/);
+      if (matrixMatch) {
+        const values = matrixMatch[1]!.split(',').map((part) => parseFloat(part.trim()));
+        return Number.isFinite(values[0]) ? values[0]! : null;
+      }
+      return null;
+    };
+
+    const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
+    if (viewport) {
+      const inline = parseScale(viewport.style.transform);
+      if (inline !== null) return inline;
+      const computed = parseScale(getComputedStyle(viewport).transform);
+      if (computed !== null) return computed;
     }
-    // 兜底: 搜索整个 react-flow 容器内所有含 scale 的 style
-    const root = document.querySelector('.react-flow');
-    if (!root) return null;
-    const all = root.querySelectorAll('[style*="scale"]');
-    for (const el of all) {
-      const style = el.getAttribute('style') || '';
-      const match = style.match(/scale\(\s*([\d.]+)\s*\)/);
-      if (match) return parseFloat(match[1]!);
-    }
+
+    const storeZoom = (window as Window & {
+      __test_store__?: { getGraphZoom?: () => number };
+    }).__test_store__?.getGraphZoom?.();
+    if (Number.isFinite(storeZoom)) return storeZoom!;
     return null;
   });
 }
 
+async function waitForStableZoom(p: Page): Promise<number> {
+  let previous = await readZoom(p);
+  for (let i = 0; i < 12; i++) {
+    await p.waitForTimeout(150);
+    const current = await readZoom(p);
+    if (previous !== null && current !== null && Math.abs(current - previous) < 0.001) {
+      return current;
+    }
+    previous = current;
+  }
+  if (previous === null) {
+    throw new Error('React Flow zoom is unavailable');
+  }
+  return previous;
+}
+
 /**
  * 读取 Monaco Editor 的当前文本内容。
- * 从 .view-line 元素提取每行文本拼合。
+ * 优先读取测试桥中的完整 store 内容，避免 Monaco 虚拟滚动漏行。
  */
 async function readEditorContent(p: Page): Promise<string> {
   return p.evaluate(() => {
+    const storeContent = (window as Window & {
+      __test_store__?: { getEditorContent?: () => string };
+    }).__test_store__?.getEditorContent?.();
+    if (typeof storeContent === 'string') return storeContent;
+
     const lines = document.querySelectorAll('.view-line');
     if (lines.length === 0) return '';
     return Array.from(lines)
@@ -470,9 +491,11 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
     // ── 步骤 2: 右键单击第二个节点 ──
     // 选择第二个节点而非第一个（第一个已被重命名，保留 TC-4 的结果）
     const targetNode = page.locator('.official-graph-node').nth(1);
+    const targetFlowNode = targetNode.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " react-flow__node ")]').first();
     const nodeTitle = await targetNode.locator('h3').textContent();
 
-    await targetNode.click({ button: 'right' });
+    await expect(targetFlowNode).toBeVisible({ timeout: 3_000 });
+    await targetFlowNode.click({ button: 'right' });
     await page.waitForTimeout(400);
 
     // ── 验证 1: 右键上下文菜单出现 ──
@@ -487,14 +510,17 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
 
     // ── 验证 2: 删除确认对话框出现 ──
     // 对话框有一个标题为"删除节点"的 div 和一个"删除"按钮
-    const confirmBtn = page.locator('button').filter({ hasText: '删除' });
+    const confirmBtn = page.getByTestId('graph-confirm-primary');
     await expect(confirmBtn).toBeVisible({ timeout: 5_000 });
 
     // ── 步骤 4: 点击确认删除 ──
     await confirmBtn.click();
-    await page.waitForTimeout(2_000); // 等待删除 + 重解析
 
     // ── 验证 3: 节点数量减少 ──
+    await expect.poll(
+      async () => (await countGraphElements(page)).nodes,
+      { timeout: 5_000 },
+    ).toBe(beforeCounts.nodes - 1);
     const afterCounts = await countGraphElements(page);
     expect(afterCounts.nodes).toBe(beforeCounts.nodes - 1);
 
@@ -516,11 +542,10 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
 
   test('TC-6: Ctrl+滚轮 → 验证缩放变化在 10%-200% 范围', async () => {
     // ── 步骤 1: 获取初始缩放 ──
-    const initialZoom = await readZoom(page);
-    expect(initialZoom).not.toBeNull();
+    const initialZoom = await waitForStableZoom(page);
     // 初始缩放应在合理范围内
-    expect(initialZoom!).toBeGreaterThanOrEqual(0.1);
-    expect(initialZoom!).toBeLessThanOrEqual(2.0);
+    expect(initialZoom).toBeGreaterThanOrEqual(0.1);
+    expect(initialZoom).toBeLessThanOrEqual(2.0);
 
     // ── 步骤 2: 在画布上执行 Ctrl+滚轮（向上滚动 = 放大） ──
     const canvas = page.locator('.react-flow');
@@ -540,14 +565,17 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
       await page.waitForTimeout(30);
     }
     await page.keyboard.up('Control');
-    await page.waitForTimeout(500);
 
     // ── 验证 1: 缩放级别增大 ──
+    await expect.poll(
+      async () => await readZoom(page) ?? 0,
+      { timeout: 3_000 },
+    ).toBeGreaterThan(initialZoom);
     const afterZoomIn = await readZoom(page);
     expect(afterZoomIn).not.toBeNull();
     // 理论上放大后 zoom > initialZoom
     // 但某些布局可能已达 maxZoom 边界，至少 >= initialZoom
-    expect(afterZoomIn!).toBeGreaterThanOrEqual(initialZoom!);
+    expect(afterZoomIn!).toBeGreaterThanOrEqual(initialZoom);
 
     // ── 验证 2: 缩放不超出 200%（maxZoom = 2.0） ──
     expect(afterZoomIn!).toBeLessThanOrEqual(2.0);
@@ -563,9 +591,12 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
       await page.waitForTimeout(20);
     }
     await page.keyboard.up('Control');
-    await page.waitForTimeout(500);
 
     // ── 验证 4: 缩小后仍不低于 10% ──
+    await expect.poll(
+      async () => await readZoom(page) ?? Number.POSITIVE_INFINITY,
+      { timeout: 3_000 },
+    ).toBeLessThan(afterZoomIn!);
     const afterZoomOut = await readZoom(page);
     expect(afterZoomOut).not.toBeNull();
     expect(afterZoomOut!).toBeGreaterThanOrEqual(0.1);

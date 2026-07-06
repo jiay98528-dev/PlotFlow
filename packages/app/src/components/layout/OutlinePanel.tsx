@@ -247,8 +247,8 @@ const panelStyle: React.CSSProperties = {
   flexDirection: 'column',
   height: '100%',
   position: 'relative',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderRight: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-secondary)',
+  borderRight: '1px solid var(--color-border-default)',
   minWidth: PANEL_MIN_WIDTH,
   overflow: 'hidden',
 };
@@ -262,14 +262,14 @@ const collapsedPanelStyle: React.CSSProperties = {
   minWidth: PANEL_COLLAPSED_WIDTH,
   height: '100%',
   padding: '8px 0',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderRight: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-secondary)',
+  borderRight: '1px solid var(--color-border-default)',
 };
 
 const collapsedTitleStyle: React.CSSProperties = {
   writingMode: 'vertical-rl',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   letterSpacing: 2,
   userSelect: 'none',
 };
@@ -284,8 +284,8 @@ const headerStyle: React.CSSProperties = {
   fontSize: '12px',
   fontWeight: 600,
   textTransform: 'uppercase',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-muted)',
+  borderBottom: '1px solid var(--color-border-default)',
   flexShrink: 0,
 };
 
@@ -298,7 +298,7 @@ const collapseButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 4px',
   borderRadius: 4,
   display: 'flex',
@@ -324,7 +324,7 @@ const chapterStyle: React.CSSProperties = {
   padding: '6px 12px 2px',
   fontSize: '11px',
   fontWeight: 600,
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   userSelect: 'none',
@@ -340,14 +340,14 @@ const nodeStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   borderRadius: 0,
   transition: 'background 0.1s ease',
 };
 
 const activeNodeStyle: React.CSSProperties = {
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
-  borderLeft: '2px solid var(--color-accent, #A0703A)',
+  background: 'var(--color-accent-subtle)',
+  borderLeft: '2px solid var(--color-accent)',
   paddingLeft: 18, // 20 - 2 (borderLeft 占位)
 };
 
@@ -364,8 +364,8 @@ const badgeStyle: React.CSSProperties = {
   lineHeight: '16px',
   padding: '0 6px',
   borderRadius: 8,
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   flexShrink: 0,
   marginLeft: 8,
   fontWeight: 500,
@@ -390,7 +390,7 @@ const resizeHandleStyle: React.CSSProperties = {
 const emptyStyle: React.CSSProperties = {
   padding: '24px 16px',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
   display: 'flex',
   flexDirection: 'column',

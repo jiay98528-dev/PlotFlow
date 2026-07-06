@@ -24,6 +24,8 @@ export interface IFileOpenResult {
   path: string;
   /** 文件内容 (UTF-8) */
   content: string;
+  hash: string;
+  modifiedAt: number;
 }
 
 /** 新建文件的结果 */
@@ -81,12 +83,17 @@ export class FileService implements IFileService {
     return {
       path: result.filePath.replace(/\\/g, '/'),
       content: result.content,
+      hash: result.hash,
+      modifiedAt: result.modifiedAt,
     };
   }
 
   async saveFile(path: string, content: string): Promise<void> {
     const api = this.getAPI();
-    await api.file.save(path, content);
+    const result = await api.file.save({ path, content, expectedHash: null });
+    if (!result.success) {
+      throw new Error(result.conflict ? '文件已被外部修改' : result.message ?? '文件保存失败');
+    }
   }
 
   async saveFileAs(content: string): Promise<string> {

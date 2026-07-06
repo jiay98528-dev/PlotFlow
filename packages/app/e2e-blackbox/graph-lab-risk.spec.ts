@@ -31,10 +31,43 @@ async function blankCanvasPoint(page: Page): Promise<Point> {
   if (!canvas) {
     throw new Error('Expected React Flow canvas.');
   }
-  return {
-    x: canvas.x + Math.min(canvas.width - 120, Math.max(180, canvas.width * 0.72)),
-    y: canvas.y + Math.min(canvas.height - 120, Math.max(160, canvas.height * 0.38)),
-  };
+
+  const blockers: Array<{ x: number; y: number; width: number; height: number }> = [];
+  const blockerLocators = page.locator(
+    '.react-flow__node, .react-flow__controls, .react-flow__minimap, .source-drawer__toggle, .source-drawer__body',
+  );
+  const blockerCount = await blockerLocators.count();
+  for (let index = 0; index < blockerCount; index += 1) {
+    const box = await blockerLocators.nth(index).boundingBox();
+    if (box) blockers.push(box);
+  }
+
+  const candidates = [
+    { x: canvas.x + canvas.width * 0.72, y: canvas.y + canvas.height * 0.38 },
+    { x: canvas.x + canvas.width * 0.68, y: canvas.y + canvas.height * 0.32 },
+    { x: canvas.x + canvas.width * 0.42, y: canvas.y + canvas.height * 0.28 },
+    { x: canvas.x + canvas.width * 0.58, y: canvas.y + canvas.height * 0.58 },
+    { x: canvas.x + canvas.width * 0.80, y: canvas.y + canvas.height * 0.62 },
+  ];
+
+  const margin = 28;
+  const isInsideCanvas = (point: Point): boolean =>
+    point.x > canvas.x + margin &&
+    point.x < canvas.x + canvas.width - margin &&
+    point.y > canvas.y + margin &&
+    point.y < canvas.y + canvas.height - margin;
+
+  const isBlocked = (point: Point): boolean =>
+    blockers.some((rect) =>
+      point.x >= rect.x - margin &&
+      point.x <= rect.x + rect.width + margin &&
+      point.y >= rect.y - margin &&
+      point.y <= rect.y + rect.height + margin,
+    );
+
+  const point = candidates.find((candidate) => isInsideCanvas(candidate) && !isBlocked(candidate));
+  if (!point) throw new Error('No blank React Flow canvas point found');
+  return point;
 }
 
 async function dragFromHandleTo(page: Page, target: Point): Promise<void> {

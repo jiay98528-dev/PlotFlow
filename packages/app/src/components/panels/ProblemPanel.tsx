@@ -61,9 +61,9 @@ const SEVERITY_ICON: Readonly<Record<DiagnosticSeverity, string>> = {
 
 /** 诊断严重级别 → 图标颜色（单行 var() 确保 CI 颜色扫描兼容）*/
 const SEVERITY_ICON_COLOR: Readonly<Record<DiagnosticSeverity, string>> = {
-  error: 'var(--color-diagnostic-error, #D32F2F)',
-  warning: 'var(--color-diagnostic-warning, #F9A825)',
-  info: 'var(--color-diagnostic-info, #1976D2)',
+  error: 'var(--color-diagnostic-error)',
+  warning: 'var(--color-diagnostic-warning)',
+  info: 'var(--color-diagnostic-info)',
 };
 
 /** 面板最小高度 (px) */
@@ -365,8 +365,8 @@ const panelContainerStyle: React.CSSProperties = {
   flexDirection: 'column',
   width: '100%',
   minHeight: 0,
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-primary)',
+  borderTop: '1px solid var(--color-border-default)',
   position: 'relative',
   transition: 'height 0.15s ease',
   flexShrink: 0,
@@ -393,9 +393,9 @@ const headerStyle: React.CSSProperties = {
   padding: '6px 12px',
   fontSize: '12px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-primary)',
+  background: 'var(--color-bg-secondary)',
+  borderBottom: '1px solid var(--color-border-default)',
   flexShrink: 0,
   userSelect: 'none',
 };
@@ -407,7 +407,7 @@ const headerTitleStyle: React.CSSProperties = {
 
 const shortcutHintStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginRight: 'auto',
 };
 
@@ -422,7 +422,7 @@ const closeButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 4,
   display: 'flex',
@@ -437,18 +437,18 @@ const filterBarStyle: React.CSSProperties = {
   display: 'flex',
   gap: 4,
   padding: '6px 12px',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-primary)',
+  borderBottom: '1px solid var(--color-border-default)',
   flexShrink: 0,
 };
 
 const filterBtnStyle: React.CSSProperties = {
   border: 'none',
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
+  background: 'var(--color-bg-tertiary)',
   cursor: 'pointer',
   fontSize: '11px',
   fontWeight: 500,
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   padding: '2px 10px',
   borderRadius: 4,
   lineHeight: '22px',
@@ -456,8 +456,8 @@ const filterBtnStyle: React.CSSProperties = {
 };
 
 const activeFilterBtnStyle: React.CSSProperties = {
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.10))',
-  color: 'var(--color-accent, #A0703A)',
+  background: 'var(--color-accent-subtle)',
+  color: 'var(--color-accent)',
   fontWeight: 600,
 };
 
@@ -478,7 +478,7 @@ const itemStyle: React.CSSProperties = {
   fontSize: '12px',
   lineHeight: 1.5,
   cursor: 'pointer',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   transition: 'background 0.08s ease',
   userSelect: 'none',
 };
@@ -498,8 +498,8 @@ const codeBadgeStyle: React.CSSProperties = {
   fontWeight: 600,
   padding: '0 5px',
   borderRadius: 3,
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
   minWidth: 34,
   textAlign: 'center',
@@ -511,13 +511,13 @@ const messageStyle: React.CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
 };
 
 const locationStyle: React.CSSProperties = {
   flexShrink: 0,
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
   whiteSpace: 'nowrap',
   marginLeft: 'auto',
@@ -528,7 +528,7 @@ const locationStyle: React.CSSProperties = {
 const emptyStyle: React.CSSProperties = {
   padding: '24px 16px',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
   display: 'flex',
   alignItems: 'center',

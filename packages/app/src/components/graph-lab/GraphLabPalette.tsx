@@ -18,7 +18,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
-import { layoutNodes } from '../branch-graph/layout';
+import { layoutNodesInWorker } from '../branch-graph/graphLayoutClient';
 import { graphEditService } from '../../services/graphEditService';
 import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
 import { parsePipelineNow } from '../../services/parsePipeline';
@@ -82,10 +82,12 @@ async function confirmBeforeReplacingStory(text: TextFn): Promise<boolean> {
   return choice === 1;
 }
 
-function loadStoryIntoEditor(filePath: string, content: string): void {
+function loadStoryIntoEditor(filePath: string, content: string, hash: string, modifiedAt: number): void {
   clearPendingSave();
   const editor = useEditorStore.getState();
   editor.setFilePath(filePath);
+  editor.setFileBaseline(hash, modifiedAt);
+  editor.clearPendingExternalChange();
   editor.setDiagnostics([]);
   editor.setActiveNodeId(null);
   editor.setCursorPosition(1, 1);
@@ -146,9 +148,17 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
       setStatusMessage(text('palette.noLayoutNodes'));
       return;
     }
-    const { nodes: layoutedNodes } = layoutNodes(nodes, edges);
-    setNodes(layoutedNodes);
-    setStatusMessage(text('palette.relayoutDone'));
+    setStatusMessage(text('palette.relayout'));
+    void layoutNodesInWorker(nodes, edges)
+      .then((result) => {
+        if (result.stale) return;
+        setNodes(result.nodes);
+        setStatusMessage(text('palette.relayoutDone'));
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatusMessage(message);
+      });
   }, [edges, nodes, setNodes, setStatusMessage, text]);
 
   const refreshWorkspace = useCallback(async (rootPath: string) => {
@@ -195,7 +205,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
       return;
     }
 
-    loadStoryIntoEditor(result.filePath, result.content);
+    loadStoryIntoEditor(result.filePath, result.content, result.hash, result.modifiedAt);
     setStatusMessage(text('status.opened', { path: file.relativePath }));
   }, [setStatusMessage, text, workspace]);
 

@@ -22,6 +22,8 @@
     "test:watch": "vitest",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:css": "stylelint \"packages/app/src/**/*.css\"",
+    "lint:tokens": "node scripts/check-no-tsx-colors.mjs",
+    "lint:bundle": "node scripts/check-renderer-bundle-budget.mjs",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
   },

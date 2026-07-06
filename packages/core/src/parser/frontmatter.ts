@@ -22,6 +22,7 @@ import { success, failure } from '../result.js';
 import type { StoryLayout, VariableDeclaration, VariableType, VariableValue } from '../types/ast.js';
 import type { Diagnostic, ErrorCode, SourceRange } from '../types/diagnostic.js';
 import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
+import { analyzeStorySource } from './source.js';
 
 // ============================================================================
 // FrontmatterResult 接口
@@ -186,23 +187,17 @@ export function parseFrontmatter(raw: string): ParseResult<FrontmatterResult> {
   const errors: Diagnostic[] = [];
 
   // 步骤 1：提取 Frontmatter 块
-  const fmMatch = raw.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*/);
-  if (!fmMatch) {
+  const source = analyzeStorySource(raw);
+  if (!source.frontmatter) {
     // 无 Frontmatter 块 → 空结果，不报错
     return success({ variables: [] });
   }
 
-  const fmContent = fmMatch[1]!;
-  const fmMatchIndex = fmMatch.index ?? 0;
-
-  // 计算绝对行号：
-  // Frontmatter 内容起始行 = (原始文本中 --- 的行号) + 1
-  const linesBeforeFm = raw.slice(0, fmMatchIndex).split('\n').length;
-  const fmStartLine = linesBeforeFm; // --- 在 linesBeforeFm 行，内容从 linesBeforeFm+1 开始
-  const fmContentStartLine = fmStartLine + 1;
+  const fmContent = source.frontmatter.content;
+  const fmContentStartLine = source.frontmatter.contentStartLine;
 
   // 步骤 2：分割 Frontmatter 内容为行
-  const allFmLines = fmContent.split(/\r?\n/);
+  const allFmLines = fmContent.split(/\r?\n|\r/);
 
   // 步骤 3：找到 vars: 行来分割元信息和变量声明
   const varsLineIndex = findVarsLineIndex(allFmLines);

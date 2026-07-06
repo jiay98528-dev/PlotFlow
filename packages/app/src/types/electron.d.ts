@@ -22,12 +22,45 @@ import type {
 export interface FileOpenResult {
   readonly filePath: string;
   readonly content: string;
+  readonly hash: string;
+  readonly modifiedAt: number;
 }
 
 /** 鏂囦欢淇濆瓨鎿嶄綔鐨勭粨鏋?*/
-export interface FileSaveResult {
-  readonly success: boolean;
-  readonly timestamp: number;
+export type FileSaveResult =
+  | {
+      readonly success: true;
+      readonly timestamp: number;
+      readonly hash: string;
+      readonly modifiedAt: number;
+    }
+  | {
+      readonly success: false;
+      readonly conflict: true;
+      readonly filePath: string;
+      readonly content: string;
+      readonly hash: string;
+      readonly modifiedAt: number;
+    }
+  | {
+      readonly success: false;
+      readonly conflict?: false;
+      readonly timestamp: number;
+      readonly message?: string;
+    };
+
+export interface FileSaveRequest {
+  readonly path: string;
+  readonly content: string;
+  readonly expectedHash: string | null;
+  readonly overwriteConflict?: boolean;
+}
+
+export interface FileExternalChangeEvent {
+  readonly filePath: string;
+  readonly content: string;
+  readonly hash: string;
+  readonly modifiedAt: number;
 }
 
 export interface WorkspaceStoryFile {
@@ -47,8 +80,8 @@ export interface WorkspaceStoriesResult {
 /** 鏂囦欢鎿嶄綔 API */
 export interface FileAPI {
   open: () => Promise<FileOpenResult | null>;
-  save: (path: string, content: string) => Promise<FileSaveResult>;
-  saveAs: (content: string) => Promise<{ filePath: string } | null>;
+  save: (request: FileSaveRequest) => Promise<FileSaveResult>;
+  saveAs: (content: string) => Promise<FileOpenResult | null>;
 
   /**
    * 瀵煎嚭鏂囦欢瀵硅瘽妗?鈥?鏄剧ず绯荤粺淇濆瓨瀵硅瘽妗嗗苟鏍规嵁鎵╁睍鍚嶈繃婊ゆ枃浠剁被鍨嬨€?
@@ -69,7 +102,7 @@ export interface FileAPI {
    * 绐楀彛鎸傝浇鍚庤皟鐢紝杩斿洖 { filePath, content } 鎴?null銆?
    * 杩斿洖鍚?pending 鐘舵€佽娓呴櫎锛岄伩鍏嶉噸澶嶆墦寮€銆?
    */
-  getPendingOpenFile: () => Promise<{ filePath: string; content: string } | null>;
+  getPendingOpenFile: () => Promise<FileOpenResult | null>;
 
   /**
    * 鐩戝惉绯荤粺鏂囦欢鎵撳紑閫氱煡锛堝綋搴旂敤宸茶繍琛屼笖鐢ㄦ埛鍙屽嚮 .mdstory 鏃惰Е鍙戯級銆?
@@ -82,6 +115,8 @@ export interface FileAPI {
    */
   onSystemOpenFile: (callback: (filePath: string) => void) => () => void;
 
+  onExternalChange: (callback: (event: FileExternalChangeEvent) => void) => () => void;
+
   /**
    * 鎸夎矾寰勮鍙?.mdstory 鏂囦欢鍐呭 (M7-08)銆?
    * 鐢ㄤ簬杩愯鏃剁郴缁熸枃浠舵墦寮€閫氱煡鍚庡姞杞芥枃浠跺唴瀹广€?
@@ -89,7 +124,7 @@ export interface FileAPI {
    * @param path - 鏂囦欢缁濆璺緞
    * @returns 鏂囦欢鍐呭鍙婅矾寰勶紝璇诲彇澶辫触杩斿洖 null
    */
-  readByPath: (path: string) => Promise<{ filePath: string; content: string } | null>;
+  readByPath: (path: string) => Promise<FileOpenResult | null>;
 
   /**
    * 閫夋嫨 PlotFlow 宸ヤ綔鍖哄苟娴呴€掑綊鎵弿 .mdstory 鏂囦欢銆?
@@ -105,7 +140,7 @@ export interface FileAPI {
   /**
    * 璇诲彇宸ヤ綔鍖哄唴鐨?.mdstory 鏂囦欢銆備富杩涚▼浼氶獙璇?filePath 浣嶄簬 rootPath 鍐呫€?
    */
-  readWorkspaceStory: (rootPath: string, filePath: string) => Promise<{ filePath: string; content: string } | null>;
+  readWorkspaceStory: (rootPath: string, filePath: string) => Promise<FileOpenResult | null>;
 }
 
 /** Electron 鐗堟湰淇℃伅 */
@@ -237,6 +272,7 @@ export interface TestStoreBridge {
     readonly id: string;
     readonly position: { readonly x: number; readonly y: number };
   }>;
+  getGraphZoom: () => number;
   setEditorContent: (content: string) => void;
   openConditionEditor: (nodeId: string, optionIndex: number) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;

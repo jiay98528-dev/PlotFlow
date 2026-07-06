@@ -54,14 +54,18 @@ Implemented in `packages/app/e2e-blackbox/`:
 
 ## Current Gate Snapshot
 
-Last updated: 2026-07-01
+Last updated: 2026-07-06
 
 | Layer | Status | Evidence |
 |---|---|---|
-| Integration E2E | Passed | `pnpm.cmd --filter @plotflow/app test:e2e` -> 49 passed after the latest save-flow fix. |
-| Source blackbox | Passed | `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` -> 10 passed / 4 packaged-or-installed skips after clearing the blocking unsaved dialog. |
-| Unpacked blackbox | Stale | Last clean package predates the latest save-flow fix. Rebuild with `pnpm.cmd package:win` and rerun `test:e2e:unpacked`. |
-| Installed blackbox | Pending | Requires installing the refreshed `PlotFlow Setup 0.1.0.exe` and setting `PLOTFLOW_INSTALLED_EXE`. |
+| Integration E2E | Passed | 2026-07-06: `pnpm.cmd --filter @plotflow/app test:e2e` passed, 49/49. |
+| Source blackbox | Passed | 2026-07-06: `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` passed, 10 passed / 4 packaged-or-installed skips, after clearing stale workspace Electron processes from a prior run. |
+| Unpacked blackbox | Passed | 2026-07-06: old `release/` artifacts were removed, `pnpm.cmd package:win` succeeded, then `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` passed, 13 passed / 1 installed-only skip. |
+| Installed blackbox | Pending | Requires installing the refreshed `release\PlotFlow Setup 0.1.0.exe` and setting `PLOTFLOW_INSTALLED_EXE`. |
+
+2026-07-06 six-risk closure note: the source/build architecture risks are closed for the source and unpacked release layers. Verified commands: `lint:tokens`, `typecheck`, `test` (48 files / 1267 tests), `lint`, `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E, blackbox edge, full integration E2E, full source blackbox, `package:win`, and unpacked blackbox. `lint` still reports 9 existing `no-console` warnings and 0 errors. Installed blackbox and manual high-risk patrol have not been rerun, so this is not yet a release-candidate pass.
+
+2026-07-03 architecture audit note: source/build fixes were applied for six release risks: shared `.mdstory` source boundary analysis, CRLF-preserving Graph Lab writeback, worker-backed graph layout with large-graph fast grid, current-file external modification conflict handling, TS/TSX token linting, and renderer bundle chunking/budget checks. Verified source gates: `lint`, `typecheck`, `test`, `lint:css`, `lint:tokens`, `build`, `@plotflow/app build`, and `lint:bundle`. Because source changed after all previous package evidence, all GUI/E2E blackbox layers are stale until rerun.
 
 2026-07-01 export regression note: unpacked blackbox caught an installed-style export defect where the native save dialog could be driven with an unsafe default filename and the app could still report success without verifying disk output. The product fix now sanitizes placeholder filenames such as `{{title}}`, verifies save/export writes by reading the file back, and the blackbox native export journey must remain in the release gate.
 
@@ -77,6 +81,8 @@ pnpm.cmd typecheck
 pnpm.cmd test
 pnpm.cmd build
 pnpm.cmd lint:css
+pnpm.cmd lint:tokens
+pnpm.cmd lint:bundle
 pnpm.cmd --filter @plotflow/app test:e2e
 pnpm.cmd --filter @plotflow/app test:e2e:blackbox
 pnpm.cmd package:win

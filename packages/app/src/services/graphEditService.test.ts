@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseStory, validateAll, type PlotFlowData, type StoryNode } from '@plotflow/core';
+import { BUILTIN_TEMPLATES } from '../templates/builtinTemplates';
 import {
   addOptionText,
   createNodeAndConnectText,
@@ -38,6 +39,8 @@ vars:
 
 树影很深。
 `;
+
+const RPG_STORY = BUILTIN_TEMPLATES.find((template) => template.id === 'rpg-dialogue')?.content ?? '';
 
 function parse(content: string): PlotFlowData {
   const result = parseStory(content);
@@ -101,7 +104,10 @@ describe('graphEditService text commands', () => {
       conditionRaw: '金币 >= 1',
       effectsRaw: '金币 -1',
     });
-    expect(added.content).toContain('[选项] 回到村口 [条件：金币 >= 1] [效果：金币 -1] -> 节点：村口');
+    expect(added.content).toContain('[选项] 回到村口 -> 节点：村口\n  条件: 金币 >= 1\n  效果: 金币 -1');
+    const addedOption = findNode(added.content, '森林').options[0]!;
+    expect(addedOption.conditionRaw).toBe('金币 >= 1');
+    expect(addedOption.effectsRaw).toBe('金币 -1');
 
     const editedNode = findNode(added.content, '森林');
     const editedOption = editedNode.options[0]!;
@@ -111,6 +117,8 @@ describe('graphEditService text commands', () => {
       effectsRaw: null,
     });
     expect(edited.content).toContain('[选项] 谨慎返回 -> 节点：村口');
+    expect(edited.content).not.toContain('条件: 金币 >= 1');
+    expect(edited.content).not.toContain('效果: 金币 -1');
 
     const village = findNode(edited.content, '村口');
     const reordered = reorderOptionText(edited.content, village, 1, 0);
@@ -184,5 +192,14 @@ describe('graphEditService text commands', () => {
     const deleted = deleteNodeText(renamed.content, forest);
     expect(deleted.content).not.toContain('      - id: "第一章-森林"');
     expect(deleted.content).toContain('      - id: "第一章-村口广场"');
+  });
+
+  it('deletes a node from the RPG dialogue template by parsed line range', () => {
+    const guard = findNode(RPG_STORY, '守卫盘问');
+    const deleted = deleteNodeText(RPG_STORY, guard);
+
+    expect(deleted.changed).toBe(true);
+    expect(deleted.content).not.toContain('## 节点：守卫盘问');
+    expect(findNode(deleted.content, '侧门').title).toBe('侧门');
   });
 });

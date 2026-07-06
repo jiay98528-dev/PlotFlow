@@ -405,10 +405,10 @@ export function ExportDialog(): React.ReactElement | null {
                 ...statusStyle,
                 color:
                   exportStatus === 'success'
-                    ? 'var(--color-success, #2E7D32)'
+                    ? 'var(--color-success)'
                     : exportStatus === 'error'
-                      ? 'var(--color-error, #C62828)'
-                      : 'var(--color-text-muted, #8A8A8A)',
+                      ? 'var(--color-error)'
+                      : 'var(--color-text-muted)',
               }}
             >
               {exportStatus === 'error' && <span style={statusIconStyle}>&#x26A0;</span>}
@@ -511,7 +511,7 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--color-overlay-modal, rgba(0,0,0,0.4))',
+  background: 'var(--color-overlay-modal)',
   zIndex: 1000,
   backdropFilter: 'blur(2px)',
 };
@@ -521,9 +521,9 @@ const overlayStyle: React.CSSProperties = {
 const panelStyle: React.CSSProperties = {
   width: 480,
   maxWidth: '90vw',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 12px)',
-  boxShadow: 'var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18))',
+  boxShadow: 'var(--shadow-lg)',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
@@ -539,9 +539,9 @@ const headerStyle: React.CSSProperties = {
   padding: '12px 16px',
   fontSize: '14px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-primary)',
+  background: 'var(--color-bg-secondary)',
+  borderBottom: '1px solid var(--color-border-default)',
   userSelect: 'none',
 };
 
@@ -552,7 +552,7 @@ const headerTitleStyle: React.CSSProperties = {
 
 const shortcutHintStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginRight: 'auto',
 };
 
@@ -561,7 +561,7 @@ const closeButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '14px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 4,
   display: 'flex',
@@ -582,7 +582,7 @@ const bodyStyle: React.CSSProperties = {
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   userSelect: 'none',
@@ -601,7 +601,7 @@ const formatOptionStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 10,
   padding: '10px 12px',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  border: '1px solid var(--color-border-default)',
   borderRadius: 8,
   cursor: 'pointer',
   transition: 'border-color 0.12s ease, background 0.12s ease',
@@ -609,25 +609,25 @@ const formatOptionStyle: React.CSSProperties = {
 };
 
 const formatOptionActiveStyle: React.CSSProperties = {
-  borderColor: 'var(--color-accent, #A0703A)',
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.06))',
+  borderColor: 'var(--color-accent)',
+  background: 'var(--color-accent-subtle)',
 };
 
 const radioInputStyle: React.CSSProperties = {
-  accentColor: 'var(--color-accent, #A0703A)',
+  accentColor: 'var(--color-accent)',
   flexShrink: 0,
 };
 
 const formatLabelStyle: React.CSSProperties = {
   fontSize: '14px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   minWidth: 48,
 };
 
 const formatDescStyle: React.CSSProperties = {
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
 };
 
 // -------- 文件名 --------
@@ -637,19 +637,19 @@ const fileInfoStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 8,
   padding: '8px 12px',
-  background: 'var(--color-bg-tertiary, #F0F0F1)',
+  background: 'var(--color-bg-tertiary)',
   borderRadius: 6,
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
 };
 
 const fileLabelStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   flexShrink: 0,
 };
 
 const fileNameStyle: React.CSSProperties = {
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   fontWeight: 500,
   wordBreak: 'break-all',
 };
@@ -664,7 +664,7 @@ const statusStyle: React.CSSProperties = {
   borderRadius: 6,
   fontSize: '12px',
   lineHeight: 1.5,
-  background: 'var(--color-bg-tertiary, #F0F0F1)',
+  background: 'var(--color-bg-tertiary)',
 };
 
 const warningStyle: React.CSSProperties = {
@@ -675,8 +675,8 @@ const warningStyle: React.CSSProperties = {
   borderRadius: 6,
   fontSize: '12px',
   lineHeight: 1.5,
-  color: 'var(--color-warning, #F9A825)',
-  background: 'var(--color-bg-tertiary, #F0F0F1)',
+  color: 'var(--color-warning)',
+  background: 'var(--color-bg-tertiary)',
 };
 
 const statusIconStyle: React.CSSProperties = {
@@ -692,17 +692,17 @@ const footerStyle: React.CSSProperties = {
   justifyContent: 'flex-end',
   gap: 8,
   padding: '12px 16px',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
 };
 
 const cancelButtonStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 500,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   padding: '6px 16px',
   borderRadius: 6,
   lineHeight: '20px',
@@ -711,11 +711,11 @@ const cancelButtonStyle: React.CSSProperties = {
 
 const exportButtonStyle: React.CSSProperties = {
   border: 'none',
-  background: 'var(--color-accent, #A0703A)',
+  background: 'var(--color-accent)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
   padding: '6px 20px',
   borderRadius: 6,
   lineHeight: '20px',
@@ -729,5 +729,5 @@ const exportButtonDisabledStyle: React.CSSProperties = {
 };
 
 const exportButtonSuccessStyle: React.CSSProperties = {
-  background: 'var(--color-success, #2E7D32)',
+  background: 'var(--color-success)',
 };

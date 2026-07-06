@@ -74,10 +74,10 @@ const TOTAL_MAX_SIZE_BYTES = 50 * 1024 * 1024;
 
 /** 状态颜色映射 */
 const STATUS_COLORS: Record<CorpusEntryStatus, string> = {
-  active: 'var(--color-success, #2E7D32)',
-  disabled: 'var(--color-text-muted, #8A8A8A)',
-  processing: 'var(--color-warning, #F9A825)',
-  error: 'var(--color-error, #C62828)',
+  active: 'var(--color-success)',
+  disabled: 'var(--color-text-muted)',
+  processing: 'var(--color-warning)',
+  error: 'var(--color-error)',
 };
 
 /** NGramEngine 全局实例（由管理器持有） */
@@ -545,12 +545,12 @@ export function CorpusManager(): React.ReactElement | null {
                       color: STATUS_COLORS[item.status],
                       background:
                         item.status === 'active'
-                          ? 'var(--color-success-subtle, rgba(46,125,50,0.08))'
+                          ? 'var(--color-success-subtle)'
                           : item.status === 'disabled'
-                            ? 'var(--color-bg-tertiary, #E8E8EA)'
+                            ? 'var(--color-bg-tertiary)'
                             : item.status === 'error'
-                              ? 'var(--color-error-subtle, rgba(198,40,40,0.08))'
-                              : 'var(--color-warning-subtle, rgba(249,168,37,0.08))',
+                              ? 'var(--color-error-subtle)'
+                              : 'var(--color-warning-subtle)',
                     }}
                   >
                     {statusLabel(item.status, text)}
@@ -578,7 +578,7 @@ export function CorpusManager(): React.ReactElement | null {
                       <button
                         type="button"
                         onClick={() => handleDelete(item)}
-                        style={{ ...actionBtnStyle, color: 'var(--color-error, #C62828)' }}
+                        style={{ ...actionBtnStyle, color: 'var(--color-error)' }}
                         title={text('corpus.deleteTitle')}
                       >
                         {text('corpus.delete')}
@@ -656,8 +656,8 @@ export function CorpusManager(): React.ReactElement | null {
                   ...confirmButtonStyle,
                   background:
                     confirmDialog.type === 'delete'
-                      ? 'var(--color-error, #C62828)'
-                      : 'var(--color-accent, #A0703A)',
+                      ? 'var(--color-error)'
+                      : 'var(--color-accent)',
                 }}
               >
                 {confirmDialog.type === 'delete' ? text('corpus.confirmDeleteAction') : text('corpus.confirmDisableAction')}
@@ -682,7 +682,7 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--color-overlay-modal, rgba(0,0,0,0.4))',
+  background: 'var(--color-overlay-modal)',
   zIndex: 1000,
   backdropFilter: 'blur(2px)',
 };
@@ -693,9 +693,9 @@ const panelStyle: React.CSSProperties = {
   width: 680,
   maxWidth: '90vw',
   maxHeight: '80vh',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 12px)',
-  boxShadow: 'var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18))',
+  boxShadow: 'var(--shadow-lg)',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
@@ -711,9 +711,9 @@ const headerStyle: React.CSSProperties = {
   padding: '12px 16px',
   fontSize: '14px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-primary)',
+  background: 'var(--color-bg-secondary)',
+  borderBottom: '1px solid var(--color-border-default)',
   userSelect: 'none',
 };
 
@@ -725,8 +725,8 @@ const headerTitleStyle: React.CSSProperties = {
 const badgeStyle: React.CSSProperties = {
   fontSize: '10px',
   fontWeight: 500,
-  color: 'var(--color-text-muted, #8A8A8A)',
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
+  color: 'var(--color-text-muted)',
+  background: 'var(--color-bg-tertiary)',
   padding: '2px 8px',
   borderRadius: 10,
   lineHeight: '16px',
@@ -738,7 +738,7 @@ const closeButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '14px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 4,
   display: 'flex',
@@ -753,10 +753,10 @@ const statsBarStyle: React.CSSProperties = {
   display: 'flex',
   gap: 16,
   padding: '8px 16px',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-primary)',
+  borderBottom: '1px solid var(--color-border-default)',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
 };
 
 const statItemStyle: React.CSSProperties = {
@@ -764,7 +764,7 @@ const statItemStyle: React.CSSProperties = {
 };
 
 const statValueStyle: React.CSSProperties = {
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   fontWeight: 600,
 };
 
@@ -774,14 +774,14 @@ const actionBarStyle: React.CSSProperties = {
   display: 'flex',
   gap: 8,
   padding: '10px 16px',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  borderBottom: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
 };
 
 const primaryButtonStyle: React.CSSProperties = {
   border: 'none',
-  background: 'var(--color-accent, #A0703A)',
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  background: 'var(--color-accent)',
+  color: 'var(--color-text-on-accent)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,
@@ -792,12 +792,12 @@ const primaryButtonStyle: React.CSSProperties = {
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 500,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   padding: '6px 16px',
   borderRadius: 6,
   lineHeight: '20px',
@@ -818,7 +818,7 @@ const itemStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '12px 16px',
-  borderBottom: '1px solid var(--color-border-subtle, #F0F0F0)',
+  borderBottom: '1px solid var(--color-border-subtle)',
   transition: 'background 0.08s ease',
   gap: 12,
 };
@@ -846,7 +846,7 @@ const fileIconStyle: React.CSSProperties = {
 const fileNameStyle: React.CSSProperties = {
   fontSize: '13px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -857,7 +857,7 @@ const itemMetaStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 6,
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
 };
 
 const metaItemStyle: React.CSSProperties = {
@@ -865,7 +865,7 @@ const metaItemStyle: React.CSSProperties = {
 };
 
 const metaDividerStyle: React.CSSProperties = {
-  color: 'var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-border-default)',
   userSelect: 'none',
 };
 
@@ -893,12 +893,12 @@ const actionGroupStyle: React.CSSProperties = {
 };
 
 const actionBtnStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   fontSize: '11px',
   fontWeight: 500,
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   padding: '3px 10px',
   borderRadius: 4,
   lineHeight: '18px',
@@ -908,7 +908,7 @@ const actionBtnStyle: React.CSSProperties = {
 
 const processingHintStyle: React.CSSProperties = {
   fontSize: '11px',
-  color: 'var(--color-warning, #F9A825)',
+  color: 'var(--color-warning)',
   fontStyle: 'italic',
 };
 
@@ -921,7 +921,7 @@ const emptyStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 8,
   fontSize: '13px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
   lineHeight: 1.6,
 };
@@ -933,17 +933,17 @@ const emptyIconStyle: React.CSSProperties = {
 
 const emptyHintStyle: React.CSSProperties = {
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
 };
 
 // -------- 底部提示 --------
 
 const footerHintStyle: React.CSSProperties = {
   padding: '8px 16px',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
 };
 
@@ -955,16 +955,16 @@ const confirmOverlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--color-overlay-modal, rgba(0,0,0,0.3))',
+  background: 'var(--color-overlay-modal)',
   zIndex: 1100,
 };
 
 const confirmDialogStyle: React.CSSProperties = {
   width: 400,
   maxWidth: '80vw',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 12px)',
-  boxShadow: 'var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18))',
+  boxShadow: 'var(--shadow-lg)',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
@@ -977,7 +977,7 @@ const confirmHeaderStyle: React.CSSProperties = {
   padding: '14px 16px 8px',
   fontSize: '15px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
 };
 
 const confirmIconStyle: React.CSSProperties = {
@@ -999,21 +999,21 @@ const confirmBodyStyle: React.CSSProperties = {
 const confirmMsgStyle: React.CSSProperties = {
   margin: 0,
   fontSize: '13px',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   lineHeight: 1.5,
 };
 
 const confirmWarningStyle: React.CSSProperties = {
   margin: '4px 0 0',
   fontSize: '12px',
-  color: 'var(--color-error, #C62828)',
+  color: 'var(--color-error)',
   lineHeight: 1.5,
 };
 
 const confirmHintStyle: React.CSSProperties = {
   margin: '4px 0 0',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   lineHeight: 1.5,
 };
 
@@ -1022,17 +1022,17 @@ const confirmFooterStyle: React.CSSProperties = {
   justifyContent: 'flex-end',
   gap: 8,
   padding: '10px 16px',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
 };
 
 const cancelButtonStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 500,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   padding: '6px 16px',
   borderRadius: 6,
   lineHeight: '20px',
@@ -1040,7 +1040,7 @@ const cancelButtonStyle: React.CSSProperties = {
 
 const confirmButtonStyle: React.CSSProperties = {
   border: 'none',
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,

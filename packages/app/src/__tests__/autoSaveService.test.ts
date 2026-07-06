@@ -26,6 +26,10 @@ import * as autoSaveService from '../services/autoSaveService';
 /** window.plotflow.file.save 的 mock */
 const mockFileSave = vi.fn();
 
+function successfulSave(hash = 'saved-hash') {
+  return { success: true, timestamp: Date.now(), hash, modifiedAt: Date.now() };
+}
+
 /** 保存状态消息 mock（用于验证更新状态栏） */
 const mockSetStatusMessage = vi.fn();
 
@@ -56,7 +60,7 @@ beforeEach(() => {
 
   // 重置 IPC mock
   mockFileSave.mockReset();
-  mockFileSave.mockResolvedValue({ success: true, timestamp: Date.now() });
+  mockFileSave.mockResolvedValue(successfulSave());
 
   mockSetStatusMessage.mockReset();
 
@@ -112,7 +116,12 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
 
     // Assert: IPC 被调用，参数正确
     expect(mockFileSave).toHaveBeenCalledTimes(1);
-    expect(mockFileSave).toHaveBeenCalledWith('/project/story.mdstory', '故事内容');
+    expect(mockFileSave).toHaveBeenCalledWith({
+      path: '/project/story.mdstory',
+      content: '故事内容',
+      expectedHash: null,
+      overwriteConflict: undefined,
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -147,7 +156,12 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
 
     // Assert: 仅触发一次保存，且保存的是最新的内容
     expect(mockFileSave).toHaveBeenCalledTimes(1);
-    expect(mockFileSave).toHaveBeenCalledWith('/project/story.mdstory', '第二次内容');
+    expect(mockFileSave).toHaveBeenCalledWith({
+      path: '/project/story.mdstory',
+      content: '第二次内容',
+      expectedHash: null,
+      overwriteConflict: undefined,
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -172,7 +186,7 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
     // 新定时器触发 performSave → isSaving = true → 立即返回
 
     // Act: 让第一次保存完成
-    resolveFirstSave!({ success: true, timestamp: Date.now() });
+    resolveFirstSave!(successfulSave());
     await vi.advanceTimersByTimeAsync(100);
 
     // Assert: IPC 仅被调用一次（isSaving 成功阻止了第二次调用）
@@ -193,7 +207,7 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
           resolveFirstSave = resolve;
         });
       }
-      return Promise.resolve({ success: true, timestamp: Date.now() });
+      return Promise.resolve(successfulSave(`saved-hash-${callIndex}`));
     });
 
     // Act: 第一次 debouncedSave（初始内容）
@@ -205,15 +219,25 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
     autoSaveService.debouncedSave('新内容', '/project/story.mdstory');
 
     // Act: 让第一次保存完成
-    resolveFirstSave!({ success: true, timestamp: Date.now() });
+    resolveFirstSave!(successfulSave('saved-hash-1'));
     await vi.advanceTimersByTimeAsync(100);
 
     // Assert: IPC 被调用两次
     // 第1次: 初始内容的保存
     // 第2次: 级联触发的重保存（新内容）
     expect(mockFileSave).toHaveBeenCalledTimes(2);
-    expect(mockFileSave).toHaveBeenNthCalledWith(1, '/project/story.mdstory', '初始内容');
-    expect(mockFileSave).toHaveBeenNthCalledWith(2, '/project/story.mdstory', '新内容');
+    expect(mockFileSave).toHaveBeenNthCalledWith(1, {
+      path: '/project/story.mdstory',
+      content: '初始内容',
+      expectedHash: null,
+      overwriteConflict: undefined,
+    });
+    expect(mockFileSave).toHaveBeenNthCalledWith(2, {
+      path: '/project/story.mdstory',
+      content: '新内容',
+      expectedHash: 'saved-hash-1',
+      overwriteConflict: undefined,
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -234,7 +258,12 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
 
     // Assert: IPC 被立即调用（无需等待 500ms debounce）
     expect(mockFileSave).toHaveBeenCalledTimes(1);
-    expect(mockFileSave).toHaveBeenCalledWith('/project/story.mdstory', '待保存内容');
+    expect(mockFileSave).toHaveBeenCalledWith({
+      path: '/project/story.mdstory',
+      content: '待保存内容',
+      expectedHash: null,
+      overwriteConflict: undefined,
+    });
 
     // Assert: 无残留定时器会再次触发保存
     // （forceSave 已清除 debounce 定时器；updateStatusMessage 内部状态清除定时器不触发保存）
@@ -265,7 +294,12 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
 
     // Assert: IPC 被调用，参数来自 editorStore
     expect(mockFileSave).toHaveBeenCalledTimes(1);
-    expect(mockFileSave).toHaveBeenCalledWith('/project/story.mdstory', '编辑器里的新内容');
+    expect(mockFileSave).toHaveBeenCalledWith({
+      path: '/project/story.mdstory',
+      content: '编辑器里的新内容',
+      expectedHash: 'saved-hash',
+      overwriteConflict: undefined,
+    });
   });
 
   // --------------------------------------------------------------------------

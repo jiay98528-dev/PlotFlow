@@ -93,7 +93,7 @@ export function StatusBar(): React.ReactElement {
         {warnings > 0 && <span style={warnStyle}>🟡{warnings}</span>}
         {infos > 0 && <span style={infoStyle}>🔵{infos}</span>}
         {errors === 0 && warnings === 0 && infos === 0 && (
-          <span style={{ color: 'var(--color-success, #2E7D32)' }}>✅0</span>
+          <span style={{ color: 'var(--color-success)' }}>✅0</span>
         )}
       </span>
 
@@ -134,9 +134,9 @@ const barStyle: React.CSSProperties = {
   height: 24,
   fontSize: 12,
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-muted)',
+  background: 'var(--color-bg-secondary)',
+  borderTop: '1px solid var(--color-border-default)',
   userSelect: 'none',
   minWidth: 0,
 };
@@ -169,9 +169,9 @@ const pathTruncateStyle: React.CSSProperties = {
 
 /** 分隔符 */
 const separatorStyle: React.CSSProperties = {
-  color: 'var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-border-default)',
 };
 
-const errorStyle: React.CSSProperties = { color: 'var(--color-diagnostic-error, #D32F2F)' };
-const warnStyle: React.CSSProperties = { color: 'var(--color-diagnostic-warning, #F9A825)' };
-const infoStyle: React.CSSProperties = { color: 'var(--color-diagnostic-info, #1976D2)' };
+const errorStyle: React.CSSProperties = { color: 'var(--color-diagnostic-error)' };
+const warnStyle: React.CSSProperties = { color: 'var(--color-diagnostic-warning)' };
+const infoStyle: React.CSSProperties = { color: 'var(--color-diagnostic-info)' };

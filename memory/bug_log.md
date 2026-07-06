@@ -319,3 +319,157 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 - 2026-07-01 verification update: `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS，18/18；`pnpm.cmd --filter @plotflow/app test:e2e` PASS，49/49。
 - 2026-07-01 blackbox update: after the blocking unsaved dialog was manually dismissed, `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS，10 passed / 4 packaged-or-installed skipped.
 - Current package status: source changed after the last Windows package/unpacked blackbox result. Existing `release/` artifacts are stale; package, unpacked blackbox, installed blackbox, and manual patrol must be rerun before release-candidate claims.
+
+---
+
+### BUG-009: Release audit architecture drift across source boundaries, Graph Lab writes, layout, file conflicts, token gates, and bundle budget
+
+**Date**: 2026-07-03
+**Category**: `ARCH` / `RFL` / `PERF` / `FS` / `STYLE` / `BUILD`
+**Severity**: P1 release risk
+**Milestone**: V0.3 release audit
+
+**Observed risks**
+- Frontmatter and body boundary detection existed in multiple places: core parser, frontmatter helper, and Graph Lab text writeback.
+- Graph Lab edits still depended on direct line splitting, regular expressions, and ad hoc newline normalization.
+- Large graph Dagre layout could still run synchronously in the renderer path.
+- Open/save tracked file metadata, but there was no current-file external modification state loop.
+- TS/TSX token enforcement did not catch hard-coded color fallback values.
+- Renderer build passed while the main entry chunk had previously grown past 7 MB, and `@plotflow/app build` did not use the root Electron Vite config.
+
+**Root causes**
+- The project had architecture rules for file-as-source, dual projection, tokens, and release gates, but those rules were not represented as single shared APIs or executable checks.
+- Source boundary parsing was an implementation detail instead of a shared core service.
+- Graph Lab command code mixed semantic editing with physical text surgery.
+- Layout optimization relied on cache hits instead of moving expensive work out of the UI thread.
+- File IO had no explicit disk-vs-memory conflict state.
+- Styling and bundle constraints were documented but not fully enforced in scripts.
+
+**Fixes applied**
+- Added `analyzeStorySource()` in core and wired parser/frontmatter/Graph Lab frontmatter range detection through it.
+- Added source normalization helpers that preserve original newline style on writeback; added CRLF Graph Lab round-trip coverage.
+- Extracted layout position calculation and added a Web Worker client for asynchronous graph layout, with a fast-grid path for large graphs and stale request protection.
+- Added current-file watching in Electron main, a `file:external-change` preload bridge, and renderer handling for clean reload vs dirty conflict choices.
+- Removed TS/TSX hard-coded color fallbacks and added `pnpm lint:tokens`.
+- Fixed `@plotflow/app build` to use the root Electron Vite config, split renderer chunks, and added `pnpm lint:bundle` budget checking.
+
+**Prevention**
+- Keep all future source-boundary logic behind `analyzeStorySource()`.
+- Graph Lab writeback work must continue moving into a structured source edit layer before adding new GUI commands.
+- Layout changes must preserve worker/stale-result behavior and must not reintroduce renderer-thread Dagre for large graphs.
+- Release evidence must distinguish source integration, source blackbox, unpacked blackbox, installed blackbox, and manual patrol.
+
+**Verification**
+- `pnpm.cmd lint`: PASS, 0 errors / 9 existing `no-console` warnings.
+- `pnpm.cmd typecheck`: PASS.
+- `pnpm.cmd test`: PASS, 47 files / 1259 tests.
+- `pnpm.cmd lint:css`: PASS.
+- `pnpm.cmd lint:tokens`: PASS.
+- `pnpm.cmd build`: PASS, renderer entry chunk about 0.37 MB; Monaco is separated into a large async chunk.
+- `pnpm.cmd --filter @plotflow/app build`: PASS.
+- `pnpm.cmd lint:bundle`: PASS.
+
+**Residual release risk**
+- This is source/build validation only. App E2E, source blackbox, unpacked blackbox, installed blackbox, and manual GUI patrol still need to be rerun after these source changes before any release-candidate claim.
+
+**2026-07-05 closure update**
+- Source/integration/source-blackbox/unpacked gates now pass after the follow-up fixes in BUG-010.
+- Installed blackbox and manual patrol remain pending.
+
+---
+
+### BUG-010: 六项风险收口暴露 Graph 删除 changed 标记、Monaco 外部同步、线缆菜单和黑盒 teardown 回归
+
+**Date**: 2026-07-05
+**Category**: `RFL` / `ASY` / `E2E` / `FS`
+**Severity**: P1 release gate
+**Milestone**: V0.3 six-risk closure
+
+**Observed**
+- `branch-graph` TC-5 删除节点后图节点数量不变。
+- `branch-graph` TC-6 读到 Ctrl+wheel 后 zoom 反而变小。
+- Graph Lab 拖线到空白处偶发不出现 `wire-drop-menu`。
+- Source blackbox edge 用例本身通过后，worker teardown 仍会超时 180s。
+
+**Root causes**
+- `deleteNodeText()` 删除节点后又调用 `removeGraphLayoutNodesText()`；当文件没有 layout block 时，后者返回 `changed:false`，覆盖了节点删除阶段的 changed 状态，导致 Graph edit commit 被跳过。
+- MonacoEditor 的 `isUserEditRef` 会无条件跳过下一次 store -> Monaco 外部同步；测试桥和文件替换类外部更新紧跟用户编辑时，store 与 Monaco model 可短暂分叉。
+- 手动线缆拖拽打开菜单后，随后的 pane click 可立即清空 `wireDropContext`。
+- Windows 上 `app.close()` 会被未保存/冲突保存提示阻断；普通 `child.kill()` 不一定终止整棵 Electron 进程树，Playwright worker teardown 仍可能等待未释放连接。
+
+**Fixes**
+- `deleteNodeText()` 合并节点删除和 layout 清理两个阶段的 `changed` 状态，并新增 RPG 模板删除回归测试。
+- MonacoEditor 仅在 editor model 与 store content 已相等时才消费 `isUserEditRef` 并跳过同步；内容不同的外部更新必须写回 Monaco。
+- GraphCanvas 增加用户滚轮缩放期间的 auto-fit 抑制，以及线缆拖拽后的下一次 pane click 抑制。
+- Blackbox close helper 在 `app.close()` 超时后使用 Windows `taskkill /T /F` 强杀 Electron 进程树。
+- 黑盒 Graph Lab risk 的空白点选择改为 Playwright boundingBox 避障，不使用 `page.evaluate()`，保持黑盒契约。
+
+**Verification**
+- `pnpm.cmd lint:tokens` PASS.
+- `pnpm.cmd typecheck` PASS.
+- `pnpm.cmd test` PASS, 48 files / 1264 tests.
+- `pnpm.cmd lint` PASS, 0 errors / 9 existing warnings.
+- `pnpm.cmd lint:css` PASS.
+- `pnpm.cmd build` PASS.
+- `pnpm.cmd --filter @plotflow/app build` PASS; root `out/main/main.js` is 138,959 bytes and `packages/app/out/main/main.js` is absent.
+- `pnpm.cmd lint:bundle` PASS.
+- `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS, 18/18.
+- `pnpm.cmd --filter @plotflow/app test:e2e:blackbox:edge` PASS, 5 passed / 3 skipped.
+- `pnpm.cmd --filter @plotflow/app test:e2e` PASS, 49/49.
+- `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS, 10 passed / 4 skipped.
+- `pnpm.cmd package:win` PASS.
+- `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` PASS, 13 passed / 1 installed-only skip.
+
+**Remaining**
+- Installed blackbox still requires installing `release\PlotFlow Setup 0.1.0.exe` and setting `PLOTFLOW_INSTALLED_EXE`.
+- Manual high-risk patrol is not complete, so this is not a release-candidate pass.
+
+---
+
+### BUG-011: 提交前审计发现保存 preflight 读盘失败吞错和 React Flow `#number` ID 误归一化
+
+**Date**: 2026-07-06
+**Category**: `FS` / `RFL` / `E2E`
+**Severity**: P1 release gate
+**Milestone**: V0.3 six-risk closure follow-up
+
+**Observed**
+- `file:save` 在带 `expectedHash` 的保存前校验中，如果读取磁盘当前文件失败，会吞掉异常并继续写文件。
+- Graph menu/drag-wire 路径用 `/#\d+$/` 把 React Flow 重复节点后缀映射回故事节点 id，但真实用户节点标题也可能以 `#1` 结尾。
+- 完整 source blackbox 首次复跑时，Unicode/frontmatter-only 用例出现 worker 异常退出；单用例和 edge 子集可通过，检查后发现工作区 Electron 测试残留进程。
+
+**Root causes**
+- 保存前 hash preflight 写在 IPC handler 内部，缺少可单测的边界 helper，读盘失败路径没有被覆盖。
+- React Flow 内部唯一 id 和 `.mdstory` 语义 fullId 没有显式映射 helper，组件用字符串正则推断语义 id。
+- 黑盒 teardown 已能强杀进程树，但历史失败运行留下的 Electron 进程仍可能污染下一次完整套件。
+
+**Fixes**
+- 提取 `preflightFileSaveHash()`，保存前无法读取磁盘文件时返回保存失败，不再落盘；overwrite 仍只允许覆盖用户已确认的那一版磁盘 hash，如果磁盘又变化则返回新的 conflict。
+- 新增 `resolveStoryFullIdForFlowNodeId()`，通过 `node.id -> node.data.fullId` 映射还原故事节点 id；GraphContextMenu 和 GraphCanvas 不再正则删除 `#number`。
+- 删除未跟踪的 `packages/app/src-electron/main.prev.ts` 二进制残留，避免 lint 扫描失败；清理工作区 Electron 残留进程后复跑 source blackbox。
+
+**Prevention**
+- 保存冲突语义必须通过 preflight helper 单测覆盖：匹配 hash 可写、二次外部变更返回 conflict、读盘失败拒绝写。
+- Graph/React Flow 代码不得用字符串后缀正则推断故事 fullId；必须使用 adapter 层映射。
+- 完整 blackbox 失败若没有 error-context，先检查是否有工作区 Electron 残留进程，再区分产品失败和测试环境污染。
+
+**Verification**
+- `pnpm.cmd --filter @plotflow/app exec vitest run src/__tests__/mainProcessUtils.test.ts src/components/branch-graph/adapter.test.ts` PASS, 10 tests.
+- `pnpm.cmd lint:tokens` PASS.
+- `pnpm.cmd typecheck` PASS.
+- `pnpm.cmd test` PASS, 48 files / 1267 tests.
+- `pnpm.cmd lint` PASS, 0 errors / 9 existing warnings.
+- `pnpm.cmd lint:css` PASS.
+- `pnpm.cmd build` PASS, root `out/main/main.js` reports 139.66 kB.
+- `pnpm.cmd --filter @plotflow/app build` PASS, delegates to root build.
+- `pnpm.cmd lint:bundle` PASS.
+- `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS, 18/18.
+- `pnpm.cmd --filter @plotflow/app test:e2e:blackbox:edge` PASS, 5 passed / 3 skipped.
+- `pnpm.cmd --filter @plotflow/app test:e2e` PASS, 49/49.
+- `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS, 10 passed / 4 skipped after clearing stale workspace Electron processes.
+- Old `release/` artifacts removed; `pnpm.cmd package:win` PASS and generated a fresh `release\PlotFlow Setup 0.1.0.exe`.
+- `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` PASS, 13 passed / 1 installed-only skip.
+
+**Remaining**
+- Installed blackbox still requires installing the refreshed installer and setting `PLOTFLOW_INSTALLED_EXE`.
+- Manual high-risk patrol is still pending, so this is not a release-candidate pass.

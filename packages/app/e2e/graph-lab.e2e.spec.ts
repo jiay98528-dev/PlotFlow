@@ -131,7 +131,7 @@ async function mockWorkspaceIpcHandler(app: ElectronApplication, workspace: Mock
       ipcMain.removeHandler('file:readWorkspaceStory');
       ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: string; filePath: string }) => {
         if (payload.rootPath !== mock.rootPath || payload.filePath !== mock.filePath) return null;
-        return { filePath: mock.filePath, content: mock.content };
+        return { filePath: mock.filePath, content: mock.content, hash: 'workspace-hash', modifiedAt: Date.now() };
       });
 
       ipcMain.removeHandler('dialog:confirm');
@@ -146,7 +146,12 @@ async function mockDelayedSaveAsIpcHandler(app: ElectronApplication, delayMs: nu
     ipcMain.removeHandler('file:saveAs');
     ipcMain.handle('file:saveAs', async () => {
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return { filePath: 'D:\\PlotFlowE2E\\save-feedback.mdstory' };
+      return {
+        filePath: 'D:\\PlotFlowE2E\\save-feedback.mdstory',
+        content: '',
+        hash: 'save-as-hash',
+        modifiedAt: Date.now(),
+      };
     });
   }, delayMs);
 }
@@ -744,12 +749,12 @@ test.describe('Graph Lab E2E', () => {
     const conditionInput = page.getByTestId('graph-inspector-option-condition-0');
     await conditionInput.fill('金币 >= 1');
     await blur(conditionInput);
-    await waitForContent(page, '[条件：金币 >= 1]');
+    await waitForContent(page, '  条件: 金币 >= 1');
 
     const effectsInput = page.getByTestId('graph-inspector-option-effects-0');
     await effectsInput.fill('金币 -1');
     await blur(effectsInput);
-    await waitForContent(page, '[效果：金币 -1]');
+    await waitForContent(page, '  效果: 金币 -1');
 
     await page.getByTestId('graph-inspector-variable-name').fill('声望');
     await page.getByTestId('graph-inspector-variable-type').selectOption('float');

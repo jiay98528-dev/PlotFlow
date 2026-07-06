@@ -39,6 +39,7 @@ import type {
 import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { parseFrontmatter } from './frontmatter.js';
 import type { FrontmatterResult } from './frontmatter.js';
+import { analyzeStorySource } from './source.js';
 import { parseOptions } from './options.js';
 
 // ============================================================================
@@ -197,18 +198,13 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
     fmMeta = { variables: [] };
   }
 
-  // 步骤 3：定位 Frontmatter 结束位置
-  const fmEndMatch = raw.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*/);
-  const fmEndIndex = fmEndMatch ? (fmEndMatch.index ?? 0) + fmEndMatch[0].length : 0;
-
-  // 计算章节/节点区域的起始行号（1-based）
-  const fmLineCount = fmEndIndex > 0
-    ? raw.slice(0, fmEndIndex).split(/\r?\n|\r/).length
-    : 1;
-  const bodyStartLine = fmEndIndex > 0 ? fmLineCount : 1;
+  // 步骤 3：定位 Frontmatter 结束位置。必须与 parseFrontmatter 使用同一个
+  // source analyzer，避免 Graph Lab 和 parser 对 `---` 边界产生分叉。
+  const source = analyzeStorySource(raw);
+  const bodyStartLine = source.bodyStartLine;
 
   // 步骤 4：解析章节与节点（传入变量列表用于选项/条件/效果解析）
-  const afterFm = raw.slice(fmEndIndex);
+  const afterFm = raw.slice(source.bodyStartOffset);
   const lines = afterFm.split(/\r?\n|\r/);
   const cnResult = parseChaptersAndNodes(lines, bodyStartLine, variables, fmMeta.layout);
 
