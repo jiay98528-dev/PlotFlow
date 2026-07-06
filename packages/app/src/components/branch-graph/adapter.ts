@@ -34,7 +34,7 @@ import type { Node, Edge } from '@xyflow/react';
 import type { PlotFlowData, StoryNode } from '@plotflow/core';
 import { getNodeStatus, STATUS_TO_CLASS_MAP } from './adapter-helpers';
 import { applyFastGridLayout, NODE_DIMENSIONS } from './layout';
-import { encodeEdgeId } from '../../stores/edgeStore';
+import { encodeEdgeId, NEXT_EDGE_OPTION_INDEX } from '../../stores/edgeStore';
 
 // ============================================================================
 // 结构缓存（避免 Dagre 布局重复计算）
@@ -76,6 +76,8 @@ export type StoryFlowNodeData = Record<string, unknown> & {
 
   /** 节点标题 */
   title: string;
+
+  chapterId: string;
 
   /** 节点正文描述（Markdown 原始文本） */
   body: string;
@@ -180,6 +182,22 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
         },
       });
     }
+
+    const nextTarget = node.nextTarget;
+    if (nextTarget?.targetFullId && nodeMap.has(nextTarget.targetFullId)) {
+      const tgtId = firstUniqueId.get(nextTarget.targetFullId) ?? nextTarget.targetFullId;
+      flowEdges.push({
+        id: encodeEdgeId(srcId, tgtId, NEXT_EDGE_OPTION_INDEX),
+        source: srcId,
+        target: tgtId,
+        sourceHandle: 'next',
+        type: 'default',
+        data: {
+          isConditional: false,
+          sourceHandle: 'next',
+        },
+      });
+    }
   }
 
   // 步骤 4: 判定节点状态（委托给 adapter-helpers.ts 的 getNodeStatus）
@@ -198,6 +216,7 @@ export function plotFlowDataToFlow(ast: PlotFlowData): {
       className: STATUS_TO_CLASS_MAP[status],
       data: {
         fullId: node.fullId,
+        chapterId: node.chapterId,
         title: node.title,
         body: node.body,
         optionCount: node.options.length,

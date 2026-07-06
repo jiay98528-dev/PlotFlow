@@ -473,3 +473,83 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 **Remaining**
 - Installed blackbox still requires installing the refreshed installer and setting `PLOTFLOW_INSTALLED_EXE`.
 - Manual high-risk patrol is still pending, so this is not a release-candidate pass.
+
+---
+
+### BUG-012: 外审 P0/P1 暴露变量系统伪闭环、流程节点缺失、章节编辑与循环诊断缺口
+**Date**: 2026-07-06
+**Category**: `ARCH` / `UX` / `RFL` / `VALIDATOR`
+**Severity**: P0/P1 external audit
+**Milestone**: V0.3 external audit closure
+
+**Observed**
+- Home 的 `Continue editing` 在真实安装版重启后没有恢复最近保存的 `.mdstory`，用户会误以为最近文件丢失。
+- 变量系统停留在 frontmatter 声明/解析层，Graph Lab 无法显式查看、删除变量，也不能在条件/效果编辑中形成可见闭环。
+- Graph Lab 缺少无选项即可跳转下一节点的流程性节点，用户只能用普通选项伪装流程。
+- Validator 不检测 A -> B -> A 或多节点封闭循环，无限循环风险没有诊断。
+- Graph Lab 章节体验没有按章节分离图和源码编辑上下文，章节快捷删除也不完整。
+
+**Root causes**
+- 最近文件信息没有在 open/save/saveAs 成功后持久化，Home 的 Continue 动作也没有按路径重新读盘。
+- `vars:` 已在 core AST 存在，但 GUI 没有把它提升为故事级可编辑对象，也没有统一走 `StorySourceEditService` 写回。
+- `.mdstory` 语法只有 `[选项]` 边，没有 node-level flow exit，导致无选项流程节点没有可靠源码表示。
+- 图结构诊断只看传统 option adjacency，未统一纳入流程边，也没有 SCC 闭环检测。
+- Source Drawer 仍以全文件为主，没有通过 `analyzeStorySource()` chapter offsets 做局部映射。
+
+**Fixes**
+- Added recent-story persistence and Home `Continue editing` reload via `file.readByPath()`, with invalid/missing records cleared and hash drift surfaced in status.
+- Added Graph Lab variable list/delete and effect builder paths backed by frontmatter `vars:` and source-edit writeback.
+- Added node-level `下一步: 节点：X` syntax, adjacent `效果:` parsing, AST/source ranges, Graph Lab default handle wiring, connect/delete writeback, HTML runtime support, and JSON schema-compatible synthetic option export.
+- Added shared adjacency helper and W007 SCC-based closed-cycle warning that includes option and `下一步` edges.
+- Added active chapter tabs and source-slice editing using `analyzeStorySource()` chapter ranges.
+
+**Prevention**
+- Any new graph edge type must be represented in source syntax, AST, source ranges, adapter edges, validator adjacency, and exporters before being called complete.
+- GUI-visible variable work must round-trip through frontmatter source edits and be covered by parser/source/Graph Lab tests.
+- Chapter UI changes must distinguish source truth from graph projection; filtering alone is not enough when the user edits source.
+
+**Verification**
+- `pnpm.cmd typecheck` PASS.
+- `pnpm.cmd test` PASS, 50 files / 1277 tests.
+- `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS, 18/18.
+- `pnpm.cmd --filter @plotflow/app test:e2e:blackbox:edge` PASS, 5 passed / 3 skipped.
+- `pnpm.cmd --filter @plotflow/app test:e2e` PASS, 49/49.
+- `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` PASS, 10 passed / 4 skipped.
+
+**Remaining**
+- Installed blackbox and manual patrol still need to rerun on the refreshed installer.
+- Chapter entry cards and full chapter deletion semantics are only partially closed and should remain high-priority follow-up if the UX spec requires true Excel/browser-like chapter workspaces.
+
+---
+
+### BUG-013: Packaged native save dialog invisible when owned by Playwright-launched BrowserWindow
+**Date**: 2026-07-06
+**Category**: `E2E` / `FS` / `ELECTRON`
+**Severity**: P1 release gate
+**Milestone**: V0.3 packaged blackbox
+
+**Observed**
+- `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` failed in `file-dialogs.spec.ts`: Export dialog stayed on `导出中...`, UIAutomation found no `#32770` save dialog, and no file was written.
+- A direct main-process probe confirmed `dialog.showSaveDialog(mainWindow, options)` did not create a visible top-level dialog in the packaged Playwright launch environment, while `dialog.showSaveDialog(options)` did.
+
+**Root cause**
+- The Windows native dialog was bound to the Electron `BrowserWindow` owner. In the packaged app launched through Playwright, that owner relationship could prevent the common file dialog from becoming a visible UIAutomation top-level window. The renderer and IPC path were correct; the hang was inside the native dialog wait.
+
+**Fixes**
+- Added `focusMainWindowForNativeDialog()` before open/save/export dialogs.
+- Switched `file:open`, `file:saveAs`, and `file:export` to call Electron native dialogs without a parent owner while still focusing the main window first.
+- Hardened `nativeDialog.ts` diagnostics to scan top-level windows first, avoid full-desktop recursive dumps that can hang, and report stdout/stderr without dumping the entire PowerShell script.
+
+**Prevention**
+- Packaged native-dialog tests must remain in the unpacked/installed blackbox gate; source E2E mocks cannot catch owner-window problems.
+- If UIAutomation cannot find a native dialog, first verify whether Electron created any top-level `#32770` window before changing selectors.
+
+**Verification**
+- `pnpm.cmd typecheck` PASS.
+- `pnpm.cmd build` PASS.
+- `pnpm.cmd package:win` PASS.
+- Targeted unpacked native export: `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e-blackbox/playwright.config.ts e2e-blackbox/file-dialogs.spec.ts --workers=1` PASS, 1/1.
+- Full unpacked blackbox: `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` PASS, 13 passed / 1 installed-only skip.
+
+**Remaining**
+- Installed blackbox was not run because `PLOTFLOW_INSTALLED_EXE` is not set.

@@ -19,6 +19,7 @@ import { useUIStore } from '../stores/uiStore';
 import type { FileExternalChangeEvent, FileSaveResult } from '../types/electron';
 import { appT } from '../i18n/appI18n';
 import { parsePipelineNow } from './parsePipeline';
+import { rememberRecentStory } from './recentFileService';
 
 // ============================================================================
 // 模块级状态
@@ -142,6 +143,7 @@ export function applyExternalFileContent(event: FileExternalChangeEvent): void {
   editorState.setContent(normalizedEvent.content);
   editorState.markSaved();
   lastSavedContent = normalizedEvent.content;
+  rememberRecentStory(normalizedEvent.filePath, normalizedEvent.hash, normalizedEvent.modifiedAt);
   parsePipelineNow(normalizedEvent.content);
 }
 
@@ -180,6 +182,7 @@ async function performSave(
       freshEditorState.setFileBaseline(result.hash, result.modifiedAt);
       freshEditorState.clearPendingExternalChange();
       freshEditorState.markSaved();
+      rememberRecentStory(path, result.hash, result.modifiedAt);
       updateStatusMessage('success');
       succeeded = true;
     } else if (result.conflict) {
@@ -374,6 +377,7 @@ export async function saveOrSaveAs(): Promise<boolean> {
       editorState.setFileBaseline(result.hash, result.modifiedAt);
       editorState.clearPendingExternalChange();
       editorState.markSaved();
+      rememberRecentStory(newPath, result.hash, result.modifiedAt);
       pendingPath = newPath;
       pendingContent = null;
       lastSavedContent = editorState.content;
@@ -411,6 +415,7 @@ export async function saveAsCurrentFile(): Promise<boolean> {
     editorState.setFileBaseline(result.hash, result.modifiedAt);
     editorState.clearPendingExternalChange();
     editorState.markSaved();
+    rememberRecentStory(newPath, result.hash, result.modifiedAt);
     pendingPath = newPath;
     pendingContent = null;
     lastSavedContent = editorState.content;

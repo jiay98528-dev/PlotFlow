@@ -19,6 +19,8 @@
 // ---------------------------------------------------------------------------
 
 /** 打开文件的结果 */
+import { rememberOpenedStory } from './recentFileService';
+
 export interface IFileOpenResult {
   /** 文件绝对路径（正斜杠） */
   path: string;
@@ -80,6 +82,7 @@ export class FileService implements IFileService {
     if (!result) {
       throw new Error('用户取消了文件打开操作');
     }
+    rememberOpenedStory(result);
     return {
       path: result.filePath.replace(/\\/g, '/'),
       content: result.content,

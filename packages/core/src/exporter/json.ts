@@ -219,7 +219,7 @@ function serializeNode(node: StoryNode, _index: number): Record<string, unknown>
     fullId: node.fullId,
     title: node.title,
     body: splitBodyToParagraphs(node.body),
-    options: node.options.map((opt, i) => serializeOption(opt, i)),
+    options: serializeNodeOptions(node),
     position: node.position ?? { x: 0, y: 0 },
     isRoot: node.diagnostics.isRoot,
     isOrphan: node.diagnostics.isOrphan,
@@ -273,6 +273,21 @@ function splitBodyToParagraphs(body: string): string[] {
  * - condition + conditionRaw → conditions（含 expression + ast）
  * - targetNodeId/targetFullId 为 null 时输出空字符串（防御性）
  */
+function serializeNodeOptions(node: StoryNode): Array<Record<string, unknown>> {
+  const options = node.options.map((opt, i) => serializeOption(opt, i));
+  if (node.nextTarget?.targetNodeId || node.nextTarget?.targetFullId) {
+    options.push({
+      index: options.length,
+      text: '\u4e0b\u4e00\u6b65',
+      targetNodeId: node.nextTarget.targetNodeId ?? null,
+      targetFullId: node.nextTarget.targetFullId ?? null,
+      conditions: null,
+      sideEffects: node.nextTarget.sideEffects.map(serializeSideEffect),
+    });
+  }
+  return options;
+}
+
 function serializeOption(opt: Option, index: number): Record<string, unknown> {
   return {
     index,

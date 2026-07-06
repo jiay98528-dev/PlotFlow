@@ -1,6 +1,6 @@
 # PlotFlow 实时进度跟踪
 
-> **Architecture gate update (2026-07-06)**: six release risks are closed for source, integration, source-blackbox, and unpacked layers: shared `.mdstory` source ranges, unified Graph Lab writeback, worker-backed layout, current-file conflict hash state, TS/TSX token lint, and build/bundle consistency. Follow-up audit fixes also closed save preflight read-failure handling and React Flow `#number` id mapping. Verified gates: `lint:tokens`, `typecheck`, `test` (48 files / 1267 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E (18/18), blackbox edge (5 passed / 3 skipped), full app E2E (49/49), source blackbox (10 passed / 4 skipped), `package:win`, and unpacked blackbox (13 passed / 1 installed-only skip). Installed blackbox and manual patrol remain pending; do not claim release-candidate passed yet.
+> **External audit P0/P1 update (2026-07-06)**: recent-file resume, single-file global variables, node-level `下一步` flow exits, W007 closed-cycle warnings, Graph Lab chapter source slices, and packaged native dialog ownership are implemented and verified at source and unpacked layers. Verified gates: `lint:tokens`, `typecheck`, `test` (50 files / 1277 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E (18/18), blackbox edge (5 passed / 3 skipped), full app E2E (49/49), source blackbox (10 passed / 4 skipped), `package:win`, targeted unpacked native export (1/1), and unpacked blackbox (13 passed / 1 installed-only skip). Refreshed artifacts: `release/PlotFlow Setup 0.1.0.exe` and `release/win-unpacked/PlotFlow.exe` generated on 2026-07-06 20:53. Installed blackbox and manual patrol remain pending; do not claim release-candidate passed yet.
 
 > **主题系统当前状态（2026-06-27）**：M9 主题方向已落地为“官方远程免费 ZIP 代码主题 + 当前主题架构完整能力”。`plotflow-blueprint-nightwatch` 已删除；远程主题由官方静态目录注册，下载 `.pf-official-theme.zip`，校验后通过 `plotflow-theme://` 动态加载 `index.mjs`，可提供完整 `ThemeDescriptor`、React surfaces、React slots、tokens、CSS、assets、Monaco 和 UX recipes；Theme Center 使用“官方免费主题库”心智，不做第三方、社区上传、本地导入、购买或授权。完整开发标准见 `doc/standards-theme-development.md`。
 
@@ -387,18 +387,18 @@
 |------|------|------|
 | `pnpm.cmd lint` | 鉁?PASS | 0 error锛? 涓棦鏈?`no-console` warning |
 | `pnpm.cmd typecheck` | 鉁?PASS | TypeScript strict 閫氳繃 |
-| `pnpm.cmd test` | 鉁?PASS | 44 files / 1252 tests; includes export filename fallback, main-process write verification, Graph Lab referenced-node rename, and app i18n coverage. |
+| `pnpm.cmd test` | PASS | 50 files / 1277 tests; includes recent-file resume, `下一步` flow exit parsing/export, W007 cycle warnings, source ranges, Graph Lab writeback, and app coverage. |
 | `pnpm.cmd build` | 鉁?PASS | 淇濈暀 1 涓?Vite 鍔ㄦ€?闈欐€?import warning |
 | `pnpm.cmd lint:css` | 鉁?PASS | CSS token/stylelint 閫氳繃 |
 | `pnpm.cmd --filter @plotflow/progress-dashboard test` | 鉁?PASS | 杩涘害浠〃鐩樺崟鍏冩祴璇曢€氳繃 |
 | `pnpm.cmd --filter @plotflow/progress-dashboard typecheck` | 鉁?PASS | 杩涘害浠〃鐩樼被鍨嬫鏌ラ€氳繃 |
 | `pnpm.cmd --filter @plotflow/app test:e2e` | ✅ PASS | 49 passed after the latest save-flow fix. Includes duplicate Save As prevention, Save As failure feedback, and Save As cancellation blocking file replacement. |
 | `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` | ✅ PASS | 10 passed / 4 packaged-or-installed skipped after the latest save-flow fix. Skips still require package/installed targets. |
-| `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` | ⚠️ STALE | Last unpacked package predates the latest save-flow fix. Rebuild and rerun against `release/win-unpacked/PlotFlow.exe`. |
-| `pnpm.cmd --filter @plotflow/app test:e2e:installed` | ⏳ PENDING | Must run after installing the newly built installer and setting `PLOTFLOW_INSTALLED_EXE`, for example `D:\PF\PlotFlow\PlotFlow.exe`. |
+| `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` | PASS | 2026-07-06 refreshed package passed, 13 passed / 1 installed-only skip. |
+| `pnpm.cmd --filter @plotflow/app test:e2e:installed` | PENDING | `PLOTFLOW_INSTALLED_EXE` is not set; must run after installing the refreshed installer and pointing to the installed `PlotFlow.exe`. |
 | `pnpm.cmd audit --audit-level moderate` | 鉁?PASS | Electron 42.5.0锛涙棤 GHSA ignore锛汵o known vulnerabilities found |
-| `pnpm.cmd package:win` | ⚠️ STALE | Previous 2026-07-01 package predates the latest save-flow fix. Clear/rebuild before using as release evidence. |
-| Windows packaged smoke | ⚠️ STALE | Previous packaged smoke does not include the latest save-flow fix. Rerun after a fresh package build. |
+| `pnpm.cmd package:win` | PASS | 2026-07-06 rebuilt `release/PlotFlow Setup 0.1.0.exe` and `release/win-unpacked/PlotFlow.exe` after clearing old artifacts. |
+| Windows packaged smoke | PASS | Covered by targeted native export unpacked E2E and full unpacked blackbox on the refreshed package. |
 
 ---
 
@@ -435,6 +435,7 @@
 | 2026-07-01 | **Manual blackbox P1/P2 source fixes**: fixed Home hero overlap, Graph Lab referenced-node rename edge migration, diagnostics chip discoverability, save/save-as status priority, and primary English UI coverage. Verification: `pnpm.cmd lint` PASS with 0 error / 9 existing warnings; `pnpm.cmd typecheck` PASS; `pnpm.cmd test` PASS with 44 files / 1252 tests; `pnpm.cmd build` PASS with the existing Vite dynamic/static import warning; `pnpm.cmd lint:css` PASS; Graph Lab narrow E2E PASS with 13/13; export E2E PASS with 5/5; full app integration E2E PASS with 44/44; source blackbox PASS with 10 passed / 4 packaged-or-installed skips; `pnpm.cmd audit --audit-level moderate` PASS. No new package was generated in this pass, so unpacked/installed blackbox and manual patrol remain required before any release-candidate claim. |
 | 2026-07-01 | **Clean Windows package output**: cleared old `release/` and `out/`, rebuilt Windows NSIS package, verified installer SHA256 `7E5F28B694D6065F27775027DD63CECD6349B3D9B0654DFCB9EEE1531D6840C7`, confirmed `app.asar` excludes `website/` and `dist-static`, and ran current unpacked blackbox. Verification: `pnpm.cmd package:win` PASS; `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` PASS with 13 passed / 1 installed-only skipped. Installed blackbox remains pending until the new installer is installed. |
 | 2026-07-01 | **Save-flow cancellation safety fix**: fixed save/open and save/new control flow so Save As cancellation or failure stops file replacement instead of continuing; moved Save As concurrency lock before the first await; distinguished Save As cancellation from real save errors; added Graph Lab E2E regressions for duplicate Save As prevention, save failure feedback, and cancellation blocking file open. Previous Windows package and unpacked blackbox are now stale and must be regenerated/rerun. |
+| 2026-07-06 | **External audit P0/P1 closure pass**: implemented recent-file Continue editing recovery, single-file global variable editing in Graph Lab, `下一步` node-level flow exits, W007 closed-cycle diagnostics, active-chapter source slices, chapter tabs, and default next-handle Graph Lab wiring. Fixed packaged native save dialog by focusing the main window but invoking Electron native file dialogs without a parent owner, which restored the real Windows save dialog in `win-unpacked`. Verification: `pnpm.cmd typecheck` PASS; `pnpm.cmd build` PASS; `pnpm.cmd package:win` PASS; targeted unpacked native export PASS 1/1; full unpacked blackbox PASS 13 passed / 1 installed-only skip. Earlier in the same pass, full source gates passed: `lint:tokens`, `typecheck`, `test` 50 files / 1277 tests, `lint`, `lint:css`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E 18/18, source blackbox 10 passed / 4 skipped, and full app E2E 49/49. Installed blackbox remains pending because `PLOTFLOW_INSTALLED_EXE` is not set. |
 
 ---
 

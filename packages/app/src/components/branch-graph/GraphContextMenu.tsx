@@ -27,7 +27,7 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
-import { parseEdgeId } from '../../stores/edgeStore';
+import { NEXT_EDGE_OPTION_INDEX, parseEdgeId } from '../../stores/edgeStore';
 import {
   resolveStoryFullIdForFlowNodeId,
   type StoryFlowNodeData,
@@ -726,6 +726,7 @@ export function GraphContextMenu({
   /** 连线 → 编辑条件：打开 ConditionEditor 面板 (Fix 8) */
   const handleEdgeEditCondition = useCallback(() => {
     if (!edgeStoryIds) { onClose(); return; }
+    if (edgeStoryIds.optionIndex === NEXT_EDGE_OPTION_INDEX) { onClose(); return; }
     openConditionEditor(edgeStoryIds.sourceFullId, edgeStoryIds.optionIndex);
     onClose();
   }, [edgeStoryIds, openConditionEditor, onClose]);
@@ -735,6 +736,14 @@ export function GraphContextMenu({
     if (!edgeStoryIds || !plotFlowData) { onClose(); return; }
     const sourceNode = getNodeByFullId(edgeStoryIds.sourceFullId);
     if (!sourceNode) { onClose(); return; }
+
+    if (edgeStoryIds.optionIndex === NEXT_EDGE_OPTION_INDEX) {
+      if (graphEditService.connectNextTarget(sourceNode, null)) {
+        setStatusMessage(`连线已删除: ${sourceNode.title} → 下一步`);
+      }
+      onClose();
+      return;
+    }
 
     const option = sourceNode.options[edgeStoryIds.optionIndex];
     if (!option) { onClose(); return; }
@@ -856,7 +865,7 @@ export function GraphContextMenu({
               key: 'editCondition',
               label: '编辑条件',
               shortcut: '双击',
-              disabled: !edgeStoryIds || !edgeStoryIds.sourceFullId,
+              disabled: !edgeStoryIds || !edgeStoryIds.sourceFullId || edgeStoryIds.optionIndex === NEXT_EDGE_OPTION_INDEX,
               onClick: handleEdgeEditCondition,
             },
             {

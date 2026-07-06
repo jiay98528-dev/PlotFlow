@@ -17,7 +17,11 @@ const {
 } = await import('./adapter');
 const { layoutNodes } = await import('./layout');
 
-function makeNode(id: string, position?: { x: number; y: number }): StoryNode {
+function makeNode(
+  id: string,
+  position?: { x: number; y: number },
+  nextTarget?: StoryNode['nextTarget'],
+): StoryNode {
   return {
     id,
     fullId: `Chapter-${id}`,
@@ -25,6 +29,7 @@ function makeNode(id: string, position?: { x: number; y: number }): StoryNode {
     body: '',
     chapterId: 'Chapter',
     options: [],
+    nextTarget,
     diagnostics: {
       isRoot: false,
       isOrphan: false,
@@ -90,5 +95,28 @@ describe('plotFlowDataToFlow layout handoff', () => {
       .toBe('Chapter-Ending#1');
     expect(resolveStoryFullIdForFlowNodeId('Chapter-Unknown#2', result.nodes))
       .toBe('Chapter-Unknown#2');
+  });
+
+  it('creates a default next edge from node-level flow exits', () => {
+    const result = plotFlowDataToFlow(makeAst([
+      makeNode('A', undefined, {
+        targetNodeId: 'B',
+        targetChapterId: null,
+        targetFullId: 'Chapter-B',
+        raw: '节点：B',
+        sideEffects: [],
+        effectsRaw: null,
+        lineNumber: 4,
+      }),
+      makeNode('B'),
+    ]));
+
+    expect(layoutNodes).not.toHaveBeenCalled();
+    expect(result.edges).toHaveLength(1);
+    expect(result.edges[0]).toMatchObject({
+      source: 'Chapter-A',
+      target: 'Chapter-B',
+      sourceHandle: 'next',
+    });
   });
 });

@@ -65,6 +65,7 @@ export interface UIState {
   /** 问题面板是否打开（M3-16） */
   readonly isProblemPanelOpen: boolean;
   readonly isSourceDrawerOpen: boolean;
+  readonly activeChapterId: string | null;
 
   /** 导出对话框是否打开（M4） */
   readonly isExportDialogOpen: boolean;
@@ -113,6 +114,7 @@ export interface UIState {
   setProblemPanelOpen: (open: boolean) => void;
   toggleSourceDrawer: () => void;
   setSourceDrawerOpen: (open: boolean) => void;
+  setActiveChapterId: (chapterId: string | null) => void;
 
   /** 打开导出对话框 */
   openExportDialog: (format?: ExportFormat) => void;
@@ -246,13 +248,14 @@ const initialState = {
   conditionEditorOptionIndex: null,
   isProblemPanelOpen: false,
   isSourceDrawerOpen: false,
+  activeChapterId: null,
   isExportDialogOpen: false,
   exportDialogFormat: 'json' as ExportFormat,
   isCorpusManagerOpen: false,
   isNewFileDialogOpen: false,
   isThemeCenterOpen: false,
   isHomeSurfaceOpen: true,
-} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
+} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
 
 // ============================================================================
 // Store
@@ -380,6 +383,13 @@ export const useUIStore = create<UIState>()(
           { isSourceDrawerOpen: open },
           false,
           'ui/setSourceDrawerOpen',
+        ),
+
+      setActiveChapterId: (chapterId: string | null) =>
+        set(
+          { activeChapterId: chapterId },
+          false,
+          'ui/setActiveChapterId',
         ),
 
       openExportDialog: (format?: ExportFormat) =>

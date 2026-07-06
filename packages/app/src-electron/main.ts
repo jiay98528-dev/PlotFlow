@@ -153,6 +153,13 @@ function resolveWindowIconPath(): string | undefined {
   return undefined;
 }
 
+function focusMainWindowForNativeDialog(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 // ============================================================================
 // IPC 瀹夊叏鏍￠獙甯搁噺 (V0.3 涓昏繘绋嬪厹搴曟牎楠?
 // ============================================================================
@@ -402,7 +409,8 @@ ipcMain.handle('file:save', async (_event, payload: {
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.open() 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_OPEN 閫氶亾銆? */
 ipcMain.handle('file:open', async () => {
   try {
-    const result = await dialog.showOpenDialog(mainWindow!, {
+    focusMainWindowForNativeDialog();
+    const result = await dialog.showOpenDialog({
       title: '鎵撳紑 PlotFlow 鏁呬簨鏂囦欢',
       filters: [
         { name: 'PlotFlow Story', extensions: ['mdstory'] },
@@ -430,7 +438,8 @@ ipcMain.handle('file:open', async () => {
 ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
   try {
     assertWritableContent(payload?.content);
-    const result = await dialog.showSaveDialog(mainWindow!, {
+    focusMainWindowForNativeDialog();
+    const result = await dialog.showSaveDialog({
       title: '淇濆瓨 PlotFlow 鏁呬簨鏂囦欢',
       filters: [{ name: 'PlotFlow Story', extensions: ['mdstory'] }],
       defaultPath: 'untitled.mdstory',
@@ -485,7 +494,8 @@ ipcMain.handle('file:export', async (_event, payload: {
       }
     }
 
-    const result = await dialog.showSaveDialog(mainWindow!, {
+    focusMainWindowForNativeDialog();
+    const result = await dialog.showSaveDialog({
       title: '瀵煎嚭鏂囦欢',
       filters: payload.filters,
       defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),

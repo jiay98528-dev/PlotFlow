@@ -22,6 +22,7 @@ import { layoutNodesInWorker } from '../branch-graph/graphLayoutClient';
 import { graphEditService } from '../../services/graphEditService';
 import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
 import { parsePipelineNow } from '../../services/parsePipeline';
+import { rememberRecentStory } from '../../services/recentFileService';
 import { useAppText } from '../../i18n/appI18n';
 
 interface GraphLabPaletteProps {
@@ -83,9 +84,10 @@ async function confirmBeforeReplacingStory(text: TextFn): Promise<boolean> {
 }
 
 function loadStoryIntoEditor(filePath: string, content: string, hash: string, modifiedAt: number): void {
+  const normalizedPath = filePath.replace(/\\/g, '/');
   clearPendingSave();
   const editor = useEditorStore.getState();
-  editor.setFilePath(filePath);
+  editor.setFilePath(normalizedPath);
   editor.setFileBaseline(hash, modifiedAt);
   editor.clearPendingExternalChange();
   editor.setDiagnostics([]);
@@ -95,6 +97,7 @@ function loadStoryIntoEditor(filePath: string, content: string, hash: string, mo
   useGraphStore.getState().syncFromAST(null);
   editor.setContent(content);
   editor.markSaved();
+  rememberRecentStory(normalizedPath, hash, modifiedAt);
   parsePipelineNow(content);
 }
 
@@ -103,6 +106,8 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   const edges = useGraphStore((state) => state.edges);
   const setNodes = useGraphStore((state) => state.setNodes);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const activeChapterId = useUIStore((state) => state.activeChapterId);
+  const setActiveChapterId = useUIStore((state) => state.setActiveChapterId);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const filePath = useEditorStore((state) => state.filePath);
@@ -129,19 +134,35 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   }, [diagnostics, plotFlowData]);
 
   const handleCreateChapter = useCallback(() => {
-    graphEditService.createChapter(text('palette.defaultChapterTitle'));
+    const baseTitle = text('palette.defaultChapterTitle');
+    const existing = new Set((plotFlowData?.chapters ?? []).map((chapter) => chapter.title));
+    let title = baseTitle;
+    let index = 2;
+    while (existing.has(title)) {
+      title = `${baseTitle} ${index}`;
+      index++;
+    }
+    graphEditService.createChapter(title);
+    setActiveChapterId(title);
     setStatusMessage(text('palette.createdChapter'));
-  }, [setStatusMessage, text]);
+  }, [plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
-    graphEditService.createNode({ chapterTitle: text('palette.defaultChapterTitle'), title: text('palette.newNodeTitle') });
+    graphEditService.createNode({
+      chapterTitle: activeChapterId ?? text('palette.defaultChapterTitle'),
+      title: text('palette.newNodeTitle'),
+    });
     setStatusMessage(text('palette.createdNode'));
-  }, [setStatusMessage, text]);
+  }, [activeChapterId, setStatusMessage, text]);
 
   const handleCreateEnding = useCallback(() => {
-    graphEditService.createNode({ chapterTitle: text('palette.defaultChapterTitle'), title: text('palette.endingNodeTitle'), isEnding: true });
+    graphEditService.createNode({
+      chapterTitle: activeChapterId ?? text('palette.defaultChapterTitle'),
+      title: text('palette.endingNodeTitle'),
+      isEnding: true,
+    });
     setStatusMessage(text('palette.createdEnding'));
-  }, [setStatusMessage, text]);
+  }, [activeChapterId, setStatusMessage, text]);
 
   const handleRelayout = useCallback(() => {
     if (nodes.length === 0) {
@@ -262,7 +283,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             )}
             <div className="graph-lab-file-list">
               {workspace.files.map((file) => {
-                const isActive = file.filePath === filePath;
+                const isActive = file.filePath.replace(/\\/g, '/') === filePath;
                 return (
                   <button
                     type="button"

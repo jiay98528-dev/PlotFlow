@@ -1,4 +1,4 @@
-/**
+﻿/**
  * .mdstory Markdown 节点解析器 — 递归下降子集
  *
  * @packageDocumentation
@@ -24,8 +24,10 @@ import type {
   StoryLayout,
   Chapter,
   StoryNode,
+  NodeNextTarget,
   NodeDiagnostics,
   Option,
+  SideEffect,
   VariableDeclaration,
 } from '../types/ast.js';
 import type {
@@ -41,6 +43,7 @@ import { parseFrontmatter } from './frontmatter.js';
 import type { FrontmatterResult } from './frontmatter.js';
 import { analyzeStorySource } from './source.js';
 import { parseOptions } from './options.js';
+import { parseEffects } from './effects.js';
 
 // ============================================================================
 // 诊断创建辅助
@@ -115,6 +118,9 @@ const NODE_HEADING_RE = /^##[ \t]+节点[：:][ \t]*(.*)$/;
  * 分隔符：`---`（Markdown 水平线），节点间分隔。
  * 匹配以 `---` 开头的行（允许行首空白）。
  */
+const NEXT_TARGET_LINE_RE = /^[ \t]*\u4e0b\u4e00\u6b65[\uff1a:][ \t]*(.+)$/u;
+const NEXT_EFFECT_LINE_RE = /^[ \t]+\u6548\u679c[\uff1a:][ \t]*(.*)$/u;
+const TARGET_REF_RE = /^(?:(.+)\/)?\u8282\u70b9[\uff1a:][ \t]*(.+)$/u;
 const SEPARATOR_RE = /^[ \t]*---[ \t]*$/;
 
 // ============================================================================
@@ -127,6 +133,125 @@ const ANONYMOUS_CHAPTER_ID = '_anonymous';
 /** 默认元信息字段 */
 const DEFAULT_TITLE = 'Untitled';
 const DEFAULT_AUTHOR = 'Unknown';
+
+interface ParsedTargetReference {
+  readonly targetChapterId: string | null;
+  readonly targetNodeId: string | null;
+}
+
+function parseTargetReference(raw: string): ParsedTargetReference | null {
+  const match = TARGET_REF_RE.exec(raw.trim());
+  if (!match || !match[2] || match[2].trim().length === 0) return null;
+  return {
+    targetChapterId: match[1]?.trim() || null,
+    targetNodeId: match[2].trim(),
+  };
+}
+
+function stripOuterParens(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('(') && trimmed.endsWith(')') && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function parseNodeNextTarget(
+  lines: readonly string[],
+  baseLineNumber: number,
+  variables: readonly VariableDeclaration[],
+): {
+  readonly bodyLines: string[];
+  readonly narrativeBodyLines: string[];
+  readonly nextTarget: NodeNextTarget | null;
+  readonly diagnostics: Diagnostic[];
+} {
+  const bodyLines: string[] = [];
+  const narrativeBodyLines: string[] = [];
+  const diagnostics: Diagnostic[] = [];
+  let nextTarget: NodeNextTarget | null = null;
+  let collectNarrative = true;
+
+  for (let index = 0; index < lines.length;) {
+    const line = lines[index] ?? '';
+    const nextMatch = NEXT_TARGET_LINE_RE.exec(line);
+    if (!nextMatch) {
+      bodyLines.push(line);
+      if (collectNarrative) narrativeBodyLines.push(line);
+      index++;
+      continue;
+    }
+
+    const absoluteLine = baseLineNumber + index;
+    const rawTarget = (nextMatch[1] ?? '').trim();
+    const parsed = parseTargetReference(rawTarget);
+
+    if (!parsed) {
+      diagnostics.push(createDiagnostic(
+        'E005',
+        'error',
+        absoluteLine,
+        1,
+        line.length,
+        `下一步目标格式错误: "${rawTarget}"`,
+        '格式应为 "下一步: 节点：目标节点名" 或 "下一步: 章节/节点：目标节点名"。',
+      ));
+      bodyLines.push(line);
+      if (collectNarrative) narrativeBodyLines.push(line);
+      index++;
+      continue;
+    }
+
+    let effectsRaw: string | null = null;
+    let sideEffects: SideEffect[] = [];
+    let consumed = 1;
+
+    const effectLine = lines[index + 1] ?? '';
+    const effectMatch = NEXT_EFFECT_LINE_RE.exec(effectLine);
+    if (effectMatch) {
+      const rawEffect = stripOuterParens((effectMatch[1] ?? '').trim());
+      if (rawEffect.length > 0) {
+        effectsRaw = rawEffect;
+        const effectResult = parseEffects(rawEffect, variables, absoluteLine + 1);
+        if (effectResult.ok) {
+          sideEffects = effectResult.data;
+        } else {
+          diagnostics.push(...effectResult.errors);
+        }
+      }
+      consumed = 2;
+    }
+
+    if (nextTarget) {
+      diagnostics.push(createDiagnostic(
+        'W006',
+        'warning',
+        absoluteLine,
+        1,
+        line.length,
+        '重复的下一步声明将被忽略',
+      ));
+      bodyLines.push(...Array.from({ length: consumed }, () => ''));
+      index += consumed;
+      continue;
+    }
+
+    collectNarrative = false;
+    bodyLines.push(...Array.from({ length: consumed }, () => ''));
+    nextTarget = {
+      targetNodeId: parsed.targetNodeId,
+      targetChapterId: parsed.targetChapterId,
+      targetFullId: null,
+      raw: rawTarget,
+      sideEffects,
+      effectsRaw,
+      lineNumber: absoluteLine,
+    };
+    index += consumed;
+  }
+
+  return { bodyLines, narrativeBodyLines, nextTarget, diagnostics };
+}
 
 // ============================================================================
 // 内部 — 章节构建器
@@ -381,15 +506,21 @@ export function parseChaptersAndNodes(
     seenFullIds.set(fullId, currentNodeLineNumber);
 
     // 组装正文
-    const body = currentNodeBodyLines
+    const bodyStartLine = currentNodeLineNumber + 1;
+    const nextTargetResult = parseNodeNextTarget(currentNodeBodyLines, bodyStartLine, variables);
+    allErrors.push(...nextTargetResult.diagnostics);
+
+    const body = nextTargetResult.narrativeBodyLines
       .map((l) => l.trimEnd())
       .join('\n')
       .trim();
+    const optionSource = nextTargetResult.bodyLines
+      .map((l) => l.trimEnd())
+      .join('\n');
 
     // ---- 解析选项 (M1-03/04/05 集成) ----
     let nodeOptions: Option[] = [];
-    const bodyStartLine = currentNodeLineNumber + 1;
-    const optResult = parseOptions(body, bodyStartLine, variables);
+    const optResult = parseOptions(optionSource, bodyStartLine, variables);
     if (optResult.ok) {
       nodeOptions = optResult.data;
       // 非致命诊断（warnings/infos）累积到 allErrors
@@ -401,9 +532,15 @@ export function parseChaptersAndNodes(
 
     // W005: 空正文检测
     // 计算纯叙事正文（过滤语法标记行，BUG6 修复）
-    const narrativeBodyLines = currentNodeBodyLines.filter((l) => {
+    let inOptionBlock = false;
+    const narrativeBodyLines = nextTargetResult.narrativeBodyLines.filter((l) => {
       const t = l.trimStart();
-      return !t.startsWith('[选项]') && !t.startsWith('条件:') && !t.startsWith('效果:');
+      if (t.startsWith('[选项]')) {
+        inOptionBlock = true;
+        return false;
+      }
+      if (inOptionBlock && (t.startsWith('条件:') || t.startsWith('效果:'))) return false;
+      return true;
     });
     const narrativeBody = narrativeBodyLines
       .map((l) => l.trimEnd())
@@ -451,6 +588,7 @@ export function parseChaptersAndNodes(
       body: narrativeBody,
       chapterId,
       options: nodeOptions,
+      nextTarget: nextTargetResult.nextTarget,
       diagnostics,
       position: layoutPositions.get(fullId),
       lineNumber: currentNodeLineNumber,
@@ -723,25 +861,41 @@ function resolveTargetFullIds(chapterBuilders: Map<string, ChapterBuilder>): voi
     }
   }
 
+  const resolveTarget = (
+    sourceChapterId: string,
+    targetNodeId: string,
+    targetChapterId: string | null,
+  ): string | null => {
+    if (targetChapterId) {
+      const explicitFullId = targetChapterId === ANONYMOUS_CHAPTER_ID
+        ? targetNodeId
+        : `${targetChapterId}-${targetNodeId}`;
+      return allNodes.has(explicitFullId) ? explicitFullId : null;
+    }
+
+    const sameChapterFullId = sourceChapterId === ANONYMOUS_CHAPTER_ID
+      ? targetNodeId
+      : `${sourceChapterId}-${targetNodeId}`;
+    if (allNodes.has(sameChapterFullId)) return sameChapterFullId;
+
+    const matches = nodeIdToFullIds.get(targetNodeId);
+    if (matches && matches.length === 1) return matches[0]!;
+    return null;
+  };
+
   for (const builder of chapterBuilders.values()) {
     for (const node of builder.nodes) {
       for (const option of node.options) {
         if (option.targetFullId !== null) continue;
         if (!option.targetNodeId) continue;
+        const resolved = resolveTarget(node.chapterId, option.targetNodeId, null);
+        if (resolved) (option as { targetFullId: string | null }).targetFullId = resolved;
+      }
 
-        // 优先：同章节查找
-        const sameChapterFullId = `${node.chapterId}-${option.targetNodeId}`;
-        if (allNodes.has(sameChapterFullId)) {
-          (option as { targetFullId: string | null }).targetFullId = sameChapterFullId;
-          continue;
-        }
-
-        // 跨章节：仅当节点 ID 全局唯一时匹配
-        const matches = nodeIdToFullIds.get(option.targetNodeId);
-        if (matches && matches.length === 1) {
-          (option as { targetFullId: string | null }).targetFullId = matches[0]!;
-        }
-        // 否则 targetFullId 保持 null —— 验证器会报告 E001 (未定义目标节点)
+      const nextTarget = node.nextTarget;
+      if (nextTarget?.targetNodeId && !nextTarget.targetFullId) {
+        const resolved = resolveTarget(node.chapterId, nextTarget.targetNodeId, nextTarget.targetChapterId);
+        if (resolved) (nextTarget as { targetFullId: string | null }).targetFullId = resolved;
       }
     }
   }

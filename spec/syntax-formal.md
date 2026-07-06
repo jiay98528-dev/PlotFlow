@@ -1490,4 +1490,50 @@ Story
 
 ---
 
-*本文档是 PlotFlow V0.1 解析器的唯一权威语法参考。任何实现差异以本文档为准。*
+---
+
+## 12. V0.3 Flow Exit Addendum
+
+This addendum records the V0.3 node-level flow exit syntax added for Graph Lab flow nodes.
+
+### 12.1 `下一步` node-level exit
+
+```ebnf
+NextLine
+    = "下一步" NextColon WS TargetRef NL
+    ;
+
+NextColon
+    = ":"
+    | "："
+    ;
+
+NextEffectLine
+    = Indent "效果" EffectColon WS "(" EffectList ")" NL
+    ;
+```
+
+Rules:
+
+- `下一步: 节点：目标节点名` is parsed as a node-level default exit, separate from `[选项]`.
+- `下一步: 章节/节点：目标节点名` is accepted for cross-chapter targets.
+- An immediately adjacent indented `效果:` line belongs to the `下一步` exit.
+- A node with at least one `[选项]` treats those options as explicit exits; Graph Lab hides the default node-level handle in that state.
+- A malformed `下一步` line is kept as normal body text and produces `E005`; it must not consume a following `效果:` line.
+
+### 12.2 Export compatibility
+
+The canonical `.mdstory` source stores `下一步` as a node-level exit. The V0.1 JSON schema remains compatible by projecting `下一步` to a synthetic unconditional option during JSON export:
+
+- `text`: `下一步`
+- `index`: after existing options
+- `conditions`: `null`
+- `sideEffects`: parsed from the adjacent `效果:` line
+
+No new `nextTarget` field is emitted in JSON until the JSON schema is versioned.
+
+### 12.3 W007 closed-cycle warning
+
+`W007` reports a possible infinite loop when the graph contains a closed strongly connected component with no outgoing edge to a node outside the component. The adjacency graph includes both `[选项]` edges and `下一步` edges. Edges with unresolved targets are skipped by W007 so they remain covered by `E001`.
+
+*本文档是 PlotFlow V0.1/V0.3 解析器的权威语法参考。任何实现差异以本文档为准。*

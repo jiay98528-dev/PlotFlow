@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Link2Off, ListPlus, Trash2 } from 'lucide-react';
-import type { Option, StoryNode } from '@plotflow/core';
+import type { Option, StoryNode, VariableDeclaration } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
@@ -56,6 +56,96 @@ function getSelectedStoryNode(): StoryNode | undefined {
   return selectedNodeId ? useStoryStore.getState().getNodeByFullId(selectedNodeId) : undefined;
 }
 
+function formatVariableDefault(variable: VariableDeclaration): string {
+  if (variable.type === 'object') return '{...}';
+  if (Array.isArray(variable.defaultValue)) return variable.defaultValue.join(', ');
+  return String(variable.defaultValue ?? '');
+}
+
+function quoteEffectValue(variable: VariableDeclaration | undefined, value: string): string {
+  if (!variable) return value.trim();
+  if (variable.type === 'string' || variable.type === 'enum') return JSON.stringify(value);
+  if (variable.type === 'bool') return value === 'true' ? 'true' : 'false';
+  return value.trim() || '0';
+}
+
+function EffectBuilder({
+  variables,
+  onApply,
+}: {
+  readonly variables: readonly VariableDeclaration[];
+  readonly onApply: (raw: string) => void;
+}): React.ReactElement {
+  const firstVariable = variables[0]?.name ?? '';
+  const [variableName, setVariableName] = useState(firstVariable);
+  const [operation, setOperation] = useState<'set' | 'add' | 'subtract'>('set');
+  const [value, setValue] = useState('');
+  const variable = variables.find((item) => item.name === variableName);
+  const numeric = variable?.type === 'int' || variable?.type === 'float';
+
+  React.useEffect(() => {
+    if (!variableName && firstVariable) setVariableName(firstVariable);
+  }, [firstVariable, variableName]);
+
+  const apply = useCallback(() => {
+    if (!variableName.trim()) return;
+    const rhs = quoteEffectValue(variable, value);
+    const raw = operation === 'add'
+      ? `${variableName}+${rhs}`
+      : operation === 'subtract'
+        ? `${variableName}-${rhs}`
+        : `${variableName}=${rhs}`;
+    onApply(raw);
+    setValue('');
+  }, [onApply, operation, value, variable, variableName]);
+
+  return (
+    <div className="graph-lab-effect-builder" data-testid="graph-inspector-effect-builder">
+      <select
+        value={variableName}
+        onChange={(event) => setVariableName(event.target.value)}
+        disabled={variables.length === 0}
+        aria-label="Effect variable"
+      >
+        {variables.length === 0 ? (
+          <option value="">No variables</option>
+        ) : variables.map((item) => (
+          <option key={item.name} value={item.name}>{item.name}</option>
+        ))}
+      </select>
+      <select
+        value={operation}
+        onChange={(event) => setOperation(event.target.value as 'set' | 'add' | 'subtract')}
+        aria-label="Effect operation"
+      >
+        <option value="set">=</option>
+        {numeric && <option value="add">+</option>}
+        {numeric && <option value="subtract">-</option>}
+      </select>
+      {variable?.type === 'bool' ? (
+        <select value={value || 'true'} onChange={(event) => setValue(event.target.value)} aria-label="Effect value">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+      ) : variable?.type === 'enum' && variable.enumValues?.length ? (
+        <select value={value || variable.enumValues[0]} onChange={(event) => setValue(event.target.value)} aria-label="Effect value">
+          {variable.enumValues.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      ) : (
+        <input
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder={variable?.type === 'string' ? 'value' : '0'}
+          aria-label="Effect value"
+        />
+      )}
+      <button type="button" className="graph-lab-inline-button" onClick={apply} disabled={!variableName}>
+        Apply
+      </button>
+    </div>
+  );
+}
+
 export function GraphInspector(): React.ReactElement {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
@@ -78,6 +168,7 @@ export function GraphInspector(): React.ReactElement {
     () => plotFlowData?.chapters.map((chapter) => chapter.title).filter(Boolean) ?? [],
     [plotFlowData],
   );
+  const variables = plotFlowData?.variables ?? [];
 
   const commitNodePatch = useCallback((patch: Parameters<typeof graphEditService.updateNode>[1]) => {
     const selected = getSelectedStoryNode();
@@ -123,6 +214,11 @@ export function GraphInspector(): React.ReactElement {
     setVariableType('int');
     setStatusMessage(text('inspector.updatedVariable'));
   }, [setStatusMessage, text, variableName, variableType]);
+
+  const handleVariableDelete = useCallback((name: string) => {
+    graphEditService.deleteVariable(name);
+    setStatusMessage(text('inspector.updatedVariable'));
+  }, [setStatusMessage, text]);
 
   return (
     <aside className="graph-lab-inspector" aria-label={text('inspector.aria')} data-testid="graph-lab-inspector">
@@ -237,6 +333,15 @@ export function GraphInspector(): React.ReactElement {
                       value={option.effectsRaw ?? ''}
                       onCommit={(value) => commitOptionPatch(option, { effectsRaw: value || null })}
                     />
+                    <EffectBuilder
+                      variables={variables}
+                      onApply={(raw) => {
+                        const nextRaw = option.effectsRaw?.trim()
+                          ? `${option.effectsRaw.trim()}, ${raw}`
+                          : raw;
+                        commitOptionPatch(option, { effectsRaw: nextRaw });
+                      }}
+                    />
                     <div className="graph-lab-option__actions">
                       <button
                         type="button"
@@ -285,6 +390,28 @@ export function GraphInspector(): React.ReactElement {
 
       <section className="graph-lab-section">
         <h3>{text('inspector.variables')}</h3>
+        {variables.length > 0 ? (
+          <div className="graph-lab-variable-list" data-testid="graph-inspector-variable-list">
+            {variables.map((variable) => (
+              <div className="graph-lab-variable-row" key={variable.name}>
+                <div>
+                  <strong>{variable.name}</strong>
+                  <small>{variable.type} = {formatVariableDefault(variable)}</small>
+                </div>
+                <button
+                  type="button"
+                  className="icon-button icon-button--danger"
+                  title="Delete variable"
+                  onClick={() => handleVariableDelete(variable.name)}
+                >
+                  <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="graph-lab-empty">No variables declared</p>
+        )}
         <label className="graph-lab-field">
           <span>{text('inspector.variableName')}</span>
           <input data-testid="graph-inspector-variable-name" value={variableName} onChange={(event) => setVariableName(event.target.value)} placeholder={text('inspector.variablePlaceholder')} />

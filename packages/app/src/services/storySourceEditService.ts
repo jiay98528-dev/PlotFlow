@@ -60,6 +60,8 @@ const DEFAULT_BODY = '在这里写下剧情正文。';
 const DEFAULT_OPTION = '继续';
 const CONDITION_LABEL = '\u6761\u4ef6';
 const EFFECTS_LABEL = '\u6548\u679c';
+const NEXT_LABEL = '\u4e0b\u4e00\u6b65';
+const NODE_LABEL = '\u8282\u70b9';
 
 function normalizeText(value: string): string {
   return normalizeStorySource(value);
@@ -188,6 +190,36 @@ function findOptionBlockEndLineIndex(lines: readonly string[], optionLineIndex: 
     index++;
   }
   return index;
+}
+
+function isNextTargetLine(line: string): boolean {
+  return new RegExp(`^\\s*${NEXT_LABEL}[：:]`).test(line);
+}
+
+function findNodeNextTargetLineIndex(lines: readonly string[], node: StoryNode): number {
+  const hinted = (node.nextTarget?.lineNumber ?? 0) - 1;
+  if (hinted >= 0 && hinted < lines.length && isNextTargetLine(lines[hinted] ?? '')) {
+    return hinted;
+  }
+
+  const { start, end } = getNodeRange(lines.join('\n'), node);
+  for (let index = start + 1; index < end; index++) {
+    if (isNextTargetLine(lines[index] ?? '')) return index;
+  }
+  return -1;
+}
+
+function findNextTargetBlockEndLineIndex(lines: readonly string[], nextLineIndex: number): number {
+  const nextLine = lines[nextLineIndex + 1] ?? '';
+  return new RegExp(`^\\s+${EFFECTS_LABEL}[：:]`).test(nextLine) ? nextLineIndex + 2 : nextLineIndex + 1;
+}
+
+function serializeNextTargetBlock(targetNodeId: string, effectsRaw: string | null): string[] {
+  const lines = [`${NEXT_LABEL}: ${NODE_LABEL}：${targetNodeId.trim()}`];
+  if (effectsRaw?.trim()) {
+    lines.push(`  ${EFFECTS_LABEL}: ${effectsRaw.trim()}`);
+  }
+  return lines;
 }
 
 function serializeOptionLine(option: {
@@ -624,6 +656,39 @@ export function updateOptionText(
   return patchResult(content, lines.join('\n'));
 }
 
+export function updateNodeNextTargetText(
+  content: string,
+  node: StoryNode,
+  targetNodeId: string | null,
+  effectsRaw = node.nextTarget?.effectsRaw ?? null,
+): GraphEditResult {
+  const normalized = normalizeText(content);
+  const lines = linesOf(normalized);
+  const { start, end } = getNodeRange(normalized, node);
+  const existingIndex = findNodeNextTargetLineIndex(lines, node);
+
+  if (targetNodeId === null) {
+    if (existingIndex < 0) return { content, changed: false };
+    const blockEnd = findNextTargetBlockEndLineIndex(lines, existingIndex);
+    lines.splice(existingIndex, blockEnd - existingIndex);
+    return patchResult(content, lines.join('\n').replace(/\n{3,}/g, '\n\n'));
+  }
+
+  const block = serializeNextTargetBlock(targetNodeId, effectsRaw);
+  if (existingIndex >= 0) {
+    const blockEnd = findNextTargetBlockEndLineIndex(lines, existingIndex);
+    lines.splice(existingIndex, blockEnd - existingIndex, ...block);
+    return patchResult(content, lines.join('\n'));
+  }
+
+  const firstOptionIndex = node.options[0] ? findOptionLineIndex(lines, node.options[0]) : -1;
+  const insertIndex = firstOptionIndex >= start && firstOptionIndex < end ? firstOptionIndex : end;
+  const needsBlankBefore = insertIndex > start + 1 && (lines[insertIndex - 1] ?? '').trim() !== '';
+  const insertLines = needsBlankBefore ? ['', ...block] : block;
+  lines.splice(insertIndex, 0, ...insertLines);
+  return patchResult(content, lines.join('\n'));
+}
+
 function replaceOptionTargetReferencesText(
   content: string,
   fromTargetNodeId: string,
@@ -711,6 +776,25 @@ export function createNodeAndConnectText(
   return patchResult(content, next);
 }
 
+export function createNodeAndConnectNextText(
+  content: string,
+  node: StoryNode,
+  targetTitle = DEFAULT_NODE_TITLE,
+  targetPosition?: GraphPosition,
+): GraphEditResult {
+  const normalized = normalizeText(content);
+  const targetNodeId = uniqueNodeTitle(normalized, targetTitle);
+  const created = createNodeText(normalized, { chapterTitle: node.chapterId, title: targetNodeId });
+  let next = updateNodeNextTargetText(created.content, node, targetNodeId).content;
+  if (targetPosition) {
+    next = upsertGraphLayoutText(next, [{
+      id: fullIdFor(node.chapterId, targetNodeId),
+      position: targetPosition,
+    }]).content;
+  }
+  return patchResult(content, next);
+}
+
 export function updateNodePositionText(
   content: string,
   node: StoryNode,
@@ -783,6 +867,42 @@ export function upsertVariableText(content: string, variable: VariablePatch): Gr
   } else {
     lines.splice(variablesIndex + 1, 0, entry);
   }
+  return patchResult(content, lines.join('\n'));
+}
+
+export function deleteVariableText(content: string, variableName: string): GraphEditResult {
+  const normalized = normalizeText(content);
+  const lines = linesOf(normalized);
+  const frontmatterEnd = (() => {
+    if ((lines[0] ?? '').trim() !== '---') return -1;
+    for (let index = 1; index < lines.length; index++) {
+      if ((lines[index] ?? '').trim() === '---') return index;
+    }
+    return -1;
+  })();
+  if (frontmatterEnd < 0) return { content, changed: false };
+
+  const targetIndex = lines.findIndex((line, index) => (
+    index > 0 &&
+    index < frontmatterEnd &&
+    new RegExp(`^\\s{2}${variableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`).test(line)
+  ));
+  if (targetIndex < 0) return { content, changed: false };
+
+  const baseIndent = (lines[targetIndex]!.match(/^(\s*)/)?.[1] ?? '').length;
+  let deleteEnd = targetIndex + 1;
+  while (deleteEnd < frontmatterEnd) {
+    const line = lines[deleteEnd] ?? '';
+    if (line.trim() === '') {
+      deleteEnd++;
+      continue;
+    }
+    const indent = (line.match(/^(\s*)/)?.[1] ?? '').length;
+    if (indent <= baseIndent) break;
+    deleteEnd++;
+  }
+
+  lines.splice(targetIndex, deleteEnd - targetIndex);
   return patchResult(content, lines.join('\n'));
 }
 
@@ -944,6 +1064,10 @@ export const graphEditService = {
     return commit(updateOptionText(currentContent(), option, { targetNodeId }), 'graph-lab-connect-option');
   },
 
+  connectNextTarget(node: StoryNode, targetNodeId: string | null): boolean {
+    return commit(updateNodeNextTargetText(currentContent(), node, targetNodeId), 'graph-lab-connect-next-target');
+  },
+
   createNodeAndConnect(
     node: StoryNode,
     option: Option,
@@ -951,6 +1075,14 @@ export const graphEditService = {
     targetPosition?: GraphPosition,
   ): boolean {
     return commit(createNodeAndConnectText(currentContent(), node, option, targetTitle, targetPosition), 'graph-lab-create-node-and-connect');
+  },
+
+  createNodeAndConnectNext(
+    node: StoryNode,
+    targetTitle = DEFAULT_NODE_TITLE,
+    targetPosition?: GraphPosition,
+  ): boolean {
+    return commit(createNodeAndConnectNextText(currentContent(), node, targetTitle, targetPosition), 'graph-lab-create-node-and-connect-next');
   },
 
   updateNodePosition(node: StoryNode, position: GraphPosition): boolean {
@@ -963,6 +1095,10 @@ export const graphEditService = {
 
   upsertVariable(variable: VariablePatch): boolean {
     return commit(upsertVariableText(currentContent(), variable), 'graph-lab-upsert-variable');
+  },
+
+  deleteVariable(variableName: string): boolean {
+    return commit(deleteVariableText(currentContent(), variableName), 'graph-lab-delete-variable');
   },
 
   updateSelectedNode(patch: NodePatch): boolean {

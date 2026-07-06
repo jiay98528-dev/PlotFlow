@@ -37,10 +37,6 @@ $buttonPattern = '${buttonPattern}'
 
 function Find-Dialog {
   $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $classCondition = New-Object System.Windows.Automation.PropertyCondition(
-    [System.Windows.Automation.AutomationElement]::ClassNameProperty,
-    '#32770'
-  )
   $fileNameHostCondition = New-Object System.Windows.Automation.PropertyCondition(
     [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
     'FileNameControlHost'
@@ -50,33 +46,18 @@ function Find-Dialog {
     [System.Windows.Automation.ControlType]::Edit
   )
 
-  $dialogs = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $classCondition)
-  foreach ($dialog in $dialogs) {
-    if ($dialog.Current.IsOffscreen -eq $true) {
+  $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+  foreach ($window in $windows) {
+    if ($window.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) {
       continue
     }
-    $fileNameHost = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
-    $edit = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+    if ($window.Current.ClassName -ne '#32770' -and $window.Current.Name -notmatch 'Save|Open|Select|Export') {
+      continue
+    }
+    $fileNameHost = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
+    $edit = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
     if ($fileNameHost -ne $null -or $edit -ne $null) {
-      return $dialog
-    }
-  }
-
-  $fileNameHosts = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
-  $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
-  foreach ($host in $fileNameHosts) {
-    if ($host.Current.IsOffscreen -eq $true) {
-      continue
-    }
-    $current = $host
-    while ($current -ne $null -and $current -ne $root) {
-      if ($current.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
-        if ($current.Current.ClassName -eq '#32770') {
-          return $current
-        }
-        break
-      }
-      $current = $walker.GetParent($current)
+      return $window
     }
   }
   return $null
@@ -84,11 +65,32 @@ function Find-Dialog {
 
 function Dump-Windows {
   $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
   $lines = @()
-  foreach ($item in $all) {
-    if ($item.Current.ClassName -eq '#32770' -or $item.Current.ControlType.ProgrammaticName -match 'Button|Edit') {
-      $lines += ($item.Current.Name + ' | ' + $item.Current.ClassName + ' | ' + $item.Current.AutomationId + ' | ' + $item.Current.ControlType.ProgrammaticName + ' | offscreen=' + $item.Current.IsOffscreen)
+  $count = 0
+  foreach ($window in $all) {
+    if ($window.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) {
+      continue
+    }
+    $lines += ($window.Current.Name + ' | ' + $window.Current.ClassName + ' | ' + $window.Current.AutomationId + ' | ' + $window.Current.ControlType.ProgrammaticName + ' | offscreen=' + $window.Current.IsOffscreen + ' | handle=' + $window.Current.NativeWindowHandle)
+    $count++
+    if ($window.Current.ClassName -eq '#32770' -or $window.Current.Name -match 'Save|Open|Select|Export|PlotFlow') {
+      $children = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+      $childCount = 0
+      foreach ($item in $children) {
+        if ($item.Current.ClassName -eq '#32770' -or $item.Current.ControlType.ProgrammaticName -match 'Button|Edit|ComboBox|Text') {
+          $lines += ('  - ' + $item.Current.Name + ' | ' + $item.Current.ClassName + ' | ' + $item.Current.AutomationId + ' | ' + $item.Current.ControlType.ProgrammaticName + ' | offscreen=' + $item.Current.IsOffscreen)
+          $childCount++
+          if ($childCount -ge 80) {
+            $lines += '  - ... child dump truncated'
+            break
+          }
+        }
+      }
+    }
+    if ($count -ge 80) {
+      $lines += '... top-level window dump truncated'
+      break
     }
   }
   return ($lines -join [Environment]::NewLine)
@@ -100,10 +102,10 @@ function Find-FileNameEdit($dialog) {
     'FileNameControlHost'
   )
   $host = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
-  if ($host -ne $null -and $host.Current.IsOffscreen -eq $false) {
+  if ($host -ne $null) {
     $hostItems = $host.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($item in $hostItems) {
-      if ($item.Current.IsOffscreen -eq $false -and ($item.Current.ClassName -eq 'Edit' -or $item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit)) {
+      if ($item.Current.ClassName -eq 'Edit' -or $item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit) {
         return $item
       }
     }
@@ -112,7 +114,7 @@ function Find-FileNameEdit($dialog) {
   $edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
   $candidates = @()
   foreach ($edit in $edits) {
-    if ($edit.Current.IsOffscreen -eq $false -and ($edit.Current.ClassName -eq 'Edit' -or $edit.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit)) {
+    if ($edit.Current.ClassName -eq 'Edit' -or $edit.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit) {
       $rect = $edit.Current.BoundingRectangle
       if ($rect.Width -gt 80 -and $rect.Height -gt 10) {
         $candidates += [PSCustomObject]@{
@@ -170,7 +172,7 @@ function Set-EditText($edit, $text) {
 function Submit-Dialog($dialog, $buttonPattern) {
   $buttons = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
   foreach ($button in $buttons) {
-    if ($button.Current.IsOffscreen -eq $false -and ($button.Current.AutomationId -eq '1' -or ($button.Current.ClassName -eq 'Button' -and $button.Current.Name -match $buttonPattern))) {
+    if ($button.Current.AutomationId -eq '1' -or ($button.Current.ClassName -eq 'Button' -and $button.Current.Name -match $buttonPattern)) {
       try {
         $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
         if ($invokePattern -ne $null) {
@@ -218,6 +220,12 @@ function Try-BlindSubmit($path) {
   Set-ClipboardText $path
   for ($i = 0; $i -lt 5; $i++) {
     Start-Sleep -Milliseconds 350
+    $dialog = Find-Dialog
+    if ($dialog -eq $null) {
+      continue
+    }
+    [PlotFlowNativeWindow]::SetForegroundWindow([IntPtr]$dialog.Current.NativeWindowHandle) | Out-Null
+    Start-Sleep -Milliseconds 80
     [System.Windows.Forms.SendKeys]::SendWait('^a')
     [System.Windows.Forms.SendKeys]::SendWait('^v')
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
@@ -228,7 +236,7 @@ function Try-BlindSubmit($path) {
       }
       Start-Sleep -Milliseconds 100
     }
-    if (Find-Dialog -ne $null) {
+    if ($dialog -ne $null) {
       return $false
     }
   }
@@ -261,11 +269,11 @@ if (Try-BlindSubmit $filePath) {
             exit 0
           }
         }
-        throw 'Native file dialog did not submit. Visible windows:' + [Environment]::NewLine + (Dump-Windows)
+        throw ('Native file dialog did not submit.' + [Environment]::NewLine + (Dump-Windows))
       }
       Start-Sleep -Milliseconds 150
     }
-    throw 'Native file dialog not found. Visible windows:' + [Environment]::NewLine + (Dump-Windows)
+    throw ('Native file dialog not found.' + [Environment]::NewLine + (Dump-Windows))
 `;
 
   try {
@@ -274,11 +282,19 @@ if (Try-BlindSubmit $filePath) {
       windowsHide: true,
     });
   } catch (error) {
-    const detail = error as { stdout?: string; stderr?: string; message?: string };
+    const detail = error as {
+      code?: number | string;
+      killed?: boolean;
+      signal?: string | null;
+      stdout?: string;
+      stderr?: string;
+    };
     throw new Error(
       [
         'Native file dialog automation failed.',
-        detail.message,
+        detail.code !== undefined ? `exit code: ${detail.code}` : '',
+        detail.killed ? 'process killed by timeout' : '',
+        detail.signal ? `signal: ${detail.signal}` : '',
         detail.stdout ? `stdout:\n${detail.stdout}` : '',
         detail.stderr ? `stderr:\n${detail.stderr}` : '',
       ]

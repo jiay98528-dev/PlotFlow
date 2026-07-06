@@ -4,13 +4,16 @@ import { BUILTIN_TEMPLATES } from '../templates/builtinTemplates';
 import {
   addOptionText,
   createNodeAndConnectText,
+  createNodeAndConnectNextText,
   createNodeText,
   deleteOptionText,
   deleteNodeText,
+  deleteVariableText,
   migrateGraphLayoutNodeText,
   removeGraphLayoutNodesText,
   reorderOptionText,
   updateMetaText,
+  updateNodeNextTargetText,
   updateNodeText,
   updateNodePositionText,
   updateOptionText,
@@ -144,6 +147,38 @@ describe('graphEditService text commands', () => {
     expect(findNode(result.content, '井边').position).toEqual({ x: 320, y: 180 });
   });
 
+  it('writes and clears node-level next target flow exits', () => {
+    const story = [
+      '---',
+      'plotflow: 0.1',
+      '---',
+      '',
+      '# Chapter',
+      '',
+      '## \u8282\u70b9\uff1aA',
+      'Body.',
+      '',
+      '## \u8282\u70b9\uff1aB',
+      'Done.',
+      '',
+    ].join('\n');
+    const node = findNode(story, 'A');
+    const connected = updateNodeNextTargetText(story, node, 'B');
+
+    expect(connected.changed).toBe(true);
+    expect(connected.content).toContain('\u4e0b\u4e00\u6b65: \u8282\u70b9\uff1aB');
+    expect(findNode(connected.content, 'A').nextTarget?.targetNodeId).toBe('B');
+
+    const created = createNodeAndConnectNextText(story, node, 'C', { x: 160, y: 80 });
+    expect(created.content).toContain('## \u8282\u70b9\uff1aC');
+    expect(findNode(created.content, 'A').nextTarget?.targetNodeId).toBe('C');
+    expect(findNode(created.content, 'C').position).toEqual({ x: 160, y: 80 });
+
+    const cleared = updateNodeNextTargetText(connected.content, findNode(connected.content, 'A'), null);
+    expect(cleared.content).not.toContain('\u4e0b\u4e00\u6b65:');
+    expect(findNode(cleared.content, 'A').nextTarget).toBeNull();
+  });
+
   it('updates frontmatter meta and writes variables using supported vars syntax', () => {
     const withMeta = updateMetaText(BASE_STORY, 'author', '叙事组');
     const withVariable = upsertVariableText(withMeta.content, {
@@ -156,6 +191,27 @@ describe('graphEditService text commands', () => {
     expect(withVariable.content).toContain('vars:');
     expect(withVariable.content).toContain('  声望: float');
     expect(data.variables.some((variable) => variable.name === '声望' && variable.type === 'float')).toBe(true);
+  });
+
+  it('deletes a variable from supported vars syntax', () => {
+    const story = [
+      '---',
+      'plotflow: 0.1',
+      'vars:',
+      '  score: int',
+      '---',
+      '',
+      '# Chapter',
+      '',
+      '## \u8282\u70b9\uff1aA',
+      'Body.',
+      '',
+    ].join('\n');
+    const deleted = deleteVariableText(story, 'score');
+
+    expect(deleted.changed).toBe(true);
+    expect(deleted.content).not.toContain('score: int');
+    expect(parse(deleted.content).variables).toHaveLength(0);
   });
 
   it('upserts, migrates and removes Graph Lab layout nodes in frontmatter', () => {

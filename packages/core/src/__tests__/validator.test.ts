@@ -548,8 +548,8 @@ describe('validateAll - 一站式验证', () => {
       chapters: [createChapter('ch1', '第一章', [root, next], { isAnonymous: false })],
     });
     const result = validateAll(data);
-    expect(result.diagnostics).toHaveLength(0);
-    expect(result.summary.total).toBe(0);
+    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['W007']);
+    expect(result.summary).toEqual({ errors: 0, warnings: 1, infos: 0, total: 1 });
   });
 });
 

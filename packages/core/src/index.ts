@@ -33,6 +33,7 @@ export type {
   VariableValue,
   Chapter,
   StoryNode,
+  NodeNextTarget,
   NodeDiagnostics,
   Option,
   ConditionNode,

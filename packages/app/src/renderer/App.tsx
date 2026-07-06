@@ -39,6 +39,7 @@ import {
   saveOrSaveAs,
 } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
+import { rememberOpenedStory, rememberRecentStory } from '../services/recentFileService';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
 
@@ -59,6 +60,10 @@ window.__getEditorDirtyState__ = () => {
 window.__forceSave__ = async () => {
   return saveOrSaveAs();
 };
+
+function normalizeStoryPath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
 
 /**
  * PlotFlow Application Root
@@ -173,6 +178,7 @@ function AppContent(): React.ReactElement {
       if (!pending || cancelled) return;
 
       const { filePath, content, hash, modifiedAt } = pending;
+      const normalizedPath = normalizeStoryPath(filePath);
       const editor = useEditorStore.getState();
 
       // P0-5: 鏂囦欢鎵撳紑鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
@@ -201,7 +207,7 @@ function AppContent(): React.ReactElement {
 
       clearPendingSave();
       const freshEditor = useEditorStore.getState();
-      freshEditor.setFilePath(filePath);
+      freshEditor.setFilePath(normalizedPath);
       freshEditor.setFileBaseline(hash, modifiedAt);
       freshEditor.clearPendingExternalChange();
       freshEditor.setDiagnostics([]);
@@ -211,9 +217,10 @@ function AppContent(): React.ReactElement {
       useGraphStore.getState().syncFromAST(null);
       freshEditor.setContent(content);
       freshEditor.markSaved();
+      rememberRecentStory(normalizedPath, hash, modifiedAt);
       parsePipelineNow(content);
       setHomeSurfaceOpen(false);
-      setStatusMessage(text('status.opened', { path: filePath }));
+      setStatusMessage(text('status.opened', { path: normalizedPath }));
     })();
 
     return () => {
@@ -262,7 +269,8 @@ function AppContent(): React.ReactElement {
 
       clearPendingSave();
       const freshEditor = useEditorStore.getState();
-      freshEditor.setFilePath(result.filePath);
+      const normalizedPath = normalizeStoryPath(result.filePath);
+      freshEditor.setFilePath(normalizedPath);
       freshEditor.setFileBaseline(result.hash, result.modifiedAt);
       freshEditor.clearPendingExternalChange();
       freshEditor.setDiagnostics([]);
@@ -272,9 +280,10 @@ function AppContent(): React.ReactElement {
       useGraphStore.getState().syncFromAST(null);
       freshEditor.setContent(result.content);
       freshEditor.markSaved();
+      rememberOpenedStory(result);
       parsePipelineNow(result.content);
       setHomeSurfaceOpen(false);
-      setStatusMessage(text('status.opened', { path: result.filePath }));
+      setStatusMessage(text('status.opened', { path: normalizedPath }));
     });
 
     return cleanup;
@@ -289,7 +298,8 @@ function AppContent(): React.ReactElement {
         filePath: event.filePath.replace(/\\/g, '/'),
       };
       const editor = useEditorStore.getState();
-      if (editor.filePath && editor.filePath !== normalizedEvent.filePath) return;
+      const currentFilePath = editor.filePath ? normalizeStoryPath(editor.filePath) : null;
+      if (currentFilePath && currentFilePath !== normalizedEvent.filePath) return;
 
       if (!editor.isDirty) {
         applyExternalFileContent(normalizedEvent);

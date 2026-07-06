@@ -347,6 +347,26 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
           ))}
         </div>
       )}
+
+      {data.optionCount === 0 && (
+        <div className="story-node-connectors">
+          <div
+            className="story-node-connect-handle nodrag nopan"
+            data-source-full-id={data.fullId}
+            data-option-index="-1"
+            data-testid="story-node-default-next-handle"
+            style={{ left: '50%' }}
+            title="Drag to connect the default next step"
+          >
+            <Handle
+              id="next"
+              type="source"
+              position={Position.Bottom}
+              className="story-node-connect-port nodrag nopan"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

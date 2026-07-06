@@ -127,11 +127,22 @@ function serializeForInlineScript(value: unknown): string {
 
 /** 将 StoryNode 转为运行时节点 */
 function toRuntimeNode(node: StoryNode): RuntimeNode {
+  const options = node.options.map(toRuntimeOption);
+  if (node.nextTarget?.targetFullId) {
+    options.push({
+      text: 'Continue',
+      target: node.nextTarget.targetFullId,
+      condition: null,
+      conditionRaw: null,
+      effects: node.nextTarget.sideEffects,
+    });
+  }
+
   return {
     id: node.id,
     title: node.title,
     body: node.body,
-    options: node.options.map(toRuntimeOption),
+    options,
   };
 }
 

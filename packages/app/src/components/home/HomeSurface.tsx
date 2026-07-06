@@ -7,6 +7,7 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
 import { parsePipelineNow } from '../../services/parsePipeline';
+import { clearRecentStory, readRecentStory, rememberOpenedStory } from '../../services/recentFileService';
 import { useAppText } from '../../i18n/appI18n';
 
 export function HomeSurface(): React.ReactElement | null {
@@ -23,7 +24,24 @@ export function HomeSurface(): React.ReactElement | null {
   const Surface = activeTheme.surfaces.HomeSurface;
   const text = useAppText();
 
-  const openFile = useCallback(async () => {
+  const loadStory = useCallback((path: string, storyContent: string, hash: string, modifiedAt: number) => {
+    clearPendingSave();
+    const freshEditor = useEditorStore.getState();
+    freshEditor.setDiagnostics([]);
+    freshEditor.setActiveNodeId(null);
+    freshEditor.setCursorPosition(1, 1);
+    freshEditor.setContent(storyContent);
+    freshEditor.setFilePath(path);
+    freshEditor.setFileBaseline(hash, modifiedAt);
+    freshEditor.clearPendingExternalChange();
+    freshEditor.markSaved();
+    useStoryStore.getState().clearParseData();
+    useGraphStore.getState().syncFromAST(null);
+    parsePipelineNow(storyContent);
+    setHomeSurfaceOpen(false);
+  }, [setHomeSurfaceOpen]);
+
+  const confirmBeforeReplacing = useCallback(async (): Promise<boolean> => {
     const editor = useEditorStore.getState();
     if (editor.isDirty) {
       const choice = await window.plotflow.dialog.confirm({
@@ -34,30 +52,62 @@ export function HomeSurface(): React.ReactElement | null {
       });
       if (choice === 0) {
         const saved = await saveOrSaveAs();
-        if (!saved) return;
+        if (!saved) return false;
       } else if (choice === 2) {
-        return;
+        return false;
       }
     }
 
+    return true;
+  }, [text]);
+
+  const continueEditing = useCallback(async () => {
+    if (filePath) {
+      setHomeSurfaceOpen(false);
+      return;
+    }
+
+    const recent = readRecentStory();
+    if (!recent) {
+      setStatusMessage('No recent saved .mdstory file found.');
+      setHomeSurfaceOpen(false);
+      return;
+    }
+
+    const canReplace = await confirmBeforeReplacing();
+    if (!canReplace) return;
+
+    if (!window.plotflow?.file?.readByPath) {
+      setStatusMessage(text('file.readIpcUnavailable'));
+      return;
+    }
+
+    const result = await window.plotflow.file.readByPath(recent.filePath);
+    if (!result) {
+      clearRecentStory();
+      setStatusMessage(text('file.cannotRead', { path: recent.filePath }));
+      return;
+    }
+
+    rememberOpenedStory(result);
+    const normalizedPath = result.filePath.replace(/\\/g, '/');
+    loadStory(normalizedPath, result.content, result.hash, result.modifiedAt);
+    setStatusMessage(
+      result.hash !== recent.hash
+        ? `Continue editing loaded the current disk version of ${normalizedPath}.`
+        : text('status.opened', { path: normalizedPath }),
+    );
+  }, [confirmBeforeReplacing, filePath, loadStory, setHomeSurfaceOpen, setStatusMessage, text]);
+
+  const openFile = useCallback(async () => {
+    const canReplace = await confirmBeforeReplacing();
+    if (!canReplace) return;
+
     const { FileService } = await import('../../services/fileService');
     const result = await new FileService().openFile();
-    clearPendingSave();
-    const freshEditor = useEditorStore.getState();
-    freshEditor.setDiagnostics([]);
-    freshEditor.setActiveNodeId(null);
-    freshEditor.setCursorPosition(1, 1);
-    freshEditor.setContent(result.content);
-    freshEditor.setFilePath(result.path);
-    freshEditor.setFileBaseline(result.hash, result.modifiedAt);
-    freshEditor.clearPendingExternalChange();
-    freshEditor.markSaved();
-    useStoryStore.getState().clearParseData();
-    useGraphStore.getState().syncFromAST(null);
-    parsePipelineNow(result.content);
-    setHomeSurfaceOpen(false);
+    loadStory(result.path, result.content, result.hash, result.modifiedAt);
     setStatusMessage(text('status.opened', { path: result.path }));
-  }, [setHomeSurfaceOpen, setStatusMessage, text]);
+  }, [confirmBeforeReplacing, loadStory, setStatusMessage, text]);
 
   if (!isOpen) return null;
 
@@ -86,7 +136,7 @@ export function HomeSurface(): React.ReactElement | null {
       )}
       actions={(
         <>
-          <button type="button" className="button button--primary" onClick={() => setHomeSurfaceOpen(false)}>
+          <button type="button" className="button button--primary" onClick={() => { void continueEditing(); }}>
             <Play aria-hidden="true" size={16} strokeWidth={2} />
             <span>{text('home.continue')}</span>
           </button>

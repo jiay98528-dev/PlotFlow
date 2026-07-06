@@ -45,7 +45,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useThemePlatform } from '../ThemePlatformProvider';
 import { parsePipelineNow } from '../../services/parsePipeline';
 import { graphEditService } from '../../services/graphEditService';
-import { parseEdgeId } from '../../stores/edgeStore';
+import { NEXT_EDGE_OPTION_INDEX, parseEdgeId } from '../../stores/edgeStore';
 import {
   resolveStoryFullIdForFlowNodeId,
   type StoryFlowNodeData,
@@ -84,6 +84,10 @@ interface ManualWireDrag extends WireDragSource {
 
 interface LiveWirePreview extends ManualWireDrag {
   readonly currentPoint: { readonly x: number; readonly y: number };
+}
+
+function isNextEdgeIndex(optionIndex: number): boolean {
+  return optionIndex === NEXT_EDGE_OPTION_INDEX;
 }
 
 function eventToClientPoint(event: globalThis.MouseEvent | globalThis.TouchEvent | unknown): { x: number; y: number } {
@@ -188,7 +192,7 @@ function getWireDragSourceFromTarget(target: EventTarget | null): WireDragSource
     '';
   const optionIndex = Number.parseInt(optionIndexRaw, 10);
 
-  if (!sourceFullId || !Number.isInteger(optionIndex) || optionIndex < 0) return null;
+  if (!sourceFullId || !Number.isInteger(optionIndex) || optionIndex < NEXT_EDGE_OPTION_INDEX) return null;
   return { sourceFullId, optionIndex };
 }
 
@@ -224,6 +228,7 @@ function WireDropMenu({
   const menuRef = React.useRef<HTMLDivElement>(null);
 
   const sourceNode = getNodeByFullId(context.sourceFullId);
+  const isNextTarget = isNextEdgeIndex(context.optionIndex);
   const option = sourceNode?.options[context.optionIndex];
   const candidates = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -244,16 +249,20 @@ function WireDropMenu({
         event.preventDefault();
         onClose();
       }
-      if (event.key === 'Enter' && candidates[0] && option) {
+      if (event.key === 'Enter' && candidates[0] && sourceNode && (option || isNextTarget)) {
         event.preventDefault();
-        graphEditService.connectOption(option, candidates[0].id);
+        if (isNextTarget) {
+          graphEditService.connectNextTarget(sourceNode, candidates[0].id);
+        } else if (option) {
+          graphEditService.connectOption(option, candidates[0].id);
+        }
         setStatusMessage(`Graph Lab 已连接到「${candidates[0].title}」`);
         onClose();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, onClose, option, setStatusMessage]);
+  }, [candidates, isNextTarget, onClose, option, setStatusMessage, sourceNode]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -266,26 +275,39 @@ function WireDropMenu({
     return () => window.removeEventListener('pointerdown', handlePointerDown, true);
   }, [onClose]);
 
-  if (!sourceNode || !option) return null;
+  if (!sourceNode || (!option && !isNextTarget)) return null;
 
   const adjustedX = Math.min(context.position.x, window.innerWidth - 300);
   const adjustedY = Math.min(context.position.y, window.innerHeight - 360);
 
   const createAndConnect = (title: string): void => {
-    graphEditService.createNodeAndConnect(sourceNode, option, title, context.flowPosition);
+    if (isNextTarget) {
+      graphEditService.createNodeAndConnectNext(sourceNode, title, context.flowPosition);
+    } else if (option) {
+      graphEditService.createNodeAndConnect(sourceNode, option, title, context.flowPosition);
+    }
     setStatusMessage(`Graph Lab 已创建并连接「${title}」`);
     onClose();
   };
 
   const connectExisting = (targetId: string, targetTitle: string): void => {
-    graphEditService.connectOption(option, targetId);
+    if (isNextTarget) {
+      graphEditService.connectNextTarget(sourceNode, targetId);
+    } else if (option) {
+      graphEditService.connectOption(option, targetId);
+    }
     setStatusMessage(`Graph Lab 已连接到「${targetTitle}」`);
     onClose();
   };
 
   const disconnect = (): void => {
-    graphEditService.connectOption(option, null);
-    setStatusMessage(`Graph Lab 已断开「${sourceNode.title}」的选项 ${context.optionIndex + 1}`);
+    if (isNextTarget) {
+      graphEditService.connectNextTarget(sourceNode, null);
+      setStatusMessage(`Graph Lab 已断开「${sourceNode.title}」的下一步`);
+    } else if (option) {
+      graphEditService.connectOption(option, null);
+      setStatusMessage(`Graph Lab 已断开「${sourceNode.title}」的选项 ${context.optionIndex + 1}`);
+    }
     onClose();
   };
 
@@ -317,7 +339,7 @@ function WireDropMenu({
         <button type="button" data-testid="wire-drop-create-ending" onClick={() => createAndConnect('结局')}>
           创建结局节点并连接
         </button>
-        {(context.mode === 'reconnect' || option.targetNodeId) && (
+        {(context.mode === 'reconnect' || option?.targetNodeId || (isNextTarget && sourceNode.nextTarget?.targetNodeId)) && (
           <button type="button" data-testid="wire-drop-disconnect" className="wire-drop-menu__danger" onClick={disconnect}>
             断开此选项
           </button>
@@ -429,6 +451,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   // UIStore — 条件编辑器面板控制
   const openConditionEditor = useUIStore((state) => state.openConditionEditor);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const activeChapterId = useUIStore((state) => state.activeChapterId);
 
   const connectDidSucceed = React.useRef(false);
   const connectStartParams = React.useRef<OnConnectStartParams | null>(null);
@@ -459,6 +482,19 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     }),
     [activeTheme.slots.StoryEdge],
   );
+
+  const visibleGraph = useMemo(() => {
+    if (!isGraphLab || !activeChapterId) return { nodes, edges };
+    const visibleNodeIds = new Set(
+      nodes
+        .filter((node) => (node.data as StoryFlowNodeData | undefined)?.chapterId === activeChapterId)
+        .map((node) => node.id),
+    );
+    return {
+      nodes: nodes.filter((node) => visibleNodeIds.has(node.id)),
+      edges: edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)),
+    };
+  }, [activeChapterId, edges, isGraphLab, nodes]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -545,14 +581,19 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         try {
           const { sourceFullId, optionIndex } = parseEdgeId(edgeToReconnect.id);
           const sourceNode = getNodeByFullId(sourceFullId);
+          const isNextTarget = isNextEdgeIndex(optionIndex);
           const option = sourceNode?.options[optionIndex];
           const clientPoint = eventToClientPoint(event);
           const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
           const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint, nodes);
-          if (sourceNode && option && dropTargetFullId && dropTargetFullId !== sourceFullId) {
+          if (sourceNode && (option || isNextTarget) && dropTargetFullId && dropTargetFullId !== sourceFullId) {
             const targetNode = getNodeByFullId(dropTargetFullId);
             if (targetNode) {
-              graphEditService.connectOption(option, targetNode.id);
+              if (isNextTarget) {
+                graphEditService.connectNextTarget(sourceNode, targetNode.id);
+              } else if (option) {
+                graphEditService.connectOption(option, targetNode.id);
+              }
               setStatusMessage(`Graph Lab 已重连到「${targetNode.title}」`);
               return;
             }
@@ -640,10 +681,12 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     (connection: Connection) => {
       // 步骤 1: 解析选项索引
       const optionIndex = parseInt(
-        connection.sourceHandle?.replace('option-', '') ?? '-1',
+        connection.sourceHandle === 'next'
+          ? String(NEXT_EDGE_OPTION_INDEX)
+          : connection.sourceHandle?.replace('option-', '') ?? '-1',
         10,
       );
-      if (optionIndex < 0) return;
+      if (optionIndex < NEXT_EDGE_OPTION_INDEX) return;
 
       // 步骤 2: 查找源节点和目标节点
       const sourceNode = getNodeByFullId(connection.source);
@@ -651,9 +694,13 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       if (!sourceNode || !targetNode) return;
 
       // 步骤 3: 获取对应选项
+      if (isNextEdgeIndex(optionIndex)) {
+        graphEditService.connectNextTarget(sourceNode, targetNode.id);
+        return;
+      }
+
       const option = sourceNode.options[optionIndex];
       if (!option) return;
-
       graphEditService.connectOption(option, targetNode.id);
     },
     [getNodeByFullId],
@@ -675,6 +722,21 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const { sourceFullId, optionIndex } = parseEdgeId(oldEdge.id);
         const sourceNode = getNodeByFullId(sourceFullId);
         if (!sourceNode) return;
+
+        if (isNextEdgeIndex(optionIndex)) {
+          const targetNode = getNodeByFullId(newConnection.target);
+          if (!targetNode) return;
+
+          reconnectDidSucceed.current = true;
+          graphEditService.connectNextTarget(sourceNode, targetNode.id);
+
+          const currentEdges = useGraphStore.getState().edges;
+          const reconnected = reconnectEdge(oldEdge, newConnection, currentEdges, {
+            shouldReplaceId: true,
+          });
+          setEdges(reconnected);
+          return;
+        }
 
         const option = sourceNode.options[optionIndex];
         if (!option) return;
@@ -776,6 +838,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const sourceNode = getNodeByFullId(sourceFullId);
         if (!sourceNode) return;
 
+        if (isNextEdgeIndex(optionIndex)) {
+          graphEditService.connectNextTarget(sourceNode, null);
+          return;
+        }
+
         const option = sourceNode.options[optionIndex];
         if (!option) return;
 
@@ -800,6 +867,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           const { sourceFullId, optionIndex } = parseEdgeId(edge.id);
           const sourceNode = getNodeByFullId(sourceFullId);
           if (!sourceNode) return;
+
+          if (isNextEdgeIndex(optionIndex)) {
+            graphEditService.connectNextTarget(sourceNode, null);
+            return;
+          }
 
           const option = sourceNode.options[optionIndex];
           if (!option) return;
@@ -864,6 +936,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
       try {
         const { sourceFullId, optionIndex } = parseEdgeId(edge.id);
+        if (isNextEdgeIndex(optionIndex)) return;
         openConditionEditor(sourceFullId, optionIndex);
       } catch {
         // parseEdgeId 解析失败 → 记录日志，不崩溃
@@ -997,11 +1070,15 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       connectStartParams.current = null;
       const sourceNodeId = startParams?.nodeId;
       const sourceHandle = startParams?.handleId;
-      const optionIndex = parseInt(sourceHandle?.replace('option-', '') ?? '-1', 10);
+      const optionIndex = parseInt(
+        sourceHandle === 'next' ? String(NEXT_EDGE_OPTION_INDEX) : sourceHandle?.replace('option-', '') ?? '-1',
+        10,
+      );
       const sourceNode = sourceNodeId ? getNodeByFullId(sourceNodeId) : undefined;
+      const isNextTarget = isNextEdgeIndex(optionIndex);
       const option = optionIndex >= 0 ? sourceNode?.options[optionIndex] : undefined;
 
-      if (!sourceNode || !option) {
+      if (!sourceNode || (!option && !isNextTarget)) {
         setStatusMessage('拖拽到空白 — 未找到可连接的选项');
         return;
       }
@@ -1012,7 +1089,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       if (dropTargetFullId && dropTargetFullId !== sourceNode.fullId) {
         const targetNode = getNodeByFullId(dropTargetFullId);
         if (targetNode) {
-          graphEditService.connectOption(option, targetNode.id);
+          if (isNextTarget) {
+            graphEditService.connectNextTarget(sourceNode, targetNode.id);
+          } else if (option) {
+            graphEditService.connectOption(option, targetNode.id);
+          }
           setStatusMessage(`Graph Lab 已连接到「${targetNode.title}」`);
           return;
         }
@@ -1099,8 +1180,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       }
 
       const sourceNode = getNodeByFullId(drag.sourceFullId);
+      const isNextTarget = isNextEdgeIndex(drag.optionIndex);
       const option = sourceNode?.options[drag.optionIndex];
-      if (!sourceNode || !option) {
+      if (!sourceNode || (!option && !isNextTarget)) {
         setStatusMessage('拖拽线缆 — 未找到可连接的选项');
         return true;
       }
@@ -1109,7 +1191,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       if (dropTargetFullId && dropTargetFullId !== sourceNode.fullId) {
         const targetNode = getNodeByFullId(dropTargetFullId);
         if (targetNode) {
-          graphEditService.connectOption(option, targetNode.id);
+          if (isNextTarget) {
+            graphEditService.connectNextTarget(sourceNode, targetNode.id);
+          } else if (option) {
+            graphEditService.connectOption(option, targetNode.id);
+          }
           setStatusMessage(`Graph Lab 已连接到「${targetNode.title}」`);
           return true;
         }
@@ -1117,7 +1203,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
       const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
       setWireDropContext({
-        mode: option.targetNodeId ? 'reconnect' : 'connect',
+        mode: (option?.targetNodeId || (isNextTarget && sourceNode.nextTarget?.targetNodeId)) ? 'reconnect' : 'connect',
         position: clientPoint,
         flowPosition,
         sourceFullId: sourceNode.fullId,
@@ -1324,9 +1410,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 使用 collapsedGroups 状态决定哪些组处于折叠状态。
    */
   const collapsedResult = useMemo(() => {
-    if (nodes.length === 0) return { nodes: [] as Node[], edges: [] as Edge[] };
-    return collapseSiblingNodes(nodes, edges, COLLAPSE_THRESHOLD, collapsedGroups);
-  }, [nodes, edges, collapsedGroups]);
+    if (visibleGraph.nodes.length === 0) return { nodes: [] as Node[], edges: [] as Edge[] };
+    return collapseSiblingNodes(visibleGraph.nodes, visibleGraph.edges, COLLAPSE_THRESHOLD, collapsedGroups);
+  }, [visibleGraph.nodes, visibleGraph.edges, collapsedGroups]);
 
   /**
    * 第二步：将 activeNodeId 映射到节点的 selected 标志，
@@ -1350,7 +1436,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const displayedEdges = collapsedResult.edges;
 
   /** 是否显示空状态 */
-  const isEmpty = nodes.length === 0;
+  const isEmpty = visibleGraph.nodes.length === 0;
 
   // V02-033: 解析器错误诊断 — 区分"无文件"和"解析失败"两种空状态
   const errorDiagnostics = diagnostics.filter((d) => d.severity === 'error');

@@ -19,6 +19,7 @@
 import type { PlotFlowData, VariableDeclaration, ConditionNode, VariableType } from '../types/ast.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
+import { buildStoryAdjacency } from './adjacency.js';
 
 // ============================================================================
 // 局部工具：收集所有已声明的变量名（含嵌套字段的 dotted path）
@@ -132,6 +133,34 @@ export function checkUndefinedTargetNode(data: PlotFlowData): Diagnostic[] {
           );
         }
       }
+
+      const nextTarget = node.nextTarget;
+      if (nextTarget?.targetNodeId) {
+        const expectedTargetId = nextTarget.targetChapterId
+          ? `${nextTarget.targetChapterId}-${nextTarget.targetNodeId}`
+          : nextTarget.targetNodeId;
+        if (nextTarget.targetFullId !== null) {
+          if (!allNodeIds.has(nextTarget.targetFullId)) {
+            diagnostics.push(
+              createDiagnostic(
+                'E001',
+                rangeAtLine(nextTarget.lineNumber),
+                `Next target "${nextTarget.targetFullId}" does not exist in story`,
+                node.fullId,
+              ),
+            );
+          }
+        } else if (!allNodeIds.has(expectedTargetId)) {
+          diagnostics.push(
+            createDiagnostic(
+              'E001',
+              rangeAtLine(nextTarget.lineNumber),
+              `Next target "${nextTarget.raw}" does not exist in story`,
+              node.fullId,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -169,6 +198,9 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
           referencedVars.add(effect.variableName);
         }
       }
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        referencedVars.add(effect.variableName);
+      }
     }
   }
 
@@ -193,6 +225,12 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
                 refLine = effect.lineNumber;
                 break outer;
               }
+            }
+          }
+          for (const effect of node.nextTarget?.sideEffects ?? []) {
+            if (effect.variableName === varName) {
+              refLine = effect.lineNumber;
+              break outer;
             }
           }
         }
@@ -269,6 +307,22 @@ export function checkInvalidEnumValue(data: PlotFlowData): Diagnostic[] {
                 ),
               );
             }
+          }
+        }
+      }
+
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        const varInfo = declaredVars.get(effect.variableName);
+        if (varInfo && varInfo.type === 'enum' && varInfo.enumValues) {
+          if (typeof effect.value === 'string' && !varInfo.enumValues.includes(effect.value)) {
+            diagnostics.push(
+              createDiagnostic(
+                'E003',
+                rangeAtLine(effect.lineNumber),
+                `Enum variable "${effect.variableName}" value "${effect.value}" is not allowed`,
+                node.fullId,
+              ),
+            );
           }
         }
       }
@@ -407,6 +461,22 @@ export function checkTypeMismatch(data: PlotFlowData): Diagnostic[] {
               ),
             );
           }
+        }
+      }
+
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        const varInfo = declaredVars.get(effect.variableName);
+        if (!varInfo) continue;
+
+        if (!isTypeCompatible(varInfo.type, effect.value)) {
+          diagnostics.push(
+            createDiagnostic(
+              'E004',
+              rangeAtLine(effect.lineNumber),
+              `Variable "${effect.variableName}" type is ${varInfo.type}, but effect value type is ${typeof effect.value}`,
+              node.fullId,
+            ),
+          );
         }
       }
     }
@@ -743,6 +813,7 @@ import {
   checkDuplicateOptionDescriptions,
   checkEmptyBodyNodes,
   checkFormatIrregularities,
+  checkClosedCycles,
 } from './warnings.js';
 
 import {
@@ -795,6 +866,7 @@ export function validate(data: PlotFlowData): ValidationResult {
     ...checkDuplicateOptionDescriptions(data),
     ...checkEmptyBodyNodes(data),
     ...checkFormatIrregularities(data),
+    ...checkClosedCycles(data),
     // 建议 I001-I003（3 条规则）
     ...checkPotentialSoftlock(data),
     ...checkShortBody(data),
@@ -824,17 +896,7 @@ export function validate(data: PlotFlowData): ValidationResult {
  */
 function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[]): void {
   // 1. 收集所有选项的目标节点 ID（fullId）
-  const allTargetIds = new Set<string>();
-  for (const chapter of data.chapters) {
-    for (const node of chapter.nodes) {
-      for (const option of node.options) {
-        if (option.targetFullId !== null) {
-          allTargetIds.add(option.targetFullId);
-        }
-      }
-    }
-  }
-
+  const adjacency = buildStoryAdjacency(data);
   // 2. 按 relatedNodeId 分组诊断 ID
   const diagByNode = new Map<string, string[]>();
   for (const d of allDiagnostics) {
@@ -853,7 +915,7 @@ function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[])
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
       const nd = node.diagnostics;
-      const hasEntry = allTargetIds.has(node.fullId);
+      const hasEntry = adjacency.incomingByTargetFullId.has(node.fullId);
 
       // isRoot: 第一个没有入口的节点标记为根节点
       if (!foundRoot && !hasEntry) {
@@ -867,7 +929,7 @@ function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[])
       nd.isOrphan = !nd.isRoot && !hasEntry;
 
       // isDeadEnd: 无出口选项
-      nd.isDeadEnd = node.options.length === 0;
+      nd.isDeadEnd = !adjacency.outgoingBySourceFullId.has(node.fullId);
 
       // 追加关联的诊断 ID（保留解析器已写入的 ID）
       const relatedIds = diagByNode.get(node.fullId);

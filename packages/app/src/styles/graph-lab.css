@@ -22,7 +22,7 @@
 .graph-lab__commandbar {
   grid-column: 1 / 4;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto minmax(260px, auto);
+  grid-template-columns: minmax(220px, 0.9fr) auto minmax(180px, 1fr) minmax(220px, auto);
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
@@ -35,6 +35,7 @@
 .graph-lab__commandbar-main,
 .graph-lab__commandbar-actions,
 .graph-lab__commandbar-stats,
+.graph-lab__chapter-tabs,
 .graph-lab__selection,
 .graph-lab-dock-toggle,
 .graph-lab-rail__current,
@@ -88,6 +89,34 @@
   font-weight: 760;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.graph-lab__chapter-tabs {
+  min-width: 0;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.graph-lab__chapter-tabs button {
+  flex: 0 0 auto;
+  max-width: 160px;
+  overflow: hidden;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.graph-lab__chapter-tabs button.is-active {
+  border-color: var(--color-border-focus);
+  color: var(--color-text-primary);
+  background: var(--color-accent-subtle);
 }
 
 .graph-lab__commandbar-stats {
@@ -300,6 +329,50 @@
 .graph-lab-outline {
   max-height: 210px;
   overflow: auto;
+}
+
+.graph-lab-variable-list {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.graph-lab-variable-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.graph-lab-variable-row strong,
+.graph-lab-variable-row small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-lab-variable-row small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.graph-lab-effect-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.graph-lab-effect-builder select,
+.graph-lab-effect-builder input {
+  min-width: 0;
+  height: 30px;
 }
 
 .graph-lab-outline-node {
@@ -554,6 +627,21 @@
 .source-drawer__editor {
   width: 100%;
   height: 100%;
+}
+
+.source-drawer__slice-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  resize: none;
+  padding: var(--space-3);
+  border: 0;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  outline: none;
 }
 
 .source-drawer--editor-hidden {

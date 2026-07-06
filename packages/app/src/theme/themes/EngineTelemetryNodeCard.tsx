@@ -175,7 +175,20 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
 
       <div className="official-graph-node__options">
         {options.length === 0 ? (
-          <div className="official-graph-node__empty">Terminal route or pending branch</div>
+          <div className="official-graph-node__empty">
+            Terminal route or pending branch
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="next"
+              className="story-node-connect-handle official-node-port official-node-port--source"
+              data-source-full-id={nodeData.fullId}
+              data-option-index={-1}
+              data-nodeid={nodeData.fullId}
+              data-handleid="next"
+              isConnectable={isConnectable}
+            />
+          </div>
         ) : (
           options.map((option, index) => (
             <div className="official-graph-node__option" key={`${option.lineNumber}-${index}`}>

@@ -43,7 +43,13 @@ export interface StoryNodeSourceRange extends StorySourceRange {
   readonly fullId: string;
   readonly titleRange: StorySourceRange;
   readonly bodyRange: StorySourceRange;
+  readonly nextTarget: StoryNodeNextTargetSourceRange | null;
   readonly options: readonly StoryOptionSourceRange[];
+}
+
+export interface StoryNodeNextTargetSourceRange extends StorySourceRange {
+  readonly targetRange: StorySourceRange;
+  readonly effectsRange: StorySourceRange | null;
 }
 
 export interface StoryOptionSourceRange extends StorySourceRange {
@@ -105,12 +111,15 @@ const NODE_LABEL = '\u8282\u70b9';
 const OPTION_LABEL = '\u9009\u9879';
 const CONDITION_LABEL = '\u6761\u4ef6';
 const EFFECTS_LABEL = '\u6548\u679c';
+const NEXT_LABEL = '\u4e0b\u4e00\u6b65';
 const CHAPTER_HEADING_RE = /^#[ \t]+(.+)$/u;
 const NODE_HEADING_RE = new RegExp(`^##[ \\t]+${NODE_LABEL}[：:][ \\t]*(.*)$`, 'u');
 const OPTION_LINE_RE = new RegExp(`^([ \\t]*)\\[${OPTION_LABEL}\\][ \\t]+(.+)$`, 'u');
 const OPTION_TARGET_RE = new RegExp(`->[ \\t]*(?:(?:.+)/)?${NODE_LABEL}[：:][ \\t]*(.+?)[ \\t]*$`, 'u');
 const CONDITION_LINE_RE = new RegExp(`^[ \\t]+${CONDITION_LABEL}[：:][ \\t]*(.*)$`, 'u');
 const EFFECTS_LINE_RE = new RegExp(`^[ \\t]+${EFFECTS_LABEL}[：:][ \\t]*(.*)$`, 'u');
+const NEXT_TARGET_LINE_RE = new RegExp(`^[ \\t]*${NEXT_LABEL}[：:][ \\t]*(.+)$`, 'u');
+const NEXT_EFFECTS_LINE_RE = new RegExp(`^[ \\t]+${EFFECTS_LABEL}[：:][ \\t]*(.*)$`, 'u');
 const INLINE_CONDITION_RE = new RegExp(`\\[${CONDITION_LABEL}[：:][ \\t]*([^\\]]*)\\]`, 'u');
 const INLINE_EFFECTS_RE = new RegExp(`\\[${EFFECTS_LABEL}[：:][ \\t]*([^\\]]*)\\]`, 'u');
 
@@ -345,12 +354,16 @@ function scanChapters(lines: readonly StorySourceLine[], bodyStartLine: number):
   let currentNodeStart = -1;
   let currentNodeTitleRange: StorySourceRange | null = null;
   let currentNodeOptions: StoryOptionSourceRange[] = [];
+  let currentNodeNextTarget: StoryNodeNextTargetSourceRange | null = null;
 
   const flushNode = (endLineIndex: number): void => {
     if (currentNodeTitle === null || currentNodeStart < 0 || !currentNodeTitleRange) return;
     const startLine = lines[currentNodeStart]!;
     const endLine = lines[Math.max(currentNodeStart, endLineIndex)] ?? startLine;
     const firstOption = currentNodeOptions[0];
+    const firstSyntax = [firstOption, currentNodeNextTarget]
+      .filter((range): range is StoryOptionSourceRange | StoryNodeNextTargetSourceRange => range !== null)
+      .sort((a, b) => a.startLine - b.startLine)[0];
     currentNodes.push({
       title: currentNodeTitle,
       fullId: fullIdFor(currentChapterTitle, currentNodeTitle),
@@ -361,16 +374,18 @@ function scanChapters(lines: readonly StorySourceLine[], bodyStartLine: number):
       titleRange: currentNodeTitleRange,
       bodyRange: {
         startLine: currentNodeStart + 1,
-        endLine: firstOption ? firstOption.startLine : Math.max(currentNodeStart, endLineIndex) + 1,
+        endLine: firstSyntax ? firstSyntax.startLine : Math.max(currentNodeStart, endLineIndex) + 1,
         startOffset: lineFullEndOffset(startLine),
-        endOffset: firstOption ? firstOption.startOffset : lineFullEndOffset(endLine),
+        endOffset: firstSyntax ? firstSyntax.startOffset : lineFullEndOffset(endLine),
       },
+      nextTarget: currentNodeNextTarget,
       options: currentNodeOptions,
     });
     currentNodeTitle = null;
     currentNodeStart = -1;
     currentNodeTitleRange = null;
     currentNodeOptions = [];
+    currentNodeNextTarget = null;
   };
 
   const flushChapter = (endLineIndex: number): void => {
@@ -432,11 +447,43 @@ function scanChapters(lines: readonly StorySourceLine[], bodyStartLine: number):
       continue;
     }
 
+    if (currentNodeTitle !== null) {
+      const nextMatch = NEXT_TARGET_LINE_RE.exec(trimmed);
+      if (nextMatch) {
+        const rawTarget = nextMatch[1] ?? '';
+        let endIndex = index;
+        let effectsRange: StorySourceRange | null = null;
+        const nextLine = lines[index + 1];
+        if (nextLine) {
+          const effectMatch = NEXT_EFFECTS_LINE_RE.exec(nextLine.text);
+          if (effectMatch) {
+            endIndex = index + 1;
+            effectsRange = lineValueRange(nextLine, index + 1, effectMatch[1] ?? '', effectMatch[0].length);
+          }
+        }
+        const endRangeLine = lines[endIndex] ?? line;
+        currentNodeNextTarget = {
+          startLine: index + 1,
+          endLine: endIndex + 1,
+          startOffset: line.startOffset,
+          endOffset: lineFullEndOffset(endRangeLine),
+          targetRange: lineValueRange(line, index, rawTarget, nextMatch[0].length),
+          effectsRange,
+        };
+        continue;
+      }
+    }
+
     if (currentNodeTitle !== null && OPTION_LINE_RE.test(trimmed)) {
       let blockEnd = index;
       for (let cursor = index + 1; cursor < lines.length; cursor++) {
         const nextTrimmed = lines[cursor]!.text.trimStart();
-        if (OPTION_LINE_RE.test(nextTrimmed) || NODE_HEADING_RE.test(nextTrimmed) || (!nextTrimmed.startsWith('##') && CHAPTER_HEADING_RE.test(nextTrimmed))) {
+        if (
+          NEXT_TARGET_LINE_RE.test(nextTrimmed)
+          || OPTION_LINE_RE.test(nextTrimmed)
+          || NODE_HEADING_RE.test(nextTrimmed)
+          || (!nextTrimmed.startsWith('##') && CHAPTER_HEADING_RE.test(nextTrimmed))
+        ) {
           break;
         }
         blockEnd = cursor;

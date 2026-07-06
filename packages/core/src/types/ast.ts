@@ -188,6 +188,9 @@ export interface StoryNode {
   /** 选项列表 */
   readonly options: Option[];
 
+  /** Node-level default flow exit parsed from `下一步: 节点：X`. */
+  readonly nextTarget?: NodeNextTarget | null;
+
   /** 诊断元数据（验证器填充） */
   readonly diagnostics: NodeDiagnostics;
 
@@ -195,6 +198,16 @@ export interface StoryNode {
   readonly position?: GraphPosition;
 
   /** 在源文件中的行号（1-based） */
+  readonly lineNumber: number;
+}
+
+export interface NodeNextTarget {
+  readonly targetNodeId: string | null;
+  readonly targetChapterId: string | null;
+  readonly targetFullId: string | null;
+  readonly raw: string;
+  readonly sideEffects: SideEffect[];
+  readonly effectsRaw: string | null;
   readonly lineNumber: number;
 }
 
