@@ -2,6 +2,8 @@
 
 > **主题系统权威口径（2026-06-27）**：PlotFlow 只支持官方主题。官方主题分为内置主题和官方远程免费主题；远程主题由 PlotFlow 官方静态目录注册，下载 `.pf-official-theme.zip`，校验后通过 `plotflow-theme://` 动态加载包内 `index.mjs`。远程主题包与内置主题拥有同等当前主题能力，可以提供完整 `ThemeDescriptor`、React surfaces、React slots、位置、大小、布局类型、颜色、透明度、z-index、半径、字体、动效、Monaco 配色、CSS 和 assets。当前不开放第三方、社区上传、本地 `.pf-theme.zip` 导入、支付或授权；主题不得改变 `.mdstory` 语义、保存、导出或 Graph Lab 命令层。完整开发标准见 `doc/standards-theme-development.md`。
 
+> **Graph Lab V0.3 UX 权威补充（2026-07-06）**：Graph Lab 是正式图优先入口。顶部命令栏必须有独立、可见的章节标签行；新增章节后新 tab 必须立即出现并被选中。Source Drawer 在 Graph Lab 中显示当前章节源码切片，split 模式仍显示全文件。Inspector 必须把 frontmatter `vars:` 提升为单文件全局变量列表，条件和效果编辑器只能从已声明变量中选择。无选项节点显示默认 `下一步` 连线口；存在任意普通选项时隐藏默认连线口。W007 闭环循环警告必须在图上可达。章节标签可见性属于截图门禁：E2E 必须保存并附加新增章节前后的 tab bar 截图，不能只检查 DOM。
+
 > **绫诲瀷**锛歚/impeccable shape` 浜у嚭
 > **鏃ユ湡**锛?026-06-12
 > **鐗堟湰**锛歏1.1

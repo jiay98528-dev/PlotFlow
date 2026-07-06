@@ -553,3 +553,41 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 
 **Remaining**
 - Installed blackbox was not run because `PLOTFLOW_INSTALLED_EXE` is not set.
+
+---
+
+### BUG-014: Graph Lab 章节标签 DOM 存在但顶部固定行高导致用户不可见
+**Date**: 2026-07-06
+**Category**: `UX` / `E2E`
+**Severity**: P1 visual verification gap
+**Milestone**: V0.3 external audit follow-up
+
+**Observed**
+- 用户在 E2E 运行过程中没有看到 UI 页面出现新增章节标签页和标签栏。
+- 旧 Graph Lab E2E 只验证章节创建、源码/状态变化，没有截图证明 tab bar 在真实布局中可见。
+
+**Root cause**
+- Graph Lab 顶部 command bar 使用固定 `54/58px` grid 行高；章节标签虽然在 DOM 中渲染，但可能被压缩或裁切。
+- 测试缺少“可见尺寸 + 截图附件”断言，DOM locator 通过不能证明用户可见。
+
+**Fixes**
+- `GraphLabWorkspace` 将 command bar 拆为顶部主控行和独立章节标签行。
+- `graph-lab.css` 与官方主题覆盖中的 Graph Lab 首行高度改为 `auto`，避免标签栏被固定高度裁切。
+- `graph-lab.e2e.spec.ts` 新增章节标签截图用例，创建章节前后分别截图 tab bar，并附加完整工作区截图。
+
+**Prevention**
+- 对用户必须看见的导航/标签/工具栏，E2E 不能只检查 DOM；必须断言 locator 可见、bounding box 尺寸合理，并保存截图附件。
+- 主题覆盖不得把包含可变行数的 command bar 固定为单行高度。
+
+**Verification**
+- `pnpm.cmd typecheck` PASS.
+- `pnpm.cmd lint` PASS, 0 errors / 9 existing warnings.
+- `pnpm.cmd lint:css` PASS.
+- `pnpm.cmd build` PASS.
+- `pnpm.cmd lint:tokens` PASS.
+- `pnpm.cmd lint:bundle` PASS.
+- `pnpm.cmd --filter @plotflow/app exec playwright test --config e2e/playwright.config.ts e2e/graph-lab.e2e.spec.ts --workers=1` PASS, 19/19.
+- Targeted chapter-tab screenshot E2E PASS, 1/1.
+
+**Remaining**
+- Source changed after the refreshed package/unpacked run; rerun `package:win`, unpacked blackbox, installed blackbox, and manual patrol before claiming release-candidate passed.

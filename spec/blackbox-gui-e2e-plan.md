@@ -7,6 +7,8 @@
 
 > 2026-06-30 更新：黑盒套件已扩展为 source / unpacked / installed 三类启动目标。`test:e2e:blackbox` 只代表源码构建产物黑盒通过；正式发行必须继续跑 `test:e2e:unpacked` 和 `test:e2e:installed`，并按 `spec/release-blackbox-gate.md` 记录结果。
 
+> 2026-07-06 更新：外审 P0/P1 回归必须覆盖 Home `Continue editing` 最近文件恢复、Graph Lab `vars:` 全局变量闭环、`下一步` 流程出口、W007 闭环循环诊断、章节标签栏截图验证、Source Drawer 章节源码切片。章节标签可见性不能只靠 DOM locator，必须有截图附件。
+
 ## Summary
 
 - 新增独立黑盒测试套件，不重构现有 38 项 E2E；现有套件继续作为集成回归，黑盒套件作为 release/nightly 手动门禁。
@@ -57,6 +59,11 @@
 - 从 Home 进入 Graph Lab。
 - 选择真实工作区文件夹，打开工作区内 `.mdstory`。
 - 使用 palette 创建章节、节点、结局；拖拽节点改变 layout；拖线连接/断开；Source Drawer 展开查看文本。
+- 新增章节后验证顶部章节 tab 可见、选中态正确，并保存 tab bar/完整工作区截图。
+- Source Drawer 在 Graph Lab 中只显示当前章节源码切片；编辑切片后回到 split 全文件视图确认映射正确。
+- 新增/删除 frontmatter `vars:` 变量后，在条件和效果编辑器下拉中选择该变量并确认源码写回。
+- 无选项节点从默认 handle 连线写入 `下一步`；新增普通选项后默认 handle 隐藏。
+- 构造 A→B→A、A→B→C→A 和带外部出口回环，验证 W007 只提示无外部出口闭环。
 - 保存并重启验证文本、图结构、layout 均持久化。
 
 ### 诊断与错误恢复

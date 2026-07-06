@@ -4,7 +4,7 @@
  * @packageDocumentation
  * @remarks
  * 定义验证器产出的所有诊断信息结构。
- * 对应 PRD §9.1（17 种诊断类型）和 milestones.md M3。
+ * 对应 PRD §9.1（18 种诊断类型）和 milestones.md M3。
  *
  * @version 0.1.0
  */
@@ -31,14 +31,15 @@ export type ErrorCode =
   | 'E007'  // 节点 ID 重名
   | 'E008'; // 变量重复声明
 
-/** 警告代码（6 种） */
+/** 警告代码（7 种） */
 export type WarningCode =
   | 'W001'  // 孤立节点
   | 'W002'  // 死胡同节点
   | 'W003'  // 未使用变量
   | 'W004'  // 重复选项描述
   | 'W005'  // 空描述节点
-  | 'W006'; // 格式不规范
+  | 'W006'  // 格式不规范
+  | 'W007'; // 可能无限循环
 
 /** 建议代码（3 种） */
 export type InfoCode =
@@ -161,6 +162,7 @@ export const DIAGNOSTIC_MESSAGES: Readonly<Record<DiagnosticCode, string>> = {
   W004: '选项描述文本与同级选项重复',
   W005: '节点正文描述为空',
   W006: '格式不规范',
+  W007: '分支可能形成无外部出口的无限循环',
   I001: '全部选项都有执行条件（可能导致此处卡关）',
   I002: '节点描述过短（少于 10 个字符）',
   I003: '节点未归属于任何章节',
@@ -171,6 +173,6 @@ export const DIAGNOSTIC_SEVERITY: Readonly<Record<DiagnosticCode, DiagnosticSeve
   E001: 'error', E002: 'error', E003: 'error', E004: 'error',
   E005: 'error', E006: 'error', E007: 'error', E008: 'error',
   W001: 'warning', W002: 'warning', W003: 'warning',
-  W004: 'warning', W005: 'warning', W006: 'warning',
+  W004: 'warning', W005: 'warning', W006: 'warning', W007: 'warning',
   I001: 'info', I002: 'info', I003: 'info',
 };

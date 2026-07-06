@@ -91,6 +91,8 @@ cd D:\VibeCoding\PlotFlow && pnpm exec vitest run --coverage 2>/dev/null || true
 - 无目标、多层缩进（5 级 tab）、选项描述含 `[选项]` 字面量
 - 选项描述为空、选项含条件 + 效果 + 跳转全部组合
 - 目标引用格式：`节点:X` vs `章节/节点:X` vs `节点：X`（全角冒号）
+- `下一步: 节点：X` 节点级流程出口、跨章节 `下一步: 章节/节点：X`
+- `下一步` 紧邻缩进 `效果:` 归属流程出口；格式错误的 `下一步` 不得吞掉后续正文或效果
 
 ### P-05: 条件表达式边界
 - 深度嵌套：`(A AND B) OR (C AND (D OR E))`（3 层合法）
@@ -105,6 +107,7 @@ cd D:\VibeCoding\PlotFlow && pnpm exec vitest run --coverage 2>/dev/null || true
 ### P-07: 变量声明边界
 - 重复声明 → E008、保留字变量名、超长变量名（64 字符）
 - 6 种类型全覆盖、默认值类型不匹配
+- Graph Lab 新增/删除变量后，条件变量下拉和效果变量下拉必须同步更新并写回 frontmatter `vars:`
 
 ---
 
@@ -122,7 +125,7 @@ cd D:\VibeCoding\PlotFlow && pnpm exec vitest run --coverage 2>/dev/null || true
 | E007 | 节点 ID 重复 | 同上 |
 | E008 | 变量重复声明 | 同上 |
 
-### V-02: 6 种警告检测全覆盖
+### V-02: 7 种警告检测全覆盖
 | 警告 | 触发条件 | 验证点 |
 |------|---------|--------|
 | W001 | 孤立节点（无入边） | 黄色波浪线 |
@@ -131,6 +134,7 @@ cd D:\VibeCoding\PlotFlow && pnpm exec vitest run --coverage 2>/dev/null || true
 | W004 | 重复选项描述 | 黄色波浪线 |
 | W005 | 空正文节点 | 黄色波浪线 |
 | W006 | 格式不规范 | 黄色波浪线 |
+| W007 | 选项边或 `下一步` 边形成无外部出口闭环 | 黄色波浪线 + 问题面板；有明确出口的回环不报警 |
 
 ### V-03: 3 种建议检测全覆盖
 | 建议 | 触发条件 | 验证点 |
@@ -309,8 +313,16 @@ cd D:\VibeCoding\PlotFlow && pnpm exec vitest run --coverage 2>/dev/null || true
 - 变量下拉 + 运算符下拉 + 值输入
 - AND/OR 组构建、条件预览行
 - 双向文本同步
+- 变量来源必须是当前 `.mdstory` frontmatter `vars:`；新增变量后下拉即时可选
+- 效果编辑 UI 必须支持变量下拉、赋值/增减/切换等基础操作，并写回 `效果:`
 
-### CMP-10: CorpusManager
+### CMP-10: Graph Lab Chapter Workspace
+- 顶部章节标签栏始终可见；新增章节后必须出现新标签并选中
+- Source Drawer 在 Graph Lab 中显示当前章节源码切片，提交后映射回全文件
+- 无选项节点显示默认流程连线口；有普通选项后默认流程连线口隐藏
+- 章节标签栏、新建章节后的标签栏、完整工作区必须有 Playwright 截图附件和尺寸/非空断言
+
+### CMP-11: CorpusManager
 - 语料列表显示、分类筛选
 - 导入/导出功能
 
@@ -367,6 +379,14 @@ cd D:\VibeCoding\PlotFlow && pnpm exec vitest run --coverage 2>/dev/null || true
 1. 打开文件 A → 编辑 → 未保存
 2. 打开文件 B → 确认丢弃 A 的修改
 3. 在文件 B 中编辑 → 保存
+
+### J-07A: Graph Lab P0/P1 闭环
+1. 保存 `.mdstory` 后重启应用 → Home `Continue editing` 重新加载最近保存文件
+2. 在 Graph Lab 中新增变量 → 条件和效果编辑器都能下拉选中该变量
+3. 创建无选项节点并从默认 handle 连线 → 源码写入 `下一步`
+4. 给同一节点新增普通选项 → 默认流程 handle 隐藏
+5. 新建章节 → 顶部章节标签栏显示新 tab，Source Drawer 只显示当前章节切片
+6. 构造 A→B→A 和 A→B→C→A → 出现 W007；给闭环增加外部出口后 W007 消失
 
 ### J-08: 中英双语切换
 1. 默认中文界面

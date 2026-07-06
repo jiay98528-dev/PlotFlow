@@ -2,6 +2,8 @@
 
 > **主题架构权威口径（2026-06-27）**：主题系统只服务官方主题。内置官方主题随应用编译发布；官方远程免费主题通过 `website/public/data/official-themes.json` 注册，下载 `.pf-official-theme.zip` 后由 Electron 主进程执行 `sha256` 校验、路径安全校验和 manifest 校验，再通过 `plotflow-theme://` 动态加载包内 `index.mjs`。远程包与内置主题拥有同等当前主题能力：`ThemeDescriptor`、React `surfaces`、React `slots`、tokens、layout/UX recipes、Monaco 配色、CSS 和 assets。第三方上传、社区主题、本地 `.pf-theme.zip` 导入、支付和授权均不属于当前架构。完整开发标准见 `doc/standards-theme-development.md`。
 
+> **V0.3 外审架构补充（2026-07-06）**：以下合同覆盖本文旧段落中相冲突的内容。Home `Continue editing` 必须通过最近文件路径和文件 IPC 重新读盘；Graph Lab 写回必须基于 source offset edit 和共享 source analysis；Graph Lab Source Drawer 只编辑当前 H1 章节切片并映射回完整 `.mdstory`；frontmatter `vars:` 是 app 模式单文件全局变量源；`下一步: 节点：X` 是独立于 `[选项]` 的节点级流程边，JSON schema v0.1 导出时投影为无条件合成 option；W007 表示包含选项边和 `下一步` 边的无外部出口 SCC 闭环风险，旧版 “IncompleteOptionDetector” 语义已废弃；章节标签栏必须是可见命令栏行并有截图 E2E 证据。
+
 
 **鐗堟湰**锛歏0.1 | **鏃ユ湡**锛?026-06-10 | **鐘舵€?*锛歁VP 瀹炵幇钃濆浘
 
@@ -1309,12 +1311,12 @@ function detectTargetNotFound(data: PlotFlowData): Diagnostic[] {
 | 缂栧彿 | 妫€娴嬪櫒 | 妫€娴嬮€昏緫 |
 |------|--------|---------|
 | W001 | OrphanNodeDetector | 鑺傜偣涓嶆槸鏍硅妭鐐癸紝涓旀病鏈変换浣曢€夐」鐨?targetFullId 鎸囧悜瀹?|
-| W002 | DeadEndDetector | 鑺傜偣娌℃湁浠讳綍鍑哄彛閫夐」锛屼笖 text 涓笉鍚?缁撳眬"/"缁撴潫"/"END" 鍏抽敭璇?|
+| W002 | DeadEndDetector | 节点没有任何出口；出口包括普通 `[选项]` 边和节点级 `下一步` 边，结局节点除外 |
 | W003 | UnusedVariableDetector | Frontmatter 澹版槑鐨勫彉閲忓湪鍏ㄦ枃锛堟潯浠?鏁堟灉锛変腑鏈寮曠敤 |
 | W004 | DuplicateOptionTextDetector | 鍚屼竴鑺傜偣涓嬩袱涓€夐」鐨?text 瀹屽叏鐩稿悓锛坱rim + toLowerCase 姣旇緝锛?|
 | W005 | EmptyDescriptionDetector | 鑺傜偣 body 涓虹┖鏁扮粍鎴栨墍鏈?body 琛?trim 鍚庝负绌?|
 | W006 | FormatIrregularDetector | 绔犺妭鏍囬涓嶄互 `# ` 寮€澶达紝鎴栬妭鐐规爣棰樹笉浠?`## 鑺傜偣锛歚 寮€澶?|
-| W007 | IncompleteOptionDetector | 妫€娴嬪埌 `[閫夐」]` 琛岀己灏?`-> 鑺傜偣锛氱洰鏍嘸 璺宠浆鏍囪锛堜繚鐣欏師鏂囦负姝ｆ枃锛屼粎璀﹀憡锛?|
+| W007 | ClosedCycleDetector | 使用 SCC 检测由普通选项边和 `下一步` 边组成的无外部出口闭环；未解析目标跳过，继续由 E001 负责 |
 
 #### 3.2.4 寤鸿妫€娴嬪櫒 (3 绉?
 
@@ -1347,7 +1349,7 @@ const WARNING_DETECTORS: WarningDetectorFn[] = [
   detectDuplicateOptionText,
   detectEmptyDescription,
   detectFormatIrregular,
-  detectIncompleteOption,
+  detectClosedCycle,
 ];
 
 const INFO_DETECTORS: InfoDetectorFn[] = [
@@ -2531,7 +2533,7 @@ interface SourceLocation {
 type DiagnosticLevel = 'error' | 'warning' | 'info';
 
 interface Diagnostic {
-  /** 閿欒缂栧彿: E001-E008, W001-W006, I001-I003 */
+  /** 诊断编号: E001-E008, W001-W007, I001-I003 */
   code: string;
   level: DiagnosticLevel;
   /** 浜虹被鍙鎻忚堪 */

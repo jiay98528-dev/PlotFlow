@@ -424,6 +424,8 @@ PlotFlow 支持 6 种变量类型：
 | `isOrphan` | boolean | **是** | 诊断：是否为孤立节点（无入口路径，根节点除外） |
 | `isDeadEnd` | boolean | **是** | 诊断：是否为死胡同（无出口选项） |
 
+> V0.3 兼容说明：`.mdstory` 源码中的节点级 `下一步` 流程出口在 JSON schema 升级前不新增 `nextTarget` 字段。导出器必须把它投影为一个合成 `Option`：`text` 固定为 `下一步`、`conditions` 为 `null`、`sideEffects` 来自紧邻 `效果:` 行、`targetNodeId/targetFullId` 指向流程出口目标。存在 `下一步` 的节点不应仅因 `options` 源列表为空而被运行时视为无出口节点。
+
 ---
 
 ### 5.3 Option 对象

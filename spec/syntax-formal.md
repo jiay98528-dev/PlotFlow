@@ -1484,6 +1484,7 @@ Story
 | W004 | 重复选项描述 | §4.2 | 🟡 Warning |
 | W005 | 空描述节点 | §3.3 | 🟡 Warning |
 | W006 | 格式不规范 | §3.3, §10.3 | 🟡 Warning |
+| W007 | 可能无限循环 | §12.3 | 🟡 Warning |
 | I001 | 可能卡关 | — | 🔵 Info |
 | I002 | 描述过短 | — | 🔵 Info |
 | I003 | 无章节归属 | §10.1 BC10 | 🔵 Info |
@@ -1535,5 +1536,16 @@ No new `nextTarget` field is emitted in JSON until the JSON schema is versioned.
 ### 12.3 W007 closed-cycle warning
 
 `W007` reports a possible infinite loop when the graph contains a closed strongly connected component with no outgoing edge to a node outside the component. The adjacency graph includes both `[选项]` edges and `下一步` edges. Edges with unresolved targets are skipped by W007 so they remain covered by `E001`.
+
+`W002` and `I001` must also treat `下一步` as an exit. A node with no `[选项]` but a valid `下一步` is not a dead end. A node with conditional options plus a valid unconditional `下一步` has a fallback path and should not trigger the “all choices are conditional” suggestion.
+
+### 12.4 Graph Lab chapter projection requirements
+
+These requirements are UI/source projection rules, not additional `.mdstory` syntax:
+
+- Graph Lab must present H1 chapters as visible top-level chapter tabs.
+- Creating a chapter in Graph Lab must immediately create a visible, selected tab and a source-backed chapter block.
+- Graph Lab Source Drawer edits are chapter slices mapped back to the full `.mdstory` by source offsets; split text mode remains the full-file editor.
+- Chapter tab visibility is a release-facing UX requirement and must be covered by screenshot-based E2E assertions, not only DOM existence checks.
 
 *本文档是 PlotFlow V0.1/V0.3 解析器的权威语法参考。任何实现差异以本文档为准。*

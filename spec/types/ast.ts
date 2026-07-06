@@ -151,8 +151,36 @@ export interface StoryNode {
   /** 选项列表 */
   readonly options: Option[];
 
+  /**
+   * 节点级默认流程出口。
+   * 来自 `.mdstory` 中的 `下一步: 节点：目标`，与普通 `[选项]` 分开建模。
+   * 导出 JSON schema v0.1 时可投影为文本为 `下一步` 的无条件合成 Option。
+   */
+  readonly nextExit?: FlowExit;
+
   /** 诊断元数据（验证器填充） */
   readonly diagnostics: NodeDiagnostics;
+
+  /** 在源文件中的行号（1-based） */
+  readonly lineNumber: number;
+}
+
+/**
+ * 节点级流程出口。
+ * 对应 syntax-formal.md §12 `NextLine`。
+ */
+export interface FlowExit {
+  /** 跳转目标节点 ID */
+  readonly targetNodeId: string | null;
+
+  /** 跳转目标完整 ID（解析后填充） */
+  readonly targetFullId: string | null;
+
+  /** 副作用列表（效果） */
+  readonly sideEffects: SideEffect[];
+
+  /** 原始效果文本（用于双向同步） */
+  readonly effectsRaw: string | null;
 
   /** 在源文件中的行号（1-based） */
   readonly lineNumber: number;

@@ -1,6 +1,8 @@
 # PlotFlow 实时进度跟踪
 
-> **External audit P0/P1 update (2026-07-06)**: recent-file resume, single-file global variables, node-level `下一步` flow exits, W007 closed-cycle warnings, Graph Lab chapter source slices, and packaged native dialog ownership are implemented and verified at source and unpacked layers. Verified gates: `lint:tokens`, `typecheck`, `test` (50 files / 1277 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E (18/18), blackbox edge (5 passed / 3 skipped), full app E2E (49/49), source blackbox (10 passed / 4 skipped), `package:win`, targeted unpacked native export (1/1), and unpacked blackbox (13 passed / 1 installed-only skip). Refreshed artifacts: `release/PlotFlow Setup 0.1.0.exe` and `release/win-unpacked/PlotFlow.exe` generated on 2026-07-06 20:53. Installed blackbox and manual patrol remain pending; do not claim release-candidate passed yet.
+> **Chapter tab visibility update (2026-07-06)**: Graph Lab chapter tabs are now a dedicated visible command-bar row, and `graph-lab.e2e.spec.ts` includes screenshot-backed assertions before and after creating a chapter. Verified after this source change: `typecheck`, `lint`, `lint:css`, `build`, `lint:tokens`, `lint:bundle`, Graph Lab narrow E2E 19/19, and targeted chapter-tab screenshot E2E 1/1. Because this changed source after the refreshed package/unpacked run, prior `package:win` and unpacked blackbox evidence is stale for the current revision; rerun package/unpacked/installed and manual patrol before any release-candidate claim.
+
+> **External audit P0/P1 update (2026-07-06)**: recent-file resume, single-file global variables, node-level `下一步` flow exits, W007 closed-cycle warnings, Graph Lab chapter source slices, and packaged native dialog ownership are implemented and verified at source and unpacked layers. Verified gates before the later chapter-tab visibility patch: `lint:tokens`, `typecheck`, `test` (50 files / 1277 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E (18/18), blackbox edge (5 passed / 3 skipped), full app E2E (49/49), source blackbox (10 passed / 4 skipped), `package:win`, targeted unpacked native export (1/1), and unpacked blackbox (13 passed / 1 installed-only skip). Refreshed artifacts: `release/PlotFlow Setup 0.1.0.exe` and `release/win-unpacked/PlotFlow.exe` generated on 2026-07-06 20:53. Installed blackbox and manual patrol remain pending; do not claim release-candidate passed yet.
 
 > **主题系统当前状态（2026-06-27）**：M9 主题方向已落地为“官方远程免费 ZIP 代码主题 + 当前主题架构完整能力”。`plotflow-blueprint-nightwatch` 已删除；远程主题由官方静态目录注册，下载 `.pf-official-theme.zip`，校验后通过 `plotflow-theme://` 动态加载 `index.mjs`，可提供完整 `ThemeDescriptor`、React surfaces、React slots、tokens、CSS、assets、Monaco 和 UX recipes；Theme Center 使用“官方免费主题库”心智，不做第三方、社区上传、本地导入、购买或授权。完整开发标准见 `doc/standards-theme-development.md`。
 
@@ -328,29 +330,29 @@
 
 ---
 
-## M8 Graph Lab Core锛堝浘浼樺厛姝ｅ紡鍏ュ彛锛?
-**鐩爣**锛氬湪涓嶆浛鎹㈢幇鏈?split 鍒嗘爮妯″紡鐨勫墠鎻愪笅锛屾妸鈥滄祦绋嬪浘浼樺厛鈥濈殑瀹屾暣 GUI 鎿嶄綔闂幆鎺ㄨ繘涓烘寮忕増鏍稿績鍏ュ彛涔嬩竴銆俙.mdstory` 浠嶆槸鍞竴纾佺洏鏍煎紡锛孏raph Lab 涓庢簮鏂囨湰鏄悓涓€鏁呬簨鏁版嵁鐨勫弻鎶曞奖銆?
-> **缁熻瑙勫垯**锛歁8 鏄?2026-06-23 鏂板鍥句紭鍏堣寖鍥达紝褰撳墠 17/18锛屾殏涓嶆贩鍏?M0-M7 142 椤瑰巻鍙插彂琛岀粺璁°€侻8-18 鐨勫彂甯冭鏄?甯姪鏂囨闅忓叕寮€涓嬭浇椤垫敹灏俱€?
-| # | 浠诲姟 | 鐘舵€?| 寮€濮?| 瀹屾垚 | 澶囨敞 |
+## M8 Graph Lab Core（图优先正式入口）
+**目标**：在不替代 split 分栏模式的前提下，把“流程图优先”的完整 GUI 操作闭环推进为正式核心入口之一。`.mdstory` 仍是唯一磁盘格式，Graph Lab 与源文本是同一故事数据的双投影。
+> **统计规则**：M8 是 2026-06-23 新增图优先范围，当前 18/18，暂不混入 M0-M7 142 项历史发行统计。发布候选仍必须以 `spec/release-blackbox-gate.md` 的 package/unpacked/installed/manual 门禁为准。
+| # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
-| M8-01 | `workspaceMode: 'split' \| 'graphLab'` 鐘舵€佷笌鎸佷箙鍖?| 鉁?| 2026-06-24 | 2026-06-24 | `useUIStore` 鎸佷箙鍖栨ā寮忥紝娴嬭瘯妗ユ帴鍙鍐?|
-| M8-02 | 椤堕儴妯″紡鍒囨崲鎸夐挳涓庡揩鎹烽敭 | 鉁?| 2026-06-24 | 2026-06-24 | Toolbar Split/Graph Lab 鎸夐挳涓?`Ctrl+Shift+G` |
-| M8-03 | Graph Lab 鍏ㄥ睆鐢诲竷澹?| 鉁?| 2026-06-24 | 2026-06-24 | `GraphLabWorkspace` 涓夋爮鍥句紭鍏堝竷灞€ |
-| M8-04 | 鑺傜偣 palette 涓庣┖鐧界敾甯冨垱寤哄叆鍙?| 鉁?| 2026-06-24 | 2026-06-24 | `GraphLabPalette` 鍒涘缓绔犺妭/鑺傜偣/缁撳眬涓庨噸鏂板竷灞€ |
-| M8-05 | `graphEditService` 鍛戒护灞?| 鉁?| 2026-06-24 | 2026-06-24 | GUI 鎿嶄綔缁熶竴鐢熸垚 `.mdstory` 鏂囨湰缂栬緫骞惰蛋瑙ｆ瀽绠＄嚎 |
-| M8-06 | GUI 鍒涘缓/鍒犻櫎鑺傜偣 | 鉁?| 2026-06-24 | 2026-06-24 | Palette 鍒涘缓锛孖nspector 鍒犻櫎 |
-| M8-07 | Inspector 缂栬緫鑺傜偣鏍囬銆佺珷鑺傘€佹鏂?| 鉁?| 2026-06-24 | 2026-06-24 | 鏀瑰悕鍚庡悓姝ラ€変腑鑺傜偣 id锛岄伩鍏?Inspector 涓㈠け涓婁笅鏂?|
-| M8-08 | GUI 鍒涘缓/缂栬緫/鍒犻櫎/鎺掑簭閫夐」 | 鉁?| 2026-06-24 | 2026-06-24 | 鏀寔鎻忚堪銆佺洰鏍囥€佹潯浠躲€佹晥鏋溿€佷笂绉?涓嬬Щ/鍒犻櫎 |
-| M8-09 | 鎷栫嚎杩炴帴宸叉湁鐩爣鑺傜偣 | 鉁?| 2026-06-24 | 2026-06-24 | 钃濆浘寮忕嚎缂嗙儹鍖猴紱鎷栧埌宸叉湁鑺傜偣鐩存帴鍐欏洖閫夐」鐩爣 |
-| M8-10 | 鎷栫嚎鍒扮┖鐧藉鍒涘缓鐩爣鑺傜偣骞惰繛鎺?| 鉁?| 2026-06-24 | 2026-06-24 | 绌烘姇鍔ㄤ綔鑿滃崟鏀寔鍒涘缓鏅€氳妭鐐广€佸垱寤虹粨灞€鑺傜偣銆佹悳绱㈠凡鏈夎妭鐐广€佸彇娑?|
-| M8-11 | 鏉′欢缂栬緫鍣ㄥ祵鍏?Inspector | 鉁?| 2026-06-24 | 2026-06-24 | Inspector 鍐呰仈缂栬緫 `[鏉′欢]`锛屼繚鐣欏師娴眰鏉′欢缂栬緫鍣?|
-| M8-12 | 鏁堟灉缂栬緫鍣?| 鉁?| 2026-06-24 | 2026-06-24 | Inspector 鍐呰仈缂栬緫 `[鏁堟灉]` |
-| M8-13 | 鍙橀噺鍜?meta 缂栬緫鍏ュ彛 | 鉁?| 2026-06-24 | 2026-06-24 | Meta title/author 涓?`vars:` 绫诲瀷澹版槑缂栬緫 |
-| M8-14 | 鍥炬ā寮忚瘖鏂姸鎬佷笌 ProblemPanel 鑱斿姩 | 鉁?| 2026-06-24 | 2026-06-24 | Graph Lab 澶嶇敤 ProblemPanel 涓庤瘖鏂悓姝ョ姸鎬?|
-| M8-15 | 鍙姌鍙?Source Drawer | 鉁?| 2026-06-24 | 2026-06-24 | 婧愭枃鏈彧璇?瀹氫綅杈呭姪鎶藉眽锛孏raph Lab 鍐呭彲灞曞紑 |
-| M8-16 | GUI 鎿嶄綔涓?Monaco 鎾ら攢鏍堝悓姝?| 鉁?| 2026-06-24 | 2026-06-24 | 浼樺厛 `executeEdits()`锛屾棤 editor 瀹炰緥鏃?fallback 鍒?store |
-| M8-17 | Graph Lab 瀹屾暣鐢ㄦ埛鏃呯▼ E2E | 鉁?| 2026-06-24 | 2026-06-24 | `graph-lab.e2e.spec.ts` 瑕嗙洊鍒涘缓銆佺紪杈戙€佽妭鐐逛綅缃寔涔呭寲銆佹嫋绾垮埌宸叉湁鑺傜偣銆佺┖鎶曞垱寤鸿妭鐐广€佹柇寮€绾跨紗銆佸彉閲忋€丼ource Drawer銆佸鍑?JSON |
-| M8-18 | 鍙戝竷璇存槑銆佸府鍔╂枃妗堛€佸叕寮€涓嬭浇椤垫敹灏?| 馃數 | 2026-06-24 | 鈥?| Graph Lab 宸茶浆姝ｅ紡鍏ュ彛锛涘叕寮€鍙戝竷鏂囨寰呴殢涓嬭浇椤电粺涓€鏀跺熬 |
+| M8-01 | `workspaceMode: 'split' \| 'graphLab'` 状态与持久化 | ✅ | 2026-06-24 | 2026-06-24 | `useUIStore` 持久化模式，测试桥接可读写 |
+| M8-02 | 顶部模式切换按钮与快捷键 | ✅ | 2026-06-24 | 2026-06-24 | Toolbar Split/Graph Lab 按钮与 `Ctrl+Shift+G` |
+| M8-03 | Graph Lab 全屏画布壳 | ✅ | 2026-06-24 | 2026-06-24 | `GraphLabWorkspace` 三栏图优先布局 |
+| M8-04 | 节点 palette 与空白画布创建入口 | ✅ | 2026-06-24 | 2026-06-24 | `GraphLabPalette` 创建章节/节点/结局与重新布局 |
+| M8-05 | `graphEditService` 命令层 | ✅ | 2026-06-24 | 2026-06-24 | GUI 操作统一生成 `.mdstory` 文本编辑并走解析管线 |
+| M8-06 | GUI 创建/删除节点 | ✅ | 2026-06-24 | 2026-06-24 | Palette 创建，Inspector 删除 |
+| M8-07 | Inspector 编辑节点标题、章节、正文 | ✅ | 2026-06-24 | 2026-06-24 | 改名后同步选中节点 id，避免 Inspector 丢失上下文 |
+| M8-08 | GUI 创建/编辑/删除/排序选项 | ✅ | 2026-06-24 | 2026-06-24 | 支持描述、目标、条件、效果、上移/下移/删除 |
+| M8-09 | 拖线连接已有目标节点 | ✅ | 2026-06-24 | 2026-06-24 | 拖到已有节点直接写回选项目标 |
+| M8-10 | 拖线到空白处创建目标节点并连接 | ✅ | 2026-06-24 | 2026-06-24 | 空投动作菜单支持创建普通节点、结局节点、搜索已有节点、取消 |
+| M8-11 | 条件编辑器嵌入 Inspector | ✅ | 2026-06-24 | 2026-06-24 | Inspector 内联编辑条件，保留原浮层条件编辑器 |
+| M8-12 | 效果编辑器 | ✅ | 2026-06-24 | 2026-06-24 | Inspector 内联编辑效果，变量来自 frontmatter `vars:` |
+| M8-13 | 变量和 meta 编辑入口 | ✅ | 2026-06-24 | 2026-07-06 | Meta title/author 与单文件全局 `vars:` 声明编辑；变量可进入条件/效果下拉 |
+| M8-14 | 图模式诊断状态与 ProblemPanel 联动 | ✅ | 2026-06-24 | 2026-07-06 | Graph Lab 复用 ProblemPanel；W007 闭环诊断纳入选项边和 `下一步` 边 |
+| M8-15 | 可折叠 Source Drawer | ✅ | 2026-06-24 | 2026-07-06 | Graph Lab 中按当前章节显示源码切片并映射回全文件 |
+| M8-16 | GUI 操作与 Monaco 撤销栈同步 | ✅ | 2026-06-24 | 2026-06-24 | 优先 `executeEdits()`，无 editor 实例时 fallback 到 store |
+| M8-17 | Graph Lab 完整用户旅程 E2E | ✅ | 2026-06-24 | 2026-07-06 | `graph-lab.e2e.spec.ts` 覆盖创建、编辑、布局持久化、拖线、变量、Source Drawer、导出、章节标签可见性和截图附件；当前窄回归 19/19 |
+| M8-18 | 发布说明、帮助文案、公开下载页收口 | ✅ | 2026-06-24 | 2026-07-06 | README/PRD/语法/QA/门禁文档已同步新功能；正式 release candidate 仍取决于新包、unpacked/installed blackbox 与人工巡检 |
 
 ---
 

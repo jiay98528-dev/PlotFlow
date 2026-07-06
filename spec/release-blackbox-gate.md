@@ -52,6 +52,11 @@ Implemented in `packages/app/e2e-blackbox/`:
 - `file-dialogs.spec.ts`: packaged-app native JSON export through the real Windows save dialog.
 - `packaged-artifacts.spec.ts`: app.asar exclusion scan, file icon presence, builder metadata, and installed `.mdstory` registry association.
 
+Implemented in source integration E2E under `packages/app/e2e/` and required before release evidence can be trusted:
+
+- Graph Lab P0/P1 coverage: recent-file `Continue editing`, single-file `vars:` editing, condition/effect variable dropdowns, node-level `下一步` flow exits, chapter source slices, and W007 closed-cycle diagnostics.
+- Graph Lab visual coverage: chapter tab bar must be verified by Playwright screenshots before and after creating a chapter; DOM-only assertions are not sufficient because a fixed-height command bar can clip a rendered tab row.
+
 ## Current Gate Snapshot
 
 Last updated: 2026-07-06
@@ -62,6 +67,8 @@ Last updated: 2026-07-06
 | Source blackbox | Passed | 2026-07-06: `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` passed, 10 passed / 4 packaged-or-installed skips, after clearing stale workspace Electron processes from a prior run. |
 | Unpacked blackbox | Passed | 2026-07-06: refreshed `release\PlotFlow Setup 0.1.0.exe` and `release\win-unpacked`, fixed packaged native save dialog ownership, then `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` passed, 13 passed / 1 installed-only skip. |
 | Installed blackbox | Pending | Requires installing the refreshed `release\PlotFlow Setup 0.1.0.exe` and setting `PLOTFLOW_INSTALLED_EXE`. |
+
+2026-07-06 chapter-tab visibility update: source changed after the refreshed package/unpacked evidence above. The new source fix makes the Graph Lab chapter tab bar a dedicated visible command-bar row and adds screenshot-backed E2E assertions. Verified after the change: `typecheck`, `lint`, `lint:css`, `build`, `lint:tokens`, `lint:bundle`, Graph Lab narrow E2E 19/19, and targeted chapter-tab screenshot E2E 1/1. The earlier `package:win` and unpacked blackbox results are now stale for this newer source revision; rerun package/unpacked/installed before any release-candidate claim.
 
 2026-07-06 external-audit P0/P1 closure note: latest source changes add recent-file resume, single-file global variable editing in Graph Lab, node-level `下一步` flow exits, source chapter slices, W007 closed-cycle warnings, and packaged native dialog ownership hardening. Verified commands include `lint:tokens`, `typecheck`, `test` (50 files / 1277 tests), `lint`, `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E, blackbox edge, full integration E2E, full source blackbox, `package:win`, targeted native export unpacked E2E, and full unpacked blackbox. `lint` still reports 9 existing `no-console` warnings and 0 errors. Installed blackbox and manual high-risk patrol have not been rerun, so this is not yet a release-candidate pass.
 
@@ -99,10 +106,15 @@ Installed blackbox requires the user or release engineer to install the newly bu
 After automated gates pass, perform at least 30 minutes of installed-app use without reading the test report. Required patrol items:
 
 - Graph Lab: drag nodes, create nodes, connect, disconnect, reconnect, drag wire to empty canvas, close the drop menu with Esc and canvas click.
+- Graph Lab chapters: create a chapter, verify a visible selected chapter tab appears, switch tabs, open Source Drawer, and confirm it edits only the active chapter slice.
+- Graph Lab variables/effects: create and delete a `vars:` entry, then use it from both condition and effect editors.
+- Graph Lab flow exits: create a node with no options, connect its default handle to another node, confirm source contains `下一步`, then add a normal option and confirm the default handle is hidden.
+- Diagnostics: construct a closed A→B→A or A→B→C→A loop and confirm W007 appears; add a real external exit and confirm W007 no longer reports that loop.
 - Source Dock: open and close repeatedly; verify it never hides the left rail, canvas, or Inspector.
 - Split: verify Split-only branch graph controls are local to Split and never appear as global Graph Lab controls.
 - Themes: switch official themes, restart, verify the selected theme and renderer differences persist.
 - Files: open `.mdstory` by double-click or command line, edit, save, reopen, export JSON/HTML/TXT.
+- Files: save a new `.mdstory`, restart, and verify Home `Continue editing` reloads the last saved file instead of silently falling back to an unsaved story.
 - Close path: unsaved close dialog cancel/save/discard behavior.
 - Installer: `.mdstory` icon/association, uninstall path, and default user-data retention.
 
