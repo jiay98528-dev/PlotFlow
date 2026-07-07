@@ -798,6 +798,111 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .sou
   background: color-mix(in oklch, var(--theme-workbench-panel), transparent 12%);
 }
 
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__chapter-tabs {
+  border-color: var(--theme-telemetry-separator);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 14%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__chapter-tabs button {
+  color: var(--theme-node-muted);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__chapter-tabs button.is-active {
+  border-color: var(--theme-signal-line);
+  color: var(--theme-node-ink);
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--theme-signal-line), transparent 84%), var(--theme-telemetry-panel-strong));
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--theme-signal-line), transparent 78%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__chapter-tab-diagnostics {
+  color: var(--theme-status-amber);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-variable-row,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-list,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-toolbar,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostics {
+  border-color: var(--theme-telemetry-separator);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 14%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-condition-builder select,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-condition-builder input,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-row select,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-row input,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-builder select,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-builder input,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-action,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-status {
+  border-color: var(--theme-telemetry-separator);
+  color: var(--theme-node-ink);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 10%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-action-primary {
+  border-color: var(--theme-signal-line);
+  color: var(--theme-workbench-paper);
+  background: var(--theme-signal-line);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-status[data-state='dirty'],
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-status[data-state='warning'] {
+  border-color: var(--theme-status-amber);
+  color: var(--theme-status-amber);
+  background: color-mix(in oklch, var(--theme-status-amber), transparent 86%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-status[data-state='stale'] {
+  border-color: var(--theme-danger-signal);
+  color: var(--theme-danger-signal);
+  background: color-mix(in oklch, var(--theme-danger-signal), transparent 86%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-control-hint,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostics strong,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostics p {
+  color: var(--theme-node-muted);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostic-button {
+  border-color: var(--theme-telemetry-separator);
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 10%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostic-button:hover,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostic-button:focus,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-condition-builder select:focus,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-condition-builder input:focus,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-row select:focus,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-row input:focus,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-builder select:focus,
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-effect-builder input:focus {
+  border-color: var(--theme-signal-line);
+  outline-color: color-mix(in oklch, var(--theme-signal-line), transparent 35%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostic-button[data-severity='error'] {
+  border-color: var(--theme-danger-signal);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostic-button[data-severity='warning'] {
+  border-color: var(--theme-status-amber);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostics em {
+  color: var(--theme-node-ink);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-editor {
+  color: var(--theme-node-ink);
+  background:
+    linear-gradient(90deg, var(--theme-telemetry-canvas-grid) 1px, transparent 1px),
+    var(--theme-blueprint-canvas);
+  background-size: var(--theme-grid-size) var(--theme-grid-size), auto;
+}
+
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-rail__hero,
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-rail__block,
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-section {

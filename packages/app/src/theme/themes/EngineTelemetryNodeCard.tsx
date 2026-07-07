@@ -4,6 +4,7 @@ import type { StoryFlowNodeData } from '../../components/branch-graph/adapter';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
+import { useAppText } from '../../i18n/appI18n';
 import { stripMarkdown, truncate } from './utils';
 
 const THEME_ID = 'plotflow-engine-telemetry';
@@ -17,16 +18,9 @@ const STATUS_LABEL: Record<string, string> = {
   root: 'ROOT',
 };
 
-const STATUS_COPY: Record<string, string> = {
-  normal: 'Flow linked',
-  orphan: 'No inbound route',
-  deadend: 'Terminal node',
-  error: 'Needs repair',
-  root: 'Entry node',
-};
-
 export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, isConnectable }) => {
   const nodeData = data as StoryFlowNodeData;
+  const text = useAppText();
   const storyNode = useStoryStore((state) => state.getNodeByFullId(nodeData.fullId));
   const selectNode = useGraphStore((state) => state.selectNode);
   const setActiveNodeId = useEditorStore((state) => state.setActiveNodeId);
@@ -45,7 +39,7 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
   const commitRename = useCallback(() => {
     if (isCommitting.current) return;
     isCommitting.current = true;
-    const newTitle = editValue.trim() || (nodeData.title || 'Untitled Node');
+    const newTitle = editValue.trim() || (nodeData.title || text('themeNode.untitled'));
     const activeStoryNode = useStoryStore.getState().getNodeByFullId(nodeData.fullId);
 
     if (editorInstance && activeStoryNode) {
@@ -78,7 +72,7 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
     setEditValue('');
     setRenamingNodeId(null);
     isCommitting.current = false;
-  }, [editValue, editorInstance, nodeData.fullId, nodeData.title, setRenamingNodeId]);
+  }, [editValue, editorInstance, nodeData.fullId, nodeData.title, setRenamingNodeId, text]);
 
   const cancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -159,24 +153,24 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
             onMouseDown={handleInputMouseDown}
           />
         ) : (
-          <h3>{truncate(nodeData.title || 'Untitled Node', 34)}</h3>
+          <h3>{truncate(nodeData.title || text('themeNode.untitled'), 34)}</h3>
         )}
         <span className="official-graph-node__count">{options.length}</span>
       </div>
 
-      <div className="official-graph-node__telemetry" aria-label={STATUS_COPY[nodeData.status] ?? STATUS_COPY['normal']}>
-        <span>{STATUS_COPY[nodeData.status] ?? STATUS_COPY['normal']}</span>
-        <span>{conditionCount > 0 ? `${conditionCount} gated` : 'clear route'}</span>
+      <div className="official-graph-node__telemetry" aria-label={text(`themeNode.status.${nodeData.status}`)}>
+        <span>{text(`themeNode.status.${nodeData.status}`)}</span>
+        <span>{conditionCount > 0 ? text('themeNode.gatedCount', { count: conditionCount }) : text('themeNode.clearRoute')}</span>
       </div>
 
       <p className="official-graph-node__body">
-        {bodyPreview || 'No body text yet. Select this module to inspect and edit source.'}
+        {bodyPreview || text('themeNode.noBody')}
       </p>
 
       <div className="official-graph-node__options">
         {options.length === 0 ? (
           <div className="official-graph-node__empty">
-            Terminal route or pending branch
+            {text('themeNode.terminalRoute')}
             <Handle
               type="source"
               position={Position.Right}
@@ -193,9 +187,9 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
           options.map((option, index) => (
             <div className="official-graph-node__option" key={`${option.lineNumber}-${index}`}>
               <span className="official-graph-node__option-text">
-                {truncate(option.description || `Route ${index + 1}`, 32)}
+                {truncate(option.description || text('themeNode.routeLabel', { index: index + 1 }), 32)}
               </span>
-              {option.conditionRaw && <span className="official-graph-node__condition">GATE</span>}
+              {option.conditionRaw && <span className="official-graph-node__condition">{text('themeNode.gate')}</span>}
               <Handle
                 type="source"
                 position={Position.Right}

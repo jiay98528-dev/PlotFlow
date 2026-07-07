@@ -441,6 +441,7 @@ function AppContent(): React.ReactElement {
         editor.setContent(content);
         parsePipelineNow(content);
         useUIStore.getState().setHomeSurfaceOpen(false);
+        useUIStore.getState().setActiveChapterId(useStoryStore.getState().plotFlowData?.chapters[0]?.id ?? null);
       },
       openConditionEditor: (nodeId: string, optionIndex: number) => {
         useUIStore.getState().openConditionEditor(nodeId, optionIndex);

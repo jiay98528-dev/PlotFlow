@@ -205,7 +205,7 @@ test.describe('Official Theme Center E2E', () => {
     await page.getByTestId('theme-center').getByRole('button', { name: '完成' }).click();
   });
 
-  test('applies engine telemetry theme from Theme Center and verifies Graph Lab shell', async () => {
+  test('applies engine telemetry theme from Theme Center and verifies Graph Lab shell', async ({ page: _unusedPage }, testInfo) => {
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toBeVisible();
 
@@ -228,6 +228,14 @@ test.describe('Official Theme Center E2E', () => {
     await expect(page.locator('[data-official-node-variant="engine-telemetry"]').first()).toBeVisible();
     await expect(page.locator('.official-graph-node--engine-telemetry').first()).toBeVisible();
     await expect(page.locator('[data-official-edge-theme="plotflow-engine-telemetry"]')).toHaveCount(1);
+
+    const workspaceShot = await page.getByTestId('graph-lab-workspace').screenshot();
+    expect(workspaceShot.length).toBeGreaterThan(5_000);
+    fs.writeFileSync(testInfo.outputPath('engine-telemetry-graph-lab-shell.png'), workspaceShot);
+    await testInfo.attach('engine-telemetry-graph-lab-shell.png', {
+      body: workspaceShot,
+      contentType: 'image/png',
+    });
   });
 
   test('downloads and applies an official remote code theme package', async () => {

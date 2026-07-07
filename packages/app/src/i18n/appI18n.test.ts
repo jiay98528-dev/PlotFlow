@@ -21,7 +21,17 @@ describe('appI18n', () => {
   it('covers the manual blackbox feedback surfaces in English', () => {
     expect(appT('home.title', undefined, 'en-US')).toContain('interactive stories');
     expect(appT('graphLab.diagnostics', { count: 1 }, 'en-US')).toBe('1 diagnostics');
+    expect(appT('graphLab.chapterDiagnosticCount', { count: 2 }, 'en-US')).toBe('2 diagnostics');
     expect(appT('inspector.title', undefined, 'en-US')).toBe('Title');
+    expect(appT('inspector.effectOperationAppend', undefined, 'en-US')).toBe('Append');
+    expect(appT('inspector.confirmDeleteNode', { title: 'Start' }, 'en-US')).toBe('Delete node "Start"?');
+    expect(appT('sourceDock.save', undefined, 'en-US')).toBe('Save slice');
+    expect(appT('sourceDock.diagnosticsInSlice', { count: 3 }, 'en-US')).toBe('3 diagnostics in this chapter');
+    expect(appT('sourceDock.jumpToLine', { line: 12 }, 'en-US')).toBe('Jump to line 12');
+    expect(appT('sourceDock.switchBlockedStale', undefined, 'en-US')).toBe(
+      'The source slice changed. Revert or reload it before switching chapters.',
+    );
+    expect(appT('themeNode.status.error', undefined, 'en-US')).toBe('Needs repair');
     expect(appT('problemPanel.title', undefined, 'en-US')).toBe('Problems');
     expect(appT('exportDialog.unsupportedFormat', { format: 'json' }, 'en-US')).toBe(
       'Unsupported export format: json',

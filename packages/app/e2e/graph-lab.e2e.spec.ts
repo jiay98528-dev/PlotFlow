@@ -24,6 +24,15 @@ vars:
 [选项] 查看四周
 `;
 
+const TWO_CHAPTER_STORY = `${START_STORY}
+
+# 第二章
+
+## 节点：终点
+
+第二章正文。
+`;
+
 interface CapturedExport {
   content: string;
   format: string;
@@ -279,6 +288,13 @@ async function switchToGraphLab(page: Page): Promise<void> {
     { timeout: 10_000 },
   );
   await waitForGraphSettled(page);
+}
+
+async function selectChapterTab(page: Page, index: number): Promise<void> {
+  const tabs = page.getByTestId('graph-lab-chapter-tab');
+  await expect(tabs.nth(index)).toBeVisible({ timeout: 10_000 });
+  await tabs.nth(index).click();
+  await expect(tabs.nth(index)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
 }
 
 async function switchToSplit(page: Page): Promise<void> {
@@ -615,6 +631,10 @@ test.describe('Graph Lab E2E', () => {
 
     await expect(page.locator('.problem-panel')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('.problem-panel__item').first()).toBeVisible({ timeout: 5_000 });
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(page.getByTestId('graph-lab-chapter-source-diagnostics')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('graph-lab-source-diagnostic-0')).toContainText('E001');
   });
 
   test('shows chapter tabs visibly and screenshots newly created chapter tab bar', async ({ browserName }, testInfo) => {
@@ -644,6 +664,133 @@ test.describe('Graph Lab E2E', () => {
       body: workspaceScreenshot,
       contentType: 'image/png',
     });
+
+    const originalViewport = page.viewportSize() ?? { width: 1440, height: 900 };
+    try {
+      await page.setViewportSize({ width: 720, height: 760 });
+      await expect(workspace).toBeVisible({ timeout: 5_000 });
+      await attachVisibleScreenshot(testInfo, workspace, 'graph-lab-narrow-workspace.png');
+    } finally {
+      await page.setViewportSize(originalViewport);
+    }
+  });
+
+  test('syncs cross-chapter outline navigation and saves only the active chapter source slice', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+
+    await page.getByTestId('graph-lab-outline-node').filter({ hasText: '终点' }).click();
+    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.react-flow__node').filter({ hasText: '终点' })).toBeVisible({ timeout: 10_000 });
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/# 第二章/);
+    await expect(sourceSlice).not.toHaveValue(/你醒来/);
+
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('第二章正文。', '第二章正文更新。'));
+    await sourceSlice.press('Control+S');
+
+    const content = await getEditorContent(page);
+    expect(content).toContain('你醒来。');
+    expect(content).toContain('第二章正文更新。');
+    expect(content).not.toContain('第二章正文。\n');
+  });
+
+  test('autosaves dirty chapter source before switching chapter tabs', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/# 第一章/);
+
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('你醒来。', '你从梦中醒来。'));
+
+    const tabs = page.getByTestId('graph-lab-chapter-tab');
+    await tabs.nth(1).click();
+
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/# 第二章/);
+    const content = await getEditorContent(page);
+    expect(content).toContain('你从梦中醒来。');
+    expect(content).toContain('第二章正文。');
+  });
+
+  test('autosaves dirty chapter source before creating a new chapter', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/你醒来。/);
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('你醒来。', '你在清晨醒来。'));
+
+    await page.getByTestId('graph-lab-create-chapter').click();
+
+    const tabs = page.getByTestId('graph-lab-chapter-tab');
+    await expect(tabs).toHaveCount(2, { timeout: 10_000 });
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+    const content = await getEditorContent(page);
+    expect(content).toContain('你在清晨醒来。');
+    expect(content).toContain('# 第一章 2');
+  });
+
+  test('blocks chapter switching when the dirty chapter source slice is stale', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/你醒来。/);
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('你醒来。', '这是一段未保存草稿。'));
+
+    const externallyChanged = (await getEditorContent(page)).replace('你醒来。', '外部修改后的正文。');
+    await setEditorContent(page, externallyChanged);
+    await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化', {
+      timeout: 10_000,
+    });
+
+    const tabs = page.getByTestId('graph-lab-chapter-tab');
+    await tabs.nth(1).click();
+
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'false');
+    await expect(page.locator('.status-bar')).toContainText('源码切片已变化', { timeout: 2_000 });
+    expect(await getEditorContent(page)).toContain('外部修改后的正文。');
+  });
+
+  test('localizes Delete shortcut confirmation before deleting a selected node', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({ timeout: 10_000 });
+    await page.evaluate(() => (window as TestWindow).__test_store__?.selectNode('第一章-起点'));
+
+    let dialogMessage = '';
+    page.once('dialog', async (dialog) => {
+      dialogMessage = dialog.message();
+      await dialog.accept();
+    });
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      window.focus();
+    });
+    await page.keyboard.press('Delete');
+
+    await expect.poll(() => dialogMessage).toBe('确定要删除节点「起点」吗？');
+    await expect.poll(() => getEditorContent(page)).not.toContain('## 节点：起点');
   });
 
   test('renames a referenced node without creating an undefined-target diagnostic', async () => {
@@ -792,15 +939,28 @@ test.describe('Graph Lab E2E', () => {
     await page.getByTestId('graph-inspector-option-target-0').selectOption({ label: '树林' });
     await waitForContent(page, '-> 节点：树林');
 
+    await page.getByTestId('graph-inspector-option-condition-operator-0').selectOption('>=');
     const conditionInput = page.getByTestId('graph-inspector-option-condition-0');
-    await conditionInput.fill('金币 >= 1');
+    await conditionInput.fill('1');
     await blur(conditionInput);
     await waitForContent(page, '  条件: 金币 >= 1');
 
-    const effectsInput = page.getByTestId('graph-inspector-option-effects-0');
-    await effectsInput.fill('金币 -1');
-    await blur(effectsInput);
-    await waitForContent(page, '  效果: 金币 -1');
+    await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('subtract');
+    await page.getByTestId('graph-inspector-option-effect-value-0').fill('1');
+    await page.getByTestId('graph-inspector-option-effect-add-0').click();
+    await waitForContent(page, '  效果: 金币-1');
+
+    await page.getByTestId('graph-inspector-variable-name').fill('日志');
+    await page.getByTestId('graph-inspector-variable-type').selectOption('string');
+    await page.getByTestId('graph-inspector-save-variable').click();
+    await waitForContent(page, '  日志: string');
+
+    await page.getByTestId('graph-inspector-option-effect-variable-0').selectOption('日志');
+    await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('append');
+    const appendInput = page.getByTestId('graph-inspector-option-effect-value-0');
+    await appendInput.fill('发现脚印');
+    await appendInput.press('Enter');
+    await waitForContent(page, '  效果: 金币-1, 日志←"发现脚印"');
 
     await page.getByTestId('graph-inspector-variable-name').fill('声望');
     await page.getByTestId('graph-inspector-variable-type').selectOption('float');

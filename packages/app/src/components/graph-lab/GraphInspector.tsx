@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Link2Off, ListPlus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Link2Off, ListPlus, Plus, Trash2, X } from 'lucide-react';
 import type { Option, StoryNode, VariableDeclaration } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
@@ -27,6 +27,14 @@ function EditableField({ label, value, testId, multiline = false, onCommit }: Fi
     if (draft !== value) onCommit(draft);
   }, [draft, onCommit, value]);
 
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if ((!multiline && event.key === 'Enter') || (multiline && event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+      event.preventDefault();
+      commit();
+      event.currentTarget.blur();
+    }
+  }, [commit, multiline]);
+
   return (
     <label className="graph-lab-field">
       <span>{label}</span>
@@ -36,6 +44,7 @@ function EditableField({ label, value, testId, multiline = false, onCommit }: Fi
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={commit}
+          onKeyDown={handleKeyDown}
           rows={5}
         />
       ) : (
@@ -45,6 +54,7 @@ function EditableField({ label, value, testId, multiline = false, onCommit }: Fi
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={commit}
+          onKeyDown={handleKeyDown}
         />
       )}
     </label>
@@ -69,79 +79,384 @@ function quoteEffectValue(variable: VariableDeclaration | undefined, value: stri
   return value.trim() || '0';
 }
 
-function EffectBuilder({
+type ConditionOperator = '==' | '!=' | '>=' | '<=' | '>' | '<';
+type EffectOperation = 'set' | 'add' | 'subtract' | 'append';
+
+interface ParsedCondition {
+  readonly variableName: string;
+  readonly operator: ConditionOperator;
+  readonly value: string;
+}
+
+interface ParsedEffect {
+  readonly variableName: string;
+  readonly operation: EffectOperation;
+  readonly value: string;
+}
+
+const CONDITION_OPERATORS: readonly ConditionOperator[] = ['==', '!=', '>=', '<=', '>', '<'];
+const EFFECT_OPERATIONS: readonly EffectOperation[] = ['set', 'add', 'subtract', 'append'];
+
+function effectOperationLabel(operation: EffectOperation, text: ReturnType<typeof useAppText>): string {
+  if (operation === 'add') return text('inspector.effectOperationAdd');
+  if (operation === 'subtract') return text('inspector.effectOperationSubtract');
+  if (operation === 'append') return text('inspector.effectOperationAppend');
+  return text('inspector.effectOperationSet');
+}
+
+function parseSimpleCondition(raw: string | null | undefined): ParsedCondition | null {
+  const value = raw?.trim() ?? '';
+  if (!value) return null;
+  const match = /^\$?([\p{L}\p{N}_.]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/u.exec(value);
+  if (!match) return null;
+  return {
+    variableName: match[1] ?? '',
+    operator: match[2] as ConditionOperator,
+    value: match[3]?.trim() ?? '',
+  };
+}
+
+function serializeCondition(variableName: string, operator: string, value: string): string | null {
+  const name = variableName.trim().replace(/^\$/, '');
+  const rhs = value.trim();
+  if (!name || !operator || !rhs) return null;
+  return `${name} ${operator} ${rhs}`;
+}
+
+function parseSimpleEffects(raw: string | null | undefined): ParsedEffect[] | null {
+  const value = raw?.trim() ?? '';
+  if (!value) return [];
+  const parsed = value.split(/[,，]/u).map((part): ParsedEffect | null => {
+    const match = /^([\p{L}\p{N}_.]+)\s*(=|\+|-|←)\s*(.+)$/u.exec(part.trim());
+    if (!match) return null;
+    const symbol = match[2] ?? '=';
+    return {
+      variableName: match[1] ?? '',
+      operation: symbol === '+' ? 'add' : symbol === '-' ? 'subtract' : symbol === '←' ? 'append' : 'set',
+      value: match[3]?.trim() ?? '',
+    };
+  });
+  if (parsed.some((effect) => effect === null)) return null;
+  return parsed as ParsedEffect[];
+}
+
+function serializeEffect(effect: Pick<ParsedEffect, 'variableName' | 'operation' | 'value'>, variables: readonly VariableDeclaration[]): string | null {
+  const variableName = effect.variableName.trim().replace(/^\$/, '');
+  if (!variableName) return null;
+  const variable = variables.find((item) => item.name === variableName);
+  const rhs = quoteEffectValue(variable, effect.value);
+  if (effect.operation === 'add') return `${variableName}+${rhs}`;
+  if (effect.operation === 'subtract') return `${variableName}-${rhs}`;
+  if (effect.operation === 'append') return `${variableName}←${rhs}`;
+  return `${variableName}=${rhs}`;
+}
+
+function serializeEffects(effects: readonly ParsedEffect[], variables: readonly VariableDeclaration[]): string | null {
+  const raw = effects
+    .map((effect) => serializeEffect(effect, variables))
+    .filter((effect): effect is string => Boolean(effect))
+    .join(', ');
+  return raw || null;
+}
+
+function variableDefaultValue(variable: VariableDeclaration | undefined): string {
+  if (!variable) return '';
+  if (variable.type === 'bool') return 'true';
+  if (variable.type === 'enum') return variable.enumValues?.[0] ?? '';
+  if (variable.type === 'string') return '';
+  return '0';
+}
+
+function VariableValueInput({
+  variable,
+  value,
+  testId,
+  ariaLabel,
+  onChange,
+  onBlur,
+  onEnter,
+}: {
+  readonly variable: VariableDeclaration | undefined;
+  readonly value: string;
+  readonly testId?: string;
+  readonly ariaLabel: string;
+  readonly onChange: (value: string) => void;
+  readonly onBlur?: () => void;
+  readonly onEnter?: () => void;
+}): React.ReactElement {
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (event.key === 'Enter' && onEnter) {
+      event.preventDefault();
+      onEnter();
+    }
+  }, [onEnter]);
+
+  if (variable?.type === 'bool') {
+    return (
+      <select data-testid={testId} value={value || 'true'} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel}>
+        <option value="true">true</option>
+        <option value="false">false</option>
+      </select>
+    );
+  }
+  if (variable?.type === 'enum' && variable.enumValues?.length) {
+    return (
+      <select data-testid={testId} value={value || variable.enumValues[0]} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel}>
+        {variable.enumValues.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+    );
+  }
+  const isNumeric = variable?.type === 'int' || variable?.type === 'float';
+  return (
+    <input
+      data-testid={testId}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
+      onKeyDown={handleKeyDown}
+      inputMode={isNumeric ? 'decimal' : undefined}
+      placeholder={variable?.type === 'string' ? '' : '0'}
+      aria-label={ariaLabel}
+    />
+  );
+}
+
+function ConditionBuilder({
   variables,
-  onApply,
+  raw,
+  index,
+  onCommit,
 }: {
   readonly variables: readonly VariableDeclaration[];
-  readonly onApply: (raw: string) => void;
+  readonly raw: string | null;
+  readonly index: number;
+  readonly onCommit: (raw: string | null) => void;
 }): React.ReactElement {
+  const text = useAppText();
+  const parsed = parseSimpleCondition(raw);
+  const fallback = Boolean(raw?.trim()) && !parsed;
   const firstVariable = variables[0]?.name ?? '';
-  const [variableName, setVariableName] = useState(firstVariable);
-  const [operation, setOperation] = useState<'set' | 'add' | 'subtract'>('set');
-  const [value, setValue] = useState('');
-  const variable = variables.find((item) => item.name === variableName);
-  const numeric = variable?.type === 'int' || variable?.type === 'float';
+  const [variableName, setVariableName] = useState(parsed?.variableName || firstVariable);
+  const [operator, setOperator] = useState<ConditionOperator>(parsed?.operator ?? '==');
+  const [value, setValue] = useState(parsed?.value ?? '');
 
   React.useEffect(() => {
-    if (!variableName && firstVariable) setVariableName(firstVariable);
-  }, [firstVariable, variableName]);
+    const next = parseSimpleCondition(raw);
+    setVariableName(next?.variableName || firstVariable);
+    setOperator(next?.operator ?? '==');
+    setValue(next?.value ?? '');
+  }, [firstVariable, raw]);
 
-  const apply = useCallback(() => {
-    if (!variableName.trim()) return;
-    const rhs = quoteEffectValue(variable, value);
-    const raw = operation === 'add'
-      ? `${variableName}+${rhs}`
-      : operation === 'subtract'
-        ? `${variableName}-${rhs}`
-        : `${variableName}=${rhs}`;
-    onApply(raw);
-    setValue('');
-  }, [onApply, operation, value, variable, variableName]);
+  const commit = useCallback(() => {
+    onCommit(serializeCondition(variableName, operator, value));
+  }, [onCommit, operator, value, variableName]);
+
+  if (fallback) {
+    return (
+      <div className="graph-lab-expression-fallback">
+        <EditableField
+          label={text('inspector.rawCondition')}
+          testId={`graph-inspector-option-condition-${index}`}
+          value={raw ?? ''}
+          onCommit={(nextRaw) => onCommit(nextRaw.trim() ? nextRaw : null)}
+        />
+        <p>{text('inspector.rawConditionHint')}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="graph-lab-effect-builder" data-testid="graph-inspector-effect-builder">
+    <div className="graph-lab-condition-builder" data-testid={`graph-inspector-condition-builder-${index}`}>
       <select
+        data-testid={`graph-inspector-option-condition-variable-${index}`}
         value={variableName}
-        onChange={(event) => setVariableName(event.target.value)}
+        onChange={(event) => {
+          setVariableName(event.target.value);
+          if (value.trim()) onCommit(serializeCondition(event.target.value, operator, value));
+        }}
         disabled={variables.length === 0}
-        aria-label="Effect variable"
+        aria-label={text('inspector.conditionVariable')}
       >
         {variables.length === 0 ? (
-          <option value="">No variables</option>
-        ) : variables.map((item) => (
-          <option key={item.name} value={item.name}>{item.name}</option>
+          <option value="">{text('inspector.noVariables')}</option>
+        ) : variables.map((variable) => (
+          <option key={variable.name} value={variable.name}>{variable.name}</option>
         ))}
       </select>
       <select
-        value={operation}
-        onChange={(event) => setOperation(event.target.value as 'set' | 'add' | 'subtract')}
-        aria-label="Effect operation"
+        data-testid={`graph-inspector-option-condition-operator-${index}`}
+        value={operator}
+        onChange={(event) => {
+          const nextOperator = event.target.value as ConditionOperator;
+          setOperator(nextOperator);
+          if (value.trim()) onCommit(serializeCondition(variableName, nextOperator, value));
+        }}
+        disabled={variables.length === 0}
+        aria-label={text('inspector.conditionOperator')}
       >
-        <option value="set">=</option>
-        {numeric && <option value="add">+</option>}
-        {numeric && <option value="subtract">-</option>}
+        {CONDITION_OPERATORS.map((item) => <option key={item} value={item}>{item}</option>)}
       </select>
-      {variable?.type === 'bool' ? (
-        <select value={value || 'true'} onChange={(event) => setValue(event.target.value)} aria-label="Effect value">
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
-      ) : variable?.type === 'enum' && variable.enumValues?.length ? (
-        <select value={value || variable.enumValues[0]} onChange={(event) => setValue(event.target.value)} aria-label="Effect value">
-          {variable.enumValues.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
-      ) : (
-        <input
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder={variable?.type === 'string' ? 'value' : '0'}
-          aria-label="Effect value"
-        />
-      )}
-      <button type="button" className="graph-lab-inline-button" onClick={apply} disabled={!variableName}>
-        Apply
+      <VariableValueInput
+        variable={variables.find((item) => item.name === variableName)}
+        value={value}
+        testId={`graph-inspector-option-condition-${index}`}
+        ariaLabel={text('inspector.conditionValue')}
+        onChange={setValue}
+        onBlur={commit}
+        onEnter={commit}
+      />
+      <button type="button" className="icon-button" title={text('inspector.clearCondition')} onClick={() => onCommit(null)} disabled={!raw?.trim()}>
+        <X aria-hidden="true" size={14} strokeWidth={2} />
       </button>
+      {variables.length === 0 && <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>}
+    </div>
+  );
+}
+
+function EffectsEditor({
+  variables,
+  raw,
+  index,
+  onCommit,
+}: {
+  readonly variables: readonly VariableDeclaration[];
+  readonly raw: string | null;
+  readonly index: number;
+  readonly onCommit: (raw: string | null) => void;
+}): React.ReactElement {
+  const text = useAppText();
+  const parsed = parseSimpleEffects(raw);
+  const fallback = parsed === null;
+  const effects = parsed ?? [];
+  const firstVariable = variables[0]?.name ?? '';
+  const [draftVariable, setDraftVariable] = useState(firstVariable);
+  const [draftOperation, setDraftOperation] = useState<EffectOperation>('set');
+  const [draftValue, setDraftValue] = useState('');
+  const draftVariableDef = variables.find((item) => item.name === draftVariable);
+
+  React.useEffect(() => {
+    if (!draftVariable && firstVariable) setDraftVariable(firstVariable);
+  }, [draftVariable, firstVariable]);
+
+  const updateEffect = useCallback((effectIndex: number, patch: Partial<ParsedEffect>) => {
+    const nextEffects = effects.map((effect, itemIndex) =>
+      itemIndex === effectIndex ? { ...effect, ...patch } : effect,
+    );
+    onCommit(serializeEffects(nextEffects, variables));
+  }, [effects, onCommit, variables]);
+
+  const removeEffect = useCallback((effectIndex: number) => {
+    const nextEffects = effects.filter((_, itemIndex) => itemIndex !== effectIndex);
+    onCommit(serializeEffects(nextEffects, variables));
+  }, [effects, onCommit, variables]);
+
+  const addEffect = useCallback(() => {
+    if (!draftVariable) return;
+    const nextEffect: ParsedEffect = {
+      variableName: draftVariable,
+      operation: draftOperation,
+      value: draftValue || variableDefaultValue(draftVariableDef),
+    };
+    onCommit(serializeEffects([...effects, nextEffect], variables));
+    setDraftValue('');
+  }, [draftOperation, draftValue, draftVariable, draftVariableDef, effects, onCommit, variables]);
+
+  if (fallback) {
+    return (
+      <div className="graph-lab-expression-fallback">
+        <EditableField
+          label={text('inspector.rawEffects')}
+          testId={`graph-inspector-option-effects-${index}`}
+          value={raw ?? ''}
+          onCommit={(nextRaw) => onCommit(nextRaw.trim() ? nextRaw : null)}
+        />
+        <p>{text('inspector.rawEffectsHint')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="graph-lab-effect-editor" data-testid={`graph-inspector-effect-editor-${index}`}>
+      {effects.length > 0 && (
+        <div className="graph-lab-effect-list">
+          {effects.map((effect, effectIndex) => {
+            const variable = variables.find((item) => item.name === effect.variableName);
+            return (
+              <div className="graph-lab-effect-row" key={`${effect.variableName}-${effectIndex}`}>
+                <select
+                  value={effect.variableName}
+                  onChange={(event) => updateEffect(effectIndex, {
+                    variableName: event.target.value,
+                    value: variableDefaultValue(variables.find((item) => item.name === event.target.value)),
+                  })}
+                  aria-label={text('inspector.effectVariable')}
+                >
+                  {variables.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+                </select>
+                <select
+                  value={effect.operation}
+                  onChange={(event) => updateEffect(effectIndex, { operation: event.target.value as EffectOperation })}
+                  aria-label={text('inspector.effectOperationLabel')}
+                >
+                  {EFFECT_OPERATIONS.map((item) => <option key={item} value={item}>{effectOperationLabel(item, text)}</option>)}
+                </select>
+                <VariableValueInput
+                  variable={variable}
+                  value={effect.value}
+                  ariaLabel={text('inspector.effectValue')}
+                  onChange={(nextValue) => updateEffect(effectIndex, { value: nextValue })}
+                />
+                <button type="button" className="icon-button icon-button--danger" title={text('inspector.deleteEffect')} onClick={() => removeEffect(effectIndex)}>
+                  <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="graph-lab-effect-builder" data-testid="graph-inspector-effect-builder">
+        <select
+          data-testid={`graph-inspector-option-effect-variable-${index}`}
+          value={draftVariable}
+          onChange={(event) => setDraftVariable(event.target.value)}
+          disabled={variables.length === 0}
+          aria-label={text('inspector.effectVariable')}
+        >
+          {variables.length === 0 ? (
+            <option value="">{text('inspector.noVariables')}</option>
+          ) : variables.map((item) => (
+            <option key={item.name} value={item.name}>{item.name}</option>
+          ))}
+        </select>
+        <select
+          data-testid={`graph-inspector-option-effect-operation-${index}`}
+          value={draftOperation}
+          onChange={(event) => setDraftOperation(event.target.value as EffectOperation)}
+          disabled={variables.length === 0}
+          aria-label={text('inspector.effectOperationLabel')}
+        >
+          {EFFECT_OPERATIONS.map((item) => <option key={item} value={item}>{effectOperationLabel(item, text)}</option>)}
+        </select>
+        <VariableValueInput
+          variable={draftVariableDef}
+          value={draftValue}
+          testId={`graph-inspector-option-effect-value-${index}`}
+          ariaLabel={text('inspector.effectValue')}
+          onChange={setDraftValue}
+          onEnter={addEffect}
+        />
+        <button
+          type="button"
+          className="graph-lab-inline-button"
+          data-testid={`graph-inspector-option-effect-add-${index}`}
+          onClick={addEffect}
+          disabled={!draftVariable}
+        >
+          <Plus aria-hidden="true" size={14} strokeWidth={2} />
+          <span>{text('inspector.addEffect')}</span>
+        </button>
+        {variables.length === 0 && <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>}
+      </div>
     </div>
   );
 }
@@ -214,6 +529,12 @@ export function GraphInspector(): React.ReactElement {
     setVariableType('int');
     setStatusMessage(text('inspector.updatedVariable'));
   }, [setStatusMessage, text, variableName, variableType]);
+
+  const handleVariableNameKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    handleVariableSubmit();
+  }, [handleVariableSubmit]);
 
   const handleVariableDelete = useCallback((name: string) => {
     graphEditService.deleteVariable(name);
@@ -321,27 +642,24 @@ export function GraphInspector(): React.ReactElement {
                           ))}
                       </select>
                     </label>
-                    <EditableField
-                      label={text('inspector.condition')}
-                      testId={`graph-inspector-option-condition-${index}`}
-                      value={option.conditionRaw ?? ''}
-                      onCommit={(value) => commitOptionPatch(option, { conditionRaw: value || null })}
-                    />
-                    <EditableField
-                      label={text('inspector.effects')}
-                      testId={`graph-inspector-option-effects-${index}`}
-                      value={option.effectsRaw ?? ''}
-                      onCommit={(value) => commitOptionPatch(option, { effectsRaw: value || null })}
-                    />
-                    <EffectBuilder
-                      variables={variables}
-                      onApply={(raw) => {
-                        const nextRaw = option.effectsRaw?.trim()
-                          ? `${option.effectsRaw.trim()}, ${raw}`
-                          : raw;
-                        commitOptionPatch(option, { effectsRaw: nextRaw });
-                      }}
-                    />
+                    <div className="graph-lab-field-group">
+                      <span>{text('inspector.condition')}</span>
+                      <ConditionBuilder
+                        variables={variables}
+                        raw={option.conditionRaw ?? null}
+                        index={index}
+                        onCommit={(value) => commitOptionPatch(option, { conditionRaw: value })}
+                      />
+                    </div>
+                    <div className="graph-lab-field-group">
+                      <span>{text('inspector.effects')}</span>
+                      <EffectsEditor
+                        variables={variables}
+                        raw={option.effectsRaw ?? null}
+                        index={index}
+                        onCommit={(value) => commitOptionPatch(option, { effectsRaw: value })}
+                      />
+                    </div>
                     <div className="graph-lab-option__actions">
                       <button
                         type="button"
@@ -401,7 +719,7 @@ export function GraphInspector(): React.ReactElement {
                 <button
                   type="button"
                   className="icon-button icon-button--danger"
-                  title="Delete variable"
+                  title={text('inspector.deleteVariable')}
                   onClick={() => handleVariableDelete(variable.name)}
                 >
                   <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
@@ -410,11 +728,17 @@ export function GraphInspector(): React.ReactElement {
             ))}
           </div>
         ) : (
-          <p className="graph-lab-empty">No variables declared</p>
+          <p className="graph-lab-empty">{text('inspector.noVariablesDeclared')}</p>
         )}
         <label className="graph-lab-field">
           <span>{text('inspector.variableName')}</span>
-          <input data-testid="graph-inspector-variable-name" value={variableName} onChange={(event) => setVariableName(event.target.value)} placeholder={text('inspector.variablePlaceholder')} />
+          <input
+            data-testid="graph-inspector-variable-name"
+            value={variableName}
+            onChange={(event) => setVariableName(event.target.value)}
+            onKeyDown={handleVariableNameKeyDown}
+            placeholder={text('inspector.variablePlaceholder')}
+          />
         </label>
         <label className="graph-lab-field">
           <span>{text('inspector.variableType')}</span>
@@ -425,7 +749,7 @@ export function GraphInspector(): React.ReactElement {
             <option value="string">string</option>
           </select>
         </label>
-        <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-save-variable" onClick={handleVariableSubmit}>{text('inspector.saveVariable')}</button>
+        <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-save-variable" onClick={handleVariableSubmit} disabled={!variableName.trim()}>{text('inspector.saveVariable')}</button>
       </section>
     </aside>
   );

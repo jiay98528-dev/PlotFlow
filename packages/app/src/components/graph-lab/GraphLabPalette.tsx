@@ -26,7 +26,8 @@ import { rememberRecentStory } from '../../services/recentFileService';
 import { useAppText } from '../../i18n/appI18n';
 
 interface GraphLabPaletteProps {
-  readonly onNodeNavigate: (nodeId: string, lineNumber: number) => void;
+  readonly onNodeNavigate: (nodeId: string, lineNumber: number, chapterId: string) => void;
+  readonly onBeforeChapterMutation?: () => boolean;
 }
 
 type NodeSeverity = Diagnostic['severity'] | 'normal';
@@ -101,7 +102,7 @@ function loadStoryIntoEditor(filePath: string, content: string, hash: string, mo
   parsePipelineNow(content);
 }
 
-export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React.ReactElement {
+export function GraphLabPalette({ onNodeNavigate, onBeforeChapterMutation }: GraphLabPaletteProps): React.ReactElement {
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const setNodes = useGraphStore((state) => state.setNodes);
@@ -134,6 +135,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   }, [diagnostics, plotFlowData]);
 
   const handleCreateChapter = useCallback(() => {
+    if (onBeforeChapterMutation && !onBeforeChapterMutation()) return;
     const baseTitle = text('palette.defaultChapterTitle');
     const existing = new Set((plotFlowData?.chapters ?? []).map((chapter) => chapter.title));
     let title = baseTitle;
@@ -145,7 +147,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
     graphEditService.createChapter(title);
     setActiveChapterId(title);
     setStatusMessage(text('palette.createdChapter'));
-  }, [plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
+  }, [onBeforeChapterMutation, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
     graphEditService.createNode({
@@ -336,7 +338,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
                       key={node.fullId}
                       className={`graph-lab-outline-node graph-lab-outline-node--${severity}${isActive ? ' graph-lab-outline-node--active' : ''}`}
                       data-testid="graph-lab-outline-node"
-                      onClick={() => onNodeNavigate(node.fullId, node.lineNumber)}
+                      onClick={() => onNodeNavigate(node.fullId, node.lineNumber, node.chapterId)}
                       title={`${node.title} · ${getNodeSeverityLabel(severity, text)}`}
                     >
                       <span className="graph-lab-outline-node__status" aria-hidden="true" />
