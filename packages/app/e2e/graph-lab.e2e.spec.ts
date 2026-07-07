@@ -1195,9 +1195,13 @@ author: QA
     await switchToGraphLab(page);
     const sourceNode = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
     const handle = sourceNode.locator('.story-node-connect-handle').first();
-    const target = await nodeCenter(page, '树林');
+    const sourceCenter = await nodeCenter(page, '起点');
+    await expect(page.locator('.react-flow__node').filter({ hasText: '树林' })).toBeVisible({ timeout: 10_000 });
+    const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
 
-    await dragLocatorTo(page, handle, target);
+    await dragLocatorTo(page, handle, blankPoint);
+    await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('wire-drop-connect-existing').filter({ hasText: '树林' }).click();
     await waitForContent(page, '[选项] 查看四周 -> 节点：树林');
   });
 
