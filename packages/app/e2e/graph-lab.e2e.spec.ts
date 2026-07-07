@@ -56,6 +56,7 @@ interface TestStoreBridge {
     readonly position: { readonly x: number; readonly y: number };
   }>;
   setEditorContent: (content: string) => void;
+  setEditorContentPreservingUI: (content: string) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
   setTheme: (themeId: string) => void;
   setHomeSurfaceOpen: (open: boolean) => void;
@@ -138,8 +139,11 @@ async function mockWorkspaceIpcHandler(app: ElectronApplication, workspace: Mock
       ipcMain.removeHandler('file:listWorkspaceStories');
       ipcMain.handle('file:listWorkspaceStories', async () => workspaceResult);
 
+      (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount = 0;
       ipcMain.removeHandler('file:readWorkspaceStory');
       ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: string; filePath: string }) => {
+        (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount =
+          ((globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount ?? 0) + 1;
         if (payload.rootPath !== mock.rootPath || payload.filePath !== mock.filePath) return null;
         return { filePath: mock.filePath, content: mock.content, hash: 'workspace-hash', modifiedAt: Date.now() };
       });
@@ -228,6 +232,12 @@ async function readOpenFileCallCount(app: ElectronApplication): Promise<number> 
   );
 }
 
+async function readWorkspaceStoryCallCount(app: ElectronApplication): Promise<number> {
+  return app.evaluate(() =>
+    (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount ?? 0,
+  );
+}
+
 async function mockCloseDialogResponse(app: ElectronApplication, response: number): Promise<void> {
   await app.evaluate(({ dialog }, nextResponse: number) => {
     (globalThis as typeof globalThis & { __plotflowCloseResponse?: number }).__plotflowCloseResponse = nextResponse;
@@ -267,6 +277,20 @@ async function setEditorContent(page: Page, content: string): Promise<void> {
     const store = (window as TestWindow).__test_store__;
     if (!store?.setEditorContent) throw new Error('__test_store__.setEditorContent unavailable');
     store.setEditorContent(text);
+  }, content);
+
+  await page.waitForFunction(
+    (text: string) => (window as TestWindow).__test_store__?.getEditorContent?.() === text,
+    content,
+    { timeout: 10_000 },
+  );
+}
+
+async function setEditorContentPreservingUI(page: Page, content: string): Promise<void> {
+  await page.evaluate((text: string) => {
+    const store = (window as TestWindow).__test_store__;
+    if (!store?.setEditorContentPreservingUI) throw new Error('__test_store__.setEditorContentPreservingUI unavailable');
+    store.setEditorContentPreservingUI(text);
   }, content);
 
   await page.waitForFunction(
@@ -757,7 +781,7 @@ test.describe('Graph Lab E2E', () => {
     await sourceSlice.fill(sourceValue.replace('你醒来。', '这是一段未保存草稿。'));
 
     const externallyChanged = (await getEditorContent(page)).replace('你醒来。', '外部修改后的正文。');
-    await setEditorContent(page, externallyChanged);
+    await setEditorContentPreservingUI(page, externallyChanged);
     await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化', {
       timeout: 10_000,
     });
@@ -1078,6 +1102,62 @@ author: QA
       timeout: 10_000,
     });
     await reloadRenderer(page);
+  });
+
+  test('guards Source Drawer drafts before opening workspace stories', async () => {
+    const workspaceStory = `---
+plotflow: 0.1
+title: 工作区故事
+author: QA
+---
+
+# 第一章
+
+## 节点：工作区起点
+从内容浏览器打开的故事。
+`;
+    await mockWorkspaceIpcHandler(electronApp, {
+      rootPath: 'D:\\PlotFlowE2E\\Stories',
+      filePath: 'D:\\PlotFlowE2E\\Stories\\workspace-guard.mdstory',
+      relativePath: 'workspace-guard.mdstory',
+      content: workspaceStory,
+    });
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+
+    const originalSource = await sourceSlice.inputValue();
+    await sourceSlice.fill(originalSource.replace('你醒来。', '打开工作区前自动保存。'));
+    await page.getByTestId('graph-lab-choose-workspace').click();
+    const workspaceFile = page.getByTestId('graph-lab-workspace-file').filter({ hasText: 'workspace-guard.mdstory' });
+    await expect(workspaceFile).toBeVisible({ timeout: 10_000 });
+    await workspaceFile.click();
+
+    await waitForContent(page, '节点：工作区起点');
+    expect(await readWorkspaceStoryCallCount(electronApp)).toBe(1);
+
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/你醒来。/);
+    const staleDraft = (await sourceSlice.inputValue()).replace('你醒来。', '这段草稿不能被覆盖。');
+    await sourceSlice.fill(staleDraft);
+    const externallyChanged = (await getEditorContent(page)).replace('你醒来。', '外部修改后的正文。');
+    await setEditorContentPreservingUI(page, externallyChanged);
+    await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化', {
+      timeout: 10_000,
+    });
+    await workspaceFile.click();
+
+    expect(await readWorkspaceStoryCallCount(electronApp)).toBe(1);
+    await expect(page.locator('.status-bar')).toContainText('源码切片已变化', { timeout: 2_000 });
+    expect(await getEditorContent(page)).toContain('外部修改后的正文。');
+    expect(await getEditorContent(page)).not.toContain('节点：工作区起点');
   });
 
   test('persists node dragging into .mdstory layout data', async () => {

@@ -52,6 +52,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
+  const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const [draft, setDraft] = useState('');
   const draftRef = useRef('');
@@ -103,13 +104,19 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
       return;
     }
 
+    if (!isSourceDrawerOpen) {
+      setDraftValue(slice.text);
+      setBaseline(slice);
+      return;
+    }
+
     setBaseline((current) => {
       const dirty = current?.chapterId === slice.chapterId && draftRef.current !== current.text;
       if (dirty) return current;
       setDraftValue(slice.text);
       return slice;
     });
-  }, [setDraftValue, slice]);
+  }, [isSourceDrawerOpen, setDraftValue, slice]);
 
   const isDirty = baseline ? draft !== baseline.text : false;
   const isStale = Boolean(
@@ -480,7 +487,7 @@ export function GraphLabWorkspace(): React.ReactElement {
       palette={(
         <GraphLabPalette
           onNodeNavigate={handleNodeNavigate}
-          onBeforeChapterMutation={saveSourceSliceBeforeChapterChange}
+          onBeforeGraphMutation={saveSourceSliceBeforeChapterChange}
         />
       )}
       canvas={(

@@ -274,6 +274,7 @@ export interface TestStoreBridge {
   }>;
   getGraphZoom: () => number;
   setEditorContent: (content: string) => void;
+  setEditorContentPreservingUI: (content: string) => void;
   openConditionEditor: (nodeId: string, optionIndex: number) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
   getUIState: () => {

@@ -27,7 +27,7 @@ import { useAppText } from '../../i18n/appI18n';
 
 interface GraphLabPaletteProps {
   readonly onNodeNavigate: (nodeId: string, lineNumber: number, chapterId: string) => void;
-  readonly onBeforeChapterMutation?: () => boolean;
+  readonly onBeforeGraphMutation?: () => boolean;
 }
 
 type NodeSeverity = Diagnostic['severity'] | 'normal';
@@ -102,7 +102,7 @@ function loadStoryIntoEditor(filePath: string, content: string, hash: string, mo
   parsePipelineNow(content);
 }
 
-export function GraphLabPalette({ onNodeNavigate, onBeforeChapterMutation }: GraphLabPaletteProps): React.ReactElement {
+export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: GraphLabPaletteProps): React.ReactElement {
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const setNodes = useGraphStore((state) => state.setNodes);
@@ -135,7 +135,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeChapterMutation }: Gra
   }, [diagnostics, plotFlowData]);
 
   const handleCreateChapter = useCallback(() => {
-    if (onBeforeChapterMutation && !onBeforeChapterMutation()) return;
+    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     const baseTitle = text('palette.defaultChapterTitle');
     const existing = new Set((plotFlowData?.chapters ?? []).map((chapter) => chapter.title));
     let title = baseTitle;
@@ -147,24 +147,26 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeChapterMutation }: Gra
     graphEditService.createChapter(title);
     setActiveChapterId(title);
     setStatusMessage(text('palette.createdChapter'));
-  }, [onBeforeChapterMutation, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
+  }, [onBeforeGraphMutation, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
+    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     graphEditService.createNode({
       chapterTitle: activeChapterId ?? text('palette.defaultChapterTitle'),
       title: text('palette.newNodeTitle'),
     });
     setStatusMessage(text('palette.createdNode'));
-  }, [activeChapterId, setStatusMessage, text]);
+  }, [activeChapterId, onBeforeGraphMutation, setStatusMessage, text]);
 
   const handleCreateEnding = useCallback(() => {
+    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     graphEditService.createNode({
       chapterTitle: activeChapterId ?? text('palette.defaultChapterTitle'),
       title: text('palette.endingNodeTitle'),
       isEnding: true,
     });
     setStatusMessage(text('palette.createdEnding'));
-  }, [activeChapterId, setStatusMessage, text]);
+  }, [activeChapterId, onBeforeGraphMutation, setStatusMessage, text]);
 
   const handleRelayout = useCallback(() => {
     if (nodes.length === 0) {
@@ -219,6 +221,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeChapterMutation }: Gra
 
   const handleOpenWorkspaceFile = useCallback(async (file: WorkspaceStoryFile) => {
     if (!workspace) return;
+    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     const canReplace = await confirmBeforeReplacingStory(text);
     if (!canReplace) return;
 
@@ -230,7 +233,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeChapterMutation }: Gra
 
     loadStoryIntoEditor(result.filePath, result.content, result.hash, result.modifiedAt);
     setStatusMessage(text('status.opened', { path: file.relativePath }));
-  }, [setStatusMessage, text, workspace]);
+  }, [onBeforeGraphMutation, setStatusMessage, text, workspace]);
 
   const hasOutline = (plotFlowData?.chapters.length ?? 0) > 0;
 
