@@ -18,8 +18,8 @@ html[data-theme-id] {
 }
 
 .home-surface {
-  position: absolute;
-  inset: var(--theme-ux-home-inset, 64px 0 26px);
+  position: fixed;
+  inset: 0;
   z-index: var(--z-panel, 50);
   display: grid;
   grid-template-rows: auto auto auto;
@@ -443,11 +443,11 @@ html[data-theme-id] {
 
 .official-node-shell__rail {
   position: absolute;
-  inset: 10px auto 10px -8px;
+  inset: 12px auto 12px -3px;
   z-index: 1;
-  width: 4px;
+  width: 1px;
   border-radius: var(--radius-full);
-  background: var(--theme-port-fill);
+  background: color-mix(in oklch, var(--theme-port-fill), transparent 46%);
 }
 
 .official-node-shell__glow {
@@ -457,13 +457,13 @@ html[data-theme-id] {
   border-radius: var(--radius-lg);
   opacity: 0;
   background: var(--theme-graph-cable-default);
-  filter: blur(18px);
+  filter: blur(12px);
   transition: opacity 160ms ease;
 }
 
 .official-node-shell:hover .official-node-shell__glow,
 .official-node-shell:focus-within .official-node-shell__glow {
-  opacity: 0.16;
+  opacity: 0.08;
 }
 
 .official-node-shell .story-node-connect-port,
@@ -476,28 +476,29 @@ html[data-theme-id] {
 .official-graph-node {
   position: relative;
   display: grid;
-  gap: var(--space-3);
-  width: var(--theme-ux-node-width, 260px);
-  min-height: var(--theme-ux-node-min-height, 150px);
+  box-sizing: border-box;
+  gap: var(--space-2);
+  width: var(--theme-ux-node-width, 320px);
+  min-height: var(--theme-ux-node-min-height, 228px);
   padding: var(--theme-ux-node-padding, var(--space-3));
   border: 1px solid var(--theme-node-border);
   color: var(--theme-node-ink);
   background: var(--theme-node-surface);
-  box-shadow: var(--theme-workbench-shadow);
+  box-shadow: 0 12px 32px color-mix(in oklch, var(--theme-node-ink), transparent 92%);
+  overflow: hidden;
 }
 
 .official-graph-node--workbench {
-  border-radius: var(--theme-ux-node-radius, 10px 10px 14px);
-  background:
-    linear-gradient(90deg, color-mix(in oklch, var(--theme-port-fill), transparent 84%) 0 8px, transparent 8px),
-    linear-gradient(180deg, color-mix(in oklch, var(--theme-node-surface), white 9%), var(--theme-node-surface));
+  border-color: color-mix(in oklch, var(--theme-node-border), transparent 20%);
+  border-radius: var(--theme-ux-node-radius, 10px);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--theme-node-surface), var(--theme-panel-surface) 24%), var(--theme-node-surface));
 }
 
 .official-graph-node.is-selected {
   border-color: var(--theme-port-fill);
   box-shadow:
-    0 0 0 3px color-mix(in oklch, var(--theme-port-fill), transparent 70%),
-    var(--theme-workbench-shadow);
+    0 0 0 2px color-mix(in oklch, var(--theme-port-fill), transparent 66%),
+    0 14px 34px color-mix(in oklch, var(--theme-port-fill), transparent 88%);
 }
 
 .official-graph-node__header,
@@ -524,11 +525,11 @@ html[data-theme-id] {
 .official-graph-node__status,
 .official-graph-node__count,
 .official-graph-node__condition {
-  border: 1px solid color-mix(in oklch, var(--theme-port-fill), transparent 58%);
+  border: 1px solid color-mix(in oklch, var(--theme-node-border), transparent 30%);
   border-radius: var(--radius-full);
   padding: 2px 7px;
-  color: var(--theme-node-ink);
-  background: color-mix(in oklch, var(--theme-port-fill), transparent 82%);
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-panel-surface), transparent 20%);
 }
 
 .official-graph-node h3,
@@ -546,7 +547,7 @@ html[data-theme-id] {
 .official-graph-node__body {
   color: var(--theme-node-muted);
   font-size: var(--text-xs);
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .official-graph-node__options {
@@ -563,6 +564,13 @@ html[data-theme-id] {
   background: color-mix(in oklch, var(--theme-panel-surface), transparent 20%);
 }
 
+.official-graph-node__empty {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding-right: 28px;
+}
+
 .official-graph-node__option-text {
   min-width: 0;
   overflow: hidden;
@@ -572,20 +580,134 @@ html[data-theme-id] {
   white-space: nowrap;
 }
 
+.official-graph-node .node-route-preview {
+  gap: 5px;
+  margin-top: 0;
+}
+
+.official-graph-node .node-route-preview__row {
+  min-height: 38px;
+  padding: 6px 42px 6px 10px;
+  border-color: color-mix(in oklch, var(--theme-node-border), transparent 36%);
+  color: var(--theme-node-ink);
+  background: color-mix(in oklch, var(--theme-panel-surface), transparent 28%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--theme-node-surface), transparent 20%),
+    0 1px 2px color-mix(in oklch, var(--theme-node-ink), transparent 95%);
+}
+
+.official-graph-node .node-route-preview--with-input {
+  padding-left: 38px;
+}
+
+.official-graph-node .node-route-preview--overflow {
+  min-height: 28px;
+  padding-right: 8px;
+  color: var(--theme-node-muted);
+}
+
+.official-graph-node .node-route-preview__label {
+  color: var(--theme-node-ink);
+  font-size: var(--text-xs);
+}
+
+.official-graph-node .node-route-preview__chip {
+  border-color: transparent;
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-node-surface), transparent 26%);
+}
+
+.official-graph-node .node-route-preview--conditional .node-route-preview--requirement {
+  border-color: color-mix(in oklch, var(--theme-graph-cable-conditional), transparent 64%);
+  color: color-mix(in oklch, var(--theme-graph-cable-conditional), var(--theme-node-ink) 26%);
+  background: color-mix(in oklch, var(--theme-graph-cable-conditional), transparent 90%);
+}
+
+.official-graph-node .node-route-preview--target-linked {
+  border-color: color-mix(in oklch, var(--theme-port-fill), transparent 70%);
+  color: color-mix(in oklch, var(--theme-port-fill), var(--theme-node-ink) 22%);
+  background: color-mix(in oklch, var(--theme-port-fill), transparent 90%);
+}
+
+.official-graph-node .node-route-preview--target-missing {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background: var(--color-error-subtle);
+}
+
+.official-graph-node .node-route-preview--effect {
+  border-color: transparent;
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--color-success-subtle), transparent 54%);
+}
+
 .official-node-port {
-  width: 13px;
-  height: 13px;
-  border: 2px solid var(--theme-node-surface);
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--theme-node-surface);
   background: var(--theme-port-fill);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--theme-port-fill), transparent 76%);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--theme-port-fill), transparent 84%);
 }
 
 .official-node-port--target {
-  left: -8px;
+  top: 50%;
+  left: 12px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: translate(-50%, -50%);
+}
+
+.official-node-port--target::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1px solid color-mix(in oklch, var(--theme-port-fill), var(--theme-node-surface) 12%);
+  border-radius: var(--radius-full);
+  background: var(--theme-node-surface);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--theme-node-ink), transparent 88%);
+  transform: translate(-50%, -50%);
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.official-node-port--target:hover::after,
+.official-node-port--target:focus-visible::after {
+  background: var(--theme-port-fill);
+  transform: translate(-50%, -50%) scale(1.16);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-port-fill), transparent 80%);
+}
+
+.official-node-port--inline {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .official-node-port--source {
-  right: -8px;
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  bottom: auto;
+  flex: 0 0 auto;
+  transform: translateY(-50%);
+}
+
+.official-node-port.story-node-connect-handle {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.official-node-port.story-node-connect-handle::after {
+  border-color: color-mix(in oklch, var(--theme-port-fill), var(--theme-node-surface) 12%);
+  background: var(--theme-node-surface);
 }
 
 .official-graph-edge__path {
@@ -644,26 +766,23 @@ html[data-theme-id] {
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] {
-  --theme-telemetry-separator: color-mix(in oklch, var(--theme-signal-line), transparent 72%);
+  --theme-telemetry-separator: color-mix(in oklch, var(--theme-signal-line), transparent 82%);
   --theme-telemetry-panel: color-mix(in oklch, var(--theme-workbench-panel), transparent 5%);
-  --theme-telemetry-panel-strong: color-mix(in oklch, var(--theme-node-surface-strong), transparent 8%);
-  --theme-telemetry-canvas-grid: color-mix(in oklch, var(--theme-signal-line), transparent 82%);
+  --theme-telemetry-panel-strong: color-mix(in oklch, var(--theme-node-surface-strong), transparent 4%);
+  --theme-telemetry-canvas-grid: color-mix(in oklch, var(--theme-signal-line), transparent 91%);
   --theme-telemetry-amber-glow: color-mix(in oklch, var(--theme-status-amber), transparent 68%);
   --theme-telemetry-danger-glow: color-mix(in oklch, var(--theme-danger-signal), transparent 62%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-shell {
-  background:
-    linear-gradient(135deg, color-mix(in oklch, var(--theme-workbench-paper), transparent 4%), var(--theme-workbench-paper-warm)),
-    var(--theme-workbench-paper);
+  background: var(--theme-workbench-paper);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-toolbar {
   min-height: var(--theme-ux-toolbar-height, 56px);
   border-bottom: 1px solid var(--theme-telemetry-separator);
-  background:
-    linear-gradient(90deg, color-mix(in oklch, var(--theme-workbench-rail), transparent 3%), var(--theme-workbench-panel));
-  box-shadow: 0 1px 0 color-mix(in oklch, var(--theme-signal-line), transparent 82%);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 4%);
+  box-shadow: 0 1px 0 color-mix(in oklch, var(--theme-workbench-paper), transparent 24%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-toolbar__nav,
@@ -673,7 +792,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-toolbar__group
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-toolbar__group {
   border-color: var(--theme-telemetry-separator);
-  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 22%);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 12%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-split {
@@ -702,8 +821,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-split__source-
   min-height: 0;
   grid-template-rows: minmax(120px, 0.34fr) minmax(0, 1fr);
   border-right: 1px solid var(--theme-telemetry-separator);
-  background:
-    linear-gradient(180deg, var(--theme-workbench-rail), var(--theme-workbench-panel));
+  background: color-mix(in oklch, var(--theme-workbench-rail), var(--theme-workbench-panel) 18%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-split__editor,
@@ -727,8 +845,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-split .graph-p
   background: transparent;
 }
 
-html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab,
-html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.graph-lab--source-open {
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab {
   grid-template-columns:
     minmax(260px, var(--theme-graph-lab-rail-width, 292px))
     minmax(430px, 1fr)
@@ -742,8 +859,11 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.grap
   background-size: var(--theme-grid-size) var(--theme-grid-size), var(--theme-grid-size) var(--theme-grid-size), auto;
 }
 
+html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.graph-lab--source-open,
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab--source-open {
-  grid-template-rows: auto minmax(0, 1fr) minmax(220px, var(--theme-graph-lab-source-dock-height, 300px));
+  --theme-graph-lab-source-dock-height: 360px;
+
+  grid-template-rows: auto minmax(0, 1fr) minmax(320px, var(--theme-graph-lab-source-dock-height, 360px));
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__commandbar {
@@ -751,41 +871,38 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .gra
   grid-row: 1;
   min-height: 54px;
   border-bottom: 1px solid var(--theme-telemetry-separator);
-  background:
-    linear-gradient(90deg, var(--theme-workbench-rail), color-mix(in oklch, var(--theme-workbench-panel), transparent 10%));
-  box-shadow: 0 1px 0 color-mix(in oklch, var(--theme-signal-line), transparent 78%);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 5%);
+  box-shadow: 0 1px 0 color-mix(in oklch, var(--theme-workbench-paper), transparent 18%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-rail {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 2 / 4;
   border-right: 1px solid var(--theme-telemetry-separator);
   border-bottom: 1px solid var(--theme-telemetry-separator);
-  background: linear-gradient(180deg, var(--theme-workbench-rail), var(--theme-workbench-panel));
+  background: color-mix(in oklch, var(--theme-workbench-rail), var(--theme-workbench-panel) 14%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__canvas {
   grid-column: 2;
-  grid-row: 2 / 4;
+  grid-row: 2;
   border-inline: 1px solid var(--theme-telemetry-separator);
   background:
-    radial-gradient(circle at center, color-mix(in oklch, var(--theme-signal-line), transparent 92%), transparent 56%),
     linear-gradient(90deg, var(--theme-telemetry-canvas-grid) 1px, transparent 1px),
     linear-gradient(0deg, var(--theme-telemetry-canvas-grid) 1px, transparent 1px),
     var(--theme-blueprint-canvas);
-  background-size: auto, var(--theme-grid-size) var(--theme-grid-size), var(--theme-grid-size) var(--theme-grid-size), auto;
+  background-size: var(--theme-grid-size) var(--theme-grid-size), var(--theme-grid-size) var(--theme-grid-size), auto;
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-inspector {
   grid-column: 3;
-  grid-row: 2 / 4;
+  grid-row: 2;
   border-left: 0;
-  background:
-    linear-gradient(180deg, color-mix(in oklch, var(--theme-workbench-panel), transparent 6%), var(--theme-workbench-rail));
+  background: color-mix(in oklch, var(--theme-workbench-rail), var(--theme-workbench-panel) 16%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer {
-  grid-column: 1;
+  grid-column: 2 / 4;
   grid-row: 3;
   border-top: 0;
   border-right: 1px solid var(--theme-telemetry-separator);
@@ -810,9 +927,10 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .gra
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__chapter-tabs button.is-active {
   border-color: var(--theme-signal-line);
   color: var(--theme-node-ink);
-  background:
-    linear-gradient(90deg, color-mix(in oklch, var(--theme-signal-line), transparent 84%), var(--theme-telemetry-panel-strong));
-  box-shadow: 0 0 0 2px color-mix(in oklch, var(--theme-signal-line), transparent 78%);
+  background: color-mix(in oklch, var(--theme-signal-line), var(--theme-telemetry-panel-strong) 84%);
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--theme-signal-line), transparent 74%),
+    inset 0 1px 0 color-mix(in oklch, var(--theme-node-ink), transparent 92%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__chapter-tab-diagnostics {
@@ -824,7 +942,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .gra
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-toolbar,
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-diagnostics {
   border-color: var(--theme-telemetry-separator);
-  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 14%);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 8%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-condition-builder select,
@@ -963,28 +1081,26 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry {
-  overflow: hidden;
-  border-radius: var(--theme-ux-node-radius, 8px);
-  border-color: var(--theme-telemetry-separator);
-  background:
-    linear-gradient(90deg, color-mix(in oklch, var(--theme-signal-line), transparent 76%) 0 4px, transparent 4px),
-    linear-gradient(180deg, var(--theme-telemetry-panel-strong), var(--theme-node-surface));
-  box-shadow: var(--theme-console-shadow);
+  overflow: visible;
+  border-radius: var(--theme-ux-node-radius, 10px);
+  border-color: color-mix(in oklch, var(--theme-telemetry-separator), var(--theme-node-border) 18%);
+  background: linear-gradient(180deg, var(--theme-telemetry-panel-strong), var(--theme-node-surface));
+  box-shadow: 0 16px 38px color-mix(in oklch, var(--theme-workbench-paper), transparent 28%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry::before {
   position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, var(--theme-signal-line), var(--theme-status-amber));
+  inset: 0 var(--space-3) auto;
+  height: 1px;
+  background: color-mix(in oklch, var(--theme-signal-line), transparent 44%);
   content: '';
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry.official-graph-node--error {
   border-color: var(--theme-danger-signal);
   box-shadow:
-    0 0 0 2px var(--theme-telemetry-danger-glow),
-    var(--theme-console-shadow);
+    0 0 0 2px color-mix(in oklch, var(--theme-danger-signal), transparent 76%),
+    0 16px 38px color-mix(in oklch, var(--theme-workbench-paper), transparent 28%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry.official-graph-node--deadend {
@@ -999,9 +1115,9 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-tel
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-graph-node__count,
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-graph-node__condition {
   border-radius: var(--radius-sm);
-  border-color: color-mix(in oklch, var(--theme-signal-line), transparent 50%);
-  color: var(--theme-signal-line);
-  background: color-mix(in oklch, var(--theme-signal-line), transparent 88%);
+  border-color: color-mix(in oklch, var(--theme-telemetry-separator), transparent 18%);
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 12%);
   font-family: var(--font-mono);
   letter-spacing: 0;
 }
@@ -1024,7 +1140,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-tel
   border: 1px solid var(--theme-telemetry-separator);
   border-radius: var(--radius-sm);
   color: var(--theme-node-muted);
-  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 22%);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 10%);
   font-family: var(--font-mono);
 }
 
@@ -1035,31 +1151,103 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-tel
   background: color-mix(in oklch, var(--theme-workbench-panel), transparent 20%);
 }
 
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview {
+  gap: 5px;
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview__row {
+  min-height: 38px;
+  border-radius: 8px;
+  border-color: color-mix(in oklch, var(--theme-telemetry-separator), transparent 12%);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 12%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview__label {
+  color: var(--theme-node-ink);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview__chip {
+  border-radius: var(--radius-sm);
+  border-color: transparent;
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 12%);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview--conditional .node-route-preview--requirement {
+  border-color: color-mix(in oklch, var(--theme-status-amber), transparent 62%);
+  color: color-mix(in oklch, var(--theme-status-amber), var(--theme-node-ink) 18%);
+  background: color-mix(in oklch, var(--theme-status-amber), transparent 92%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview--target-linked {
+  border-color: color-mix(in oklch, var(--theme-signal-line), transparent 72%);
+  color: color-mix(in oklch, var(--theme-signal-line), var(--theme-node-ink) 20%);
+  background: color-mix(in oklch, var(--theme-signal-line), transparent 92%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview--target-missing {
+  border-color: var(--theme-danger-signal);
+  color: var(--theme-danger-signal);
+  background: color-mix(in oklch, var(--theme-danger-signal), transparent 88%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .node-route-preview--effect {
+  border-color: transparent;
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-signal-line), transparent 94%);
+}
+
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-node-port {
   border-color: var(--theme-node-surface);
   background: var(--theme-signal-line);
-  box-shadow:
-    0 0 0 4px color-mix(in oklch, var(--theme-signal-line), transparent 75%),
-    0 0 12px color-mix(in oklch, var(--theme-signal-line), transparent 56%);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--theme-signal-line), transparent 84%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-node-port--target {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-node-port--target::after {
+  border-color: color-mix(in oklch, var(--theme-signal-line), var(--theme-node-surface) 12%);
+  background: var(--theme-node-surface);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-signal-line), transparent 88%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-node-port.story-node-connect-handle {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry .official-node-port.story-node-connect-handle::after {
+  border-color: color-mix(in oklch, var(--theme-signal-line), var(--theme-node-surface) 12%);
+  background: var(--theme-node-surface);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-signal-line), transparent 86%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry.is-selected {
   border-color: var(--theme-signal-line);
   box-shadow:
-    0 0 0 3px color-mix(in oklch, var(--theme-signal-line), transparent 68%),
-    var(--theme-console-shadow);
+    0 0 0 2px color-mix(in oklch, var(--theme-signal-line), transparent 72%),
+    0 16px 38px color-mix(in oklch, var(--theme-workbench-paper), transparent 28%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-telemetry .official-graph-edge__path {
   stroke: var(--theme-signal-line);
-  stroke-width: 3px;
-  filter: drop-shadow(0 0 8px color-mix(in oklch, var(--theme-signal-line), transparent 42%));
+  stroke-width: 2.6px;
+  filter: drop-shadow(0 0 5px color-mix(in oklch, var(--theme-signal-line), transparent 70%));
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-telemetry.official-graph-edge--conditional .official-graph-edge__path {
   stroke: var(--theme-status-amber);
   stroke-dasharray: 4 4;
-  filter: drop-shadow(0 0 8px var(--theme-telemetry-amber-glow));
+  filter: drop-shadow(0 0 5px color-mix(in oklch, var(--theme-status-amber), transparent 76%));
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-telemetry.is-hovered .official-graph-edge__path,
@@ -1138,7 +1326,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-tel
   }
 
   .home-surface {
-    position: absolute;
+    position: fixed;
     padding: var(--space-4);
   }
 

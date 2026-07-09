@@ -20,6 +20,7 @@ import type { FileExternalChangeEvent, FileSaveResult } from '../types/electron'
 import { appT } from '../i18n/appI18n';
 import { parsePipelineNow } from './parsePipeline';
 import { rememberRecentStory } from './recentFileService';
+import { flushSourceDraftBeforeSaveOrReplace, hasSourceDraftRisk } from './sourceDraftCoordinator';
 
 // ============================================================================
 // 模块级状态
@@ -124,11 +125,62 @@ function updateConflictStatus(detail: string): void {
   useUIStore.getState().setStatusMessage(`${SAVE_STATUS_PREFIX}conflict ${detail}`);
 }
 
+function clearSaveTimer(): void {
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+}
+
+function clearTransientSelectionState(): void {
+  if (typeof window !== 'undefined') {
+    window.getSelection?.()?.removeAllRanges();
+  }
+  if (typeof document !== 'undefined') {
+    document.body.style.userSelect = '';
+  }
+}
+
 function normalizeExternalEvent(event: FileExternalChangeEvent): FileExternalChangeEvent {
   return {
     ...event,
     filePath: event.filePath.replace(/\\/g, '/'),
   };
+}
+
+function syncLatestEditorContent(): string {
+  const editorState = useEditorStore.getState();
+  const modelContent = editorState.editorInstance?.getValue();
+  if (typeof modelContent === 'string' && modelContent !== editorState.content) {
+    editorState.setContent(modelContent);
+    parsePipelineNow(modelContent);
+    pendingContent = modelContent;
+    pendingPath = editorState.filePath;
+    return modelContent;
+  }
+  return editorState.content;
+}
+
+export function resetAutoSaveBaseline(content: string | null): void {
+  clearPendingSave();
+  lastSavedContent = content;
+}
+
+export function hasPendingSaveWork(): boolean {
+  return pendingContent !== null || saveTimer !== null || isSaving || isSaveAsDialogOpen;
+}
+
+export function hasCurrentStoryUnsavedChanges(): boolean {
+  const editorState = useEditorStore.getState();
+  const currentContent = editorState.editorInstance?.getValue() ?? editorState.content;
+  return (
+    hasSourceDraftRisk()
+    || editorState.isDirty
+    || editorState.pendingExternalChange !== null
+    || hasPendingSaveWork()
+    || (editorState.filePath === null && currentContent.trim().length > 0)
+    || (lastSavedContent !== null && currentContent !== lastSavedContent)
+  );
 }
 
 export function applyExternalFileContent(event: FileExternalChangeEvent): void {
@@ -156,11 +208,35 @@ async function performSave(
   options: { readonly overwriteConflict?: boolean; readonly expectedHash?: string | null } = {},
 ): Promise<boolean> {
   if (isSaving) return false;
+  const pendingBeforeFlush = pendingContent;
+  if (!flushSourceDraftBeforeSaveOrReplace('save')) {
+    return false;
+  }
+
+  const editorStateBeforeSync = useEditorStore.getState();
+  const modelContent = editorStateBeforeSync.editorInstance?.getValue();
+  let saveContent = content;
+  if (pendingContent !== null && pendingPath === path && pendingContent !== pendingBeforeFlush) {
+    saveContent = pendingContent;
+  } else if (typeof modelContent === 'string' && modelContent !== editorStateBeforeSync.content) {
+    saveContent = syncLatestEditorContent();
+  }
+  if (saveContent !== content) {
+    pendingContent = saveContent;
+    pendingPath = path;
+    clearSaveTimer();
+  }
+  const earlyReturnState = useEditorStore.getState();
+  const hasConflictContext = Boolean(
+    options.overwriteConflict
+    || earlyReturnState.pendingExternalChange
+    || earlyReturnState.isSaveBlockedByConflict,
+  );
 
   // 双重脏检测：内容对比（防竞态）+ isDirty 标记
   // 当异步保存过程中用户继续输入时，isDirty 可能被旧保存完成重置为 false，
-  // 但 lastSavedContent !== content 能兜住这种情况。
-  if (content === lastSavedContent && !useEditorStore.getState().isDirty) return true;
+  // 但 lastSavedContent !== saveContent 能兜住这种情况。
+  if (!hasConflictContext && saveContent === lastSavedContent && !earlyReturnState.isDirty) return true;
 
   isSaving = true;
   updateStatusMessage('saving');
@@ -170,14 +246,14 @@ async function performSave(
     const editorState = useEditorStore.getState();
     const result: FileSaveResult = await window.plotflow.file.save({
       path,
-      content,
+      content: saveContent,
       expectedHash: options.expectedHash !== undefined ? options.expectedHash : editorState.baseFileHash,
       overwriteConflict: options.overwriteConflict,
     });
 
     if (result.success) {
       // 标记为已保存，清除脏状态
-      lastSavedContent = content;
+      lastSavedContent = saveContent;
       const freshEditorState = useEditorStore.getState();
       freshEditorState.setFileBaseline(result.hash, result.modifiedAt);
       freshEditorState.clearPendingExternalChange();
@@ -201,10 +277,11 @@ async function performSave(
     updateStatusMessage('failed', message);
   } finally {
     isSaving = false;
+    clearTransientSelectionState();
 
     if (succeeded) {
       // P0-2: 保存成功 → 检查期间是否有新内容到达（防竞态数据丢失）
-      if (pendingContent !== null && pendingPath !== null && pendingContent !== content) {
+      if (pendingContent !== null && pendingPath !== null && pendingContent !== saveContent) {
         // 级联保存新内容（不丢弃保存期间到达的用户输入）
         const nextContent = pendingContent;
         const nextPath = pendingPath;
@@ -273,10 +350,7 @@ export function debouncedSave(content: string, path: string | null): void {
  */
 export async function forceSave(): Promise<boolean> {
   // 清除防抖定时器
-  if (saveTimer !== null) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-  }
+  clearSaveTimer();
 
   // 轮询等待正在进行的保存完成，防止 Ctrl+S 被静默丢弃
   const MAX_WAIT_MS = 5000;
@@ -286,6 +360,12 @@ export async function forceSave(): Promise<boolean> {
     await new Promise(function(r) { setTimeout(r, POLL_INTERVAL_MS); });
     waited += POLL_INTERVAL_MS;
   }
+
+  if (!flushSourceDraftBeforeSaveOrReplace('save')) {
+    return false;
+  }
+  clearSaveTimer();
+  const latestContent = syncLatestEditorContent();
 
   const blockedState = useEditorStore.getState();
   if (blockedState.filePath !== null && blockedState.pendingExternalChange) {
@@ -300,8 +380,11 @@ export async function forceSave(): Promise<boolean> {
   // 没有待保存内容，但可能存储已被 markSaved() 清空
   // 检查编辑器是否有脏内容但未被 debouncedSave 捕获
   const editorState = useEditorStore.getState();
-  if (editorState.isDirty && editorState.filePath !== null) {
-    return performSave(editorState.content, editorState.filePath);
+  if (
+    editorState.filePath !== null
+    && (editorState.isDirty || latestContent !== lastSavedContent)
+  ) {
+    return performSave(latestContent, editorState.filePath);
   }
 
   return true;
@@ -314,6 +397,8 @@ export async function forceSave(): Promise<boolean> {
  * 供 Ctrl+S 快捷键和 File > Save 菜单使用。
  */
 async function resolveExternalConflictBeforeSave(): Promise<boolean> {
+  if (!flushSourceDraftBeforeSaveOrReplace('save')) return false;
+  const currentContent = syncLatestEditorContent();
   const editorState = useEditorStore.getState();
   const pending = editorState.pendingExternalChange;
   if (!pending || editorState.filePath === null) return false;
@@ -340,7 +425,7 @@ async function resolveExternalConflictBeforeSave(): Promise<boolean> {
   }
 
   if (choice === 2) {
-    return performSave(editorState.content, editorState.filePath, {
+    return performSave(currentContent, editorState.filePath, {
       overwriteConflict: true,
       expectedHash: pending.hash,
     });
@@ -353,12 +438,13 @@ async function resolveExternalConflictBeforeSave(): Promise<boolean> {
 export async function saveOrSaveAs(): Promise<boolean> {
   const directSaveSucceeded = await forceSave();
   const editorState = useEditorStore.getState();
+  const currentContent = syncLatestEditorContent();
 
-  if (!directSaveSucceeded && editorState.filePath !== null) {
+  if (!directSaveSucceeded && (editorState.filePath !== null || hasSourceDraftRisk())) {
     return false;
   }
 
-  if (editorState.isDirty && editorState.filePath === null && editorState.content.length > 0) {
+  if (editorState.filePath === null && currentContent.length > 0 && useEditorStore.getState().isDirty) {
     if (isSaveAsDialogOpen) {
       updateSaveDialogStatus('opening');
       return false;
@@ -367,7 +453,7 @@ export async function saveOrSaveAs(): Promise<boolean> {
     isSaveAsDialogOpen = true;
     updateSaveDialogStatus('opening');
     try {
-      const result = await window.plotflow.file.saveAs(editorState.content);
+      const result = await window.plotflow.file.saveAs(currentContent);
       if (!result) {
         updateSaveDialogStatus('cancelled');
         return false;
@@ -380,7 +466,7 @@ export async function saveOrSaveAs(): Promise<boolean> {
       rememberRecentStory(newPath, result.hash, result.modifiedAt);
       pendingPath = newPath;
       pendingContent = null;
-      lastSavedContent = editorState.content;
+      lastSavedContent = currentContent;
       updateSaveDialogStatus('success', newPath);
       return true;
     } catch (error) {
@@ -389,6 +475,7 @@ export async function saveOrSaveAs(): Promise<boolean> {
       return false;
     } finally {
       isSaveAsDialogOpen = false;
+      clearTransientSelectionState();
     }
   }
 
@@ -401,11 +488,15 @@ export async function saveAsCurrentFile(): Promise<boolean> {
     return false;
   }
 
+  if (!flushSourceDraftBeforeSaveOrReplace('save')) {
+    return false;
+  }
+  const currentContent = syncLatestEditorContent();
   const editorState = useEditorStore.getState();
   isSaveAsDialogOpen = true;
   updateSaveDialogStatus('opening');
   try {
-    const result = await window.plotflow.file.saveAs(editorState.content);
+    const result = await window.plotflow.file.saveAs(currentContent);
     if (!result) {
       updateSaveDialogStatus('cancelled');
       return false;
@@ -418,7 +509,7 @@ export async function saveAsCurrentFile(): Promise<boolean> {
     rememberRecentStory(newPath, result.hash, result.modifiedAt);
     pendingPath = newPath;
     pendingContent = null;
-    lastSavedContent = editorState.content;
+    lastSavedContent = currentContent;
     updateSaveDialogStatus('success', newPath);
     return true;
   } catch (error) {
@@ -427,27 +518,27 @@ export async function saveAsCurrentFile(): Promise<boolean> {
     return false;
   } finally {
     isSaveAsDialogOpen = false;
+    clearTransientSelectionState();
   }
 }
 
 export async function overwritePendingExternalChange(): Promise<boolean> {
+  if (!flushSourceDraftBeforeSaveOrReplace('save')) return false;
+  const currentContent = syncLatestEditorContent();
   const editorState = useEditorStore.getState();
   const pending = editorState.pendingExternalChange;
   if (!pending || editorState.filePath === null) {
     return false;
   }
 
-  return performSave(editorState.content, editorState.filePath, {
+  return performSave(currentContent, editorState.filePath, {
     overwriteConflict: true,
     expectedHash: pending.hash,
   });
 }
 
 export function clearPendingSave(): void {
-  if (saveTimer !== null) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-  }
+  clearSaveTimer();
   pendingContent = null;
   pendingPath = null;
 }

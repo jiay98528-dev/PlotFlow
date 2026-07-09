@@ -1,0 +1,13 @@
+---
+title: Unicode CRLF Fixture
+author: GUI
+---
+
+# 中文章节
+
+## 节点：猫咪😺
+第一行 CRLF。
+[选项] 前往终点 -> 节点：终点
+
+## 节点：终点
+结束。

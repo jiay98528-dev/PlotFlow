@@ -123,4 +123,108 @@ describe('analyzeStorySource', () => {
       }),
     ]);
   });
+
+  it('keeps the next chapter heading outside the current chapter source range', () => {
+    const raw = [
+      '# 第一章',
+      '',
+      '## 节点：起点',
+      '',
+      '第一章正文。',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：终点',
+      '',
+      '第二章正文。',
+      '',
+    ].join('\n');
+
+    const source = analyzeStorySource(raw);
+    const firstChapter = source.chapters[0]!;
+    const firstSlice = raw.slice(firstChapter.startOffset, firstChapter.endOffset);
+
+    expect(firstSlice).toContain('第一章正文。');
+    expect(firstSlice).not.toContain('# 第二章');
+    expect(raw.slice(firstChapter.endOffset).startsWith('\n# 第二章')).toBe(true);
+  });
+
+  it('keeps CRLF chapter separators outside the editable chapter source range', () => {
+    const raw = [
+      '# 第一章',
+      '',
+      '## 节点：起点',
+      '',
+      '第一章正文。',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：终点',
+      '',
+      '第二章正文。',
+      '',
+    ].join('\r\n');
+
+    const source = analyzeStorySource(raw);
+    const firstChapter = source.chapters[0]!;
+    const nextContent = `${raw.slice(0, firstChapter.startOffset)}${raw
+      .slice(firstChapter.startOffset, firstChapter.endOffset)
+      .replace('第一章正文。', '第一章正文更新。')}${raw.slice(firstChapter.endOffset)}`;
+
+    expect(raw.slice(firstChapter.endOffset).startsWith('\r\n# 第二章')).toBe(true);
+    expect(analyzeStorySource(nextContent).chapters.map((chapter) => chapter.title)).toEqual(['第一章', '第二章']);
+    expect(nextContent).toContain('\r\n# 第二章\r\n');
+  });
+
+  it('does not consume the next chapter after replacing an empty chapter slice', () => {
+    const raw = [
+      '# 第一章',
+      '',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：终点',
+      '',
+      '第二章正文。',
+      '',
+    ].join('\n');
+
+    const source = analyzeStorySource(raw);
+    const firstChapter = source.chapters[0]!;
+    const nextContent = `${raw.slice(0, firstChapter.startOffset)}# 第一章\n\n## 节点：新增\n\n新增正文。\n${raw.slice(firstChapter.endOffset)}`;
+    const nextSource = analyzeStorySource(nextContent);
+
+    expect(raw.slice(firstChapter.endOffset).startsWith('\n\n# 第二章')).toBe(true);
+    expect(nextSource.chapters.map((chapter) => chapter.title)).toEqual(['第一章', '第二章']);
+    expect(nextContent).toContain('\n# 第二章\n\n## 节点：终点');
+  });
+
+  it('round-trips the last chapter source range without changing chapter count', () => {
+    const raw = [
+      '# 第一章',
+      '',
+      '## 节点：起点',
+      '',
+      '第一章正文。',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：终点',
+      '',
+      '第二章正文。',
+      '',
+      '',
+    ].join('\n');
+
+    const source = analyzeStorySource(raw);
+    const lastChapter = source.chapters[1]!;
+    const nextContent = `${raw.slice(0, lastChapter.startOffset)}${raw
+      .slice(lastChapter.startOffset, lastChapter.endOffset)
+      .replace('第二章正文。', '第二章正文更新。')}${raw.slice(lastChapter.endOffset)}`;
+    const nextSource = analyzeStorySource(nextContent);
+
+    expect(nextSource.chapters).toHaveLength(2);
+    expect(nextSource.chapters[1]?.title).toBe('第二章');
+    expect(nextContent.endsWith('\n\n')).toBe(true);
+  });
 });

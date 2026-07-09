@@ -39,7 +39,14 @@ interface CapturedExport {
   timestamp: number;
 }
 
+interface CapturedSaveAs {
+  content: string;
+  filePath: string;
+  timestamp: number;
+}
+
 type CaptureGlobal = typeof globalThis & { __e2e_capture?: CapturedExport | null };
+type SaveAsCaptureGlobal = typeof globalThis & { __plotflowSaveAsCapture?: CapturedSaveAs | null };
 
 interface MockWorkspace {
   readonly rootPath: string;
@@ -65,6 +72,8 @@ interface TestStoreBridge {
   getUIState: () => {
     readonly workspaceMode: 'split' | 'graphLab';
     readonly isSourceDrawerOpen: boolean;
+    readonly activeChapterId: string | null;
+    readonly activeNodeId: string | null;
   };
 }
 
@@ -168,6 +177,35 @@ async function mockDelayedSaveAsIpcHandler(app: ElectronApplication, delayMs: nu
       };
     });
   }, delayMs);
+}
+
+async function mockCaptureSaveAsIpcHandler(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ ipcMain }) => {
+    (globalThis as SaveAsCaptureGlobal).__plotflowSaveAsCapture = null;
+    ipcMain.removeHandler('file:saveAs');
+    ipcMain.handle('file:saveAs', async (_event, payload: { content?: string }) => {
+      const content = String(payload.content ?? '');
+      const filePath = 'D:\\PlotFlowE2E\\source-drawer-save.mdstory';
+      (globalThis as SaveAsCaptureGlobal).__plotflowSaveAsCapture = {
+        content,
+        filePath,
+        timestamp: Date.now(),
+      };
+      return {
+        filePath,
+        hash: 'source-drawer-save-hash',
+        modifiedAt: Date.now(),
+      };
+    });
+  });
+}
+
+async function readCapturedSaveAs(app: ElectronApplication): Promise<CapturedSaveAs | null> {
+  return app.evaluate(() => {
+    const capture = (globalThis as SaveAsCaptureGlobal).__plotflowSaveAsCapture ?? null;
+    (globalThis as SaveAsCaptureGlobal).__plotflowSaveAsCapture = null;
+    return capture;
+  });
 }
 
 async function resetDefaultDialogAndSaveAsIpcHandlers(app: ElectronApplication): Promise<void> {
@@ -317,8 +355,20 @@ async function switchToGraphLab(page: Page): Promise<void> {
 async function selectChapterTab(page: Page, index: number): Promise<void> {
   const tabs = page.getByTestId('graph-lab-chapter-tab');
   await expect(tabs.nth(index)).toBeVisible({ timeout: 10_000 });
+  const targetText = ((await tabs.nth(index).textContent()) ?? '').replace(/\s+/g, ' ').trim();
   await tabs.nth(index).click();
-  await expect(tabs.nth(index)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+  await expect.poll(async () => {
+    const currentTabs = await page.getByTestId('graph-lab-chapter-tab').evaluateAll((elements) =>
+      elements.map((element, currentIndex) => ({
+        currentIndex,
+        selected: element.getAttribute('aria-selected') === 'true',
+        text: (element.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      })),
+    );
+    return currentTabs.some((tab) =>
+      tab.selected && (tab.currentIndex === index || (targetText.length > 0 && tab.text === targetText)),
+    );
+  }, { timeout: 10_000 }).toBe(true);
 }
 
 async function switchToSplit(page: Page): Promise<void> {
@@ -403,6 +453,21 @@ async function waitForNoDiagnostic(page: Page, code: string): Promise<void> {
 }
 
 async function expectHomeSurfaceHasNoOverlap(page: Page): Promise<void> {
+  const homeCoversViewport = await page.evaluate(() => {
+    const home = document.querySelector('[data-testid="home-surface"]');
+    if (!home) return false;
+    const rect = home.getBoundingClientRect();
+    const centerElement = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    return (
+      rect.left <= 1 &&
+      rect.top <= 1 &&
+      rect.right >= window.innerWidth - 1 &&
+      rect.bottom >= window.innerHeight - 1 &&
+      Boolean(centerElement?.closest('[data-testid="home-surface"]'))
+    );
+  });
+  expect(homeCoversViewport).toBe(true);
+
   const overlaps = await page.evaluate(() => {
     const selectors = [
       ['title', '.home-surface__copy h2'],
@@ -463,14 +528,70 @@ async function dragFromTo(
   await page.mouse.up();
 }
 
-async function dragLocatorTo(
+async function dragHandleToMenu(
   page: Page,
-  locator: ReturnType<Page['locator']>,
+  handle: ReturnType<Page['locator']>,
   to: { readonly x: number; readonly y: number },
 ): Promise<void> {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('locator has no bounding box');
-  await dragFromTo(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 }, to);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const dragPort = handle.locator('.story-node-connect-port').first();
+    const handleBox = attempt % 2 === 0
+      ? (await handle.boundingBox()) ?? (await dragPort.boundingBox())
+      : (await dragPort.boundingBox()) ?? (await handle.boundingBox());
+    if (!handleBox) throw new Error('wire handle has no bounding box');
+    await dragFromTo(
+      page,
+      { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 },
+      to,
+    );
+    try {
+      await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 3_000 });
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.mouse.up().catch(() => {});
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(120);
+    }
+  }
+  if (lastError instanceof Error) throw lastError;
+  throw new Error('wire drop menu did not become visible');
+}
+
+async function startWirePreviewFromHandle(
+  page: Page,
+  handle: ReturnType<Page['locator']>,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const dragPort = handle.locator('.story-node-connect-port').first();
+    const handleBox = attempt % 2 === 0
+      ? (await handle.boundingBox()) ?? (await dragPort.boundingBox())
+      : (await dragPort.boundingBox()) ?? (await handle.boundingBox());
+    if (!handleBox) throw new Error('wire handle has no bounding box');
+    const handleCenter = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 };
+    const canvasBox = await page.locator('.graph-lab__canvas').boundingBox();
+    if (!canvasBox) throw new Error('Graph Lab canvas has no bounding box');
+    const previewPoint = {
+      x: Math.min(canvasBox.x + canvasBox.width - 48, handleCenter.x + 52),
+      y: handleCenter.y,
+    };
+
+    await page.mouse.move(handleCenter.x, handleCenter.y);
+    await page.mouse.down();
+    await page.mouse.move(previewPoint.x, previewPoint.y, { steps: 6 });
+    try {
+      await expect(page.getByTestId('graph-live-wire-preview')).toBeVisible({ timeout: 2_500 });
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.mouse.up().catch(() => {});
+      await page.waitForTimeout(120);
+    }
+  }
+  if (lastError instanceof Error) throw lastError;
+  throw new Error('wire preview did not become visible');
 }
 
 async function nodeCenter(page: Page, title: string): Promise<{ x: number; y: number }> {
@@ -497,13 +618,68 @@ async function nodeDragPoint(page: Page, title: string): Promise<{ x: number; y:
   return { x: box.x + Math.min(28, box.width * 0.2), y: box.y + Math.min(28, box.height * 0.2) };
 }
 
+async function expectEmbeddedNextOutputHandle(node: ReturnType<Page['locator']>): Promise<void> {
+  const route = node.getByTestId('node-route-preview-next');
+  const card = node.locator('.story-node-card, [data-official-node-theme]').first();
+  const inputHandle = node.locator([
+    '.story-node-handle-target--inline',
+    '.story-node-handle-target--side',
+    '.official-node-port--inline',
+    '.official-node-port--target',
+  ].join(', ')).first();
+  const outputHandle = node.locator('[data-testid="story-node-default-next-handle"], [data-handleid="next"]').first();
+  await expect(outputHandle).toBeVisible({ timeout: 10_000 });
+  await expect.poll(async () => {
+    return node.evaluate(() => {
+      const handle = document.querySelector('[data-testid="story-node-default-next-handle"]');
+      const rect = handle?.getBoundingClientRect();
+      if (!rect) return false;
+      const element = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return element instanceof Element && Boolean(element.closest('.story-node-connect-handle'));
+    });
+  }, { timeout: 10_000 }).toBe(true);
+
+  const cardBox = await card.boundingBox();
+  const routeBox = await route.boundingBox();
+  const inputBox = await inputHandle.boundingBox();
+  const outputBox = await outputHandle.boundingBox();
+  const flowScale = await node.evaluate((element) => {
+    const viewport = element.closest('.react-flow')?.querySelector('.react-flow__viewport');
+    if (!viewport) return 1;
+    const transform = window.getComputedStyle(viewport).transform;
+    if (!transform || transform === 'none') return 1;
+    const matrix = transform.match(/matrix\(([^)]+)\)/);
+    if (!matrix) return 1;
+    const [scaleX, skewY] = (matrix[1] ?? '').split(',').map((value) => Number.parseFloat(value.trim()));
+    const scale = Math.hypot(scaleX || 0, skewY || 0);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  });
+  expect(cardBox).not.toBeNull();
+  expect(routeBox).not.toBeNull();
+  expect(inputBox).not.toBeNull();
+  expect(outputBox).not.toBeNull();
+
+  const inputCenterY = inputBox!.y + inputBox!.height / 2;
+  const outputCenterX = outputBox!.x + outputBox!.width / 2;
+  const outputCenterY = outputBox!.y + outputBox!.height / 2;
+  const routeCenterY = routeBox!.y + routeBox!.height / 2;
+  const cardLeft = cardBox!.x;
+  const cardRight = cardBox!.x + cardBox!.width;
+
+  expect(outputCenterX).toBeGreaterThan(cardLeft);
+  expect(outputCenterX).toBeLessThanOrEqual(cardRight - 4);
+  expect(outputCenterX).toBeGreaterThanOrEqual(cardRight - (48 * flowScale));
+  expect(Math.abs(outputCenterY - routeCenterY)).toBeLessThanOrEqual(4 * flowScale);
+  expect(Math.abs(outputCenterY - inputCenterY)).toBeLessThanOrEqual(4 * flowScale);
+}
+
 async function findBlankCanvasPoint(
   page: Page,
   origin: { readonly x: number; readonly y: number },
 ): Promise<{ x: number; y: number }> {
   return page.evaluate((start) => {
-    const canvas = document.querySelector('.react-flow')?.getBoundingClientRect();
-    if (!canvas) throw new Error('React Flow canvas is not mounted');
+    const canvas = document.querySelector('.graph-lab__canvas')?.getBoundingClientRect();
+    if (!canvas) throw new Error('Graph Lab canvas is not mounted');
 
     const blockers = Array.from(
       document.querySelectorAll(
@@ -513,14 +689,29 @@ async function findBlankCanvasPoint(
 
     const candidates = [
       { x: start.x + 320, y: start.y + 40 },
+      { x: start.x + 420, y: start.y + 70 },
+      { x: start.x + 520, y: start.y + 120 },
       { x: start.x + 320, y: start.y - 120 },
       { x: start.x + 180, y: start.y - 180 },
+      { x: canvas.left + canvas.width * 0.5, y: canvas.top + 48 },
+      { x: canvas.left + canvas.width * 0.82, y: canvas.top + 60 },
+      { x: canvas.left + canvas.width * 0.18, y: canvas.bottom - 64 },
+      { x: canvas.left + canvas.width * 0.52, y: canvas.bottom - 56 },
       { x: canvas.left + canvas.width * 0.68, y: canvas.top + canvas.height * 0.32 },
       { x: canvas.left + canvas.width * 0.42, y: canvas.top + canvas.height * 0.28 },
       { x: canvas.left + canvas.width * 0.58, y: canvas.top + canvas.height * 0.58 },
     ];
 
-    const margin = 28;
+    for (let row = 1; row <= 9; row++) {
+      for (let col = 2; col <= 10; col++) {
+        candidates.push({
+          x: canvas.left + (canvas.width * col) / 12,
+          y: canvas.top + (canvas.height * row) / 10,
+        });
+      }
+    }
+
+    const margin = 20;
     const isInsideCanvas = (point: { readonly x: number; readonly y: number }): boolean =>
       point.x > canvas.left + margin &&
       point.x < canvas.right - margin &&
@@ -661,6 +852,44 @@ test.describe('Graph Lab E2E', () => {
     await expect(page.getByTestId('graph-lab-source-diagnostic-0')).toContainText('E001');
   });
 
+  test('keeps Graph Lab create node action reachable at 1280 by 720', async () => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    const createNode = page.getByTestId('graph-lab-create-node');
+    await expect(createNode).toBeVisible({ timeout: 10_000 });
+    const box = await createNode.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1280);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(720);
+  });
+
+  test('clicking a ProblemPanel diagnostic selects its Graph Lab chapter and node', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY.replace('第二章正文。', '第二章正文。\n[选项] 消失 -> 节点：不存在'));
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+    await page.waitForFunction(
+      () => ((window as TestWindow).__test_store__?.getDiagnostics?.() ?? [])
+        .some((diagnostic) => diagnostic.code === 'E001'),
+      { timeout: 10_000 },
+    );
+
+    await page.getByTestId('graph-lab-diagnostics-button').click();
+    await expect(page.getByTestId('problem-panel-item-E001').first()).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId('problem-panel-item-E001').first().click();
+
+    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute('aria-selected', 'true', {
+      timeout: 10_000,
+    });
+    await expect.poll(() => page.evaluate(() =>
+      (window as TestWindow).__test_store__?.getUIState?.().activeNodeId,
+    )).toBe('第二章-终点');
+    await expect(page.getByTestId('graph-inspector-node-title')).toHaveValue('终点', { timeout: 10_000 });
+  });
+
   test('shows chapter tabs visibly and screenshots newly created chapter tab bar', async ({ browserName }, testInfo) => {
     expect(browserName).toBeTruthy();
     await setEditorContent(page, START_STORY);
@@ -678,6 +907,7 @@ test.describe('Graph Lab E2E', () => {
 
     await expect(tab).toHaveCount(2, { timeout: 10_000 });
     await expect(tab.nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
+    await expect(tab.nth(1)).toContainText('第二章');
     await waitForContent(page, '# ');
 
     await attachVisibleScreenshot(testInfo, tabs, 'graph-lab-chapter-tabs-after-create.png');
@@ -697,6 +927,169 @@ test.describe('Graph Lab E2E', () => {
     } finally {
       await page.setViewportSize(originalViewport);
     }
+  });
+
+  test('places the default next output handle on the right side of no-option cards', async ({ browserName }, testInfo) => {
+    void browserName;
+    await setEditorContent(page, `---
+plotflow: 0.1
+title: Default Port E2E
+author: QA
+---
+
+# 第一章
+
+## 节点：流程节点
+
+这是一段没有普通选项、也尚未设置下一步的流程节点。
+`);
+    await switchToGraphLab(page);
+
+    const node = page.locator('.react-flow__node').filter({ hasText: '流程节点' }).first();
+    const route = node.getByTestId('node-route-preview-next');
+    await expect(route).toContainText('下一步');
+    await expect(route).toContainText('终端节点');
+    await expectEmbeddedNextOutputHandle(node);
+    await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-default-next-embedded-node.png');
+
+    const sourceCenter = await nodeCenter(page, '流程节点');
+    const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
+    await startWirePreviewFromHandle(page, node.getByTestId('story-node-default-next-handle'));
+    await page.mouse.move(blankPoint.x, blankPoint.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('wire-drop-menu')).toHaveCount(0);
+  });
+
+  test('keeps Engine Telemetry default next output handle embedded inside no-option cards', async ({ browserName }, testInfo) => {
+    void browserName;
+    await setEditorContent(page, `---
+plotflow: 0.1
+title: Engine Default Port E2E
+author: QA
+---
+
+# 第一章
+
+## 节点：流程节点
+
+这是一段没有普通选项的流程节点。
+
+下一步: 节点：终点
+
+## 节点：终点
+
+流程结束。
+`);
+    await page.evaluate(() => {
+      (window as TestWindow).__test_store__?.setTheme('plotflow-engine-telemetry');
+    });
+    await switchToGraphLab(page);
+
+    const node = page.locator('.react-flow__node').filter({ hasText: '流程节点' }).first();
+    await expect(node.locator('[data-official-node-theme="plotflow-engine-telemetry"]')).toBeVisible({ timeout: 10_000 });
+    await expect(node.getByTestId('node-route-preview-next')).toContainText('下一步');
+    await expect(node.getByTestId('node-route-preview-next')).toContainText('→ 终点');
+    await expectEmbeddedNextOutputHandle(node);
+    await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-engine-default-next-embedded-node.png');
+  });
+
+  test('shows route requirements, target previews, effects, and aligned option ports in node cards', async ({ browserName }, testInfo) => {
+    void browserName;
+    await setEditorContent(page, `---
+plotflow: 0.1
+title: Route Summary E2E
+author: QA
+vars:
+  金币: int
+  日志: string
+---
+
+# 第一章
+
+## 节点：起点
+
+选择下一步。
+
+[选项] 进入商店 -> 节点：商店
+  条件: 金币 >= 1
+  效果: 金币-1, 日志←"发现脚印"
+[选项] 离开 -> 节点：出口
+
+## 节点：商店
+
+欢迎。
+
+## 节点：出口
+
+离开。
+`);
+    await switchToGraphLab(page);
+
+    const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    const route = node.getByTestId('node-route-preview-option-0');
+    await expect(route).toBeVisible({ timeout: 10_000 });
+    await expect(route).toContainText('进入商店');
+    await expect(route).toContainText('需 金币 >= 1');
+    await expect(route).toContainText('→ 商店');
+    await expect(route).toContainText('效果 金币 -1');
+    await expect(route).toContainText('日志←"发现脚印"');
+
+    const routeBox = await route.boundingBox();
+    const handleBox = await node.getByTestId('story-node-option-handle-0').boundingBox();
+    expect(routeBox).not.toBeNull();
+    expect(handleBox).not.toBeNull();
+    const routeCenterY = routeBox!.y + routeBox!.height / 2;
+    const handleCenterY = handleBox!.y + handleBox!.height / 2;
+    expect(Math.abs(routeCenterY - handleCenterY)).toBeLessThanOrEqual(6);
+
+    await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-workspace'), 'graph-lab-route-summary-default-workspace.png');
+    await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-route-summary-default-node.png');
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(page.getByTestId('graph-lab-source-drawer')).toBeVisible({ timeout: 10_000 });
+    await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-source-drawer'), 'graph-lab-source-dock-open-default.png');
+  });
+
+  test('renders route summaries in Engine Telemetry node cards', async ({ browserName }, testInfo) => {
+    void browserName;
+    await page.evaluate(() => {
+      (window as TestWindow).__test_store__?.setTheme('plotflow-engine-telemetry');
+    });
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-engine-telemetry');
+    await setEditorContent(page, `---
+plotflow: 0.1
+title: Engine Route Summary E2E
+author: QA
+vars:
+  金币: int
+---
+
+# 第一章
+
+## 节点：流程节点
+
+遥测卡片。
+
+[选项] 推进 -> 节点：结果
+  条件: 金币 >= 1
+  效果: 金币-1
+
+## 节点：结果
+
+完成。
+`);
+    await switchToGraphLab(page);
+
+    const node = page.locator('.react-flow__node').filter({ hasText: '流程节点' }).first();
+    const card = node.locator('[data-official-node-theme="plotflow-engine-telemetry"]').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByTestId('node-route-preview-option-0')).toContainText('需 金币 >= 1');
+    await expect(card.getByTestId('node-route-preview-option-0')).toContainText('→ 结果');
+    await expect(card.getByTestId('node-route-preview-option-0')).toContainText('效果 金币 -1');
+    await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-workspace'), 'graph-lab-route-summary-engine-telemetry-workspace.png');
+    await attachVisibleScreenshot(testInfo, card, 'graph-lab-route-summary-engine-telemetry-node.png');
   });
 
   test('syncs cross-chapter outline navigation and saves only the active chapter source slice', async () => {
@@ -723,6 +1116,54 @@ test.describe('Graph Lab E2E', () => {
     expect(content).not.toContain('第二章正文。\n');
   });
 
+  test('saves a chapter source slice without absorbing the next chapter heading', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/# 第一章/);
+    await expect(sourceSlice).not.toHaveValue(/# 第二章/);
+
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(`${sourceValue.trimEnd()}\n\n第一章追加正文。\n`);
+    await sourceSlice.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+
+    await expect(page.getByTestId('graph-lab-chapter-tab')).toHaveCount(2, { timeout: 10_000 });
+    const content = await getEditorContent(page);
+    expect(content.match(/^# 第二章$/gm)).toHaveLength(1);
+    expect(content).toMatch(/第一章追加正文。[ \t]*(?:\r?\n)+# 第二章/m);
+    await selectChapterTab(page, 1);
+    await expect(sourceSlice).toHaveValue(/# 第二章/, { timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/第二章正文。/);
+  });
+
+  test('writes Source Drawer slice drafts through the real Save As payload', async () => {
+    await mockCaptureSaveAsIpcHandler(electronApp);
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 1);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(sourceSlice).toHaveValue(/# 第二章/);
+
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('第二章正文。', '第二章已真实写盘。'));
+    await page.locator('.source-drawer__slice-action-primary').click();
+
+    await expect(page.locator('.status-bar')).toContainText('已保存到文件', { timeout: 10_000 });
+    const captured = await readCapturedSaveAs(electronApp);
+    expect(captured).not.toBeNull();
+    expect(captured!.content).toContain('第二章已真实写盘。');
+    expect(captured!.content).toContain('# 第一章');
+    expect(captured!.content.match(/^# 第二章$/gm)).toHaveLength(1);
+    expect(captured!.content).toMatch(/第二章已真实写盘。[ \t]*(?:\r?\n)*$/);
+  });
+
   test('autosaves dirty chapter source before switching chapter tabs', async () => {
     await setEditorContent(page, TWO_CHAPTER_STORY);
     await switchToGraphLab(page);
@@ -746,6 +1187,32 @@ test.describe('Graph Lab E2E', () => {
     expect(content).toContain('第二章正文。');
   });
 
+  test('flushes dirty Source Drawer drafts before Inspector source mutations', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('你醒来。', 'Inspector 写回前保留的草稿。'));
+
+    await page.evaluate(() => {
+      (window as TestWindow).__test_store__?.selectNode('第一章-起点');
+    });
+    const titleInput = page.getByTestId('graph-inspector-node-title');
+    await expect(titleInput).toHaveValue('起点', { timeout: 10_000 });
+    await titleInput.fill('改名起点');
+    await blur(titleInput);
+
+    await waitForContent(page, 'Inspector 写回前保留的草稿。');
+    await waitForContent(page, '## 节点：改名起点');
+    const content = await getEditorContent(page);
+    expect(content).toContain('Inspector 写回前保留的草稿。');
+    expect(content).toContain('## 节点：改名起点');
+  });
+
   test('autosaves dirty chapter source before creating a new chapter', async () => {
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
@@ -765,7 +1232,39 @@ test.describe('Graph Lab E2E', () => {
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
     const content = await getEditorContent(page);
     expect(content).toContain('你在清晨醒来。');
-    expect(content).toContain('# 第一章 2');
+    expect(content).toContain('# 第二章');
+    expect(content).not.toContain('# 第一章 2');
+  });
+
+  test('resets the active chapter before creating nodes in a replaced story', async () => {
+    const blankStory = `---
+plotflow: 0.1
+title: Blank Reset
+author: QA
+---
+
+# 空白章
+
+## 节点：开始
+
+新故事正文。
+`;
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 1);
+
+    await setEditorContent(page, blankStory);
+    await switchToGraphLab(page);
+    await expect(page.getByTestId('graph-lab-chapter-tab').first()).toHaveAttribute('aria-selected', 'true', {
+      timeout: 10_000,
+    });
+    await page.getByTestId('graph-lab-create-node').click();
+    await waitForContent(page, '## 节点：新节点');
+
+    const content = await getEditorContent(page);
+    expect(content).toContain('# 空白章');
+    expect(content).toContain('## 节点：新节点');
+    expect(content).not.toContain('# 第二章');
   });
 
   test('blocks chapter switching when the dirty chapter source slice is stale', async () => {
@@ -877,11 +1376,24 @@ test.describe('Graph Lab E2E', () => {
     await mockFailingSaveAsIpcHandler(electronApp, 'disk write rejected');
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
+    await page.evaluate(() => {
+      const target = document.querySelector('.app-shell') ?? document.body;
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      document.body.style.userSelect = 'none';
+    });
 
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
 
     await expect(page.locator('.status-bar')).toContainText('保存失败', { timeout: 2_000 });
     await expect(page.locator('.status-bar')).toContainText('disk write rejected');
+    await expect.poll(() => page.evaluate(() => ({
+      selectedText: window.getSelection?.()?.toString() ?? '',
+      userSelect: document.body.style.userSelect,
+    }))).toEqual({ selectedText: '', userSelect: '' });
   });
 
   test('does not continue opening another file when Save As is cancelled', async () => {
@@ -938,7 +1450,7 @@ test.describe('Graph Lab E2E', () => {
 
     await page.getByTestId('graph-lab-create-node').click();
     await waitForContent(page, '## 节点：新节点');
-    await expect(page.locator('.react-flow__node').filter({ hasText: '新节点' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('rf__node-第一章-新节点')).toBeVisible({ timeout: 10_000 });
 
     await clickNodeBody(page, '新节点');
     // M4: 新节点卡片可能因 DOM 事件委托/冒泡/Handle 拦截导致点击未触发选中。
@@ -947,7 +1459,9 @@ test.describe('Graph Lab E2E', () => {
       (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.('第一章-新节点');
     });
     const titleInput = page.getByTestId('graph-inspector-node-title');
+    await expect(titleInput).toHaveValue('新节点', { timeout: 10_000 });
     await titleInput.fill('树林');
+    await expect(titleInput).toHaveValue('树林');
     await blur(titleInput);
     await waitForContent(page, '## 节点：树林');
 
@@ -1199,8 +1713,7 @@ author: QA
     await expect(page.locator('.react-flow__node').filter({ hasText: '树林' })).toBeVisible({ timeout: 10_000 });
     const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
 
-    await dragLocatorTo(page, handle, blankPoint);
-    await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
+    await dragHandleToMenu(page, handle, blankPoint);
     await page.getByTestId('wire-drop-connect-existing').filter({ hasText: '树林' }).click();
     await waitForContent(page, '[选项] 查看四周 -> 节点：树林');
   });
@@ -1213,27 +1726,19 @@ author: QA
     const sourceCenter = await nodeCenter(page, '起点');
     const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
 
-    const handleBox = await handle.boundingBox();
-    if (!handleBox) throw new Error('wire handle has no bounding box');
-    const handleCenter = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 };
-
-    await page.mouse.move(handleCenter.x, handleCenter.y);
-    await page.mouse.down();
-    await page.mouse.move((handleCenter.x + blankPoint.x) / 2, (handleCenter.y + blankPoint.y) / 2, { steps: 6 });
-    await expect(page.getByTestId('graph-live-wire-preview')).toBeVisible({ timeout: 5_000 });
+    await startWirePreviewFromHandle(page, handle);
     await page.mouse.move(blankPoint.x, blankPoint.y, { steps: 6 });
     await page.mouse.up();
     await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('wire-drop-menu')).toHaveCount(0);
 
-    await dragLocatorTo(page, handle, blankPoint);
-    await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
+    await dragHandleToMenu(page, handle, blankPoint);
     await page.getByTestId('wire-drop-create-node').click();
 
     await waitForContent(page, '[选项] 查看四周 -> 节点：新节点');
     await waitForContent(page, '      - id: "第一章-新节点"');
-    await expect(page.locator('.react-flow__node').filter({ hasText: '新节点' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('rf__node-第一章-新节点')).toBeVisible({ timeout: 10_000 });
   });
 
   test('disconnects an existing option by dragging its cable endpoint to blank space', async () => {
@@ -1249,8 +1754,7 @@ author: QA
     const sourceCenter = await nodeCenter(page, '起点');
     const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
 
-    await dragLocatorTo(page, handle, blankPoint);
-    await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
+    await dragHandleToMenu(page, handle, blankPoint);
     await page.getByTestId('wire-drop-disconnect').click();
 
     await waitForContent(page, '[选项] 查看四周');

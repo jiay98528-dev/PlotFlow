@@ -18,6 +18,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Diagnostic, DiagnosticSeverity } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { useGraphStore } from '../../stores/graphStore';
+import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useAppText } from '../../i18n/appI18n';
 
@@ -71,6 +73,17 @@ const PANEL_MIN_HEIGHT = 100;
 
 /** 面板默认高度 (px) */
 const PANEL_DEFAULT_HEIGHT = 200;
+
+function findChapterIdByLine(lineNumber: number): string | null {
+  const chapters = useStoryStore.getState().plotFlowData?.chapters ?? [];
+  let match: string | null = null;
+  for (const chapter of chapters) {
+    if (chapter.lineNumber <= lineNumber) {
+      match = chapter.id;
+    }
+  }
+  return match;
+}
 
 // ============================================================================
 // Component
@@ -126,12 +139,34 @@ export function ProblemPanel(): React.ReactElement {
 
   const handleJumpToLine = useCallback(
     (diagnostic: Diagnostic) => {
-      if (!editorInstance) return;
-
       const { startLine, startColumn } = diagnostic.range;
-      editorInstance.revealPositionInCenter({ lineNumber: startLine, column: startColumn });
-      editorInstance.setPosition({ lineNumber: startLine, column: startColumn });
-      editorInstance.focus();
+      const editor = useEditorStore.getState();
+      const story = useStoryStore.getState();
+      const graph = useGraphStore.getState();
+      const ui = useUIStore.getState();
+      const nodeId = diagnostic.relatedNodeId ?? story.getNodeByLine(startLine);
+      const node = nodeId ? story.getNodeByFullId(nodeId) : undefined;
+      const chapterId = node?.chapterId ?? findChapterIdByLine(startLine);
+
+      editor.setCursorPosition(startLine, startColumn);
+      if (chapterId) {
+        ui.setActiveChapterId(chapterId);
+      }
+      if (node) {
+        graph.selectNode(node.fullId);
+        editor.setActiveNodeId(node.fullId);
+        ui.setStatusMessage(`已定位到节点：${node.title}`);
+      } else {
+        ui.setStatusMessage(`已定位到第 ${startLine} 行`);
+      }
+
+      if (editorInstance) {
+        editorInstance.revealPositionInCenter({ lineNumber: startLine, column: startColumn });
+        editorInstance.setPosition({ lineNumber: startLine, column: startColumn });
+        if (ui.workspaceMode === 'split') {
+          editorInstance.focus();
+        }
+      }
     },
     [editorInstance],
   );
@@ -316,6 +351,7 @@ export function ProblemPanel(): React.ReactElement {
                   <div
                     key={diagnostic.id}
                     className="problem-panel__item"
+                    data-testid={`problem-panel-item-${diagnostic.code}`}
                     onClick={() => handleJumpToLine(diagnostic)}
                     title={
                       text('problemPanel.jump', { line: diagnostic.range.startLine }) +

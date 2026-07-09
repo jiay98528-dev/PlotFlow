@@ -54,7 +54,7 @@ import { type StoryEdgeData } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
 import type { ContextMenuType } from './GraphContextMenu';
 import { CollapseNode } from './CollapseNode';
-import { collapseSiblingNodes, COLLAPSE_THRESHOLD } from './layout';
+import { collapseSiblingNodes, COLLAPSE_THRESHOLD, LARGE_GRAPH_LAYOUT_THRESHOLD } from './layout';
 import type { CollapseNodeData } from './layout';
 import { layoutNodesInWorker } from './graphLayoutClient';
 
@@ -108,6 +108,7 @@ function readCssToken(name: string): string {
 
 const EDGE_HIT_FALLBACK_RADIUS = 24;
 const EDGE_HIT_SAMPLE_COUNT = 24;
+const GRAPH_AUTO_FIT_MAX_ZOOM = 1.2;
 
 function getScreenPointOnPath(path: SVGPathElement, length: number): DOMPoint | null {
   const svg = path.closest('svg');
@@ -389,10 +390,12 @@ function ZoomResetShortcut(): null {
 
 function AutoFitOnGraphChange({
   enabled,
+  layoutKey,
   nodeCount,
   suppressRef,
 }: {
   readonly enabled: boolean;
+  readonly layoutKey: string;
   readonly nodeCount: number;
   readonly suppressRef: React.RefObject<boolean>;
 }): null {
@@ -402,10 +405,10 @@ function AutoFitOnGraphChange({
     if (!enabled || nodeCount === 0) return;
     const frame = requestAnimationFrame(() => {
       if (suppressRef.current) return;
-      fitView({ padding: 0.2, duration: 200 });
+      fitView({ padding: 0.2, duration: 200, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM });
     });
     return () => cancelAnimationFrame(frame);
-  }, [enabled, fitView, nodeCount, suppressRef]);
+  }, [enabled, fitView, layoutKey, nodeCount, suppressRef]);
 
   return null;
 }
@@ -545,13 +548,32 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    * 操作锁阻止编辑器侧的 debounce 文本→图同步覆盖此次更改。
    */
   const handleConnectStart = useCallback(
-    (_event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
       if (renamingNodeId !== null) return; // M2-08 锁：重命名期间禁止连线操作
       connectDidSucceed.current = false;
       connectStartParams.current = params;
+      const sourceFullId = params.nodeId ?? '';
+      const optionIndex = Number.parseInt(
+        params.handleId === 'next'
+          ? String(NEXT_EDGE_OPTION_INDEX)
+          : params.handleId?.replace('option-', '') ?? '-2',
+        10,
+      );
+      const sourceNode = sourceFullId ? getNodeByFullId(sourceFullId) : undefined;
+      const isNextTarget = isNextEdgeIndex(optionIndex);
+      if (sourceNode && (isNextTarget || optionIndex >= 0)) {
+        const startPoint = eventToClientPoint(event);
+        setLiveWirePreview({
+          sourceFullId,
+          optionIndex,
+          pointerId: -1,
+          startPoint,
+          currentPoint: startPoint,
+        });
+      }
       setEditing(true);
     },
-    [renamingNodeId, setEditing],
+    [getNodeByFullId, renamingNodeId, setEditing],
   );
 
   /**
@@ -625,6 +647,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    */
   const handleConnectEnd = useCallback(() => {
     setEditing(false);
+    setLiveWirePreview(null);
   }, [setEditing]);
 
   /**
@@ -1391,7 +1414,13 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           const persisted = data?.persistedPosition;
           return persisted ? { ...node, position: { ...persisted } } : node;
         }));
-        if (result.elapsedMs > 250) {
+        if (result.layoutMode === 'fallback-grid') {
+          setStatusMessage(
+            result.errorMessage
+              ? `Graph layout fallback used: ${result.errorMessage}`
+              : `Large graph uses fast-grid layout (${nodes.length} nodes)`,
+          );
+        } else if (result.elapsedMs > 250) {
           setStatusMessage(`Graph layout completed in ${Math.round(result.elapsedMs)}ms`);
         }
       })
@@ -1431,6 +1460,20 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       return node;
     });
   }, [collapsedResult.nodes, activeNodeId]);
+
+  const displayedGraphLayoutKey = useMemo(() => {
+    return displayedNodes
+      .map((node) => `${node.id}:${Math.round(node.position.x)}:${Math.round(node.position.y)}`)
+      .join('|');
+  }, [displayedNodes]);
+
+  useEffect(() => {
+    suppressAutoFitRef.current = false;
+    if (suppressAutoFitTimerRef.current !== null) {
+      clearTimeout(suppressAutoFitTimerRef.current);
+      suppressAutoFitTimerRef.current = null;
+    }
+  }, [displayedGraphLayoutKey]);
 
   /** 当前显示的连线（已折叠过滤后的） */
   const displayedEdges = collapsedResult.edges;
@@ -1513,7 +1556,12 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       >
         <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
         <ZoomResetShortcut />
-        <AutoFitOnGraphChange enabled={!hasAnyManualLayout} nodeCount={displayedNodes.length} suppressRef={suppressAutoFitRef} />
+        <AutoFitOnGraphChange
+          enabled={!hasAnyManualLayout && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
+          layoutKey={displayedGraphLayoutKey}
+          nodeCount={displayedNodes.length}
+          suppressRef={suppressAutoFitRef}
+        />
         <ReactFlow
           nodes={displayedNodes}
           edges={displayedEdges}
@@ -1540,8 +1588,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
           selectionMode={SelectionMode.Partial}
           elevateNodesOnSelect={false}
-          fitView
-          fitViewOptions={{ padding: 0.2, duration: fitViewDuration }}
+          fitView={displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
+          fitViewOptions={{ padding: 0.2, duration: fitViewDuration, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM }}
           minZoom={canEditGraph ? 0.1 : 0.05}
           maxZoom={canEditGraph ? 2.0 : 0.5}
           onViewportChange={(viewport) => setZoom(viewport.zoom)}

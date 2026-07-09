@@ -9,6 +9,8 @@ import {
 import { useEditorStore } from '../stores/editorStore';
 import { useStoryStore } from '../stores/storyStore';
 import { parsePipelineNow } from './parsePipeline';
+import { debouncedSave } from './autoSaveService';
+import { flushSourceDraftBeforeSaveOrReplace } from './sourceDraftCoordinator';
 
 export interface GraphEditResult {
   readonly content: string;
@@ -1001,12 +1003,14 @@ export function applyGraphEdit(nextContent: string, source = 'graph-edit-service
       const committedContent = editor.getValue();
       useEditorStore.getState().setContent(committedContent);
       parsePipelineNow(committedContent);
+      debouncedSave(committedContent, useEditorStore.getState().filePath);
       return;
     }
   }
 
   useEditorStore.getState().setContent(nextContent);
   parsePipelineNow(nextContent);
+  debouncedSave(nextContent, useEditorStore.getState().filePath);
 }
 
 function commit(result: GraphEditResult, source: string): boolean {
@@ -1020,6 +1024,11 @@ function currentContent(): string {
   return editor?.getValue() ?? useEditorStore.getState().content;
 }
 
+function runGraphEdit(source: string, edit: (content: string) => GraphEditResult): boolean {
+  if (!flushSourceDraftBeforeSaveOrReplace('replace')) return false;
+  return commit(edit(currentContent()), source);
+}
+
 function selectedNode(): StoryNode | undefined {
   const graphState = useStoryStore.getState();
   const selectedId = useEditorStore.getState().activeNodeId;
@@ -1029,43 +1038,43 @@ function selectedNode(): StoryNode | undefined {
 
 export const graphEditService = {
   createChapter(chapterTitle = DEFAULT_CHAPTER_TITLE): boolean {
-    return commit(createChapterText(currentContent(), chapterTitle), 'graph-lab-create-chapter');
+    return runGraphEdit('graph-lab-create-chapter', (content) => createChapterText(content, chapterTitle));
   },
 
   createNode(params?: Parameters<typeof createNodeText>[1]): boolean {
-    return commit(createNodeText(currentContent(), params), 'graph-lab-create-node');
+    return runGraphEdit('graph-lab-create-node', (content) => createNodeText(content, params));
   },
 
   deleteNode(node: StoryNode): boolean {
-    return commit(deleteNodeText(currentContent(), node), 'graph-lab-delete-node');
+    return runGraphEdit('graph-lab-delete-node', (content) => deleteNodeText(content, node));
   },
 
   updateNode(node: StoryNode, patch: NodePatch): boolean {
-    return commit(updateNodeText(currentContent(), node, patch), 'graph-lab-update-node');
+    return runGraphEdit('graph-lab-update-node', (content) => updateNodeText(content, node, patch));
   },
 
   addOption(node: StoryNode, patch?: OptionPatch): boolean {
-    return commit(addOptionText(currentContent(), node, patch), 'graph-lab-add-option');
+    return runGraphEdit('graph-lab-add-option', (content) => addOptionText(content, node, patch));
   },
 
   updateOption(option: Option, patch: OptionPatch): boolean {
-    return commit(updateOptionText(currentContent(), option, patch), 'graph-lab-update-option');
+    return runGraphEdit('graph-lab-update-option', (content) => updateOptionText(content, option, patch));
   },
 
   deleteOption(option: Option): boolean {
-    return commit(deleteOptionText(currentContent(), option), 'graph-lab-delete-option');
+    return runGraphEdit('graph-lab-delete-option', (content) => deleteOptionText(content, option));
   },
 
   reorderOption(node: StoryNode, fromIndex: number, toIndex: number): boolean {
-    return commit(reorderOptionText(currentContent(), node, fromIndex, toIndex), 'graph-lab-reorder-option');
+    return runGraphEdit('graph-lab-reorder-option', (content) => reorderOptionText(content, node, fromIndex, toIndex));
   },
 
   connectOption(option: Option, targetNodeId: string | null): boolean {
-    return commit(updateOptionText(currentContent(), option, { targetNodeId }), 'graph-lab-connect-option');
+    return runGraphEdit('graph-lab-connect-option', (content) => updateOptionText(content, option, { targetNodeId }));
   },
 
   connectNextTarget(node: StoryNode, targetNodeId: string | null): boolean {
-    return commit(updateNodeNextTargetText(currentContent(), node, targetNodeId), 'graph-lab-connect-next-target');
+    return runGraphEdit('graph-lab-connect-next-target', (content) => updateNodeNextTargetText(content, node, targetNodeId));
   },
 
   createNodeAndConnect(
@@ -1074,7 +1083,7 @@ export const graphEditService = {
     targetTitle = DEFAULT_NODE_TITLE,
     targetPosition?: GraphPosition,
   ): boolean {
-    return commit(createNodeAndConnectText(currentContent(), node, option, targetTitle, targetPosition), 'graph-lab-create-node-and-connect');
+    return runGraphEdit('graph-lab-create-node-and-connect', (content) => createNodeAndConnectText(content, node, option, targetTitle, targetPosition));
   },
 
   createNodeAndConnectNext(
@@ -1082,23 +1091,23 @@ export const graphEditService = {
     targetTitle = DEFAULT_NODE_TITLE,
     targetPosition?: GraphPosition,
   ): boolean {
-    return commit(createNodeAndConnectNextText(currentContent(), node, targetTitle, targetPosition), 'graph-lab-create-node-and-connect-next');
+    return runGraphEdit('graph-lab-create-node-and-connect-next', (content) => createNodeAndConnectNextText(content, node, targetTitle, targetPosition));
   },
 
   updateNodePosition(node: StoryNode, position: GraphPosition): boolean {
-    return commit(updateNodePositionText(currentContent(), node, position), 'graph-lab-update-node-position');
+    return runGraphEdit('graph-lab-update-node-position', (content) => updateNodePositionText(content, node, position));
   },
 
   updateMeta(field: 'title' | 'author', value: string): boolean {
-    return commit(updateMetaText(currentContent(), field, value), 'graph-lab-update-meta');
+    return runGraphEdit('graph-lab-update-meta', (content) => updateMetaText(content, field, value));
   },
 
   upsertVariable(variable: VariablePatch): boolean {
-    return commit(upsertVariableText(currentContent(), variable), 'graph-lab-upsert-variable');
+    return runGraphEdit('graph-lab-upsert-variable', (content) => upsertVariableText(content, variable));
   },
 
   deleteVariable(variableName: string): boolean {
-    return commit(deleteVariableText(currentContent(), variableName), 'graph-lab-delete-variable');
+    return runGraphEdit('graph-lab-delete-variable', (content) => deleteVariableText(content, variableName));
   },
 
   updateSelectedNode(patch: NodePatch): boolean {

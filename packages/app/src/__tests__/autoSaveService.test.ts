@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import * as autoSaveService from '../services/autoSaveService';
+import { registerSourceDraftController } from '../services/sourceDraftCoordinator';
 
 // ============================================================================
 // 1. Mocks
@@ -25,6 +26,9 @@ import * as autoSaveService from '../services/autoSaveService';
 
 /** window.plotflow.file.save 的 mock */
 const mockFileSave = vi.fn();
+const mockFileSaveAs = vi.fn();
+const mockDialogConfirm = vi.fn();
+const mockRemoveAllRanges = vi.fn();
 
 function successfulSave(hash = 'saved-hash') {
   return { success: true, timestamp: Date.now(), hash, modifiedAt: Date.now() };
@@ -61,15 +65,36 @@ beforeEach(() => {
   // 重置 IPC mock
   mockFileSave.mockReset();
   mockFileSave.mockResolvedValue(successfulSave());
+  mockFileSaveAs.mockReset();
+  mockFileSaveAs.mockResolvedValue(null);
+  mockDialogConfirm.mockReset();
+  mockDialogConfirm.mockResolvedValue(3);
+  mockRemoveAllRanges.mockReset();
 
   mockSetStatusMessage.mockReset();
 
   // 挂载 window.plotflow API mock
   Object.defineProperty(globalThis, 'window', {
     value: {
+      getSelection: () => ({ removeAllRanges: mockRemoveAllRanges }),
       plotflow: {
         file: {
           save: mockFileSave,
+          saveAs: mockFileSaveAs,
+        },
+        dialog: {
+          confirm: mockDialogConfirm,
+        },
+      },
+    },
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(globalThis, 'document', {
+    value: {
+      body: {
+        style: {
+          userSelect: '',
         },
       },
     },
@@ -319,5 +344,81 @@ describe('autoSaveService — 自动保存服务 (TC-1~TC-8)', () => {
     // Assert: 推进时间不会触发任何保存
     await vi.advanceTimersByTimeAsync(500);
     expect(mockFileSave).not.toHaveBeenCalled();
+  });
+
+  it('[TC-9] saveAsCurrentFile clears selection after cancellation', async () => {
+    useEditorStore.getState().setContent('unsaved story');
+    document.body.style.userSelect = 'none';
+    mockFileSaveAs.mockResolvedValueOnce(null);
+
+    const result = await autoSaveService.saveAsCurrentFile();
+
+    expect(result).toBe(false);
+    expect(mockFileSaveAs).toHaveBeenCalledTimes(1);
+    expect(mockRemoveAllRanges).toHaveBeenCalledTimes(1);
+    expect(document.body.style.userSelect).toBe('');
+    expect(mockSetStatusMessage).toHaveBeenCalledWith(expect.stringContaining('cancelled'));
+  });
+
+  it('[TC-10] saveAsCurrentFile clears selection after failure', async () => {
+    useEditorStore.getState().setContent('unsaved story');
+    document.body.style.userSelect = 'none';
+    mockFileSaveAs.mockRejectedValueOnce(new Error('dialog failed'));
+
+    const result = await autoSaveService.saveAsCurrentFile();
+
+    expect(result).toBe(false);
+    expect(mockFileSaveAs).toHaveBeenCalledTimes(1);
+    expect(mockRemoveAllRanges).toHaveBeenCalledTimes(1);
+    expect(document.body.style.userSelect).toBe('');
+    expect(mockSetStatusMessage).toHaveBeenCalledWith(expect.stringContaining('dialog failed'));
+  });
+
+  it('[TC-11] autosave timer does not write an old snapshot while a source slice is stale', async () => {
+    const flushDraft = vi.fn(() => false);
+    const unregister = registerSourceDraftController({
+      getState: () => ({ isDirty: true, isStale: true }),
+      flushDraft,
+    });
+
+    try {
+      autoSaveService.debouncedSave('old snapshot', '/project/story.mdstory');
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(flushDraft).toHaveBeenCalledTimes(1);
+      expect(mockFileSave).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+    }
+  });
+
+  it('[TC-12] overwrite conflict still performs disk hash preflight when content is already clean', async () => {
+    const editor = useEditorStore.getState();
+    editor.setContent('current content');
+    editor.setFilePath('/project/story.mdstory');
+    editor.setFileBaseline('base-hash', 100);
+    editor.markSaved();
+    autoSaveService.resetAutoSaveBaseline('current content');
+    editor.setPendingExternalChange({
+      filePath: '/project/story.mdstory',
+      content: 'disk content',
+      hash: 'disk-hash',
+      modifiedAt: 200,
+    });
+    mockDialogConfirm.mockResolvedValueOnce(2);
+    mockFileSave.mockResolvedValueOnce(successfulSave('overwrite-hash'));
+
+    const result = await autoSaveService.forceSave();
+
+    expect(result).toBe(true);
+    expect(mockFileSave).toHaveBeenCalledTimes(1);
+    expect(mockFileSave).toHaveBeenCalledWith({
+      path: '/project/story.mdstory',
+      content: 'current content',
+      expectedHash: 'disk-hash',
+      overwriteConflict: true,
+    });
+    expect(useEditorStore.getState().pendingExternalChange).toBeNull();
+    expect(useEditorStore.getState().isSaveBlockedByConflict).toBe(false);
   });
 });

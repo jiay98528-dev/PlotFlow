@@ -45,7 +45,7 @@ Implemented in `packages/app/e2e-blackbox/`:
 - `blackbox-contract.spec.ts`: prevents internal bridges from entering the blackbox suite.
 - `journey.spec.ts`: command-line open, visible Monaco edit, save, reopen, Graph Lab controls.
 - `edge-cases.spec.ts`: Unicode paths and rapid workspace/theme switching.
-- `performance.spec.ts`: 100/500 node open and Graph Lab switch thresholds.
+- `performance.spec.ts`: 100/500/1000 node open and Graph Lab switch thresholds, with `RangeError` runtime error monitoring.
 - `remote-theme.spec.ts`: official remote ZIP theme happy path and hash mismatch rejection.
 - `graph-lab-risk.spec.ts`: live wire preview, wire drop menu close behavior, Source Dock collapse, Split-only controls hidden in Graph Lab, and layout drift guard.
 - `visual-risk.spec.ts`: viewport screenshots plus node/edge renderer marker changes across official themes.
@@ -59,14 +59,16 @@ Implemented in source integration E2E under `packages/app/e2e/` and required bef
 
 ## Current Gate Snapshot
 
-Last updated: 2026-07-06
+Last updated: 2026-07-09
 
 | Layer | Status | Evidence |
 |---|---|---|
-| Integration E2E | Passed | 2026-07-06: `pnpm.cmd --filter @plotflow/app test:e2e` passed, 49/49. |
-| Source blackbox | Passed | 2026-07-06: `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` passed, 10 passed / 4 packaged-or-installed skips, after clearing stale workspace Electron processes from a prior run. |
-| Unpacked blackbox | Passed | 2026-07-06: refreshed `release\PlotFlow Setup 0.1.0.exe` and `release\win-unpacked`, fixed packaged native save dialog ownership, then `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` passed, 13 passed / 1 installed-only skip. |
-| Installed blackbox | Pending | Requires installing the refreshed `release\PlotFlow Setup 0.1.0.exe` and setting `PLOTFLOW_INSTALLED_EXE`. |
+| Integration E2E | Passed | 2026-07-09: `pnpm.cmd --filter @plotflow/app test:e2e` passed, 62/62. |
+| Source blackbox | Passed | 2026-07-09: `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` passed, 10 passed / 4 packaged-or-installed skips. |
+| Unpacked blackbox | Passed | 2026-07-09: refreshed `release\PlotFlow Setup 0.1.0.exe` and `release\win-unpacked`, then `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` passed, 13 passed / 1 installed-only skip. |
+| Installed blackbox | Pending | `PLOTFLOW_INSTALLED_EXE` was not set in this run. Requires installing the refreshed `release\PlotFlow Setup 0.1.0.exe` and running `pnpm.cmd --filter @plotflow/app test:e2e:installed`. |
+
+2026-07-09 installed GUI blocker repair note: source fixes were applied for Source Drawer save-to-disk semantics, visible-draft flushing before save/replace/Graph Lab source mutations, stale Source Drawer blocking, external conflict overwrite hash preflight, Engine Telemetry bottom Source Drawer visibility, 1000-node large-graph fallback, natural chapter naming, Graph Lab create action reachability, and Home overlay behavior. Verified commands: `lint:tokens`, `typecheck`, `test` (50 files / 1286 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab focused E2E, Engine Telemetry focused E2E, 1000-node blackbox performance, full app E2E 62/62, full source blackbox 10 passed / 4 skipped, `package:win`, and unpacked blackbox 13 passed / 1 installed-only skip. Installed blackbox and manual installed GUI patrol have not been rerun, so this is not a release-candidate pass.
 
 2026-07-06 chapter-tab visibility update: source changed after the refreshed package/unpacked evidence above. The new source fix makes the Graph Lab chapter tab bar a dedicated visible command-bar row and adds screenshot-backed E2E assertions. Verified after the change: `typecheck`, `lint`, `lint:css`, `build`, `lint:tokens`, `lint:bundle`, Graph Lab narrow E2E 19/19, and targeted chapter-tab screenshot E2E 1/1. The earlier `package:win` and unpacked blackbox results are now stale for this newer source revision; rerun package/unpacked/installed before any release-candidate claim.
 

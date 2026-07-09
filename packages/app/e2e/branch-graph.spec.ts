@@ -66,6 +66,7 @@ async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
  * 模拟用户点击"新建"→选择"RPG 对话"→点击"创建"的完整流程。
  */
 async function loadRpgTemplate(p: Page): Promise<void> {
+  await dismissHomeIfVisible(p);
   await p.waitForSelector('.monaco-editor', { timeout: 20_000 });
   await p.waitForTimeout(500);
 
@@ -81,7 +82,21 @@ async function loadRpgTemplate(p: Page): Promise<void> {
   await p.waitForTimeout(2_000);
 }
 
+async function dismissHomeIfVisible(p: Page): Promise<void> {
+  const home = p.getByTestId('home-surface');
+  await home.waitFor({ state: 'visible', timeout: 1_000 }).catch(() => {});
+  if (!(await home.isVisible().catch(() => false))) return;
+  const graphLabCard = home.getByTestId('home-open-graph-lab');
+  if (await graphLabCard.isVisible().catch(() => false)) {
+    await graphLabCard.click();
+  } else {
+    await home.locator('.button--primary').first().click();
+  }
+  await home.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+}
+
 async function ensureSplitWorkspace(p: Page): Promise<void> {
+  await dismissHomeIfVisible(p);
   await p.waitForFunction(
     () => Boolean((window as Window & {
       __test_store__?: { setWorkspaceMode?: (mode: 'split' | 'graphLab') => void };

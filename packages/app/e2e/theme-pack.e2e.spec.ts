@@ -223,11 +223,38 @@ test.describe('Official Theme Center E2E', () => {
     await expect(page.locator('.graph-lab-rail')).toBeVisible();
     await expect(page.locator('.graph-lab__canvas')).toBeVisible();
     await expect(page.locator('.graph-lab-inspector')).toBeVisible();
-    await expect(page.getByTestId('graph-lab-source-drawer')).toBeVisible();
     await expect(page.locator('[data-official-node-theme="plotflow-engine-telemetry"]').first()).toBeVisible();
     await expect(page.locator('[data-official-node-variant="engine-telemetry"]').first()).toBeVisible();
     await expect(page.locator('.official-graph-node--engine-telemetry').first()).toBeVisible();
     await expect(page.locator('[data-official-edge-theme="plotflow-engine-telemetry"]')).toHaveCount(1);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(page.getByTestId('graph-lab-chapter-source-slice')).toBeVisible({ timeout: 10_000 });
+    const geometry = await page.evaluate(() => {
+      const rail = document.querySelector('.graph-lab-rail')?.getBoundingClientRect();
+      const canvas = document.querySelector('.graph-lab__canvas')?.getBoundingClientRect();
+      const inspector = document.querySelector('.graph-lab-inspector')?.getBoundingClientRect();
+      const drawer = document.querySelector('[data-testid="graph-lab-source-drawer"]')?.getBoundingClientRect();
+      const textarea = document.querySelector('[data-testid="graph-lab-chapter-source-slice"]')?.getBoundingClientRect();
+      if (!rail || !canvas || !inspector || !drawer || !textarea) return null;
+      const centerElement = document.elementFromPoint(textarea.left + textarea.width / 2, textarea.top + textarea.height / 2);
+      return {
+        rail: { x: rail.x, y: rail.y, width: rail.width, height: rail.height },
+        canvas: { x: canvas.x, y: canvas.y, width: canvas.width, height: canvas.height },
+        inspector: { x: inspector.x, y: inspector.y, width: inspector.width, height: inspector.height },
+        drawer: { x: drawer.x, y: drawer.y, width: drawer.width, height: drawer.height },
+        textarea: { x: textarea.x, y: textarea.y, width: textarea.width, height: textarea.height },
+        centerInDrawer: Boolean(centerElement?.closest('[data-testid="graph-lab-source-drawer"]')),
+      };
+    });
+    expect(geometry).not.toBeNull();
+    expect(geometry!.drawer.x).toBeGreaterThanOrEqual(geometry!.rail.x + geometry!.rail.width - 1);
+    expect(geometry!.drawer.y).toBeGreaterThanOrEqual(geometry!.canvas.y + geometry!.canvas.height - 1);
+    expect(geometry!.drawer.y).toBeGreaterThanOrEqual(geometry!.inspector.y + geometry!.inspector.height - 1);
+    expect(geometry!.drawer.width).toBeGreaterThan(geometry!.canvas.width * 0.7);
+    expect(geometry!.textarea.width).toBeGreaterThan(240);
+    expect(geometry!.textarea.height).toBeGreaterThan(120);
+    expect(geometry!.centerInDrawer).toBe(true);
 
     const workspaceShot = await page.getByTestId('graph-lab-workspace').screenshot();
     expect(workspaceShot.length).toBeGreaterThan(5_000);

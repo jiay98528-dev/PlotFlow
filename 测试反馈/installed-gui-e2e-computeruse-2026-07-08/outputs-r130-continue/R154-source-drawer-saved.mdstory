@@ -1,0 +1,33 @@
+---
+plotflow: "0.1"
+title: "Untitled Story"
+author: "PlotFlow Writer"
+engine: "generic"
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "第一章-GUI_R160_NODE"
+        x: 420
+        y: 50
+vars:
+---
+
+# 第一章
+
+## 节点：开始
+写下第一个场景。
+
+SOURCE_R154_SLICE_EDIT
+
+## 节点：GUI_R160_NODE
+
+在这里写下剧情正文。
+
+# 第一章 2
+
+
+## 节点：新节点
+
+在这里写下剧情正文。
+SOURCE_R184_SECOND_CHAPTER_DIRTY

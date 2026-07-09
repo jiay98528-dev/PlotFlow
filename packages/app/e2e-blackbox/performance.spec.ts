@@ -8,6 +8,7 @@ import {
   launchBlackboxApp,
   switchToGraphLab,
   switchToSplit,
+  waitForAnyGraphNode,
 } from './helpers/electronBlackbox';
 import { createBlackboxWorkspace, writeStory } from './helpers/fixtures';
 
@@ -22,12 +23,13 @@ async function recordSample(reportPath: string, sample: PerfSample): Promise<voi
 }
 
 test.describe('blackbox performance baseline', () => {
-  test('opens 100/500 node stories and switches Graph Lab within desktop thresholds @perf', async ({ browserName: _browserName }, testInfo) => {
+  test('opens 100/500/1000 node stories and switches Graph Lab within desktop thresholds @perf', async ({ browserName: _browserName }, testInfo) => {
     const workspace = await createBlackboxWorkspace('perf-open');
     const reportPath = testInfo.outputPath('blackbox-performance.jsonl');
     const cases = [
-      { count: 100, thresholdMs: 3_000 },
-      { count: 500, thresholdMs: 8_000 },
+      { count: 100, openThresholdMs: 3_000, graphLabThresholdMs: 3_000 },
+      { count: 500, openThresholdMs: 8_000, graphLabThresholdMs: 3_000 },
+      { count: 1000, openThresholdMs: 12_000, graphLabThresholdMs: 5_000 },
     ];
 
     for (const item of cases) {
@@ -36,6 +38,15 @@ test.describe('blackbox performance baseline', () => {
 
       const start = Date.now();
       const launched = await launchBlackboxApp({ storyPath });
+      const runtimeErrors: string[] = [];
+      launched.page.on('pageerror', (error) => {
+        runtimeErrors.push(error.message);
+      });
+      launched.page.on('console', (message) => {
+        if (message.type() === 'error') {
+          runtimeErrors.push(message.text());
+        }
+      });
       try {
         await dismissHomeIfVisible(launched.page);
         await switchToSplit(launched.page);
@@ -45,19 +56,21 @@ test.describe('blackbox performance baseline', () => {
         await recordSample(reportPath, {
           name: `open-${item.count}`,
           durationMs: openDuration,
-          thresholdMs: item.thresholdMs,
+          thresholdMs: item.openThresholdMs,
         });
-        expect(openDuration).toBeLessThanOrEqual(item.thresholdMs);
+        expect(openDuration).toBeLessThanOrEqual(item.openThresholdMs);
 
         const graphLabStart = Date.now();
         await switchToGraphLab(launched.page);
+        await waitForAnyGraphNode(launched.page);
         const graphLabDuration = Date.now() - graphLabStart;
         await recordSample(reportPath, {
           name: `graph-lab-switch-${item.count}`,
           durationMs: graphLabDuration,
-          thresholdMs: 3_000,
+          thresholdMs: item.graphLabThresholdMs,
         });
-        expect(graphLabDuration).toBeLessThanOrEqual(3_000);
+        expect(graphLabDuration).toBeLessThanOrEqual(item.graphLabThresholdMs);
+        expect(runtimeErrors.filter((message) => /RangeError|Maximum call stack/i.test(message))).toEqual([]);
       } finally {
         await closeBlackboxApp(launched.app);
       }

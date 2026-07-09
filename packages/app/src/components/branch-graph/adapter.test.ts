@@ -15,7 +15,7 @@ const {
   plotFlowDataToFlow,
   resolveStoryFullIdForFlowNodeId,
 } = await import('./adapter');
-const { layoutNodes } = await import('./layout');
+const { layoutNodes, NODE_DIMENSIONS } = await import('./layout');
 
 function makeNode(
   id: string,
@@ -80,7 +80,10 @@ describe('plotFlowDataToFlow layout handoff', () => {
 
     expect(layoutNodes).not.toHaveBeenCalled();
     expect(result.nodes.find((node) => node.id === 'Chapter-A')?.position).toEqual({ x: 10, y: 20 });
-    expect(result.nodes.find((node) => node.id === 'Chapter-B')?.position).toEqual({ x: 300, y: 0 });
+    expect(result.nodes.find((node) => node.id === 'Chapter-B')?.position).toEqual({
+      x: NODE_DIMENSIONS.width + 80,
+      y: 0,
+    });
   });
 
   it('maps React Flow duplicate ids back without stripping user-authored hash suffixes', () => {

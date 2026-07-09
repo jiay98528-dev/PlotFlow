@@ -23,6 +23,8 @@ import { useUIStore } from '../../stores/uiStore';
 import { useThemePlatform } from '../ThemePlatformProvider';
 import { useAppText } from '../../i18n/appI18n';
 import { graphEditService, StorySourceEditService, type TextEdit } from '../../services/graphEditService';
+import { saveOrSaveAs } from '../../services/autoSaveService';
+import { registerSourceDraftController } from '../../services/sourceDraftCoordinator';
 
 function getFileName(path: string | null, fallback: string): string {
   if (!path) return fallback;
@@ -141,7 +143,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
   const diagnosticCount = diagnosticsInSlice.length;
   const statusState = isStale ? 'stale' : isDirty ? 'dirty' : diagnosticCount > 0 ? 'warning' : 'saved';
 
-  const commit = useCallback(() => {
+  const commitDraft = useCallback((showStatus = true) => {
     const currentBaseline = baselineRef.current;
     const currentDraft = textareaRef.current?.value ?? draftRef.current;
     const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
@@ -158,7 +160,9 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
     };
     StorySourceEditService.commit(nextContent, 'graph-lab-save-chapter-source-slice', [edit]);
     setDraftValue(nextSlice);
-    setStatusMessage(text('sourceDock.savedSlice', { title: currentBaseline.chapterTitle }));
+    if (showStatus) {
+      setStatusMessage(text('sourceDock.savedSlice', { title: currentBaseline.chapterTitle }));
+    }
     setBaseline({
       ...currentBaseline,
       endOffset: currentBaseline.startOffset + nextSlice.length,
@@ -166,6 +170,24 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
     });
     return true;
   }, [setDraftValue, setStatusMessage, text]);
+
+  const saveSliceToDisk = useCallback(async () => {
+    if (isStaleRef.current) {
+      setStatusMessage(text('sourceDock.switchBlockedStale'));
+      return;
+    }
+
+    const currentBaseline = baselineRef.current;
+    const currentDraft = textareaRef.current?.value ?? draftRef.current;
+    const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
+    if (dirtyNow && !commitDraft(false)) return;
+
+    const saved = await saveOrSaveAs();
+    if (saved) {
+      const title = baselineRef.current?.chapterTitle ?? currentBaseline?.chapterTitle ?? text('sourceDock.unknownChapter');
+      setStatusMessage(text('sourceDock.savedToDisk', { title }));
+    }
+  }, [commitDraft, setStatusMessage, text]);
 
   useImperativeHandle(ref, () => ({
     saveBeforeChapterChange: () => {
@@ -176,10 +198,32 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
       const currentBaseline = baselineRef.current;
       const currentDraft = textareaRef.current?.value ?? draftRef.current;
       const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
-      if (dirtyNow) return commit();
+      if (dirtyNow) return commitDraft();
       return true;
     },
-  }), [commit, setStatusMessage, text]);
+  }), [commitDraft, setStatusMessage, text]);
+
+  useEffect(() => registerSourceDraftController({
+    getState: () => {
+      const currentBaseline = baselineRef.current;
+      const currentDraft = textareaRef.current?.value ?? draftRef.current;
+      return {
+        isDirty: currentBaseline ? currentDraft !== currentBaseline.text : false,
+        isStale: isStaleRef.current,
+      };
+    },
+    flushDraft: () => {
+      if (isStaleRef.current) {
+        setStatusMessage(text('sourceDock.switchBlockedStale'));
+        return false;
+      }
+      const currentBaseline = baselineRef.current;
+      const currentDraft = textareaRef.current?.value ?? draftRef.current;
+      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
+      if (!dirtyNow) return true;
+      return commitDraft();
+    },
+  }), [commitDraft, setStatusMessage, text]);
 
   const revert = useCallback(() => {
     const nextBaseline = slice ?? baseline;
@@ -203,14 +247,14 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
   const handleEditorKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
       event.preventDefault();
-      commit();
+      void saveSliceToDisk();
       return;
     }
     if (event.key === 'Escape' && (isDirty || isStale)) {
       event.preventDefault();
       revert();
     }
-  }, [commit, isDirty, isStale, revert]);
+  }, [isDirty, isStale, revert, saveSliceToDisk]);
 
   if (!slice && !baseline) {
     return (
@@ -256,7 +300,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
           <RotateCcw aria-hidden="true" size={14} strokeWidth={2} />
           <span>{text('sourceDock.revert')}</span>
         </button>
-        <button type="button" className="source-drawer__slice-action source-drawer__slice-action-primary" onClick={commit} disabled={!isDirty || isStale}>
+        <button type="button" className="source-drawer__slice-action source-drawer__slice-action-primary" onClick={() => { void saveSliceToDisk(); }} disabled={!isDirty || isStale}>
           <Save aria-hidden="true" size={14} strokeWidth={2} />
           <span>{text('sourceDock.save')}</span>
         </button>

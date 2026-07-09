@@ -392,11 +392,19 @@ function scanChapters(lines: readonly StorySourceLine[], bodyStartLine: number):
     flushNode(endLineIndex);
     if (currentChapterTitle === null || currentChapterStart < 0 || !currentChapterTitleRange) return;
     const startLine = lines[currentChapterStart]!;
-    const endLine = lines[Math.max(currentChapterStart, endLineIndex)] ?? startLine;
+    const rawEndLineIndex = Math.max(currentChapterStart, endLineIndex);
+    let chapterEndLineIndex = rawEndLineIndex;
+    while (
+      chapterEndLineIndex > currentChapterStart
+      && (lines[chapterEndLineIndex]?.text.trim() ?? '') === ''
+    ) {
+      chapterEndLineIndex--;
+    }
+    const endLine = lines[chapterEndLineIndex] ?? startLine;
     chapters.push({
       title: currentChapterTitle,
       startLine: currentChapterStart + 1,
-      endLine: Math.max(currentChapterStart, endLineIndex) + 1,
+      endLine: chapterEndLineIndex + 1,
       startOffset: startLine.startOffset,
       endOffset: lineFullEndOffset(endLine),
       titleRange: currentChapterTitleRange,

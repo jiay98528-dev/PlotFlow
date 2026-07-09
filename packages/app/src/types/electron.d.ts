@@ -289,6 +289,8 @@ export interface TestStoreBridge {
     readonly isThemeCenterOpen: boolean;
     readonly isHomeSurfaceOpen: boolean;
     readonly activeThemeId: string;
+    readonly activeChapterId: string | null;
+    readonly activeNodeId: string | null;
   };
   setTheme: (themeId: string) => void;
   getThemeId: () => string;

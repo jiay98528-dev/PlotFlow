@@ -1,4 +1,5 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import type { MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from 'electron';
 import { basename, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
 import { existsSync, watch, type FSWatcher } from 'node:fs';
@@ -153,11 +154,17 @@ function resolveWindowIconPath(): string | undefined {
   return undefined;
 }
 
-function focusMainWindowForNativeDialog(): void {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
+function focusNativeDialogOwner(): BrowserWindow | undefined {
+  const owner = mainWindow && !mainWindow.isDestroyed()
+    ? mainWindow
+    : (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows().find((win) => !win.isDestroyed()));
+
+  if (!owner || owner.isDestroyed()) return undefined;
+  if (owner.isMinimized()) owner.restore();
+  owner.show();
+  owner.focus();
+  owner.moveTop();
+  return owner;
 }
 
 // ============================================================================
@@ -221,15 +228,15 @@ function assertWorkspacePathInside(root: string, target: string): void {
 async function assertReadableStoryFile(filePath: string): Promise<string> {
   const normalizedPath = normalize(filePath);
   if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
-    throw new Error('浠呮敮鎸佽鍙?.mdstory 鏂囦欢');
+    throw new Error('仅支持读取 .mdstory 文件');
   }
   if (isBlockedSystemPath(normalizedPath)) {
-    throw new Error('涓嶅厑璁镐粠绯荤粺鐩綍璇诲彇鏂囦欢');
+    throw new Error('不允许从系统目录读取文件');
   }
 
   const fileStat = await stat(normalizedPath);
   if (!fileStat.isFile()) {
-    throw new Error('鐩爣涓嶆槸鏂囦欢');
+    throw new Error('目标不是文件');
   }
   if (fileStat.size > MAX_READ_BYTES) {
     const sizeMB = (fileStat.size / 1024 / 1024).toFixed(1);
@@ -354,14 +361,14 @@ ipcMain.handle('file:save', async (_event, payload: {
     }
 
     if (rawPath.includes('..')) {
-      throw new Error('璺緞鍖呭惈闈炴硶閬嶅巻缁勪欢');
+      throw new Error('路径包含非法遍历组件');
     }
 
     const normalizedPath = normalize(rawPath);
 
     // 绗?灞傦細鎵╁睍鍚嶇櫧鍚嶅崟
     if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
-      throw new Error('浠呮敮鎸佷繚瀛?.mdstory 鏂囦欢');
+      throw new Error('仅支持保存 .mdstory 文件');
     }
 
     if (typeof payload.expectedHash === 'string') {
@@ -399,7 +406,7 @@ ipcMain.handle('file:save', async (_event, payload: {
     startWatchingStoryFile(normalizedPath, content);
     return { success: true, timestamp: Date.now(), hash, modifiedAt: fileStat.mtimeMs };
   } catch (error) {
-    throw new Error(`鏃犳硶淇濆瓨鏂囦欢: ${(error as Error).message}`);
+    throw new Error(`无法保存文件: ${(error as Error).message}`);
   }
 });
 
@@ -409,15 +416,16 @@ ipcMain.handle('file:save', async (_event, payload: {
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.open() 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_OPEN 閫氶亾銆? */
 ipcMain.handle('file:open', async () => {
   try {
-    focusMainWindowForNativeDialog();
-    const result = await dialog.showOpenDialog({
-      title: '鎵撳紑 PlotFlow 鏁呬簨鏂囦欢',
+    focusNativeDialogOwner();
+    const openOptions: OpenDialogOptions = {
+      title: '打开 PlotFlow 故事文件',
       filters: [
         { name: 'PlotFlow Story', extensions: ['mdstory'] },
         { name: '所有文件', extensions: ['*'] },
       ],
       properties: ['openFile'],
-    });
+    };
+    const result = await dialog.showOpenDialog(openOptions);
 
     if (result.canceled || result.filePaths.length === 0) {
       return null;
@@ -427,7 +435,7 @@ ipcMain.handle('file:open', async () => {
 
     return readStoryFile(filePath);
   } catch (error) {
-    throw new Error(`鏂囦欢鎵撳紑澶辫触: ${(error as Error).message}`);
+    throw new Error(`文件打开失败: ${(error as Error).message}`);
   }
 });
 
@@ -438,12 +446,13 @@ ipcMain.handle('file:open', async () => {
 ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
   try {
     assertWritableContent(payload?.content);
-    focusMainWindowForNativeDialog();
-    const result = await dialog.showSaveDialog({
-      title: '淇濆瓨 PlotFlow 鏁呬簨鏂囦欢',
+    focusNativeDialogOwner();
+    const saveOptions: SaveDialogOptions = {
+      title: '保存 PlotFlow 故事文件',
       filters: [{ name: 'PlotFlow Story', extensions: ['mdstory'] }],
       defaultPath: 'untitled.mdstory',
-    });
+    };
+    const result = await dialog.showSaveDialog(saveOptions);
 
     if (result.canceled || !result.filePath) {
       return null;
@@ -461,7 +470,7 @@ ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
     startWatchingStoryFile(filePath, payload.content);
     return { filePath, content: payload.content, hash, modifiedAt: fileStat.mtimeMs };
   } catch (error) {
-    throw new Error(`鏂囦欢鍙﹀瓨涓哄け璐? ${(error as Error).message}`);
+    throw new Error(`文件另存为失败: ${(error as Error).message}`);
   }
 });
 
@@ -480,7 +489,7 @@ ipcMain.handle('file:export', async (_event, payload: {
 
     // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?1锛歠ormat 鐧藉悕鍗?鈹€鈹€
     if (!payload.format || !(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(payload.format)) {
-      throw new Error(`涓嶆敮鎸佺殑瀵煎嚭鏍煎紡: ${payload.format || '(鏈寚瀹?'}`);
+      throw new Error(`不支持的导出格式: ${payload.format || '(未指定)'}`);
     }
 
     // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?2锛歠ilters 鎵╁睍鍚嶇櫧鍚嶅崟 鈹€鈹€
@@ -488,18 +497,19 @@ ipcMain.handle('file:export', async (_event, payload: {
       for (const filter of payload.filters) {
         for (const ext of filter.extensions) {
           if (!(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(ext)) {
-            throw new Error(`涓嶆敮鎸佺殑瀵煎嚭鎵╁睍鍚? .${ext}`);
+            throw new Error(`不支持的导出扩展名: .${ext}`);
           }
         }
       }
     }
 
-    focusMainWindowForNativeDialog();
-    const result = await dialog.showSaveDialog({
-      title: '瀵煎嚭鏂囦欢',
+    focusNativeDialogOwner();
+    const exportOptions: SaveDialogOptions = {
+      title: '导出 PlotFlow 文件',
       filters: payload.filters,
       defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
-    });
+    };
+    const result = await dialog.showSaveDialog(exportOptions);
 
     if (result.canceled || !result.filePath) {
       return null;
@@ -508,7 +518,7 @@ ipcMain.handle('file:export', async (_event, payload: {
     await writeTextFileAndVerify(result.filePath, payload.content);
     return { filePath: result.filePath };
   } catch (error) {
-    throw new Error(`瀵煎嚭澶辫触: ${(error as Error).message}`);
+    throw new Error(`导出失败: ${(error as Error).message}`);
   }
 });
 
@@ -526,7 +536,7 @@ ipcMain.handle('file:getPendingOpenFile', async () => {
   try {
     return readStoryFile(path);
   } catch (error) {
-    console.error(`[PlotFlow] 璇诲彇绯荤粺鎵撳紑鏂囦欢澶辫触: ${path}`, error);
+    console.error(`[PlotFlow] 读取系统打开文件失败: ${path}`, error);
     return null;
   }
 });
@@ -539,17 +549,19 @@ ipcMain.handle('file:readByPath', async (_event, payload: { path: string }) => {
   try {
     return readStoryFile(payload.path);
   } catch (error) {
-    console.error(`[PlotFlow] 璇诲彇鏂囦欢澶辫触: ${payload.path}`, error);
+    console.error(`[PlotFlow] 读取文件失败: ${payload.path}`, error);
     return null;
   }
 });
 
 ipcMain.handle('file:chooseWorkspaceFolder', async () => {
   try {
-    const result = await dialog.showOpenDialog(mainWindow!, {
+    focusNativeDialogOwner();
+    const workspaceOptions: OpenDialogOptions = {
       title: '选择 PlotFlow 工作区',
       properties: ['openDirectory'],
-    });
+    };
+    const result = await dialog.showOpenDialog(workspaceOptions);
 
     if (result.canceled || result.filePaths.length === 0) {
       return null;
@@ -557,7 +569,7 @@ ipcMain.handle('file:chooseWorkspaceFolder', async () => {
 
     return listWorkspaceStories(result.filePaths[0]!);
   } catch (error) {
-    throw new Error(`宸ヤ綔鍖烘壂鎻忓け璐? ${(error as Error).message}`);
+    throw new Error(`工作区扫描失败: ${(error as Error).message}`);
   }
 });
 
@@ -565,7 +577,7 @@ ipcMain.handle('file:listWorkspaceStories', async (_event, payload: { rootPath: 
   try {
     return listWorkspaceStories(payload.rootPath);
   } catch (error) {
-    throw new Error(`宸ヤ綔鍖哄埛鏂板け璐? ${(error as Error).message}`);
+    throw new Error(`工作区刷新失败: ${(error as Error).message}`);
   }
 });
 
@@ -576,7 +588,7 @@ ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: st
     assertWorkspacePathInside(rootPath, filePath);
     return readStoryFile(filePath);
   } catch (error) {
-    console.error(`[PlotFlow] 璇诲彇宸ヤ綔鍖烘枃浠跺け璐? ${payload.filePath}`, error);
+    console.error(`[PlotFlow] 读取工作区文件失败: ${payload.filePath}`, error);
     return null;
   }
 });
@@ -591,14 +603,19 @@ ipcMain.handle('dialog:confirm', async (_event, options: {
   detail: string;
   buttons: string[];
 }) => {
-  const result = await dialog.showMessageBox(mainWindow!, {
+  const owner = focusNativeDialogOwner();
+  const messageBoxOptions: MessageBoxOptions = {
+    title: 'PlotFlow',
     type: options.type ?? 'warning',
     message: options.message,
     detail: options.detail,
     buttons: [...options.buttons],
     defaultId: 0,
     cancelId: options.buttons.length - 1,
-  });
+  };
+  const result = owner
+    ? await dialog.showMessageBox(owner, messageBoxOptions)
+    : await dialog.showMessageBox(messageBoxOptions);
   return result.response;
 });
 
@@ -664,7 +681,7 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
-    console.error('[PlotFlow] 娓叉煋杩涚▼閫€鍑?', details.reason, details.exitCode);
+    console.error('[PlotFlow] 渲染进程退出', details.reason, details.exitCode);
     if (details.reason === 'clean-exit' || mainWindow === null) return;
 
     const affectedWindow = mainWindow;
@@ -673,7 +690,7 @@ function createWindow(): void {
       title: 'PlotFlow',
       message: '编辑器渲染进程意外退出',
       detail: '可以尝试重新加载编辑器。尚未写入磁盘的内容可能无法恢复。',
-      buttons: ['閲嶆柊鍔犺浇', '鍏抽棴'],
+      buttons: ['重新加载', '关闭'],
       defaultId: 0,
       cancelId: 1,
     }).then(({ response }) => {
@@ -769,7 +786,7 @@ function checkCommandLineArgs(args: readonly string[] = process.argv): boolean {
   const storyPath = findStoryFileArgument(args);
   if (storyPath && existsSync(storyPath)) {
     pendingFilePath = storyPath;
-    console.log(`[PlotFlow] 鍛戒护琛屽弬鏁版枃浠? ${storyPath}`);
+    console.log(`[PlotFlow] 命令行参数文件: ${storyPath}`);
     return true;
   }
   return false;
@@ -815,11 +832,11 @@ if (!hasSingleInstanceLock) {
 }
 
 process.on('uncaughtException', (error) => {
-  console.error('[PlotFlow] 涓昏繘绋嬫湭鎹曡幏寮傚父:', error);
+  console.error('[PlotFlow] 主进程未捕获异常:', error);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[PlotFlow] 涓昏繘绋嬫湭澶勭悊 Promise 鎷掔粷:', reason);
+  console.error('[PlotFlow] 主进程未处理 Promise 拒绝:', reason);
 });
 
 app.on('window-all-closed', () => {

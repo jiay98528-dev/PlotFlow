@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Square,
 } from 'lucide-react';
-import type { Diagnostic } from '@plotflow/core';
+import type { Diagnostic, PlotFlowData } from '@plotflow/core';
 import type { WorkspaceStoriesResult, WorkspaceStoryFile } from '../../types/electron';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
@@ -20,9 +20,8 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { layoutNodesInWorker } from '../branch-graph/graphLayoutClient';
 import { graphEditService } from '../../services/graphEditService';
-import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
-import { parsePipelineNow } from '../../services/parsePipeline';
-import { rememberRecentStory } from '../../services/recentFileService';
+import { loadSavedStorySession } from '../../services/storySessionService';
+import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
 import { useAppText } from '../../i18n/appI18n';
 
 interface GraphLabPaletteProps {
@@ -65,41 +64,43 @@ function getNodeSeverityLabel(severity: NodeSeverity, text: TextFn): string {
   }
 }
 
-async function confirmBeforeReplacingStory(text: TextFn): Promise<boolean> {
-  const editor = useEditorStore.getState();
-  if (!editor.isDirty) return true;
+function resolveTargetChapterTitle(
+  plotFlowData: PlotFlowData | null,
+  activeChapterId: string | null,
+  fallbackTitle: string,
+): string {
+  const chapters = plotFlowData?.chapters ?? [];
+  const activeChapter = chapters.find((chapter) => chapter.id === activeChapterId || chapter.title === activeChapterId);
+  return activeChapter?.title ?? chapters[0]?.title ?? fallbackTitle;
+}
 
-  const choice = await window.plotflow.dialog.confirm({
-    type: 'warning',
-    message: text('palette.beforeReplaceTitle'),
-    detail: editor.filePath
-      ? text('palette.beforeReplaceNamed', { path: editor.filePath })
-      : text('palette.beforeReplaceUnnamed'),
-    buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
-  });
+const CHINESE_DIGITS = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
 
-  if (choice === 0) {
-    return saveOrSaveAs();
+function formatChineseChapterNumber(value: number): string {
+  if (value <= 0) return String(value);
+  if (value === 10) return '十';
+  if (value < 10) return CHINESE_DIGITS[value] ?? String(value);
+  if (value < 20) return `十${CHINESE_DIGITS[value % 10] ?? ''}`;
+  if (value < 100) {
+    const tens = Math.floor(value / 10);
+    const ones = value % 10;
+    return `${CHINESE_DIGITS[tens] ?? String(tens)}十${ones > 0 ? CHINESE_DIGITS[ones] ?? String(ones) : ''}`;
   }
-  return choice === 1;
+  return String(value);
+}
+
+function nextChapterTitle(existingTitles: ReadonlySet<string>, language: string): string {
+  for (let index = 1; index < 1000; index++) {
+    const title = language === 'zh-CN'
+      ? `第${formatChineseChapterNumber(index)}章`
+      : `Chapter ${index}`;
+    if (!existingTitles.has(title)) return title;
+  }
+  return language === 'zh-CN' ? `章节 ${existingTitles.size + 1}` : `Chapter ${existingTitles.size + 1}`;
 }
 
 function loadStoryIntoEditor(filePath: string, content: string, hash: string, modifiedAt: number): void {
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  clearPendingSave();
-  const editor = useEditorStore.getState();
-  editor.setFilePath(normalizedPath);
-  editor.setFileBaseline(hash, modifiedAt);
-  editor.clearPendingExternalChange();
-  editor.setDiagnostics([]);
-  editor.setActiveNodeId(null);
-  editor.setCursorPosition(1, 1);
-  useStoryStore.getState().clearParseData();
-  useGraphStore.getState().syncFromAST(null);
-  editor.setContent(content);
-  editor.markSaved();
-  rememberRecentStory(normalizedPath, hash, modifiedAt);
-  parsePipelineNow(content);
+  loadSavedStorySession({ filePath, content, hash, modifiedAt, closeHome: true });
 }
 
 export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: GraphLabPaletteProps): React.ReactElement {
@@ -113,6 +114,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const filePath = useEditorStore((state) => state.filePath);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
+  const language = useUIStore((state) => state.language);
   const [workspace, setWorkspace] = useState<WorkspaceStoriesResult | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -136,37 +138,31 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
 
   const handleCreateChapter = useCallback(() => {
     if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
-    const baseTitle = text('palette.defaultChapterTitle');
     const existing = new Set((plotFlowData?.chapters ?? []).map((chapter) => chapter.title));
-    let title = baseTitle;
-    let index = 2;
-    while (existing.has(title)) {
-      title = `${baseTitle} ${index}`;
-      index++;
-    }
+    const title = nextChapterTitle(existing, language);
     graphEditService.createChapter(title);
     setActiveChapterId(title);
     setStatusMessage(text('palette.createdChapter'));
-  }, [onBeforeGraphMutation, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
+  }, [language, onBeforeGraphMutation, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
     if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     graphEditService.createNode({
-      chapterTitle: activeChapterId ?? text('palette.defaultChapterTitle'),
+      chapterTitle: resolveTargetChapterTitle(plotFlowData, activeChapterId, text('palette.defaultChapterTitle')),
       title: text('palette.newNodeTitle'),
     });
     setStatusMessage(text('palette.createdNode'));
-  }, [activeChapterId, onBeforeGraphMutation, setStatusMessage, text]);
+  }, [activeChapterId, onBeforeGraphMutation, plotFlowData, setStatusMessage, text]);
 
   const handleCreateEnding = useCallback(() => {
     if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     graphEditService.createNode({
-      chapterTitle: activeChapterId ?? text('palette.defaultChapterTitle'),
+      chapterTitle: resolveTargetChapterTitle(plotFlowData, activeChapterId, text('palette.defaultChapterTitle')),
       title: text('palette.endingNodeTitle'),
       isEnding: true,
     });
     setStatusMessage(text('palette.createdEnding'));
-  }, [activeChapterId, onBeforeGraphMutation, setStatusMessage, text]);
+  }, [activeChapterId, onBeforeGraphMutation, plotFlowData, setStatusMessage, text]);
 
   const handleRelayout = useCallback(() => {
     if (nodes.length === 0) {
@@ -222,7 +218,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
   const handleOpenWorkspaceFile = useCallback(async (file: WorkspaceStoryFile) => {
     if (!workspace) return;
     if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
-    const canReplace = await confirmBeforeReplacingStory(text);
+    const canReplace = await confirmBeforeReplacingCurrentStory('workspace');
     if (!canReplace) return;
 
     const result = await window.plotflow.file.readWorkspaceStory(workspace.rootPath, file.filePath);
@@ -322,7 +318,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
         {workspaceError && <p className="graph-lab-warning">{workspaceError}</p>}
       </section>
 
-      <section className="graph-lab-rail__block">
+      <section className="graph-lab-rail__block graph-lab-rail__create">
         <div className="graph-lab-section__title">
           <h3>{text('palette.outline')}</h3>
           <ListTree aria-hidden="true" size={15} strokeWidth={2} />

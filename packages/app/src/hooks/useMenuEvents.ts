@@ -20,9 +20,10 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
-import { useStoryStore } from '../stores/storyStore';
-import { clearPendingSave, saveAsCurrentFile, saveOrSaveAs } from '../services/autoSaveService';
+import { saveAsCurrentFile, saveOrSaveAs } from '../services/autoSaveService';
 import { FileService } from '../services/fileService';
+import { loadSavedStorySession } from '../services/storySessionService';
+import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
 import { appT } from '../i18n/appI18n';
 
 // ============================================================================
@@ -72,53 +73,31 @@ export function useMenuEvents(): void {
     // 文件菜单
     // ====================================================================
 
-    menu.onEvent('menu:file:new', () => {
-      // 清除防抖定时器，避免残留异步保存
-      clearPendingSave();
+    menu.onEvent('menu:file:new', async () => {
+      const canReplace = await confirmBeforeReplacingCurrentStory('new');
+      if (!canReplace) return;
       useUIStore.getState().openNewFileDialog();
     });
 
     menu.onEvent('menu:file:open', async () => {
       try {
-        // P0-5: 打开新文件前检查是否有未保存的更改
-        const editor = useEditorStore.getState();
-        if (editor.isDirty) {
-          const choice = await window.plotflow.dialog.confirm({
-            type: 'warning',
-            message: menuText('file.unsavedTitle'),
-            detail: editor.filePath
-              ? menuText('file.openDirtyNamed', { path: editor.filePath })
-              : menuText('file.openDirtyUnnamed'),
-            buttons: [menuText('home.saveAndOpen'), menuText('home.discardAndOpen'), menuText('common.cancel')],
-          });
-
-          if (choice === 0) {
-            const saved = await saveOrSaveAs();
-            if (!saved) return;
-          } else if (choice === 2) {
-            return; // 取消打开
-          }
-          // choice === 1: 不保存，继续打开
-        }
+        const canReplace = await confirmBeforeReplacingCurrentStory('open');
+        if (!canReplace) return;
 
         const result = await fileService.openFile();
         if (!result) return; // 用户取消了文件打开对话框
 
         // 清除防抖定时器
-        clearPendingSave();
         // 重新获取最新的 editor 引用（saveOrSaveAs 可能已更新路径）
-        const freshEditor = useEditorStore.getState();
-        freshEditor.setDiagnostics([]);
-        freshEditor.setActiveNodeId(null);
-        freshEditor.setCursorPosition(1, 1);
-        freshEditor.setContent(result.content);
-        freshEditor.setFilePath(result.path);
-        freshEditor.setFileBaseline(result.hash, result.modifiedAt);
-        freshEditor.clearPendingExternalChange();
-        freshEditor.markSaved();
         // 清除旧 AST 数据（新内容将在解析后自动更新）
-        useStoryStore.getState().clearParseData();
         // 状态栏反馈
+        loadSavedStorySession({
+          filePath: result.path,
+          content: result.content,
+          hash: result.hash,
+          modifiedAt: result.modifiedAt,
+          closeHome: true,
+        });
         useUIStore.getState().setStatusMessage(menuText('status.opened', { path: result.path }));
       } catch (error) {
         // 用户取消操作属正常行为，不显示为"失败"

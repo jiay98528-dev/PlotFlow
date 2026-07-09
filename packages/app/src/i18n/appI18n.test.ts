@@ -25,13 +25,19 @@ describe('appI18n', () => {
     expect(appT('inspector.title', undefined, 'en-US')).toBe('Title');
     expect(appT('inspector.effectOperationAppend', undefined, 'en-US')).toBe('Append');
     expect(appT('inspector.confirmDeleteNode', { title: 'Start' }, 'en-US')).toBe('Delete node "Start"?');
-    expect(appT('sourceDock.save', undefined, 'en-US')).toBe('Save slice');
+    expect(appT('sourceDock.save', undefined, 'en-US')).toBe('Save to file');
+    expect(appT('sourceDock.savedToDisk', { title: 'Chapter 1' }, 'en-US')).toBe('Saved to file: Chapter 1');
     expect(appT('sourceDock.diagnosticsInSlice', { count: 3 }, 'en-US')).toBe('3 diagnostics in this chapter');
     expect(appT('sourceDock.jumpToLine', { line: 12 }, 'en-US')).toBe('Jump to line 12');
     expect(appT('sourceDock.switchBlockedStale', undefined, 'en-US')).toBe(
       'The source slice changed. Revert or reload it before switching chapters.',
     );
     expect(appT('themeNode.status.error', undefined, 'en-US')).toBe('Needs repair');
+    expect(appT('themeNode.nextRoute', undefined, 'en-US')).toBe('Next');
+    expect(appT('themeNode.requires', { expression: 'coins >= 1' }, 'en-US')).toBe('Requires coins >= 1');
+    expect(appT('themeNode.targetPreview', { target: 'Shop' }, 'en-US')).toBe('→ Shop');
+    expect(appT('themeNode.effectPreview', { effects: 'coins -1' }, 'en-US')).toBe('Effect coins -1');
+    expect(appT('themeNode.moreRoutes', { count: 2 }, 'en-US')).toBe('+2 routes');
     expect(appT('problemPanel.title', undefined, 'en-US')).toBe('Problems');
     expect(appT('exportDialog.unsupportedFormat', { format: 'json' }, 'en-US')).toBe(
       'Unsupported export format: json',

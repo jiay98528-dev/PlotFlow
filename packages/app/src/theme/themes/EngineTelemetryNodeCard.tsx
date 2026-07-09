@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { StoryFlowNodeData } from '../../components/branch-graph/adapter';
+import { NodeRoutePreview } from '../../components/branch-graph/NodeRoutePreview';
+import { buildNodeRouteSummaries } from '../../components/branch-graph/nodeRouteSummary';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
@@ -22,6 +24,7 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
   const nodeData = data as StoryFlowNodeData;
   const text = useAppText();
   const storyNode = useStoryStore((state) => state.getNodeByFullId(nodeData.fullId));
+  const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const selectNode = useGraphStore((state) => state.selectNode);
   const setActiveNodeId = useEditorStore((state) => state.setActiveNodeId);
   const renamingNodeId = useGraphStore((state) => state.renamingNodeId);
@@ -30,6 +33,15 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
   const options = storyNode?.options ?? [];
   const bodyPreview = truncate(stripMarkdown(storyNode?.body ?? nodeData.body ?? ''), 76);
   const conditionCount = options.filter((option) => Boolean(option.conditionRaw)).length;
+  const allNodes = useMemo(
+    () => plotFlowData?.chapters.flatMap((chapter) => chapter.nodes) ?? [],
+    [plotFlowData],
+  );
+  const routeSummaries = useMemo(
+    () => buildNodeRouteSummaries(storyNode, allNodes, text),
+    [allNodes, storyNode, text],
+  );
+  const hasDefaultRoute = routeSummaries.length === 1 && routeSummaries[0]?.sourceHandleId === 'next';
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +126,7 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
     'official-graph-node',
     `official-graph-node--${VARIANT}`,
     `official-graph-node--${nodeData.status}`,
+    hasDefaultRoute ? 'official-graph-node--default-route' : '',
     selected ? 'is-selected' : '',
   ].filter(Boolean).join(' ');
 
@@ -128,12 +141,14 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
         setActiveNodeId(nodeData.fullId);
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="official-node-port official-node-port--target"
-        isConnectable={isConnectable}
-      />
+      {!hasDefaultRoute && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="official-node-port official-node-port--target"
+          isConnectable={isConnectable}
+        />
+      )}
 
       <header className="official-graph-node__header official-graph-node__telemetry-header">
         <span className="official-graph-node__status">{STATUS_LABEL[nodeData.status] ?? 'SYNC'}</span>
@@ -167,44 +182,62 @@ export const EngineTelemetryNodeCard: React.FC<NodeProps> = ({ data, selected, i
         {bodyPreview || text('themeNode.noBody')}
       </p>
 
-      <div className="official-graph-node__options">
-        {options.length === 0 ? (
-          <div className="official-graph-node__empty">
-            {text('themeNode.terminalRoute')}
+      <NodeRoutePreview
+        summaries={routeSummaries}
+        variant="official"
+        renderLeadingHandle={(summary) => {
+          if (!hasDefaultRoute || summary.sourceHandleId !== 'next') {
+            return null;
+          }
+
+          return (
             <Handle
-              type="source"
-              position={Position.Right}
-              id="next"
-              className="story-node-connect-handle official-node-port official-node-port--source"
-              data-source-full-id={nodeData.fullId}
-              data-option-index={-1}
-              data-nodeid={nodeData.fullId}
-              data-handleid="next"
+              type="target"
+              position={Position.Left}
+              className="official-node-port official-node-port--target official-node-port--inline"
               isConnectable={isConnectable}
             />
-          </div>
-        ) : (
-          options.map((option, index) => (
-            <div className="official-graph-node__option" key={`${option.lineNumber}-${index}`}>
-              <span className="official-graph-node__option-text">
-                {truncate(option.description || text('themeNode.routeLabel', { index: index + 1 }), 32)}
-              </span>
-              {option.conditionRaw && <span className="official-graph-node__condition">{text('themeNode.gate')}</span>}
+          );
+        }}
+        renderHandle={(summary) => {
+          if (!summary.sourceHandleId) {
+            return null;
+          }
+
+          const isDefaultNextRoute = summary.sourceHandleId === 'next';
+          const optionIndex = isDefaultNextRoute ? -1 : summary.optionIndex;
+          if (optionIndex === null) {
+            return null;
+          }
+
+          return (
+            <div
+              className={[
+                'story-node-connect-handle',
+                'official-node-port',
+                'official-node-port--source',
+                isDefaultNextRoute ? 'story-node-connect-handle--next' : 'story-node-connect-handle--option',
+                'nodrag',
+                'nopan',
+              ].join(' ')}
+              data-source-full-id={nodeData.fullId}
+              data-option-index={optionIndex}
+              data-testid={isDefaultNextRoute ? 'story-node-default-next-handle' : `story-node-option-handle-${optionIndex}`}
+              data-nodeid={nodeData.fullId}
+              data-handleid={summary.sourceHandleId}
+              title={summary.ariaLabel}
+            >
               <Handle
                 type="source"
                 position={Position.Right}
-                id={`option-${index}`}
-                className="story-node-connect-handle official-node-port official-node-port--source"
-                data-source-full-id={nodeData.fullId}
-                data-option-index={index}
-                data-nodeid={nodeData.fullId}
-                data-handleid={`option-${index}`}
+                id={summary.sourceHandleId}
+                className="story-node-connect-port nodrag nopan"
                 isConnectable={isConnectable}
               />
             </div>
-          ))
-        )}
-      </div>
+          );
+        }}
+      />
     </article>
   );
 };

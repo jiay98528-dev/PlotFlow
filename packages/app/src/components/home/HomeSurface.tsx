@@ -2,12 +2,10 @@ import React, { useCallback } from 'react';
 import { ExternalLink, FilePlus2, FolderOpen, GitBranch, Palette, Play } from 'lucide-react';
 import { useThemePlatform } from '../ThemePlatformProvider';
 import { useEditorStore } from '../../stores/editorStore';
-import { useGraphStore } from '../../stores/graphStore';
-import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
-import { clearPendingSave, saveOrSaveAs } from '../../services/autoSaveService';
-import { parsePipelineNow } from '../../services/parsePipeline';
 import { clearRecentStory, readRecentStory, rememberOpenedStory } from '../../services/recentFileService';
+import { loadSavedStorySession } from '../../services/storySessionService';
+import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
 import { useAppText } from '../../i18n/appI18n';
 
 export function HomeSurface(): React.ReactElement | null {
@@ -25,41 +23,8 @@ export function HomeSurface(): React.ReactElement | null {
   const text = useAppText();
 
   const loadStory = useCallback((path: string, storyContent: string, hash: string, modifiedAt: number) => {
-    clearPendingSave();
-    const freshEditor = useEditorStore.getState();
-    freshEditor.setDiagnostics([]);
-    freshEditor.setActiveNodeId(null);
-    freshEditor.setCursorPosition(1, 1);
-    freshEditor.setContent(storyContent);
-    freshEditor.setFilePath(path);
-    freshEditor.setFileBaseline(hash, modifiedAt);
-    freshEditor.clearPendingExternalChange();
-    freshEditor.markSaved();
-    useStoryStore.getState().clearParseData();
-    useGraphStore.getState().syncFromAST(null);
-    parsePipelineNow(storyContent);
-    setHomeSurfaceOpen(false);
-  }, [setHomeSurfaceOpen]);
-
-  const confirmBeforeReplacing = useCallback(async (): Promise<boolean> => {
-    const editor = useEditorStore.getState();
-    if (editor.isDirty) {
-      const choice = await window.plotflow.dialog.confirm({
-        type: 'warning',
-        message: text('home.unsavedConfirmTitle'),
-        detail: text('home.unsavedConfirmDetail'),
-        buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
-      });
-      if (choice === 0) {
-        const saved = await saveOrSaveAs();
-        if (!saved) return false;
-      } else if (choice === 2) {
-        return false;
-      }
-    }
-
-    return true;
-  }, [text]);
+    loadSavedStorySession({ filePath: path, content: storyContent, hash, modifiedAt, closeHome: true });
+  }, []);
 
   const continueEditing = useCallback(async () => {
     if (filePath) {
@@ -74,7 +39,7 @@ export function HomeSurface(): React.ReactElement | null {
       return;
     }
 
-    const canReplace = await confirmBeforeReplacing();
+    const canReplace = await confirmBeforeReplacingCurrentStory('open');
     if (!canReplace) return;
 
     if (!window.plotflow?.file?.readByPath) {
@@ -97,17 +62,17 @@ export function HomeSurface(): React.ReactElement | null {
         ? `Continue editing loaded the current disk version of ${normalizedPath}.`
         : text('status.opened', { path: normalizedPath }),
     );
-  }, [confirmBeforeReplacing, filePath, loadStory, setHomeSurfaceOpen, setStatusMessage, text]);
+  }, [filePath, loadStory, setHomeSurfaceOpen, setStatusMessage, text]);
 
   const openFile = useCallback(async () => {
-    const canReplace = await confirmBeforeReplacing();
+    const canReplace = await confirmBeforeReplacingCurrentStory('open');
     if (!canReplace) return;
 
     const { FileService } = await import('../../services/fileService');
     const result = await new FileService().openFile();
     loadStory(result.path, result.content, result.hash, result.modifiedAt);
     setStatusMessage(text('status.opened', { path: result.path }));
-  }, [confirmBeforeReplacing, loadStory, setStatusMessage, text]);
+  }, [loadStory, setStatusMessage, text]);
 
   if (!isOpen) return null;
 
@@ -144,8 +109,12 @@ export function HomeSurface(): React.ReactElement | null {
             type="button"
             className="button button--secondary"
             onClick={() => {
-              openNewFileDialog();
-              setHomeSurfaceOpen(false);
+              void (async () => {
+                const canReplace = await confirmBeforeReplacingCurrentStory('new');
+                if (!canReplace) return;
+                openNewFileDialog();
+                setHomeSurfaceOpen(false);
+              })();
             }}
           >
             <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />

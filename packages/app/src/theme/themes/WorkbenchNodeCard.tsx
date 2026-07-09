@@ -7,12 +7,15 @@
  * @module theme/themes/WorkbenchNodeCard
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { StoryFlowNodeData } from '../../components/branch-graph/adapter';
+import { NodeRoutePreview } from '../../components/branch-graph/NodeRoutePreview';
+import { buildNodeRouteSummaries } from '../../components/branch-graph/nodeRouteSummary';
 import { useStoryStore } from '../../stores/storyStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
+import { useAppText } from '../../i18n/appI18n';
 import { stripMarkdown, truncate } from './utils';
 
 const THEME_ID = 'plotflow-narrative-workbench';
@@ -28,7 +31,9 @@ const STATUS_LABEL: Record<string, string> = {
 
 export const WorkbenchNodeCard: React.FC<NodeProps> = ({ data, selected, isConnectable }) => {
   const nodeData = data as StoryFlowNodeData;
+  const text = useAppText();
   const storyNode = useStoryStore((state) => state.getNodeByFullId(nodeData.fullId));
+  const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const selectNode = useGraphStore((state) => state.selectNode);
   const setActiveNodeId = useEditorStore((state) => state.setActiveNodeId);
   const renamingNodeId = useGraphStore((state) => state.renamingNodeId);
@@ -36,6 +41,15 @@ export const WorkbenchNodeCard: React.FC<NodeProps> = ({ data, selected, isConne
   const editorInstance = useEditorStore((state) => state.editorInstance);
   const options = storyNode?.options ?? [];
   const bodyPreview = truncate(stripMarkdown(storyNode?.body ?? nodeData.body ?? ''), 68);
+  const allNodes = useMemo(
+    () => plotFlowData?.chapters.flatMap((chapter) => chapter.nodes) ?? [],
+    [plotFlowData],
+  );
+  const routeSummaries = useMemo(
+    () => buildNodeRouteSummaries(storyNode, allNodes, text),
+    [allNodes, storyNode, text],
+  );
+  const hasDefaultRoute = routeSummaries.length === 1 && routeSummaries[0]?.sourceHandleId === 'next';
 
   // --- 内联重命名 ---
   const [isEditing, setIsEditing] = useState(false);
@@ -100,6 +114,7 @@ export const WorkbenchNodeCard: React.FC<NodeProps> = ({ data, selected, isConne
     'official-graph-node',
     `official-graph-node--${VARIANT}`,
     `official-graph-node--${nodeData.status}`,
+    hasDefaultRoute ? 'official-graph-node--default-route' : '',
     selected ? 'is-selected' : '',
   ].filter(Boolean).join(' ');
 
@@ -114,12 +129,14 @@ export const WorkbenchNodeCard: React.FC<NodeProps> = ({ data, selected, isConne
         setActiveNodeId(nodeData.fullId);
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="official-node-port official-node-port--target"
-        isConnectable={isConnectable}
-      />
+      {!hasDefaultRoute && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="official-node-port official-node-port--target"
+          isConnectable={isConnectable}
+        />
+      )}
 
       <header className="official-graph-node__header">
         <span className="official-graph-node__status">{STATUS_LABEL[nodeData.status]}</span>
@@ -149,44 +166,62 @@ export const WorkbenchNodeCard: React.FC<NodeProps> = ({ data, selected, isConne
         {bodyPreview || '还没有正文，选中后在 Inspector 中补写。'}
       </p>
 
-      <div className="official-graph-node__options">
-        {options.length === 0 ? (
-          <div className="official-graph-node__empty">
-            {'结局或待补分支'}
+      <NodeRoutePreview
+        summaries={routeSummaries}
+        variant="official"
+        renderLeadingHandle={(summary) => {
+          if (!hasDefaultRoute || summary.sourceHandleId !== 'next') {
+            return null;
+          }
+
+          return (
             <Handle
-              type="source"
-              position={Position.Right}
-              id="next"
-              className="story-node-connect-handle official-node-port official-node-port--source"
-              data-source-full-id={nodeData.fullId}
-              data-option-index={-1}
-              data-nodeid={nodeData.fullId}
-              data-handleid="next"
+              type="target"
+              position={Position.Left}
+              className="official-node-port official-node-port--target official-node-port--inline"
               isConnectable={isConnectable}
             />
-          </div>
-        ) : (
-          options.map((option, index) => (
-            <div className="official-graph-node__option" key={`${option.lineNumber}-${index}`}>
-              <span className="official-graph-node__option-text">
-                {truncate(option.description || `选项 ${index + 1}`, 30)}
-              </span>
-              {option.conditionRaw && <span className="official-graph-node__condition">{'条件'}</span>}
+          );
+        }}
+        renderHandle={(summary) => {
+          if (!summary.sourceHandleId) {
+            return null;
+          }
+
+          const isDefaultNextRoute = summary.sourceHandleId === 'next';
+          const optionIndex = isDefaultNextRoute ? -1 : summary.optionIndex;
+          if (optionIndex === null) {
+            return null;
+          }
+
+          return (
+            <div
+              className={[
+                'story-node-connect-handle',
+                'official-node-port',
+                'official-node-port--source',
+                isDefaultNextRoute ? 'story-node-connect-handle--next' : 'story-node-connect-handle--option',
+                'nodrag',
+                'nopan',
+              ].join(' ')}
+              data-source-full-id={nodeData.fullId}
+              data-option-index={optionIndex}
+              data-testid={isDefaultNextRoute ? 'story-node-default-next-handle' : `story-node-option-handle-${optionIndex}`}
+              data-nodeid={nodeData.fullId}
+              data-handleid={summary.sourceHandleId}
+              title={summary.ariaLabel}
+            >
               <Handle
                 type="source"
                 position={Position.Right}
-                id={`option-${index}`}
-                className="story-node-connect-handle official-node-port official-node-port--source"
-                data-source-full-id={nodeData.fullId}
-                data-option-index={index}
-                data-nodeid={nodeData.fullId}
-                data-handleid={`option-${index}`}
+                id={summary.sourceHandleId}
+                className="story-node-connect-port nodrag nopan"
                 isConnectable={isConnectable}
               />
             </div>
-          ))
-        )}
-      </div>
+          );
+        }}
+      />
     </article>
   );
 };

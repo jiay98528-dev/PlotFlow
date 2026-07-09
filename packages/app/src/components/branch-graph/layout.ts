@@ -25,8 +25,8 @@ import type { Node, Edge } from '@xyflow/react';
 
 /** 节点尺寸（宽 x 高，像素） */
 export const NODE_DIMENSIONS = {
-  width: 220,
-  height: 120,
+  width: 320,
+  height: 228,
 } as const;
 
 export const LARGE_GRAPH_LAYOUT_THRESHOLD = 150;
@@ -138,16 +138,26 @@ export function layoutNodePositions(
 export function applyFastGridLayout<TData extends Record<string, unknown> = Record<string, unknown>>(
   nodes: Node<TData>[],
 ): Node<TData>[] {
-  const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
+  const positions = createFastGridPositions(nodes.map((node) => node.id));
+  return nodes.map((node) => ({
+    ...node,
+    position: positions[node.id] ?? node.position,
+  }));
+}
+
+export function createFastGridPositions(
+  nodeIds: readonly string[],
+): Record<string, { x: number; y: number }> {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(nodeIds.length)));
   const gapX = NODE_DIMENSIONS.width + 80;
   const gapY = NODE_DIMENSIONS.height + 80;
-  return nodes.map((node, index) => ({
-    ...node,
-    position: {
+  return Object.fromEntries(nodeIds.map((nodeId, index) => [
+    nodeId,
+    {
       x: (index % columns) * gapX,
       y: Math.floor(index / columns) * gapY,
     },
-  }));
+  ]));
 }
 
 function positionOrphanNodes<TData extends Record<string, unknown> = Record<string, unknown>>(

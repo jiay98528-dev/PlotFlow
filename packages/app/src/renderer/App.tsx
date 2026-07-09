@@ -33,13 +33,15 @@ import { ThemeCenter } from '../components/panels/ThemeCenter';
 import { HomeSurface } from '../components/home/HomeSurface';
 import {
   applyExternalFileContent,
-  clearPendingSave,
+  hasCurrentStoryUnsavedChanges,
   overwritePendingExternalChange,
   saveAsCurrentFile,
   saveOrSaveAs,
 } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
-import { rememberOpenedStory, rememberRecentStory } from '../services/recentFileService';
+import { rememberOpenedStory } from '../services/recentFileService';
+import { loadSavedStorySession, startUnsavedStorySession } from '../services/storySessionService';
+import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
 
@@ -54,7 +56,7 @@ import { useAppText } from '../i18n/appI18n';
 
 window.__getEditorDirtyState__ = () => {
   const editor = useEditorStore.getState();
-  return { isDirty: editor.isDirty, filePath: editor.filePath };
+  return { isDirty: hasCurrentStoryUnsavedChanges(), filePath: editor.filePath };
 };
 
 window.__forceSave__ = async () => {
@@ -179,46 +181,12 @@ function AppContent(): React.ReactElement {
 
       const { filePath, content, hash, modifiedAt } = pending;
       const normalizedPath = normalizeStoryPath(filePath);
-      const editor = useEditorStore.getState();
-
-      // P0-5: 鏂囦欢鎵撳紑鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
-      if (editor.isDirty) {
-        const choice = await window.plotflow.dialog.confirm({
-          type: 'warning',
-          message: text('file.unsavedTitle'),
-          detail: editor.filePath
-            ? text('file.openDirtyNamed', { path: editor.filePath })
-            : text('file.openDirtyUnnamed'),
-          buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
-        });
-
-        if (cancelled) return;
-
-        if (choice === 0) {
-          const saved = await saveOrSaveAs();
-          if (!saved) return;
-        } else if (choice === 2) {
-          return; // 鍙栨秷鎵撳紑
-        }
-        // choice === 1: 涓嶄繚瀛橈紝缁х画鎵撳紑
-      }
+      const canReplace = await confirmBeforeReplacingCurrentStory('open');
+      if (cancelled || !canReplace) return;
 
       if (cancelled) return;
 
-      clearPendingSave();
-      const freshEditor = useEditorStore.getState();
-      freshEditor.setFilePath(normalizedPath);
-      freshEditor.setFileBaseline(hash, modifiedAt);
-      freshEditor.clearPendingExternalChange();
-      freshEditor.setDiagnostics([]);
-      freshEditor.setActiveNodeId(null);
-      freshEditor.setCursorPosition(1, 1);
-      useStoryStore.getState().clearParseData();
-      useGraphStore.getState().syncFromAST(null);
-      freshEditor.setContent(content);
-      freshEditor.markSaved();
-      rememberRecentStory(normalizedPath, hash, modifiedAt);
-      parsePipelineNow(content);
+      loadSavedStorySession({ filePath: normalizedPath, content, hash, modifiedAt, closeHome: true });
       setHomeSurfaceOpen(false);
       setStatusMessage(text('status.opened', { path: normalizedPath }));
     })();
@@ -233,27 +201,8 @@ function AppContent(): React.ReactElement {
     if (!window.plotflow?.file?.onSystemOpenFile) return;
 
     const cleanup = window.plotflow.file.onSystemOpenFile(async (filePath: string) => {
-      const editor = useEditorStore.getState();
-
-      // P0-5: 鏂囦欢鎵撳紑鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
-      if (editor.isDirty) {
-        const choice = await window.plotflow.dialog.confirm({
-          type: 'warning',
-          message: text('file.unsavedTitle'),
-          detail: editor.filePath
-            ? text('file.openDirtyNamed', { path: editor.filePath })
-            : text('file.openDirtyUnnamed'),
-          buttons: [text('home.saveAndOpen'), text('home.discardAndOpen'), text('common.cancel')],
-        });
-
-        if (choice === 0) {
-          const saved = await saveOrSaveAs();
-          if (!saved) return;
-        } else if (choice === 2) {
-          return; // 鍙栨秷鎵撳紑
-        }
-        // choice === 1: 涓嶄繚瀛橈紝缁х画鎵撳紑
-      }
+      const canReplace = await confirmBeforeReplacingCurrentStory('open');
+      if (!canReplace) return;
 
       // 閫氳繃 IPC 璇诲彇鏂囦欢鍐呭
       if (!window.plotflow?.file?.readByPath) {
@@ -267,21 +216,16 @@ function AppContent(): React.ReactElement {
         return;
       }
 
-      clearPendingSave();
-      const freshEditor = useEditorStore.getState();
       const normalizedPath = normalizeStoryPath(result.filePath);
-      freshEditor.setFilePath(normalizedPath);
-      freshEditor.setFileBaseline(result.hash, result.modifiedAt);
-      freshEditor.clearPendingExternalChange();
-      freshEditor.setDiagnostics([]);
-      freshEditor.setActiveNodeId(null);
-      freshEditor.setCursorPosition(1, 1);
-      useStoryStore.getState().clearParseData();
-      useGraphStore.getState().syncFromAST(null);
-      freshEditor.setContent(result.content);
-      freshEditor.markSaved();
       rememberOpenedStory(result);
-      parsePipelineNow(result.content);
+      loadSavedStorySession({
+        filePath: normalizedPath,
+        content: result.content,
+        hash: result.hash,
+        modifiedAt: result.modifiedAt,
+        closeHome: true,
+        rememberRecent: false,
+      });
       setHomeSurfaceOpen(false);
       setStatusMessage(text('status.opened', { path: normalizedPath }));
     });
@@ -301,7 +245,7 @@ function AppContent(): React.ReactElement {
       const currentFilePath = editor.filePath ? normalizeStoryPath(editor.filePath) : null;
       if (currentFilePath && currentFilePath !== normalizedEvent.filePath) return;
 
-      if (!editor.isDirty) {
+      if (!hasCurrentStoryUnsavedChanges()) {
         applyExternalFileContent(normalizedEvent);
         setStatusMessage(`Reloaded external changes: ${normalizedEvent.filePath}`);
         return;
@@ -335,39 +279,10 @@ function AppContent(): React.ReactElement {
 
   const handleTemplateSelected = useCallback(
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
-      const editor = useEditorStore.getState();
+      const canReplace = await confirmBeforeReplacingCurrentStory('new');
+      if (!canReplace) return;
 
-      // P0-5: 鏂板缓妯℃澘鍓嶆鏌ユ槸鍚︽湁鏈繚瀛樼殑鏇存敼
-      if (editor.isDirty) {
-        const choice = await window.plotflow.dialog.confirm({
-          type: 'warning',
-          message: text('file.unsavedTitle'),
-          detail: editor.filePath
-            ? text('file.newDirtyNamed', { path: editor.filePath })
-            : text('file.newDirtyUnnamed'),
-          buttons: [text('file.saveAndNew'), text('file.discardAndNew'), text('common.cancel')],
-        });
-
-        if (choice === 0) {
-          const saved = await saveOrSaveAs();
-          if (!saved) return;
-        } else if (choice === 2) {
-          return; // 鍙栨秷鏂板缓
-        }
-        // choice === 1: 涓嶄繚瀛橈紝缁х画鏂板缓
-      }
-
-      clearPendingSave();
-      // 閲嶆柊鑾峰彇鏈€鏂扮殑 editor 寮曠敤锛坰aveOrSaveAs 鍙兘宸叉洿鏂扮姸鎬侊級
-      const freshEditor = useEditorStore.getState();
-      freshEditor.setFilePath(null);
-      freshEditor.setDiagnostics([]);
-      freshEditor.setActiveNodeId(null);
-      freshEditor.setCursorPosition(1, 1);
-      useStoryStore.getState().clearParseData();
-      useGraphStore.getState().syncFromAST(null);
-      freshEditor.setContent(template);
-      parsePipelineNow(template);
+      startUnsavedStorySession({ content: template, closeHome: true });
       setHomeSurfaceOpen(false);
       setStatusMessage(text('file.created', { title: meta.title }));
     },
@@ -417,31 +332,7 @@ function AppContent(): React.ReactElement {
       })),
       getGraphZoom: () => useGraphStore.getState().zoomLevel,
       setEditorContent: (content: string) => {
-        clearPendingSave();
-
-        const editor = useEditorStore.getState();
-        editor.setFilePath(null);
-        editor.setDiagnostics([]);
-        editor.setActiveNodeId(null);
-        editor.setCursorPosition(1, 1);
-
-        const ui = useUIStore.getState();
-        ui.setSourceDrawerOpen(false);
-        ui.setProblemPanelOpen(false);
-        ui.closeExportDialog();
-        ui.closeThemeCenter();
-        ui.setHomeSurfaceOpen(false);
-        if (ui.isConditionEditorOpen) {
-          ui.toggleConditionEditor();
-        }
-
-        useStoryStore.getState().clearParseData();
-        useGraphStore.getState().syncFromAST(null);
-
-        editor.setContent(content);
-        parsePipelineNow(content);
-        useUIStore.getState().setHomeSurfaceOpen(false);
-        useUIStore.getState().setActiveChapterId(useStoryStore.getState().plotFlowData?.chapters[0]?.id ?? null);
+        startUnsavedStorySession({ content, closeHome: true });
       },
       setEditorContentPreservingUI: (content: string) => {
         useEditorStore.getState().setContent(content);
@@ -467,6 +358,8 @@ function AppContent(): React.ReactElement {
           isThemeCenterOpen: state.isThemeCenterOpen,
           isHomeSurfaceOpen: state.isHomeSurfaceOpen,
           activeThemeId: state.activeThemeId,
+          activeChapterId: state.activeChapterId,
+          activeNodeId: useEditorStore.getState().activeNodeId,
         };
       },
       setTheme: (themeId: string) => {

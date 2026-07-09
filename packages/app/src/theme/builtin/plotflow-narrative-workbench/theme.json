@@ -29,23 +29,23 @@
       "--theme-source-dock-height": "340px"
     },
     "light": {
-      "--theme-workbench-paper": "oklch(0.973 0.018 86)",
-      "--theme-workbench-paper-warm": "oklch(0.945 0.026 78)",
-      "--theme-workbench-rail": "oklch(0.928 0.024 83)",
-      "--theme-workbench-panel": "oklch(0.985 0.012 84)",
-      "--theme-blueprint-canvas": "oklch(0.943 0.022 211)",
-      "--theme-blueprint-grid": "oklch(0.72 0.062 221)",
-      "--theme-blueprint-cable": "oklch(0.53 0.125 228)",
-      "--theme-node-surface": "oklch(0.992 0.008 88)",
-      "--theme-node-surface-strong": "oklch(0.962 0.018 86)",
-      "--theme-node-border": "oklch(0.79 0.05 82)",
-      "--theme-node-ink": "oklch(0.24 0.026 78)",
-      "--theme-node-muted": "oklch(0.47 0.035 79)",
-      "--theme-effect-line": "oklch(0.62 0.13 38)",
-      "--theme-success-leaf": "oklch(0.54 0.09 147)",
-      "--theme-warning-leaf": "oklch(0.74 0.12 82)",
-      "--theme-danger-leaf": "oklch(0.57 0.15 29)",
-      "--theme-workbench-shadow": "0 18px 42px oklch(0.38 0.036 80 / 0.16)"
+      "--theme-workbench-paper": "oklch(0.965 0.006 250)",
+      "--theme-workbench-paper-warm": "oklch(0.945 0.007 248)",
+      "--theme-workbench-rail": "oklch(0.925 0.008 250)",
+      "--theme-workbench-panel": "oklch(0.985 0.004 250)",
+      "--theme-blueprint-canvas": "oklch(0.955 0.006 250)",
+      "--theme-blueprint-grid": "oklch(0.76 0.018 250)",
+      "--theme-blueprint-cable": "oklch(0.49 0.105 248)",
+      "--theme-node-surface": "oklch(0.99 0.004 250)",
+      "--theme-node-surface-strong": "oklch(0.955 0.006 250)",
+      "--theme-node-border": "oklch(0.82 0.012 250)",
+      "--theme-node-ink": "oklch(0.22 0.018 250)",
+      "--theme-node-muted": "oklch(0.48 0.018 250)",
+      "--theme-effect-line": "oklch(0.56 0.09 60)",
+      "--theme-success-leaf": "oklch(0.52 0.075 150)",
+      "--theme-warning-leaf": "oklch(0.68 0.09 82)",
+      "--theme-danger-leaf": "oklch(0.55 0.12 30)",
+      "--theme-workbench-shadow": "0 14px 34px oklch(0.28 0.018 250 / 0.12)"
     },
     "dark": {
       "--theme-workbench-paper": "oklch(0.214 0.018 248)",
@@ -160,10 +160,10 @@
       "position": "bottom"
     },
     "node": {
-      "width": "260px",
-      "minHeight": "150px",
+      "width": "320px",
+      "minHeight": "228px",
       "padding": "var(--space-3)",
-      "radius": "10px 10px 14px",
+      "radius": "10px",
       "opacity": "1"
     },
     "edge": {

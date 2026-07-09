@@ -28,6 +28,7 @@ async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.app-shell', { timeout: 20_000 });
+  await dismissHomeIfVisible(page);
   return { app, page };
 }
 
@@ -38,6 +39,19 @@ async function closeElectronApp(app: ElectronApplication | undefined, page: Page
     app.close().catch(() => undefined),
     new Promise((resolve) => setTimeout(resolve, 5_000)),
   ]);
+}
+
+async function dismissHomeIfVisible(page: Page): Promise<void> {
+  const home = page.getByTestId('home-surface');
+  await home.waitFor({ state: 'visible', timeout: 1_000 }).catch(() => {});
+  if (!(await home.isVisible().catch(() => false))) return;
+  const graphLabCard = home.getByTestId('home-open-graph-lab');
+  if (await graphLabCard.isVisible().catch(() => false)) {
+    await graphLabCard.click();
+  } else {
+    await home.locator('.button--primary').first().click();
+  }
+  await home.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
 }
 
 test.describe('Theme and language E2E', () => {

@@ -591,3 +591,57 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 
 **Remaining**
 - Source changed after the refreshed package/unpacked run; rerun `package:win`, unpacked blackbox, installed blackbox, and manual patrol before claiming release-candidate passed.
+
+---
+
+### BUG-015: Installed GUI gate blockers around Source Drawer saves, conflict overwrite, Engine Telemetry drawer, and 1000-node Graph Lab
+**Date**: 2026-07-09
+**Category**: `GUI` / `FS` / `GRAPH_LAB` / `E2E`
+**Severity**: P1 release gate
+**Milestone**: V0.3 installed GUI gate
+
+**Observed**
+- Installed GUI smoke still failed after R172-R191: Engine Telemetry Source Drawer was visually unreachable, Source Drawer "save slice" appeared saved without writing to disk, external conflict Save Copy/Overwrite could use stale visible content or report saved too early, 1000-node Graph Lab showed `RangeError`, new chapters were named `第一章 2`, create-node was not reliably reachable at 1280x720, and Home could visually overlap the workspace.
+
+**Root causes**
+- Source Drawer draft state was local to `ChapterSourceSliceEditor`; global save/new/open/conflict paths could miss visible textarea drafts or stale source ranges.
+- `performSave()` could early-return before conflict overwrite hash preflight when content matched the last saved snapshot.
+- Graph mutation entries in Inspector/Canvas could mutate full source while the Source Drawer draft was dirty, turning the draft stale.
+- Engine Telemetry theme advertised a right-dock layout that the current Graph Lab source dock did not consume, and source-open row sizing was too small.
+- Large graph layout still had paths that could call Dagre or expensive fit behavior for very large graphs.
+
+**Fixes**
+- Added `sourceDraftCoordinator` and routed save, Save As, conflict Save Copy/Overwrite, new/open/continue/workspace replacement, and graph edit writebacks through draft flush/stale blocking.
+- Source Drawer manual save now commits the slice and then runs the global save path; success text only appears after disk save succeeds.
+- Conflict overwrite now always calls main-process save with the pending disk hash when conflict context exists; no clean-content early return.
+- Graph edit service flushes dirty Source Drawer drafts before Inspector/Canvas/Palette source mutations.
+- Engine Telemetry Source Drawer is aligned to the bottom dock contract and given a stable 320/360px open row.
+- 1000-node layout uses fallback-grid before Dagre/worker work and disables expensive large-graph fit behavior.
+- Chapter titles now advance naturally and legacy E2E helpers close the Home overlay before clicking workspace controls.
+
+**Prevention**
+- Any save or replace path must call the source draft coordinator or prove no visible Source Drawer exists.
+- External conflict overwrite must never skip main-process disk hash preflight because renderer content is clean.
+- Theme-specific Source Drawer changes need geometry and center-hit E2E assertions, not only DOM visibility.
+- Large graph E2E must listen for `pageerror`/console `RangeError`.
+
+**Verification**
+- `pnpm.cmd lint:tokens` PASS.
+- `pnpm.cmd typecheck` PASS.
+- `pnpm.cmd test` PASS, 50 files / 1286 tests.
+- `pnpm.cmd lint` PASS, 0 errors / 9 existing warnings.
+- `pnpm.cmd lint:css` PASS.
+- `pnpm.cmd build` PASS.
+- `pnpm.cmd --filter @plotflow/app build` PASS.
+- `pnpm.cmd lint:bundle` PASS.
+- Focused Graph Lab E2E PASS, 6/6.
+- Focused Engine Telemetry E2E PASS, 1/1.
+- Focused 1000-node blackbox performance PASS, 1/1.
+- Full app E2E PASS, 62/62.
+- Full source blackbox PASS, 10 passed / 4 skipped.
+- `pnpm.cmd package:win` PASS.
+- Unpacked blackbox PASS, 13 passed / 1 installed-only skip.
+
+**Remaining**
+- Installed blackbox was not run because `PLOTFLOW_INSTALLED_EXE` is not set.
+- Manual installed GUI patrol is still required before any release-candidate claim.

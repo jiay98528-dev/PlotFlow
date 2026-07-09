@@ -110,6 +110,7 @@ async function readCapturedExport(app: ElectronApplication): Promise<{
 async function loadRpgTemplate(page: Page): Promise<void> {
   // 等待应用和 Monaco 编辑器完全初始化
   await page.waitForSelector('.app-shell', { timeout: 20000 });
+  await dismissHomeIfVisible(page);
   await page.getByTestId('workspace-mode-split').click();
   await page.waitForSelector('.split-workspace', { timeout: 10000 });
   await page.waitForSelector('.editor-pane .monaco-editor', { timeout: 20000 });
@@ -133,6 +134,19 @@ async function loadRpgTemplate(page: Page): Promise<void> {
   // 等对话框关闭、编辑器内容更新、解析管线完成
   await page.waitForSelector('.new-file-dialog', { state: 'detached', timeout: 5000 });
   await page.waitForTimeout(2000);
+}
+
+async function dismissHomeIfVisible(page: Page): Promise<void> {
+  const home = page.getByTestId('home-surface');
+  await home.waitFor({ state: 'visible', timeout: 1_000 }).catch(() => {});
+  if (!(await home.isVisible().catch(() => false))) return;
+  const graphLabCard = home.getByTestId('home-open-graph-lab');
+  if (await graphLabCard.isVisible().catch(() => false)) {
+    await graphLabCard.click();
+  } else {
+    await home.locator('.button--primary').first().click();
+  }
+  await home.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
 }
 
 /**
