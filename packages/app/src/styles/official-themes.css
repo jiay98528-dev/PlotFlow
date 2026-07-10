@@ -20,32 +20,40 @@ html[data-theme-id] {
 .home-surface {
   position: fixed;
   inset: 0;
-  z-index: var(--z-panel, 50);
-  display: grid;
-  grid-template-rows: auto auto auto;
-  align-content: start;
-  gap: var(--theme-ux-home-gap, var(--space-5));
+  z-index: calc(var(--z-modal) - 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--theme-ux-home-gap, var(--space-4));
   overflow: auto;
-  padding: var(--theme-ux-home-padding, clamp(var(--space-4), 3vw, var(--space-8)));
+  padding: var(--theme-ux-home-padding, var(--space-6));
   opacity: var(--theme-ux-home-opacity, 1);
   background:
-    var(--theme-blueprint-canvas),
-    linear-gradient(135deg, var(--theme-graph-lab-paper), var(--theme-graph-lab-surface));
-  background-size: var(--theme-grid-size) var(--theme-grid-size), var(--theme-grid-size) var(--theme-grid-size), auto;
+    linear-gradient(180deg, color-mix(in oklch, var(--theme-graph-lab-surface), transparent 2%), var(--theme-graph-lab-paper)),
+    var(--color-bg-secondary);
 }
 
 .home-surface__hero {
   display: grid;
-  grid-template-columns: minmax(360px, 0.78fr) minmax(420px, 1.22fr);
-  align-items: center;
-  gap: clamp(var(--space-5), 4vw, var(--space-10));
-  min-height: min(560px, calc(100vh - 260px));
+  flex: 0 0 auto;
+  width: min(1180px, 100%);
+  grid-template-columns: minmax(300px, 0.78fr) minmax(420px, 1.22fr);
+  align-items: stretch;
+  gap: var(--space-4);
+  margin: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--theme-node-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--theme-panel-surface), var(--color-bg-elevated) 18%);
+  box-shadow: 0 18px 48px color-mix(in oklch, var(--theme-node-ink), transparent 91%);
 }
 
 .home-surface__copy {
   display: grid;
-  gap: var(--space-4);
-  max-width: 640px;
+  align-content: center;
+  gap: var(--space-3);
+  max-width: 520px;
   min-width: 0;
 }
 
@@ -61,36 +69,47 @@ html[data-theme-id] {
 
 .home-surface h2 {
   margin: 0;
-  max-width: 13ch;
+  max-width: 18ch;
   color: var(--theme-node-ink);
-  font-size: clamp(2.25rem, 4.2vw, 4.75rem);
-  line-height: 1.02;
+  font-size: var(--text-2xl);
+  line-height: 1.14;
   overflow-wrap: anywhere;
 }
 
 .home-surface p {
   margin: 0;
   color: var(--theme-node-muted);
-  font-size: var(--text-base);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: 1.6;
 }
 
 .home-surface__actions,
 .home-surface__grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-3);
+}
+
+.home-surface__actions {
+  grid-template-columns: repeat(3, minmax(0, max-content));
+  align-items: center;
+}
+
+.home-surface__grid {
+  flex: 0 0 auto;
+  width: min(1180px, 100%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 auto;
 }
 
 .home-surface__preview {
   display: grid;
   gap: var(--space-3);
-  min-height: 380px;
-  padding: var(--space-5);
+  min-height: 292px;
+  padding: var(--space-4);
   border: 1px solid var(--theme-node-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--theme-panel-surface);
-  box-shadow: var(--theme-workbench-shadow);
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--theme-node-ink), transparent 95%);
 }
 
 .home-surface__current {
@@ -109,40 +128,58 @@ html[data-theme-id] {
 
 .home-action-card {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-2);
-  width: min(100%, 320px);
-  min-height: 128px;
-  padding: var(--space-4);
+  min-height: 92px;
+  align-items: start;
+  padding: var(--space-3);
   border: 1px solid var(--theme-node-border);
   border-radius: var(--radius-md);
   color: var(--theme-node-ink);
   background: var(--theme-panel-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--theme-node-ink), transparent 95%);
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-out-quart),
+    background var(--motion-fast) var(--ease-out-quart),
+    box-shadow var(--motion-fast) var(--ease-out-quart),
+    transform var(--motion-fast) var(--ease-out-quart);
 }
 
 .home-action-card:hover,
 .home-action-card:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: var(--theme-workbench-shadow);
+  border-color: var(--color-accent);
+  background: color-mix(in oklch, var(--theme-panel-surface), var(--color-accent-subtle) 36%);
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--theme-node-ink), transparent 92%);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .home-action-card span {
+  min-width: 0;
   font-weight: 800;
 }
 
+.home-action-card > svg {
+  color: var(--color-accent);
+}
+
 .home-action-card small {
+  grid-column: 2;
   color: var(--theme-node-muted);
   font-size: var(--text-xs);
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .home-surface__status {
   display: flex;
+  flex: 0 0 auto;
+  width: min(1180px, 100%);
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-3);
+  margin: 0 auto;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
@@ -166,6 +203,7 @@ html[data-theme-id] {
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: var(--theme-ux-theme-center-width, min(1080px, 100%));
   max-height: var(--theme-ux-theme-center-height, min(780px, calc(100vh - var(--space-12))));
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--theme-node-border);
   border-radius: var(--radius-lg);
@@ -185,6 +223,10 @@ html[data-theme-id] {
 
 .theme-center__header {
   border-bottom: 1px solid var(--theme-node-border);
+}
+
+.theme-center__footer {
+  border-top: 1px solid var(--theme-node-border);
 }
 
 .theme-center__header h2,
@@ -241,7 +283,7 @@ html[data-theme-id] {
   gap: var(--space-4);
   min-height: 0;
   overflow: auto;
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-6);
 }
 
 .theme-center__section-title {
@@ -397,6 +439,34 @@ html[data-theme-id] {
   stroke-width: 4;
 }
 
+.official-theme-preview[data-preview-theme-id='plotflow-narrative-workbench'] {
+  --theme-graph-lab-paper: oklch(96.5% 0.006 250deg);
+  --theme-graph-lab-surface: oklch(98.5% 0.004 250deg);
+  --theme-panel-surface: color-mix(in oklch, oklch(98.5% 0.004 250deg), transparent 8%);
+  --theme-blueprint-canvas: oklch(95.5% 0.006 250deg);
+  --theme-node-surface: oklch(99% 0.004 250deg);
+  --theme-node-border: oklch(82% 0.012 250deg);
+  --theme-node-ink: oklch(22% 0.018 250deg);
+  --theme-node-muted: oklch(48% 0.018 250deg);
+  --theme-port-fill: oklch(49% 0.105 248deg);
+  --theme-graph-cable-default: oklch(49% 0.105 248deg);
+  --theme-workbench-shadow: 0 10px 26px oklch(28% 0.018 250deg / 12%);
+}
+
+.official-theme-preview[data-preview-theme-id='plotflow-engine-telemetry'] {
+  --theme-graph-lab-paper: oklch(17.2% 0.018 244deg);
+  --theme-graph-lab-surface: oklch(21.4% 0.018 242deg);
+  --theme-panel-surface: color-mix(in oklch, oklch(21.4% 0.018 242deg), transparent 6%);
+  --theme-blueprint-canvas: oklch(15.5% 0.021 242deg);
+  --theme-node-surface: oklch(22.6% 0.016 242deg);
+  --theme-node-border: oklch(39% 0.034 205deg);
+  --theme-node-ink: oklch(89% 0.014 96deg);
+  --theme-node-muted: oklch(68% 0.026 219deg);
+  --theme-port-fill: oklch(72% 0.095 188deg);
+  --theme-graph-cable-default: oklch(72% 0.095 188deg);
+  --theme-workbench-shadow: 0 12px 30px oklch(6% 0.012 244deg / 42%);
+}
+
 .graph-lab,
 .graph-pane,
 .minimap-shell {
@@ -457,7 +527,7 @@ html[data-theme-id] {
   border-radius: var(--radius-lg);
   opacity: 0;
   background: var(--theme-graph-cable-default);
-  filter: blur(12px);
+  filter: none;
   transition: opacity 160ms ease;
 }
 
@@ -714,7 +784,7 @@ html[data-theme-id] {
   stroke: var(--theme-graph-cable-default);
   stroke-width: 2.6px;
   fill: none;
-  filter: drop-shadow(0 1px 0 color-mix(in oklch, var(--theme-graph-cable-default), transparent 72%));
+  filter: none;
 }
 
 .official-graph-edge--conditional .official-graph-edge__path {
@@ -753,7 +823,7 @@ html[data-theme-id] {
   stroke: var(--theme-graph-cable-default);
   stroke-width: 3px;
   stroke-dasharray: 8 6;
-  filter: drop-shadow(0 0 8px color-mix(in oklch, var(--theme-graph-cable-default), transparent 42%));
+  filter: none;
 }
 
 .graph-canvas-runtime--wire-dragging .official-graph-node {
@@ -1013,6 +1083,71 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .sou
   color: var(--theme-node-ink);
 }
 
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel {
+  border-color: var(--theme-telemetry-separator);
+  color: var(--theme-node-ink);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 4%);
+  box-shadow: 0 -1px 0 var(--theme-telemetry-separator);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__header,
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__filters {
+  border-color: var(--theme-telemetry-separator);
+  background: color-mix(in oklch, var(--theme-workbench-rail), transparent 10%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__filter-btn,
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__code {
+  border-color: var(--theme-telemetry-separator);
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-workbench-panel), transparent 8%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__filter-btn[aria-pressed='true'] {
+  border-color: var(--theme-signal-line);
+  color: var(--theme-signal-line);
+  background: color-mix(in oklch, var(--theme-signal-line), transparent 91%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__item:hover,
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__item:focus-visible {
+  background: color-mix(in oklch, var(--theme-signal-line), transparent 94%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__message {
+  color: var(--theme-node-ink);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__location,
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__title,
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__title small {
+  color: var(--theme-node-muted);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__severity[data-severity='error'] {
+  border-color: var(--theme-danger-signal);
+  color: var(--theme-danger-signal);
+  background: color-mix(in oklch, var(--theme-danger-signal), transparent 88%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .problem-panel__severity[data-severity='warning'] {
+  border-color: var(--theme-status-amber);
+  color: var(--theme-status-amber);
+  background: color-mix(in oklch, var(--theme-status-amber), transparent 88%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .graph-canvas-diagnostic-strip {
+  border-color: color-mix(in oklch, var(--theme-danger-signal), transparent 56%);
+  color: color-mix(in oklch, var(--theme-danger-signal), var(--theme-node-ink) 18%);
+  background: color-mix(in oklch, var(--theme-workbench-panel), var(--theme-danger-signal) 8%);
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--theme-workbench-paper), transparent 48%);
+}
+
+html[data-theme-id='plotflow-engine-telemetry'] .graph-canvas-diagnostic-strip__dot {
+  background: var(--theme-danger-signal);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-danger-signal), transparent 84%);
+}
+
 html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer__slice-editor {
   color: var(--theme-node-ink);
   background:
@@ -1077,15 +1212,15 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-telemetry path {
   stroke: var(--theme-signal-line);
-  filter: drop-shadow(0 0 6px color-mix(in oklch, var(--theme-signal-line), transparent 54%));
+  filter: none;
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry {
-  overflow: visible;
+  overflow: hidden;
   border-radius: var(--theme-ux-node-radius, 10px);
   border-color: color-mix(in oklch, var(--theme-telemetry-separator), var(--theme-node-border) 18%);
   background: linear-gradient(180deg, var(--theme-telemetry-panel-strong), var(--theme-node-surface));
-  box-shadow: 0 16px 38px color-mix(in oklch, var(--theme-workbench-paper), transparent 28%);
+  box-shadow: 0 14px 30px color-mix(in oklch, var(--theme-workbench-paper), transparent 42%);
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry::before {
@@ -1241,13 +1376,13 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-tel
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-telemetry .official-graph-edge__path {
   stroke: var(--theme-signal-line);
   stroke-width: 2.6px;
-  filter: drop-shadow(0 0 5px color-mix(in oklch, var(--theme-signal-line), transparent 70%));
+  filter: none;
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-telemetry.official-graph-edge--conditional .official-graph-edge__path {
   stroke: var(--theme-status-amber);
   stroke-dasharray: 4 4;
-  filter: drop-shadow(0 0 5px color-mix(in oklch, var(--theme-status-amber), transparent 76%));
+  filter: none;
 }
 
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-telemetry.is-hovered .official-graph-edge__path,
@@ -1325,6 +1460,11 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-tel
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .home-surface__actions,
+  .home-surface__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .home-surface {
     position: fixed;
     padding: var(--space-4);
@@ -1337,8 +1477,8 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-tel
 
   .home-surface h2 {
     max-width: 100%;
-    font-size: 2.35rem;
-    line-height: 1.08;
+    font-size: var(--text-xl);
+    line-height: 1.18;
   }
 
   .theme-center {

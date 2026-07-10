@@ -20,6 +20,7 @@ describe('appI18n', () => {
 
   it('covers the manual blackbox feedback surfaces in English', () => {
     expect(appT('home.title', undefined, 'en-US')).toContain('interactive stories');
+    expect(appT('parse.graphIncomplete', { count: 2 }, 'en-US')).toBe('Graph view has 2 blocking errors');
     expect(appT('graphLab.diagnostics', { count: 1 }, 'en-US')).toBe('1 diagnostics');
     expect(appT('graphLab.chapterDiagnosticCount', { count: 2 }, 'en-US')).toBe('2 diagnostics');
     expect(appT('inspector.title', undefined, 'en-US')).toBe('Title');
@@ -39,6 +40,11 @@ describe('appI18n', () => {
     expect(appT('themeNode.effectPreview', { effects: 'coins -1' }, 'en-US')).toBe('Effect coins -1');
     expect(appT('themeNode.moreRoutes', { count: 2 }, 'en-US')).toBe('+2 routes');
     expect(appT('problemPanel.title', undefined, 'en-US')).toBe('Problems');
+    expect(appT('problemPanel.filtersAria', undefined, 'en-US')).toBe('Problem severity filters');
+    expect(appT('problemPanel.jumpedToNode', { title: 'Start' }, 'en-US')).toBe('Selected node: Start');
+    expect(appT('statusBar.errorCount', { count: 2 }, 'en-US')).toBe('Errors 2');
+    expect(appT('statusBar.warningCount', { count: 1 }, 'en-US')).toBe('Warnings 1');
+    expect(appT('statusBar.infoCount', { count: 3 }, 'en-US')).toBe('Suggestions 3');
     expect(appT('exportDialog.unsupportedFormat', { format: 'json' }, 'en-US')).toBe(
       'Unsupported export format: json',
     );
@@ -51,6 +57,7 @@ describe('appI18n', () => {
       'graphLab.openProblems',
       'sourceDock.title',
       'problemPanel.empty',
+      'problemPanel.listAria',
       'status.saveOpening',
       'themeCenter.title',
     ];

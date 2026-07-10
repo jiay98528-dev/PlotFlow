@@ -9,6 +9,7 @@ import '../styles/new-file-dialog.css';
 import '../styles/diagnostics.css';
 import '../styles/branch-graph.css';
 import '../styles/graph-lab.css';
+import '../styles/problem-panel.css';
 import '../styles/official-themes.css';
 
 const container = document.getElementById('root');

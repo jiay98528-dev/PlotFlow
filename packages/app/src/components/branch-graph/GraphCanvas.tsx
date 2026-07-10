@@ -28,6 +28,7 @@ import {
   MiniMap,
   ReactFlowProvider,
   useReactFlow,
+  useNodesInitialized,
   SelectionMode,
   applyNodeChanges,
   type Node,
@@ -43,6 +44,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useThemePlatform } from '../ThemePlatformProvider';
+import { useAppText } from '../../i18n/appI18n';
 import { parsePipelineNow } from '../../services/parsePipeline';
 import { graphEditService } from '../../services/graphEditService';
 import { NEXT_EDGE_OPTION_INDEX, parseEdgeId } from '../../stores/edgeStore';
@@ -54,7 +56,7 @@ import { type StoryEdgeData } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
 import type { ContextMenuType } from './GraphContextMenu';
 import { CollapseNode } from './CollapseNode';
-import { collapseSiblingNodes, COLLAPSE_THRESHOLD, LARGE_GRAPH_LAYOUT_THRESHOLD } from './layout';
+import { collapseSiblingNodes, COLLAPSE_THRESHOLD, LARGE_GRAPH_LAYOUT_THRESHOLD, NODE_DIMENSIONS } from './layout';
 import type { CollapseNodeData } from './layout';
 import { layoutNodesInWorker } from './graphLayoutClient';
 
@@ -109,6 +111,7 @@ function readCssToken(name: string): string {
 const EDGE_HIT_FALLBACK_RADIUS = 24;
 const EDGE_HIT_SAMPLE_COUNT = 24;
 const GRAPH_AUTO_FIT_MAX_ZOOM = 1.2;
+const GRAPH_LAB_DEFAULT_ZOOM = 0.78;
 
 function getScreenPointOnPath(path: SVGPathElement, length: number): DOMPoint | null {
   const svg = path.closest('svg');
@@ -388,27 +391,40 @@ function ZoomResetShortcut(): null {
   return null;
 }
 
-function AutoFitOnGraphChange({
+function AutoViewportOnGraphChange({
   enabled,
+  isGraphLab,
   layoutKey,
-  nodeCount,
+  nodes,
   suppressRef,
 }: {
   readonly enabled: boolean;
+  readonly isGraphLab: boolean;
   readonly layoutKey: string;
-  readonly nodeCount: number;
+  readonly nodes: readonly Node[];
   readonly suppressRef: React.RefObject<boolean>;
 }): null {
-  const { fitView } = useReactFlow();
+  const { fitView, setCenter } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
 
   useEffect(() => {
-    if (!enabled || nodeCount === 0) return;
+    if (!enabled || !nodesInitialized || nodes.length === 0) return;
     const frame = requestAnimationFrame(() => {
       if (suppressRef.current) return;
+      if (isGraphLab) {
+        const focusNode = nodes.find((node) => node.selected) ?? nodes[0];
+        if (!focusNode) return;
+        setCenter(
+          focusNode.position.x + NODE_DIMENSIONS.width / 2,
+          focusNode.position.y + NODE_DIMENSIONS.height / 2,
+          { zoom: GRAPH_LAB_DEFAULT_ZOOM, duration: 0 },
+        );
+        return;
+      }
       fitView({ padding: 0.2, duration: 200, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM });
     });
     return () => cancelAnimationFrame(frame);
-  }, [enabled, fitView, layoutKey, nodeCount, suppressRef]);
+  }, [enabled, fitView, isGraphLab, layoutKey, nodes, nodesInitialized, setCenter, suppressRef]);
 
   return null;
 }
@@ -430,6 +446,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const isGraphLab = viewMode === 'graphLab';
   const canEditGraph = viewMode !== 'minimap';
   const { activeTheme } = useThemePlatform();
+  const text = useAppText();
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const collapsedGroups = useGraphStore((state) => state.collapsedGroups);
@@ -1338,9 +1355,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const handleNodeDragStart = useCallback(
     (_event: MouseEvent | TouchEvent, node: Node) => {
       if (renamingNodeId !== null || node.type === 'collapseNode') return;
+      suppressAutoFitForUserViewportChange();
       setEditing(true);
     },
-    [renamingNodeId, setEditing],
+    [renamingNodeId, setEditing, suppressAutoFitForUserViewportChange],
   );
 
   const persistDraggedNodePosition = useCallback(
@@ -1360,6 +1378,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
   const handleNodeDrag = useCallback(
     (_event: MouseEvent | TouchEvent, node: Node) => {
+      suppressAutoFitRef.current = true;
       persistDraggedNodePosition(node, false);
     },
     [persistDraggedNodePosition],
@@ -1368,9 +1387,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const handleNodeDragStop = useCallback(
     (_event: MouseEvent | TouchEvent, node: Node) => {
       setEditing(false);
+      suppressAutoFitForUserViewportChange();
       persistDraggedNodePosition(node, true);
     },
-    [persistDraggedNodePosition, setEditing],
+    [persistDraggedNodePosition, setEditing, suppressAutoFitForUserViewportChange],
   );
 
   // ==========================================================================
@@ -1467,14 +1487,6 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       .join('|');
   }, [displayedNodes]);
 
-  useEffect(() => {
-    suppressAutoFitRef.current = false;
-    if (suppressAutoFitTimerRef.current !== null) {
-      clearTimeout(suppressAutoFitTimerRef.current);
-      suppressAutoFitTimerRef.current = null;
-    }
-  }, [displayedGraphLayoutKey]);
-
   /** 当前显示的连线（已折叠过滤后的） */
   const displayedEdges = collapsedResult.edges;
 
@@ -1556,12 +1568,6 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       >
         <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
         <ZoomResetShortcut />
-        <AutoFitOnGraphChange
-          enabled={!hasAnyManualLayout && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
-          layoutKey={displayedGraphLayoutKey}
-          nodeCount={displayedNodes.length}
-          suppressRef={suppressAutoFitRef}
-        />
         <ReactFlow
           nodes={displayedNodes}
           edges={displayedEdges}
@@ -1588,7 +1594,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
           selectionMode={SelectionMode.Partial}
           elevateNodesOnSelect={false}
-          fitView={displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
+          fitView={!isGraphLab && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
           fitViewOptions={{ padding: 0.2, duration: fitViewDuration, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM }}
           minZoom={canEditGraph ? 0.1 : 0.05}
           maxZoom={canEditGraph ? 2.0 : 0.5}
@@ -1600,8 +1606,15 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             strokeWidth: 2,
             strokeDasharray: '5,4',
           }}
-          style={{ background: 'var(--color-bg-secondary)' }}
+          style={{ background: isGraphLab ? 'transparent' : 'var(--color-bg-secondary)' }}
         >
+        <AutoViewportOnGraphChange
+          enabled={(isGraphLab || !hasAnyManualLayout) && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
+          isGraphLab={isGraphLab}
+          layoutKey={displayedGraphLayoutKey}
+          nodes={displayedNodes}
+          suppressRef={suppressAutoFitRef}
+        />
         {/* 网格背景 — 仅 split 模式 */}
         {canEditGraph && (
           <Background
@@ -1655,37 +1668,14 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           />
         </svg>
       )}
-    </div>
-    </ReactFlowProvider>
-
-      {/* ── 解析错误警告横幅 (V02-033) ── */}
       {hasParseErrors && canEditGraph && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            padding: '6px 16px',
-            background: 'var(--color-diagnostic-error)',
-            color: 'var(--color-text-inverse)',
-            fontSize: '12px',
-            fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-            textAlign: 'center',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            opacity: 0.95,
-          }}
-        >
-          <span>⚠️</span>
-          <span>
-            编辑器中有 {errorDiagnostics.length} 个语法错误，分支图可能不完整
-          </span>
+        <div className="graph-canvas-diagnostic-strip" data-severity="error" role="status" aria-live="polite">
+          <span className="graph-canvas-diagnostic-strip__dot" aria-hidden="true" />
+          <span>{text('parse.graphIncomplete', { count: errorDiagnostics.length })}</span>
         </div>
       )}
+    </div>
+    </ReactFlowProvider>
 
       {/* 右键菜单 — 仅 split 模式 */}
       {canEditGraph && (

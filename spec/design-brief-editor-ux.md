@@ -230,6 +230,20 @@ Graph Lab V0.3 的视觉目标是“Codex + macOS 风格的次世代游戏叙事
 - 默认主题和 Engine Telemetry 都必须保存 Graph Lab 工作区、节点卡片、Source Dock 展开和窄屏布局截图。
 - 截图验收必须检查节点无几何重叠、路线文本无裁切、端口与路线行对齐、状态不只依赖颜色。
 
+### 7.8 Global UX Finish Rules
+
+本节是 2026-07-10 全局 UX 完成度修复的权威口径。实现时优先保证工作台层级、控件状态、可读性和截图可验收，不通过装饰性视觉效果掩盖结构问题。
+
+- Home Surface 必须是独立启动/工作台 surface。打开时不得透出底层 Split、Graph Lab、minimap、Status Bar 或其他 workspace 控件；内容应以继续编辑、新建、打开、模式入口、主题入口和当前文件状态为主，不做营销 hero。
+- Graph Lab 采用固定 AppShell 内部布局。顶部命令栏、三栏工作区、Inspector、Source Dock 和 ProblemPanel 必须各自局部滚动，`documentElement` 不应成为主滚动容器。
+- Graph Lab 默认视距必须保证节点卡片的路线摘要可读。初始视图优先居中 active node 或第一节点，默认缩放约 0.78；fit-all 只能作为用户可触发的导航能力，不能让主信息长期缩到不可读。
+- 诊断反馈不得遮挡主导航。画布内部只允许低噪声状态条或入口提示；完整诊断列表放在底部 ProblemPanel dock 中，使用图标、代码、文本和形状共同表达 severity，不使用大面积红色横幅或 emoji。
+- Source Dock 打开后必须稳定占据底部 grid 区域，不压断 Inspector 表单和保存/删除等操作按钮；Source Dock 内部诊断行应低噪声、可点击、可键盘聚焦。
+- Theme Center 的每个主题预览必须按该主题自身 token 呈现，不能被当前激活主题污染。底部 footer 是正常 panel row，不得覆盖列表内容。
+- 所有 Graph Lab 控件必须具备 default、hover、focus-visible、active、disabled 状态；icon-only 控件必须有 `aria-label`，仅有 `title` 不足以通过验收。
+- Engine Telemetry 保留深色遥测身份，但必须降噪：青绿只用于连接信号和 focus，琥珀只用于条件/警告，红色只用于 fault；禁止强发光、大面积高饱和色块、装饰 blur 或 HUD 化背景。
+- 截图门禁必须覆盖 Home、Graph Lab 默认主题、Engine Telemetry、Source Dock 展开、ProblemPanel 打开、Theme Center；验收时检查无底层泄漏、无文本裁切、无控件遮挡、无窗口级滚动、节点路线摘要可读。
+
 ## 8. 主题系统
 
 当前只支持官方主题：

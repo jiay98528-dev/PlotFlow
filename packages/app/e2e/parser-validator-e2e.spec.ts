@@ -183,13 +183,16 @@ async function loadContentIntoEditor(
  * 打开问题面板 (如果尚未打开)。
  * 快捷键: Ctrl+Shift+M
  */
-async function openProblemPanel(page: Page): Promise<void> {
-  const panelVisible = await page.evaluate(() => {
+async function isProblemPanelVisible(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
     const panel = document.querySelector('.problem-panel') as HTMLElement | null;
     if (!panel) return false;
-    const h = panel.style.height;
-    return h && h !== '0px' && h !== '';
+    return panel.classList.contains('is-open') && panel.getBoundingClientRect().height > 0;
   });
+}
+
+async function openProblemPanel(page: Page): Promise<void> {
+  const panelVisible = await isProblemPanelVisible(page);
 
   if (!panelVisible) {
     await page.keyboard.press('Control+Shift+M');
@@ -201,12 +204,7 @@ async function openProblemPanel(page: Page): Promise<void> {
  * 关闭问题面板。
  */
 async function closeProblemPanel(page: Page): Promise<void> {
-  const panelVisible = await page.evaluate(() => {
-    const panel = document.querySelector('.problem-panel') as HTMLElement | null;
-    if (!panel) return false;
-    const h = panel.style.height;
-    return h && h !== '0px' && h !== '';
-  });
+  const panelVisible = await isProblemPanelVisible(page);
 
   if (panelVisible) {
     await page.keyboard.press('Control+Shift+M');
@@ -228,15 +226,14 @@ async function getDiagnosticItems(page: Page): Promise<Array<{
   return page.evaluate(() => {
     const items = document.querySelectorAll('.problem-panel__item');
     return Array.from(items).map((item) => {
-      const children = item.children;
-      const icon = children[0]?.textContent?.trim() ?? '';
-      const code = children[1]?.textContent?.trim() ?? '';
-      const message = children[2]?.textContent?.trim() ?? '';
-      const location = children[3]?.textContent?.trim() ?? '';
-
-      let severity: 'error' | 'warning' | 'info' = 'info';
-      if (icon.includes('🔴')) severity = 'error';
-      else if (icon.includes('🟡')) severity = 'warning';
+      const severityValue = item.getAttribute('data-severity');
+      const severity =
+        severityValue === 'error' || severityValue === 'warning' || severityValue === 'info'
+          ? severityValue
+          : 'info';
+      const code = item.querySelector('.problem-panel__code')?.textContent?.trim() ?? '';
+      const message = item.querySelector('.problem-panel__message')?.textContent?.trim() ?? '';
+      const location = item.querySelector('.problem-panel__location')?.textContent?.trim() ?? '';
 
       return { code, severity, message, location };
     });
@@ -471,20 +468,14 @@ test.describe('Parser & Validator E2E Tests', () => {
 
     // Step 1: Ensure panel is closed
     await closeProblemPanel(page);
-    let panelOpen = await page.evaluate(() => {
-      const panel = document.querySelector('.problem-panel') as HTMLElement | null;
-      return panel ? panel.style.height !== '0px' && panel.style.height !== '' : false;
-    });
+    let panelOpen = await isProblemPanelVisible(page);
     expect(panelOpen).toBe(false);
 
     // Step 2: Ctrl+Shift+M to open
     await page.keyboard.press('Control+Shift+M');
     await page.waitForTimeout(800);
 
-    panelOpen = await page.evaluate(() => {
-      const panel = document.querySelector('.problem-panel') as HTMLElement | null;
-      return panel ? panel.style.height !== '0px' && panel.style.height !== '' : false;
-    });
+    panelOpen = await isProblemPanelVisible(page);
     expect(panelOpen).toBe(true);
 
     // Step 3: Verify diagnostics are listed
@@ -508,20 +499,14 @@ test.describe('Parser & Validator E2E Tests', () => {
     await page.keyboard.press('Control+Shift+M');
     await page.waitForTimeout(500);
 
-    panelOpen = await page.evaluate(() => {
-      const panel = document.querySelector('.problem-panel') as HTMLElement | null;
-      return panel ? panel.style.height !== '0px' && panel.style.height !== '' : false;
-    });
+    panelOpen = await isProblemPanelVisible(page);
     expect(panelOpen).toBe(false);
 
     // Step 6: Open again
     await page.keyboard.press('Control+Shift+M');
     await page.waitForTimeout(500);
 
-    panelOpen = await page.evaluate(() => {
-      const panel = document.querySelector('.problem-panel') as HTMLElement | null;
-      return panel ? panel.style.height !== '0px' && panel.style.height !== '' : false;
-    });
+    panelOpen = await isProblemPanelVisible(page);
     expect(panelOpen).toBe(true);
   });
 });

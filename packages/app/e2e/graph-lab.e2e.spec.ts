@@ -24,6 +24,28 @@ vars:
 [选项] 查看四周
 `;
 
+const FAR_LAYOUT_STORY = `---
+plotflow: 0.1
+title: Graph Lab Far Layout E2E
+author: QA
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "第一章-起点"
+        x: 4200
+        y: 3600
+---
+
+# 第一章
+
+## 节点：起点
+
+你醒来。
+
+[选项] 查看四周
+`;
+
 const TWO_CHAPTER_STORY = `${START_STORY}
 
 # 第二章
@@ -457,13 +479,20 @@ async function expectHomeSurfaceHasNoOverlap(page: Page): Promise<void> {
     const home = document.querySelector('[data-testid="home-surface"]');
     if (!home) return false;
     const rect = home.getBoundingClientRect();
-    const centerElement = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    const samplePoints = [
+      { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+      { x: window.innerWidth / 2, y: Math.max(4, window.innerHeight - 8) },
+      { x: Math.max(4, window.innerWidth - 8), y: window.innerHeight / 2 },
+    ];
+    const allSamplesInHome = samplePoints.every((point) =>
+      document.elementFromPoint(point.x, point.y)?.closest('[data-testid="home-surface"]'),
+    );
     return (
       rect.left <= 1 &&
       rect.top <= 1 &&
       rect.right >= window.innerWidth - 1 &&
       rect.bottom >= window.innerHeight - 1 &&
-      Boolean(centerElement?.closest('[data-testid="home-surface"]'))
+      allSamplesInHome
     );
   });
   expect(homeCoversViewport).toBe(true);
@@ -515,6 +544,13 @@ async function expectHomeSurfaceHasNoOverlap(page: Page): Promise<void> {
   });
 
   expect(overlaps).toEqual([]);
+}
+
+async function expectDocumentDoesNotScroll(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => {
+    const root = document.documentElement;
+    return Math.ceil(root.scrollHeight - window.innerHeight);
+  }), { timeout: 5_000 }).toBeLessThanOrEqual(2);
 }
 
 async function dragFromTo(
@@ -833,6 +869,35 @@ test.describe('Graph Lab E2E', () => {
     }
   });
 
+  test('centers persisted Graph Lab layout nodes into a readable initial viewport', async () => {
+    await setEditorContent(page, FAR_LAYOUT_STORY);
+    await switchToGraphLab(page);
+
+    const canvas = page.locator('.graph-lab__canvas');
+    const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    const route = node.getByTestId('node-route-preview-option-0');
+
+    await expect(canvas).toBeVisible({ timeout: 10_000 });
+    await expect(node).toBeVisible({ timeout: 10_000 });
+    await expect(route).toContainText('查看四周');
+
+    await expect.poll(async () => {
+      const canvasBox = await canvas.boundingBox();
+      const nodeBox = await node.boundingBox();
+      const routeBox = await route.boundingBox();
+      if (!canvasBox || !nodeBox || !routeBox) return false;
+
+      return (
+        nodeBox.x >= canvasBox.x + 8 &&
+        nodeBox.y >= canvasBox.y + 8 &&
+        nodeBox.x + nodeBox.width <= canvasBox.x + canvasBox.width - 8 &&
+        nodeBox.y + nodeBox.height <= canvasBox.y + canvasBox.height - 8 &&
+        nodeBox.width > 220 &&
+        routeBox.width > 150
+      );
+    }, { timeout: 10_000 }).toBe(true);
+  });
+
   test('opens Problems panel from the Graph Lab diagnostics chip', async () => {
     await setEditorContent(page, `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：不存在')}`);
     await switchToGraphLab(page);
@@ -846,6 +911,24 @@ test.describe('Graph Lab E2E', () => {
 
     await expect(page.locator('.problem-panel')).toBeVisible({ timeout: 5_000 });
     await expect(page.locator('.problem-panel__item').first()).toBeVisible({ timeout: 5_000 });
+    const dockGeometry = await page.evaluate(() => {
+      const toolbar = document.querySelector('.app-topbar')?.getBoundingClientRect();
+      const workspace = document.querySelector('[data-testid="graph-lab-workspace"]')?.getBoundingClientRect();
+      const panel = document.querySelector('.problem-panel')?.getBoundingClientRect();
+      if (!toolbar || !workspace || !panel) return null;
+      const toolbarCenter = document.elementFromPoint(toolbar.left + toolbar.width / 2, toolbar.top + toolbar.height / 2);
+      return {
+        toolbarBottom: toolbar.bottom,
+        workspaceBottom: workspace.bottom,
+        panelTop: panel.top,
+        panelBottom: panel.bottom,
+        toolbarStillOnTop: Boolean(toolbarCenter?.closest('.app-topbar')),
+      };
+    });
+    expect(dockGeometry).not.toBeNull();
+    expect(dockGeometry!.toolbarStillOnTop).toBe(true);
+    expect(dockGeometry!.panelTop).toBeGreaterThan(dockGeometry!.toolbarBottom);
+    expect(dockGeometry!.panelTop).toBeGreaterThanOrEqual(dockGeometry!.workspaceBottom - 1);
 
     await page.getByTestId('graph-lab-source-toggle').click();
     await expect(page.getByTestId('graph-lab-chapter-source-diagnostics')).toBeVisible({ timeout: 5_000 });
@@ -1028,6 +1111,9 @@ vars:
     await switchToGraphLab(page);
 
     const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    const nodeBox = await node.boundingBox();
+    expect(nodeBox).not.toBeNull();
+    expect(nodeBox!.width).toBeGreaterThanOrEqual(240);
     const route = node.getByTestId('node-route-preview-option-0');
     await expect(route).toBeVisible({ timeout: 10_000 });
     await expect(route).toContainText('进入商店');
@@ -1040,6 +1126,7 @@ vars:
     const handleBox = await node.getByTestId('story-node-option-handle-0').boundingBox();
     expect(routeBox).not.toBeNull();
     expect(handleBox).not.toBeNull();
+    expect(routeBox!.width).toBeGreaterThanOrEqual(200);
     const routeCenterY = routeBox!.y + routeBox!.height / 2;
     const handleCenterY = handleBox!.y + handleBox!.height / 2;
     expect(Math.abs(routeCenterY - handleCenterY)).toBeLessThanOrEqual(6);
@@ -1049,6 +1136,7 @@ vars:
 
     await page.getByTestId('graph-lab-source-toggle').click();
     await expect(page.getByTestId('graph-lab-source-drawer')).toBeVisible({ timeout: 10_000 });
+    await expectDocumentDoesNotScroll(page);
     await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-source-drawer'), 'graph-lab-source-dock-open-default.png');
   });
 
@@ -1558,6 +1646,7 @@ author: QA
     expect(drawerBox).not.toBeNull();
     expect(drawerBox!.x).toBeGreaterThanOrEqual(railBox!.x + railBox!.width - 1);
     expect(drawerBox!.y).toBeGreaterThanOrEqual(inspectorBox!.y + inspectorBox!.height - 1);
+    await expectDocumentDoesNotScroll(page);
   });
 
   test('keeps Split graph view controls inside Split workspace only', async () => {
@@ -1682,6 +1771,10 @@ author: QA
 
     const before = await node.boundingBox();
     expect(before).not.toBeNull();
+    const beforePosition = await page.evaluate(() =>
+      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === '第一章-起点')?.position ?? null,
+    );
+    expect(beforePosition).not.toBeNull();
     const start = await nodeDragPoint(page, '起点');
     await dragFromTo(page, start, { x: start.x + 120, y: start.y + 80 });
 
@@ -1693,7 +1786,13 @@ author: QA
     await expect(movedNode).toBeVisible({ timeout: 10_000 });
     const after = await movedNode.boundingBox();
     expect(after).not.toBeNull();
-    expect(Math.abs(after!.x - before!.x)).toBeGreaterThan(30);
+    const afterPosition = await page.evaluate(() =>
+      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === '第一章-起点')?.position ?? null,
+    );
+    expect(afterPosition).not.toBeNull();
+    expect(
+      Math.abs(afterPosition!.x - beforePosition!.x) + Math.abs(afterPosition!.y - beforePosition!.y),
+    ).toBeGreaterThan(30);
 
     const content = await getEditorContent(page);
     expect(content).toContain('      - id: "第一章-起点"');

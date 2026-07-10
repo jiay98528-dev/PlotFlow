@@ -305,7 +305,7 @@ function ConditionBuilder({
         onBlur={commit}
         onEnter={commit}
       />
-      <button type="button" className="icon-button" title={text('inspector.clearCondition')} onClick={() => onCommit(null)} disabled={!raw?.trim()}>
+      <button type="button" className="icon-button" title={text('inspector.clearCondition')} aria-label={text('inspector.clearCondition')} onClick={() => onCommit(null)} disabled={!raw?.trim()}>
         <X aria-hidden="true" size={14} strokeWidth={2} />
       </button>
       {variables.length === 0 && <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>}
@@ -406,7 +406,7 @@ function EffectsEditor({
                   ariaLabel={text('inspector.effectValue')}
                   onChange={(nextValue) => updateEffect(effectIndex, { value: nextValue })}
                 />
-                <button type="button" className="icon-button icon-button--danger" title={text('inspector.deleteEffect')} onClick={() => removeEffect(effectIndex)}>
+                <button type="button" className="icon-button icon-button--danger" title={text('inspector.deleteEffect')} aria-label={text('inspector.deleteEffect')} onClick={() => removeEffect(effectIndex)}>
                   <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
                 </button>
               </div>
@@ -575,7 +575,7 @@ export function GraphInspector(): React.ReactElement {
           <section className="graph-lab-section">
             <div className="graph-lab-section__title">
               <h3>{text('inspector.node')}</h3>
-              <button type="button" className="icon-button" title={text('inspector.deleteNode')} onClick={handleDeleteNode}>
+              <button type="button" className="icon-button" title={text('inspector.deleteNode')} aria-label={text('inspector.deleteNode')} onClick={handleDeleteNode}>
                 <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
               </button>
             </div>
@@ -665,6 +665,7 @@ export function GraphInspector(): React.ReactElement {
                         type="button"
                         className="icon-button"
                         title={text('inspector.moveUp')}
+                        aria-label={text('inspector.moveUp')}
                         disabled={index === 0}
                         onClick={() => graphEditService.reorderOption(node, index, index - 1)}
                       >
@@ -674,6 +675,7 @@ export function GraphInspector(): React.ReactElement {
                         type="button"
                         className="icon-button"
                         title={text('inspector.moveDown')}
+                        aria-label={text('inspector.moveDown')}
                         disabled={index === node.options.length - 1}
                         onClick={() => graphEditService.reorderOption(node, index, index + 1)}
                       >
@@ -683,6 +685,7 @@ export function GraphInspector(): React.ReactElement {
                         type="button"
                         className="icon-button"
                         title={text('inspector.clearJump')}
+                        aria-label={text('inspector.clearJump')}
                         onClick={() => graphEditService.connectOption(option, null)}
                       >
                         <Link2Off aria-hidden="true" size={14} strokeWidth={2} />
@@ -691,6 +694,7 @@ export function GraphInspector(): React.ReactElement {
                         type="button"
                         className="icon-button icon-button--danger"
                         title={text('inspector.deleteOption')}
+                        aria-label={text('inspector.deleteOption')}
                         onClick={() => graphEditService.deleteOption(option)}
                       >
                         <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
@@ -720,6 +724,7 @@ export function GraphInspector(): React.ReactElement {
                   type="button"
                   className="icon-button icon-button--danger"
                   title={text('inspector.deleteVariable')}
+                  aria-label={text('inspector.deleteVariable')}
                   onClick={() => handleVariableDelete(variable.name)}
                 >
                   <Trash2 aria-hidden="true" size={14} strokeWidth={2} />

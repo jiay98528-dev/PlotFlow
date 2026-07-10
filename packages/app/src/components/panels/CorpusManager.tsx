@@ -27,6 +27,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, HelpCircle } from 'lucide-react';
 import {
   CorpusImporter,
   PreprocessingPipeline,
@@ -614,7 +615,11 @@ export function CorpusManager(): React.ReactElement | null {
           >
             <div style={confirmHeaderStyle}>
               <span style={confirmIconStyle}>
-                {confirmDialog.type === 'delete' ? '⚠️' : '❓'}
+                {confirmDialog.type === 'delete' ? (
+                  <AlertTriangle aria-hidden="true" size={18} strokeWidth={2.2} />
+                ) : (
+                  <HelpCircle aria-hidden="true" size={18} strokeWidth={2.2} />
+                )}
               </span>
               <span style={confirmTitleStyle}>
                 {confirmDialog.type === 'delete' ? text('corpus.confirmDeleteTitle') : text('corpus.confirmDisableTitle')}

@@ -211,11 +211,34 @@ test.describe('Official Theme Center E2E', () => {
 
     const telemetryCard = page.locator('[data-theme-card-id="plotflow-engine-telemetry"]');
     await expect(telemetryCard).toBeVisible({ timeout: 5_000 });
+    const enginePreviewTokens = await telemetryCard.locator('.official-theme-preview').evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        paper: style.getPropertyValue('--theme-graph-lab-paper').trim(),
+        ink: style.getPropertyValue('--theme-node-ink').trim(),
+      };
+    });
+    expect(enginePreviewTokens.paper).toContain('17.2%');
+    expect(enginePreviewTokens.paper).not.toContain('96.5%');
+    expect(enginePreviewTokens.ink).toContain('89%');
+
     await telemetryCard.getByTestId('theme-center-apply').click();
 
     await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-engine-telemetry');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.getByTestId('theme-center')).toHaveAttribute('data-theme-surface', 'engine-telemetry-theme-center-surface');
+    const workbenchPreviewTokens = await page
+      .locator('[data-theme-card-id="plotflow-narrative-workbench"] .official-theme-preview')
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          paper: style.getPropertyValue('--theme-graph-lab-paper').trim(),
+          ink: style.getPropertyValue('--theme-node-ink').trim(),
+        };
+      });
+    expect(workbenchPreviewTokens.paper).toContain('96.5%');
+    expect(workbenchPreviewTokens.paper).not.toContain('17.2%');
+    expect(workbenchPreviewTokens.ink).toContain('22%');
 
     await page.getByTestId('theme-center').locator('.theme-center__footer .button').click();
 

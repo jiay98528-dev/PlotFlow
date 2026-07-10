@@ -210,7 +210,6 @@ export const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
           strokeWidth,
           strokeDasharray: isConditional ? '5,5' : undefined,
           cursor: 'pointer',
-          transition: 'stroke-width 0.12s ease',
           pointerEvents: 'none',
         }}
         markerEnd={MarkerType.ArrowClosed}

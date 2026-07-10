@@ -5,7 +5,10 @@ import { EngineTelemetryNodeCard } from '../../themes/EngineTelemetryNodeCard';
 
 function EngineTelemetryPreview({ compact = false, active = false }: { readonly compact?: boolean; readonly active?: boolean }): React.ReactElement {
   return (
-    <div className={`official-theme-preview official-theme-preview--engine-telemetry${compact ? ' is-compact' : ''}${active ? ' is-active' : ''}`}>
+    <div
+      className={`official-theme-preview official-theme-preview--engine-telemetry${compact ? ' is-compact' : ''}${active ? ' is-active' : ''}`}
+      data-preview-theme-id="plotflow-engine-telemetry"
+    >
       <div className="official-theme-preview__canvas">
         <div className="official-theme-preview__node official-theme-preview-node-main">
           <span />
