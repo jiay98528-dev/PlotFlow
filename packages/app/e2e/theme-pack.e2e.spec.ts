@@ -13,6 +13,7 @@ const REMOTE_THEME_ZIP = path.join(REMOTE_THEME_ROOT, 'plotflow-neon-dossier-1.0
 const FONT_ENV_SNAPSHOTS = new Set([
   'narrative-workbench-390x844.png',
   'prism-foundry-source-open-1440x900.png',
+  'prism-foundry-diagnostics-1440x900.png',
   'engine-telemetry-source-390x844.png',
 ]);
 
@@ -447,7 +448,7 @@ test.describe('Official Theme Center E2E', () => {
 
     await page.getByTestId('graph-lab-diagnostics-button').click();
     await expect(page.getByTestId('problem-panel')).toHaveClass(/is-open/);
-    await expect(page.locator('.app-shell')).toHaveScreenshot('prism-foundry-diagnostics-1440x900.png', {
+    await expect(page.locator('.app-shell')).toHaveScreenshot(visualSnapshotName('prism-foundry-diagnostics-1440x900.png'), {
       animations: 'disabled',
       maxDiffPixelRatio: 0.01,
     });
