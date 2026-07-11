@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
@@ -17,6 +17,50 @@ interface PerfSample {
 
 async function recordSample(reportPath: string, sample: PerfSample): Promise<void> {
   await appendFile(reportPath, `${JSON.stringify({ ...sample, passed: sample.durationMs <= sample.thresholdMs })}\n`, 'utf-8');
+}
+
+/**
+ * Large graphs must remain an opaque canvas workload. Prism glass belongs to
+ * the structural shell only, never to each React Flow node or route.
+ */
+async function assertPrismLargeGraphAvoidsFilters(page: Page): Promise<void> {
+  const audit = await page.evaluate(() => {
+    const effectsOf = (element: Element | null) => {
+      if (!element) return null;
+      const styles = window.getComputedStyle(element);
+      return {
+        filter: styles.filter,
+        backdropFilter: styles.backdropFilter,
+      };
+    };
+    const hasEffects = (effects: { filter: string; backdropFilter: string } | null): boolean =>
+      effects !== null && (effects.filter !== 'none' || effects.backdropFilter !== 'none');
+    const canvas = document.querySelector('[data-testid="graph-lab-workspace"] .graph-lab__canvas');
+    const nodes = Array.from(document.querySelectorAll('[data-official-node-theme="plotflow-prism-foundry"]'));
+    const edgePaths = Array.from(document.querySelectorAll(
+      '[data-official-edge-theme="plotflow-prism-foundry"] .official-graph-edge__path',
+    ));
+
+    return {
+      canvas: effectsOf(canvas),
+      nodeCount: nodes.length,
+      edgeCount: edgePaths.length,
+      nodeViolations: nodes
+        .map((node, index) => ({ index, effects: effectsOf(node) }))
+        .filter((entry) => hasEffects(entry.effects)),
+      edgeViolations: edgePaths
+        .map((edge, index) => ({ index, effects: effectsOf(edge) }))
+        .filter((entry) => hasEffects(entry.effects)),
+    };
+  });
+
+  expect(audit.canvas).not.toBeNull();
+  expect(audit.canvas).toEqual({ filter: 'none', backdropFilter: 'none' });
+  expect(audit.nodeCount).toBeGreaterThanOrEqual(200);
+  // React Flow can cull off-screen routes. Every route that is actually rendered
+  // must still stay filter-free, including when no route is presently in view.
+  expect(audit.nodeViolations).toEqual([]);
+  expect(audit.edgeViolations).toEqual([]);
 }
 
 test.describe('blackbox performance baseline', () => {
@@ -59,6 +103,7 @@ test.describe('blackbox performance baseline', () => {
         expect(openDuration).toBeLessThanOrEqual(item.openThresholdMs);
         if (item.count >= 500) {
           await expect(launched.page.locator('[data-official-node-theme="plotflow-prism-foundry"]').first()).toBeVisible();
+          await assertPrismLargeGraphAvoidsFilters(launched.page);
         }
         expect(runtimeErrors.filter((message) => /RangeError|Maximum call stack/i.test(message))).toEqual([]);
       } finally {
