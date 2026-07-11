@@ -27,47 +27,55 @@ async function centerOf(locator: Locator): Promise<Point> {
 }
 
 async function blankCanvasPoint(page: Page): Promise<Point> {
-  const canvas = await page.locator('.react-flow').boundingBox();
-  if (!canvas) {
-    throw new Error('Expected React Flow canvas.');
-  }
+  const pane = page.locator('.react-flow__pane');
+  const paneBox = await pane.boundingBox();
+  if (!paneBox) throw new Error('Expected a visible React Flow pane.');
 
-  const blockers: Array<{ x: number; y: number; width: number; height: number }> = [];
-  const blockerLocators = page.locator(
-    '.react-flow__node, .react-flow__controls, .react-flow__minimap, .source-drawer__toggle, .source-drawer__body',
-  );
-  const blockerCount = await blockerLocators.count();
-  for (let index = 0; index < blockerCount; index += 1) {
+  const blockerLocators = page.locator([
+    '.react-flow__node',
+    '.react-flow__controls',
+    '.react-flow__minimap',
+    '.wire-drop-menu',
+    '.source-drawer__toggle',
+    '.source-drawer__body',
+  ].join(', '));
+  const blockerRects: Array<{ x: number; y: number; width: number; height: number }> = [];
+  for (let index = 0; index < await blockerLocators.count(); index += 1) {
     const box = await blockerLocators.nth(index).boundingBox();
-    if (box) blockers.push(box);
+    if (box) blockerRects.push(box);
   }
 
-  const candidates = [
-    { x: canvas.x + canvas.width * 0.72, y: canvas.y + canvas.height * 0.38 },
-    { x: canvas.x + canvas.width * 0.68, y: canvas.y + canvas.height * 0.32 },
-    { x: canvas.x + canvas.width * 0.42, y: canvas.y + canvas.height * 0.28 },
-    { x: canvas.x + canvas.width * 0.58, y: canvas.y + canvas.height * 0.58 },
-    { x: canvas.x + canvas.width * 0.80, y: canvas.y + canvas.height * 0.62 },
+  const normalizedCandidates: Point[] = [
+    { x: 0.72, y: 0.38 },
+    { x: 0.68, y: 0.32 },
+    { x: 0.42, y: 0.28 },
+    { x: 0.58, y: 0.58 },
+    { x: 0.80, y: 0.62 },
   ];
+  for (let row = 1; row <= 9; row += 1) {
+    for (let column = 1; column <= 13; column += 1) {
+      normalizedCandidates.push({ x: column / 14, y: row / 10 });
+    }
+  }
 
-  const margin = 28;
-  const isInsideCanvas = (point: Point): boolean =>
-    point.x > canvas.x + margin &&
-    point.x < canvas.x + canvas.width - margin &&
-    point.y > canvas.y + margin &&
-    point.y < canvas.y + canvas.height - margin;
-
-  const isBlocked = (point: Point): boolean =>
-    blockers.some((rect) =>
-      point.x >= rect.x - margin &&
-      point.x <= rect.x + rect.width + margin &&
-      point.y >= rect.y - margin &&
-      point.y <= rect.y + rect.height + margin,
+  const margin = 24;
+  for (const candidate of normalizedCandidates) {
+    const local = { x: paneBox.width * candidate.x, y: paneBox.height * candidate.y };
+    const point = { x: paneBox.x + local.x, y: paneBox.y + local.y };
+    const isBlocked = blockerRects.some((rect) =>
+      point.x >= rect.x - margin && point.x <= rect.x + rect.width + margin &&
+      point.y >= rect.y - margin && point.y <= rect.y + rect.height + margin,
     );
-
-  const point = candidates.find((candidate) => isInsideCanvas(candidate) && !isBlocked(candidate));
-  if (!point) throw new Error('No blank React Flow canvas point found');
-  return point;
+    if (isBlocked) continue;
+    try {
+      // trial verifies that the pane itself receives the pointer at this coordinate.
+      await pane.click({ position: local, trial: true, timeout: 750 });
+      return point;
+    } catch {
+      // Theme chrome or another overlay intercepted this candidate; continue scanning.
+    }
+  }
+  throw new Error('No real blank React Flow pane point found after scanning the visible canvas grid.');
 }
 
 async function dragFromHandleTo(page: Page, target: Point): Promise<void> {
@@ -142,7 +150,8 @@ test.describe('blackbox Graph Lab high-risk GUI behavior', () => {
 
       await dragFromHandleTo(page, await blankCanvasPoint(page));
       await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 5_000 });
-      await page.mouse.click(24, 24);
+      const dismissPoint = await blankCanvasPoint(page);
+      await page.mouse.click(dismissPoint.x, dismissPoint.y);
       await expect(page.getByTestId('wire-drop-menu')).toHaveCount(0);
 
       await dragFromHandleTo(page, await blankCanvasPoint(page));

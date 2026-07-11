@@ -1,9 +1,10 @@
-import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { test, expect, _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import { createHash } from 'crypto';
 import { createServer, type Server } from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { compositeOnBackground, contrastRatio, type RgbaColor, type RgbColor } from '../src/theme/contrast';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 const MAIN_JS = path.join(PROJECT_ROOT, 'out', 'main', 'main.js');
@@ -25,6 +26,86 @@ author: QA
 ## 节点：树林
 线缆通向另一个叙事节点。
 `;
+
+interface PrismContrastPalette {
+  readonly paper: RgbaColor;
+  readonly reader: RgbaColor;
+  readonly ink: RgbaColor;
+  readonly muted: RgbaColor;
+  readonly primaryText: RgbaColor;
+  readonly primarySurface: RgbaColor;
+  readonly warningText: RgbaColor;
+  readonly dangerText: RgbaColor;
+  readonly focusRing: RgbaColor;
+}
+
+function opaque(color: RgbaColor, background: RgbColor): RgbColor {
+  return compositeOnBackground(color, background);
+}
+
+async function readPrismContrastPalette(page: Page): Promise<PrismContrastPalette> {
+  return page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D context is unavailable for contrast checks.');
+
+    const readColor = (declaration: string) => {
+      const probe = document.createElement('span');
+      probe.style.color = declaration;
+      probe.style.position = 'absolute';
+      probe.style.pointerEvents = 'none';
+      document.body.append(probe);
+      const computed = getComputedStyle(probe).color;
+      probe.remove();
+
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = computed;
+      context.fillRect(0, 0, 1, 1);
+      const data = context.getImageData(0, 0, 1, 1).data;
+      return {
+        red: data[0] ?? 0,
+        green: data[1] ?? 0,
+        blue: data[2] ?? 0,
+        alpha: (data[3] ?? 255) / 255,
+      };
+    };
+
+    return {
+      paper: readColor('var(--theme-prism-paper)'),
+      reader: readColor('var(--theme-prism-reader-surface)'),
+      ink: readColor('var(--theme-prism-ink)'),
+      muted: readColor('var(--theme-prism-muted)'),
+      primaryText: readColor('var(--color-text-on-accent)'),
+      primarySurface: readColor('var(--theme-prism-violet)'),
+      warningText: readColor('var(--theme-prism-warning-ink)'),
+      dangerText: readColor('var(--theme-prism-danger-ink)'),
+      focusRing: readColor('var(--theme-prism-focus-ring)'),
+    };
+  });
+}
+
+async function expectCompactCommandbarActions(page: Page): Promise<void> {
+  for (const testId of [
+    'graph-lab-palette-toggle',
+    'graph-lab-inspector-toggle',
+    'graph-lab-undo',
+    'graph-lab-redo',
+    'graph-lab-save',
+    'graph-lab-source-toggle',
+  ]) {
+    const action = page.getByTestId(testId);
+    await expect(action).toBeVisible();
+    const box = await action.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(
+      box!.x + box!.width,
+      `${testId} must remain inside the compact viewport`,
+    ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
+  }
+}
 
 async function startOfficialThemeServer(): Promise<{ server: Server; registryUrl: string }> {
   const bundleBytes = fs.readFileSync(REMOTE_THEME_ZIP);
@@ -183,6 +264,7 @@ test.describe('Official Theme Center E2E', () => {
   });
 
   test('applies narrative workbench theme and verifies node/edge renderers', async () => {
+    const originalViewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toBeVisible();
 
@@ -203,9 +285,215 @@ test.describe('Official Theme Center E2E', () => {
     expect(paperColor).toContain('oklch');
 
     await page.getByTestId('theme-center').getByRole('button', { name: '完成' }).click();
+
+    const graphLab = page.getByTestId('graph-lab-workspace');
+    for (const viewport of [
+      { name: '1280x720', width: 1280, height: 720 },
+      { name: '390x844', width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.keyboard.press('Control+0');
+      if (viewport.width <= 900) await expectCompactCommandbarActions(page);
+      await expect(graphLab).toHaveScreenshot(`narrative-workbench-${viewport.name}.png`, {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.01,
+      });
+    }
+    await page.setViewportSize(originalViewport);
+  });
+
+  test('applies Prism Foundry with isolated preview tokens and preserves Graph Lab interactions', async ({ page: _unusedPage }, testInfo) => {
+    const originalViewport = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+    await page.getByTestId('toolbar-theme-center').click();
+    await expect(page.getByTestId('theme-center')).toBeVisible();
+
+    const prismCard = page.locator('[data-theme-card-id="plotflow-prism-foundry"]');
+    const workbenchCard = page.locator('[data-theme-card-id="plotflow-narrative-workbench"]');
+    const telemetryCard = page.locator('[data-theme-card-id="plotflow-engine-telemetry"]');
+    await expect(prismCard).toBeVisible({ timeout: 5_000 });
+
+    const readPreviewTokens = async (card: Locator) =>
+      card.locator('.official-theme-preview').evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          paper: style.getPropertyValue('--theme-graph-lab-paper').trim(),
+          ink: style.getPropertyValue('--theme-node-ink').trim(),
+          cable: style.getPropertyValue('--theme-graph-cable-default').trim(),
+        };
+      });
+
+    const [prismPreviewTokens, workbenchPreviewTokens, telemetryPreviewTokens] = await Promise.all([
+      readPreviewTokens(prismCard),
+      readPreviewTokens(workbenchCard),
+      readPreviewTokens(telemetryCard),
+    ]);
+    expect(prismPreviewTokens).toEqual({
+      paper: expect.any(String),
+      ink: expect.any(String),
+      cable: expect.any(String),
+    });
+    expect(prismPreviewTokens.paper).toBeTruthy();
+    expect(prismPreviewTokens.ink).toBeTruthy();
+    expect(prismPreviewTokens.cable).toBeTruthy();
+    expect(prismPreviewTokens.paper).not.toBe(workbenchPreviewTokens.paper);
+    expect(prismPreviewTokens.paper).not.toBe(telemetryPreviewTokens.paper);
+    expect(prismPreviewTokens.ink).not.toBe(workbenchPreviewTokens.ink);
+    expect(prismPreviewTokens.ink).not.toBe(telemetryPreviewTokens.ink);
+
+    await prismCard.getByTestId('theme-center-apply').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(prismCard).toHaveClass(/is-active/);
+
+    const palette = await readPrismContrastPalette(page);
+    const paper = opaque(palette.paper, { red: 255, green: 255, blue: 255 });
+    const reader = opaque(palette.reader, paper);
+    expect(contrastRatio(opaque(palette.ink, reader), reader)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(opaque(palette.muted, reader), reader)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(opaque(palette.primaryText, opaque(palette.primarySurface, reader)), opaque(palette.primarySurface, reader))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(opaque(palette.warningText, reader), reader)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(opaque(palette.dangerText, reader), reader)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(opaque(palette.focusRing, reader), reader)).toBeGreaterThanOrEqual(3);
+
+    await page.getByTestId('theme-center').locator('.theme-center__footer .button').click();
+
+    const graphLab = page.locator('[data-theme-surface="prism-foundry-graph-lab-shell"]');
+    await expect(graphLab).toBeVisible();
+    await expect(graphLab).toHaveClass(/prism-foundry-graph-lab/);
+    await expect(page.getByText('Graph Lab · 棱镜铸造台')).toBeVisible();
+    await expect(graphLab.locator(':scope > .graph-lab__commandbar')).toBeVisible();
+    await expect(graphLab.locator(':scope > .graph-lab-rail')).toBeVisible();
+    await expect(graphLab.locator(':scope > .graph-lab__canvas')).toBeVisible();
+    await expect(graphLab.locator(':scope > .graph-lab-inspector')).toBeVisible();
+    await expect(graphLab.locator(':scope > .source-drawer')).toBeVisible();
+
+    const prismNodes = page.getByTestId('prism-foundry-story-node');
+    const prismNode = prismNodes.first();
+    const prismEdge = page.getByTestId('prism-foundry-story-edge').first();
+    await expect(prismNode).toBeVisible();
+    await expect(prismEdge).toBeVisible();
+    await expect(prismNode).toHaveClass(/official-graph-node--prism-foundry/);
+    await expect(prismEdge).toHaveClass(/official-graph-edge--prism-foundry/);
+    await expect(prismNode).toHaveAttribute('data-official-node-theme', 'plotflow-prism-foundry');
+    await expect(prismEdge).toHaveAttribute('data-official-edge-theme', 'plotflow-prism-foundry');
+    await expect(prismNodes.getByTestId('story-node-option-handle-0').first()).toHaveAttribute('data-handleid', 'option-0');
+    await expect(prismNodes.getByTestId('story-node-default-next-handle').first()).toHaveAttribute('data-handleid', 'next');
+
+    await prismNode.click();
+    await expect(page.getByTestId('graph-inspector-node-title')).toBeVisible({ timeout: 10_000 });
+    await page.keyboard.press('F2');
+    const renameInput = prismNode.locator('.story-node-rename-input');
+    await expect(renameInput).toBeVisible();
+    await expect(renameInput).toBeFocused();
+    await expect(renameInput).toHaveAttribute('aria-label', /编辑节点标题/);
+    await renameInput.fill('键盘棱镜入口');
+    await page.keyboard.press('Enter');
+    await expect(prismNode.locator('h3')).toHaveText('键盘棱镜入口');
+
+    await page.keyboard.press('F2');
+    await expect(renameInput).toBeVisible();
+    await expect(renameInput).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(renameInput).toBeHidden();
+    await prismEdge.locator('.official-graph-edge__hit-area').dispatchEvent('mouseover');
+    await expect(prismEdge).toHaveClass(/is-hovered/);
+    await prismEdge.locator('.official-graph-edge__hit-area').dispatchEvent('mouseout');
+    await expect(prismEdge).not.toHaveClass(/is-hovered/);
+    expect(await prismEdge.locator('.official-graph-edge__path').evaluate((element) => ({
+      filter: getComputedStyle(element).filter,
+      backdropFilter: getComputedStyle(element).backdropFilter,
+    }))).toEqual({ filter: 'none', backdropFilter: 'none' });
+
+    const defaultWorkspaceShot = await graphLab.screenshot();
+    expect(defaultWorkspaceShot.length).toBeGreaterThan(5_000);
+    fs.writeFileSync(testInfo.outputPath('prism-foundry-graph-lab-default.png'), defaultWorkspaceShot);
+    await testInfo.attach('prism-foundry-graph-lab-default.png', {
+      body: defaultWorkspaceShot,
+      contentType: 'image/png',
+    });
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(page.getByTestId('graph-lab-chapter-source-slice')).toBeVisible({ timeout: 10_000 });
+
+    const workspaceShot = await graphLab.screenshot();
+    expect(workspaceShot.length).toBeGreaterThan(5_000);
+    await expect(graphLab).toHaveScreenshot('prism-foundry-source-open-1440x900.png', {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.01,
+    });
+    fs.writeFileSync(testInfo.outputPath('prism-foundry-graph-lab-shell.png'), workspaceShot);
+    await testInfo.attach('prism-foundry-graph-lab-shell.png', {
+      body: workspaceShot,
+      contentType: 'image/png',
+    });
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(page.getByTestId('graph-lab-chapter-source-slice')).toBeHidden();
+
+    await page.getByTestId('graph-lab-diagnostics-button').click();
+    await expect(page.getByTestId('problem-panel')).toHaveClass(/is-open/);
+    await expect(page.locator('.app-shell')).toHaveScreenshot('prism-foundry-diagnostics-1440x900.png', {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.01,
+    });
+    await page.locator('.problem-panel__close').click();
+    await expect(page.getByTestId('problem-panel')).not.toHaveClass(/is-open/);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect
+      .poll(() => prismNode.evaluate((element) => getComputedStyle(element).transitionDuration))
+      .toBe('0s');
+    const targetPort = prismNode.locator('.official-node-port--target').first();
+    await expect
+      .poll(() => targetPort.evaluate((element) => getComputedStyle(element, '::after').transitionDuration))
+      .toBe('0s');
+    const canvasRuntime = page.locator('.graph-canvas-runtime');
+    await canvasRuntime.evaluate((element) => element.classList.add('graph-canvas-runtime--wire-dragging'));
+    await expect
+      .poll(() => targetPort.evaluate((element) => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+        return { x: matrix.a, y: matrix.d };
+      }))
+      .toEqual({ x: 1, y: 1 });
+    await canvasRuntime.evaluate((element) => element.classList.remove('graph-canvas-runtime--wire-dragging'));
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    for (const viewport of [
+      { name: '1440x900', width: 1440, height: 900 },
+      { name: '1280x720', width: 1280, height: 720 },
+      { name: '390x844', width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.keyboard.press('Control+0');
+      await page.waitForTimeout(240);
+      await expect(graphLab).toBeVisible();
+      await expect(graphLab.locator(':scope > .graph-lab__commandbar')).toBeVisible();
+      await expect(graphLab.locator(':scope > .graph-lab__canvas')).toBeVisible();
+      expect(await page.evaluate(() => (
+        document.documentElement.scrollWidth <= window.innerWidth &&
+        document.body.scrollWidth <= window.innerWidth
+      ))).toBe(true);
+      if (viewport.width <= 900) await expectCompactCommandbarActions(page);
+
+      const viewportShot = await graphLab.screenshot();
+      expect(viewportShot.length).toBeGreaterThan(5_000);
+      const filename = `prism-foundry-${viewport.name}.png`;
+      await expect(graphLab).toHaveScreenshot(filename, {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.01,
+      });
+      fs.writeFileSync(testInfo.outputPath(filename), viewportShot);
+      await testInfo.attach(filename, { body: viewportShot, contentType: 'image/png' });
+    }
+
+    await page.setViewportSize(originalViewport);
   });
 
   test('applies engine telemetry theme from Theme Center and verifies Graph Lab shell', async ({ page: _unusedPage }, testInfo) => {
+    const originalViewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toBeVisible();
 
@@ -286,6 +574,21 @@ test.describe('Official Theme Center E2E', () => {
       body: workspaceShot,
       contentType: 'image/png',
     });
+
+    const graphLab = page.getByTestId('graph-lab-workspace');
+    for (const viewport of [
+      { name: '1280x720', width: 1280, height: 720 },
+      { name: '390x844', width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.keyboard.press('Control+0');
+      if (viewport.width <= 900) await expectCompactCommandbarActions(page);
+      await expect(graphLab).toHaveScreenshot(`engine-telemetry-source-${viewport.name}.png`, {
+        animations: 'disabled',
+        maxDiffPixelRatio: 0.01,
+      });
+    }
+    await page.setViewportSize(originalViewport);
   });
 
   test('downloads and applies an official remote code theme package', async () => {

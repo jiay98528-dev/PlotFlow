@@ -20,6 +20,7 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { createFullId } from '@plotflow/core';
 
 // ============================================================================
 // 测试夹具
@@ -162,14 +163,12 @@ async function waitForConditionEditorPanel(page: Page, timeout = 5_000): Promise
 // 节点 ID 映射（与测试夹具对应）
 // ============================================================================
 //
-// Parser 生成 fullId 格式为 `${chapterTitle}-${nodeTitle}`（parser.ts L348-350）。
-// 章节标题 "# 第一章" → "第一章"，节点标题 "## 节点：村口" → "村口"。
-// fullId = "第一章-村口"
+// Parser 使用 core 的 canonical encoded-slash FullID。
 
 const NODE_IDS = {
-  village: '第一章-村口',     // 村口（有 2 个选项，均无条件）
-  tavern: '第一章-酒馆',     // 酒馆（选项 0 有条件，选项 1 无条件）
-  forest: '第一章-森林',     // 森林（无选项）
+  village: createFullId('第一章', '村口'),
+  tavern: createFullId('第一章', '酒馆'),
+  forest: createFullId('第一章', '森林'),
 } as const;
 
 const OPTION_INDEX = {
@@ -218,6 +217,16 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // 等待应用 shell 渲染完成
     await page.waitForSelector('.app-shell', { timeout: 15_000 });
+
+    const home = page.getByTestId('home-surface');
+    if (await home.isVisible()) {
+      await page.getByTestId('home-open-graph-lab').click();
+      await expect(home).toHaveCount(0);
+    }
+
+    // ConditionEditor 是 Split 工作区的传统面板；Graph Lab 使用共享条件树。
+    // Graph-first 默认启用后，本套件必须显式进入 Split 再验证 Monaco 双向同步。
+    await page.getByTestId('workspace-mode-split').click();
 
     // 等待 Monaco 编辑器初始化
     await page.waitForSelector('.monaco-editor', { timeout: 15_000 });
@@ -317,7 +326,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // 验证表达式预览区
     await expect(
-      page.locator('text=预览:').first(),
+      page.getByText(/预览[：:]/).first(),
     ).toBeVisible();
 
     // ---- Step 3: 关闭面板 ----
@@ -350,7 +359,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     const variableDropdownBtn = page
       .locator('button')
-      .filter({ hasText: '选择变量...' })
+      .filter({ hasText: /选择变量/ })
       .first();
     await expect(variableDropdownBtn).toBeVisible({ timeout: 3_000 });
     await variableDropdownBtn.click();
@@ -372,10 +381,10 @@ test.describe('条件编辑器 E2E 测试', () => {
     await page.waitForTimeout(200);
 
     // ---- Step 4: 验证预览表达式 ----
-    // 预览区域应显示 ($金币==5)
+    // 预览区域应显示可逆的规范表达式。
 
     await expect(
-      page.locator('code').filter({ hasText: '($金币==5)' }).first(),
+      page.locator('code').filter({ hasText: '$金币 == 5' }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // ---- Step 5: 点击"应用" ----
@@ -384,12 +393,12 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // ---- Step 6: 验证编辑器文本已更新 ----
     // 在选项行 "[选项] 塞给守卫两枚金币 -> 节点：酒馆" 之后应插入：
-    //   条件: ($金币==5)
+    //   条件: $金币 == 5
 
     const content = await getEditorContent(page);
 
     // 验证条件行存在且格式正确
-    expect(content).toContain('条件: ($金币==5)');
+    expect(content).toContain('条件: $金币 == 5');
 
     // 验证条件行出现在正确的选项之后
     const lines = content.split('\n');
@@ -398,7 +407,7 @@ test.describe('条件编辑器 E2E 测试', () => {
     );
     expect(optionIdx).toBeGreaterThanOrEqual(0);
     // 条件行应在选项行的下一行
-    expect(lines[optionIdx + 1]).toContain('条件: ($金币==5)');
+    expect(lines[optionIdx + 1]).toContain('条件: $金币 == 5');
   });
 
   // ==========================================================================
@@ -435,7 +444,7 @@ test.describe('条件编辑器 E2E 测试', () => {
     await page.waitForTimeout(100);
 
     // ---- Step 5: 在第二行选择变量和值 ----
-    const varButtons = page.locator('button').filter({ hasText: '选择变量...' });
+    const varButtons = page.locator('button').filter({ hasText: /选择变量/ });
     const count = await varButtons.count();
     if (count > 0) {
       // 点击新建行的"选择变量..."按钮
@@ -459,7 +468,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // ---- Step 7: 验证预览表达式包含 ($金币>=5) AND ($神器==true) ----
     await expect(
-      page.locator('code').filter({ hasText: '($金币>=5)' }).first(),
+      page.locator('code').filter({ hasText: '$金币 >= 5' }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // 验证预览包含 AND
@@ -475,14 +484,14 @@ test.describe('条件编辑器 E2E 测试', () => {
     const content = await getEditorContent(page);
 
     // 验证条件行包含 AND 格式
-    expect(content).toContain('($金币>=5)');
+    expect(content).toContain('($金币 >= 5)');
     expect(content).toContain('AND');
 
     // 整体表达式应在一行条件行内
     const contentAfter = content.split('\n');
     const condLine = contentAfter.find((l) => l.includes('条件:'));
     expect(condLine).toBeTruthy();
-    expect(condLine).toContain('($金币>=5) AND ($神器==true)');
+    expect(condLine).toContain('($金币 >= 5) AND ($神器 == true)');
   });
 
   // ==========================================================================
@@ -534,7 +543,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // 验证预览表达式
     await expect(
-      page.locator('code').filter({ hasText: '($好感度>=10)' }).first(),
+      page.locator('code').filter({ hasText: '$好感度 >= 10' }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // ---- Step 4: 关闭面板 ----
@@ -582,7 +591,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // ---- Step 4: 验证预览更新为 ($好感度>=8) ----
     await expect(
-      page.locator('code').filter({ hasText: '($好感度>=8)' }).first(),
+      page.locator('code').filter({ hasText: '$好感度 >= 8' }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // ---- Step 5: 点击"应用" ----
@@ -593,7 +602,7 @@ test.describe('条件编辑器 E2E 测试', () => {
     const content = await getEditorContent(page);
 
     // 验证新条件已写入
-    expect(content).toContain('条件: ($好感度>=8)');
+    expect(content).toContain('条件: $好感度 >= 8');
 
     // 验证旧条件已不存在
     expect(content).not.toContain('条件: ($金币 >= 5)');
@@ -602,7 +611,7 @@ test.describe('条件编辑器 E2E 测试', () => {
     const lines = content.split('\n');
     const optionIdx = lines.findIndex((l) => l.includes('[选项] 购买情报'));
     expect(optionIdx).toBeGreaterThanOrEqual(0);
-    expect(lines[optionIdx + 1]).toContain('条件: ($好感度>=8)');
+    expect(lines[optionIdx + 1]).toContain('条件: $好感度 >= 8');
   });
 
   // ==========================================================================
@@ -626,7 +635,7 @@ test.describe('条件编辑器 E2E 测试', () => {
     // 选择变量 "金币"
     const varBtn = page
       .locator('button')
-      .filter({ hasText: '选择变量...' })
+      .filter({ hasText: /选择变量/ })
       .first();
     await expect(varBtn).toBeVisible({ timeout: 3_000 });
     await varBtn.click();
@@ -645,7 +654,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // 验证预览已更新（但尚未保存）
     await expect(
-      page.locator('code').filter({ hasText: '($金币==99)' }).first(),
+      page.locator('code').filter({ hasText: '$金币 == 99' }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // ---- Step 4: 关闭面板（不点击"应用"） ----
@@ -667,7 +676,7 @@ test.describe('条件编辑器 E2E 测试', () => {
     expect(contentAfter).toEqual(contentBefore);
 
     // 验证条件行未被添加
-    expect(contentAfter).not.toContain('条件: ($金币==99)');
+    expect(contentAfter).not.toContain('条件: $金币 == 99');
 
     // ---- Step 6: 重新打开面板确认状态已重置 ----
     await openConditionEditorViaStore(
@@ -680,10 +689,42 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     // 面板应恢复初始状态（变量下拉显示"选择变量..."）
     await expect(
-      page.locator('button').filter({ hasText: '选择变量...' }).first(),
+      page.locator('button').filter({ hasText: /选择变量/ }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
     // 关闭面板
     await page.locator('button').filter({ hasText: '取消' }).click();
+  });
+
+  test('TC-7: 对话框提供焦点循环、Escape 关闭和焦点恢复', async () => {
+    const opener = page.getByTestId('workspace-mode-split');
+    await opener.focus();
+    await expect(opener).toBeFocused();
+
+    await openConditionEditorViaStore(
+      page,
+      VILLAGE_FIRST_OPTION.nodeId,
+      VILLAGE_FIRST_OPTION.optionIndex,
+    );
+
+    const dialog = page.getByRole('dialog', { name: '条件编辑器' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    await expect(dialog).toHaveAttribute('aria-labelledby', 'condition-editor-title');
+    await expect(dialog.getByRole('button', { name: 'AND' }).first()).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByRole('button', { name: 'OR' }).first()).toHaveAttribute('aria-pressed', 'false');
+    await expect(dialog.getByLabel('左操作数变量').first()).toBeVisible();
+    await expect(dialog.getByLabel('比较运算符').first()).toBeVisible();
+
+    const close = dialog.getByRole('button', { name: '关闭条件编辑器' });
+    await expect(close).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(dialog.getByRole('button', { name: '取消' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
   });
 });

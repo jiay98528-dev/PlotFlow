@@ -33,7 +33,7 @@ const assertions = [
   [js.includes('Graph Lab'), 'static app should include Graph Lab'],
   [js.includes('Windows'), 'static app should include Windows'],
   [js.includes('From the first .mdstory file to a usable export'), 'English guide copy should exist'],
-  [js.includes('当前无已知阻断 BUG') || js.includes('no known blocking bugs'), 'copy should avoid absolute bug-free claims'],
+  [js.includes('安装态、人工巡检和发行签名待完成') || js.includes('installed-app, manual patrol, and signing gates remain'), 'release copy should disclose remaining installed, manual, and signing gates'],
   [!js.match(/没有BUG|无 BUG|bug-free/i), 'copy should not claim bug-free status'],
   [css.includes('--color-paper'), 'CSS tokens should exist'],
   [status.summary.completed > 0, 'project status should have completion data'],

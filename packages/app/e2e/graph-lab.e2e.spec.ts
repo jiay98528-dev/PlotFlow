@@ -2,10 +2,13 @@
 import path from 'path';
 import type { TestInfo } from '@playwright/test';
 import fs from 'fs';
+import { createFullId } from '@plotflow/core';
+import { IPC_CHANNELS } from '../src/shared/ipcChannels';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 const MAIN_SCRIPT = path.join(PROJECT_ROOT, 'out', 'main', 'main.js');
-const IPC_EXPORT_CHANNEL = 'file:export';
+const IPC_EXPORT_CHANNEL = IPC_CHANNELS.file.export;
+const FIRST_START_ID = createFullId('第一章', '起点');
 
 const START_STORY = `---
 plotflow: 0.1
@@ -32,7 +35,7 @@ layout:
   graph:
     version: 1
     nodes:
-      - id: "第一章-起点"
+      - id: "${FIRST_START_ID}"
         x: 4200
         y: 3600
 ---
@@ -86,6 +89,12 @@ interface TestStoreBridge {
   }>;
   setEditorContent: (content: string) => void;
   setEditorContentPreservingUI: (content: string) => void;
+  applyExternalFileContent: (event: {
+    readonly filePath: string;
+    readonly content: string;
+    readonly hash: string;
+    readonly modifiedAt: number;
+  }) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
   setTheme: (themeId: string) => void;
   setHomeSurfaceOpen: (open: boolean) => void;
@@ -969,7 +978,7 @@ test.describe('Graph Lab E2E', () => {
     });
     await expect.poll(() => page.evaluate(() =>
       (window as TestWindow).__test_store__?.getUIState?.().activeNodeId,
-    )).toBe('第二章-终点');
+    )).toBe(createFullId('第二章', '终点'));
     await expect(page.getByTestId('graph-inspector-node-title')).toHaveValue('终点', { timeout: 10_000 });
   });
 
@@ -1043,6 +1052,39 @@ author: QA
     await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 10_000 });
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('wire-drop-menu')).toHaveCount(0);
+  });
+
+  test('edits a node-level next target and effects entirely in Graph Inspector', async () => {
+    await setEditorContent(page, `---
+plotflow: 0.1
+vars:
+  金币: int
+---
+
+# 第一章
+
+## 节点：流程节点
+
+继续前进。
+
+## 节点：终点
+
+流程结束。
+`);
+    await switchToGraphLab(page);
+    await clickNodeBody(page, '流程节点');
+    await page.evaluate((fullId) => {
+      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
+    }, createFullId('第一章', '流程节点'));
+
+    await page.getByTestId('graph-inspector-tab-routes').click();
+    await page.getByTestId('graph-inspector-next-target').selectOption(createFullId('第一章', '终点'));
+    await waitForContent(page, '下一步: 节点：终点');
+    await page.getByTestId('graph-inspector-option-effect-variable--1').selectOption('金币');
+    await page.getByTestId('graph-inspector-option-effect-operation--1').selectOption('add');
+    await page.getByTestId('graph-inspector-option-effect-value--1').fill('2');
+    await page.getByTestId('graph-inspector-option-effect-add--1').click();
+    await waitForContent(page, '下一步: 节点：终点\n  效果: 金币+2');
   });
 
   test('keeps Engine Telemetry default next output handle embedded inside no-option cards', async ({ browserName }, testInfo) => {
@@ -1286,9 +1328,9 @@ vars:
     const sourceValue = await sourceSlice.inputValue();
     await sourceSlice.fill(sourceValue.replace('你醒来。', 'Inspector 写回前保留的草稿。'));
 
-    await page.evaluate(() => {
-      (window as TestWindow).__test_store__?.selectNode('第一章-起点');
-    });
+    await page.evaluate((fullId) => {
+      (window as TestWindow).__test_store__?.selectNode(fullId);
+    }, FIRST_START_ID);
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await expect(titleInput).toHaveValue('起点', { timeout: 10_000 });
     await titleInput.fill('改名起点');
@@ -1387,7 +1429,7 @@ author: QA
     await switchToGraphLab(page);
     await selectChapterTab(page, 0);
     await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({ timeout: 10_000 });
-    await page.evaluate(() => (window as TestWindow).__test_store__?.selectNode('第一章-起点'));
+    await page.evaluate((fullId) => (window as TestWindow).__test_store__?.selectNode(fullId), FIRST_START_ID);
 
     let dialogMessage = '';
     page.once('dialog', async (dialog) => {
@@ -1412,7 +1454,10 @@ author: QA
 目标正文。
 `.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：目标'));
     await switchToGraphLab(page);
-    await page.evaluate(() => (window as TestWindow).__test_store__?.selectNode('第一章-目标'));
+    await page.evaluate(
+      (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
+      createFullId('第一章', '目标'),
+    );
 
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await expect(titleInput).toHaveValue('目标', { timeout: 10_000 });
@@ -1422,6 +1467,27 @@ author: QA
     await waitForContent(page, '## 节点：重命名目标');
     await waitForContent(page, '[选项] 查看四周 -> 节点：重命名目标');
     await waitForNoDiagnostic(page, 'E001');
+  });
+
+  test('keeps an Inspector draft and exposes a field error when a commit is rejected', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await page.evaluate((fullId) => (window as TestWindow).__test_store__?.selectNode(fullId), FIRST_START_ID);
+
+    const titleInput = page.getByTestId('graph-inspector-node-title');
+    await expect(titleInput).toHaveValue('起点');
+    await titleInput.fill('');
+    await blur(titleInput);
+
+    await expect(titleInput).toHaveValue('');
+    await expect(titleInput).toHaveAttribute('aria-invalid', 'true');
+    await expect(titleInput.locator('xpath=..').getByRole('alert')).toBeVisible();
+    expect(await getEditorContent(page)).toContain('## 节点：起点');
+
+    await titleInput.fill('修复后的起点');
+    await blur(titleInput);
+    await waitForContent(page, '## 节点：修复后的起点');
+    await expect(titleInput).not.toHaveAttribute('aria-invalid', 'true');
   });
 
   test('shows immediate Save As feedback from menu actions', async () => {
@@ -1511,8 +1577,9 @@ author: QA
 
     await expect(page.getByTestId('toolbar-export')).toContainText('Export');
     await expect(page.getByText('Graph Lab · Narrative Workbench')).toBeVisible();
-    await expect(page.getByTestId('graph-lab-inspector')).toContainText('Story Info');
     await expect(page.getByTestId('graph-lab-inspector')).toContainText('No node selected');
+    await page.getByTestId('graph-inspector-tab-story').click();
+    await expect(page.getByTestId('graph-lab-inspector')).toContainText('Story Info');
 
     await page.getByTestId('graph-lab-diagnostics-button').click();
     await expect(page.locator('.problem-panel')).toContainText('Problems');
@@ -1530,22 +1597,43 @@ author: QA
     await expect(page.getByTestId('theme-center')).toContainText('Installed official themes');
   });
 
-  test('creates and exports a branch entirely from Graph Lab controls', async () => {
+  test('blocks export from Graph Lab when Error diagnostics exist', async () => {
+    await setEditorContent(page, START_STORY.replace(
+      '[选项] 查看四周',
+      '[选项] 查看四周 -> 节点：不存在',
+    ));
+    await switchToGraphLab(page);
+
+    await expect(page.getByTestId('graph-lab-diagnostics-button')).toHaveClass(/is-warning/);
+    await page.getByTestId('toolbar-export').click();
+
+    await expect(page.getByTestId('export-blocked-by-errors')).toBeVisible();
+    await expect(page.getByTestId('export-dialog-submit')).toBeDisabled();
+  });
+
+  // Playwright requires an object-destructured first parameter when testInfo is used.
+  // eslint-disable-next-line no-empty-pattern
+  test('creates and exports a branch entirely from Graph Lab controls', async ({}, testInfo) => {
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
+
+    await page.getByTestId('graph-inspector-tab-story').click();
+    await page.getByTestId('graph-inspector-meta-engine').selectOption('godot');
+    await waitForContent(page, 'engine: "godot"');
 
     await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({ timeout: 10_000 });
 
     await page.getByTestId('graph-lab-create-node').click();
     await waitForContent(page, '## 节点：新节点');
-    await expect(page.getByTestId('rf__node-第一章-新节点')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId(`rf__node-${createFullId('第一章', '新节点')}`)).toBeVisible({ timeout: 10_000 });
 
     await clickNodeBody(page, '新节点');
     // M4: 新节点卡片可能因 DOM 事件委托/冒泡/Handle 拦截导致点击未触发选中。
     // 额外走 __test_store__.selectNode 程序化选中，确保 Inspector 一定拿到 node 上下文。
-    await page.evaluate(() => {
-      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.('第一章-新节点');
-    });
+    await page.evaluate((fullId) => {
+      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
+    }, createFullId('第一章', '新节点'));
+    await page.getByTestId('graph-inspector-tab-node').click();
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await expect(titleInput).toHaveValue('新节点', { timeout: 10_000 });
     await titleInput.fill('树林');
@@ -1559,28 +1647,35 @@ author: QA
     await waitForContent(page, '树影挡住了小路。');
 
     await clickNodeBody(page, '起点');
-    await page.evaluate(() => {
-      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.('第一章-起点');
-    });
-    await page.getByTestId('graph-inspector-option-target-0').selectOption({ label: '树林' });
-    await waitForContent(page, '-> 节点：树林');
+    await page.evaluate((fullId) => {
+      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
+    }, FIRST_START_ID);
+    await page.getByTestId('graph-inspector-tab-routes').click();
+    await page.getByTestId('graph-inspector-option-target-0').selectOption(createFullId('第一章', '树林'));
+    await waitForContent(page, '-> 第一章/节点：树林');
 
-    await page.getByTestId('graph-inspector-option-condition-operator-0').selectOption('>=');
-    const conditionInput = page.getByTestId('graph-inspector-option-condition-0');
+    const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
+    await conditionTree.getByRole('button', { name: /左操作数变量|选择变量/ }).click();
+    await conditionTree.getByRole('button', { name: /金币/ }).click();
+    await conditionTree.getByRole('button', { name: /比较运算符|comparison operator/i }).click();
+    await conditionTree.getByRole('button', { name: /≥/ }).click();
+    const conditionInput = conditionTree.locator('input[type="number"]');
     await conditionInput.fill('1');
     await blur(conditionInput);
-    await waitForContent(page, '  条件: 金币 >= 1');
+    await waitForContent(page, '  条件: $金币 >= 1');
 
     await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('subtract');
     await page.getByTestId('graph-inspector-option-effect-value-0').fill('1');
     await page.getByTestId('graph-inspector-option-effect-add-0').click();
     await waitForContent(page, '  效果: 金币-1');
 
+    await page.getByTestId('graph-inspector-tab-variables').click();
     await page.getByTestId('graph-inspector-variable-name').fill('日志');
     await page.getByTestId('graph-inspector-variable-type').selectOption('string');
     await page.getByTestId('graph-inspector-save-variable').click();
-    await waitForContent(page, '  日志: string');
+    await waitForContent(page, '  日志:\n    type: string');
 
+    await page.getByTestId('graph-inspector-tab-routes').click();
     await page.getByTestId('graph-inspector-option-effect-variable-0').selectOption('日志');
     await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('append');
     const appendInput = page.getByTestId('graph-inspector-option-effect-value-0');
@@ -1588,10 +1683,48 @@ author: QA
     await appendInput.press('Enter');
     await waitForContent(page, '  效果: 金币-1, 日志←"发现脚印"');
 
+    await page.getByTestId('graph-inspector-tab-variables').click();
     await page.getByTestId('graph-inspector-variable-name').fill('声望');
     await page.getByTestId('graph-inspector-variable-type').selectOption('float');
     await page.getByTestId('graph-inspector-save-variable').click();
-    await waitForContent(page, '  声望: float');
+    await waitForContent(page, '  声望:\n    type: float');
+
+    await page.getByTestId('graph-inspector-variable-name').fill('职业');
+    await page.getByTestId('graph-inspector-variable-type').selectOption('enum');
+    await page.getByTestId('graph-inspector-variable-enum-values').fill('战士\n法师');
+    await page.getByTestId('graph-inspector-variable-default').selectOption('法师');
+    await page.getByTestId('graph-inspector-variable-scope').selectOption('chapter');
+    await page.getByTestId('graph-inspector-variable-chapter').selectOption('第一章');
+    await page.getByTestId('graph-inspector-variable-description').fill('当前伪装职业');
+    await page.getByTestId('graph-inspector-save-variable').click();
+    await waitForContent(page, '  职业:\n    type: enum\n    values: ["战士","法师"]\n    default: "法师"\n    scope: chapter\n    chapter: "第一章"\n    description: "当前伪装职业"');
+
+    await page.getByTestId('graph-inspector-variable-name').fill('已解锁');
+    await page.getByTestId('graph-inspector-variable-type').selectOption('bool');
+    await page.getByTestId('graph-inspector-variable-default').selectOption('true');
+    await page.getByTestId('graph-inspector-save-variable').click();
+    await waitForContent(page, '  已解锁:\n    type: bool\n    default: true');
+
+    await page.getByTestId('graph-inspector-variable-name').fill('世界状态');
+    await page.getByTestId('graph-inspector-variable-type').selectOption('object');
+    await page.getByTestId('graph-inspector-variable-field-add-root').click();
+    await page.getByTestId('graph-inspector-variable-field-name-root-0').fill('区域');
+    await page.getByTestId('graph-inspector-variable-field-type-root-0').selectOption('object');
+    await page.getByTestId('graph-inspector-variable-field-add-root-0').click();
+    await page.getByTestId('graph-inspector-variable-field-name-root-0-0').fill('天气');
+    await page.getByTestId('graph-inspector-variable-field-type-root-0-0').selectOption('object');
+    await page.getByTestId('graph-inspector-variable-field-add-root-0-0').click();
+    await page.getByTestId('graph-inspector-variable-field-name-root-0-0-0').fill('下雨');
+    await page.getByTestId('graph-inspector-variable-field-type-root-0-0-0').selectOption('bool');
+    await page.getByTestId('graph-inspector-variable-field-default-root-0-0-0').selectOption('true');
+    await page.getByTestId('graph-inspector-save-variable').click();
+    await waitForContent(page, '  世界状态:\n    type: object');
+    await waitForContent(page, '              下雨:\n                type: bool\n                default: true');
+    await attachVisibleScreenshot(
+      testInfo,
+      page.getByTestId('graph-lab-inspector'),
+      'graph-lab-inspector-structured-variables.png',
+    );
 
     await page.getByTestId('graph-lab-source-toggle').click();
     await page.waitForFunction(
@@ -1612,13 +1745,129 @@ author: QA
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
     const json = JSON.parse(captured!.content) as {
+      $schema: string;
+      meta: { engine: string };
       chapters: Array<{ nodes: Array<{ title: string; options: Array<{ targetNodeId: string | null }> }> }>;
-      variables: Record<string, unknown>;
+      variables: Record<string, {
+        type: string;
+        default?: unknown;
+        values?: string[];
+        scope?: string;
+        chapter?: string;
+        description?: string;
+        fields?: Record<string, unknown>;
+      }>;
     };
     const nodes = json.chapters.flatMap((chapter) => chapter.nodes);
     expect(nodes.some((node) => node.title === '树林')).toBe(true);
     expect(nodes.some((node) => node.options.some((option) => option.targetNodeId === '树林'))).toBe(true);
+    expect(json.$schema).toBe('https://plotflow.dev/schema/0.2/story.json');
+    expect(json.meta.engine).toBe('godot');
+    expect(Object.keys(json.variables)).toEqual(expect.arrayContaining(['金币', '日志', '声望', '职业', '已解锁', '世界状态']));
     expect(json.variables).toHaveProperty('声望');
+    expect(json.variables['职业']).toMatchObject({
+      type: 'enum',
+      default: '法师',
+      values: ['战士', '法师'],
+      scope: 'chapter',
+      chapter: '第一章',
+      description: '当前伪装职业',
+    });
+    expect(json.variables['世界状态']).toMatchObject({
+      type: 'object',
+      default: { 区域: { 天气: { 下雨: true } } },
+      fields: {
+        区域: {
+          type: 'object',
+          fields: {
+            天气: {
+              type: 'object',
+              fields: { 下雨: { type: 'bool', default: true } },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  test('round-trips three-level AND OR NOT and literal-left conditions through Graph GUI and JSON 0.2', async () => {
+    await setEditorContent(page, `---
+plotflow: 0.1
+vars:
+  金币: int
+  存活: bool
+---
+
+# 第一章
+
+## 节点：入口
+
+[选项] 继续 -> 节点：出口
+  条件: ($金币 >= 1) AND (NOT (($存活 == false) OR (5 < $金币)))
+
+## 节点：出口
+
+完成。
+`);
+    await switchToGraphLab(page);
+    await page.evaluate(
+      (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
+      createFullId('第一章', '入口'),
+    );
+    await page.getByTestId('graph-inspector-tab-routes').click();
+
+    const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
+    await expect(conditionTree).toBeVisible({ timeout: 10_000 });
+    const leftOperandTypes = conditionTree.getByLabel('左操作数类型');
+    const rightOperandTypes = conditionTree.getByLabel('右操作数类型');
+    await expect(leftOperandTypes).toHaveCount(3);
+    await expect(leftOperandTypes.last()).toHaveValue('literal');
+    await expect(rightOperandTypes.last()).toHaveValue('variable');
+
+    const literalInput = leftOperandTypes.last().locator('xpath=..').locator('input[type="number"]');
+    await expect(literalInput).toHaveValue('5');
+    await literalInput.fill('6');
+    await blur(literalInput);
+    await waitForContent(page, '($金币 >= 1) AND (NOT (($存活 == false) OR (6 < $金币)))');
+
+    await page.getByTestId('toolbar-export').click();
+    await expect(page.locator('.export-dialog__overlay')).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId('export-dialog-submit').click();
+    await expect(page.getByTestId('export-dialog-submit')).toHaveAttribute('data-export-status', 'success', {
+      timeout: 10_000,
+    });
+
+    const captured = await readCapturedExport(electronApp);
+    expect(captured).not.toBeNull();
+    const json = JSON.parse(captured!.content) as {
+      $schema: string;
+      chapters: Array<{
+        nodes: Array<{
+          id: string;
+          options: Array<{ conditions: { ast: Record<string, unknown> } | null }>;
+        }>;
+      }>;
+    };
+    expect(json.$schema).toBe('https://plotflow.dev/schema/0.2/story.json');
+    const ast = json.chapters[0]!.nodes.find((node) => node.id === '入口')!.options[0]!.conditions!.ast as {
+      type: string;
+      left: unknown;
+      right: { type: string; operand: { type: string; left: unknown; right: unknown } };
+    };
+    expect(ast.type).toBe('logical_and');
+    expect(ast.left).toMatchObject({
+      type: 'comparison',
+      left: { type: 'variable', name: '金币' },
+      right: { type: 'literal', value: 1 },
+    });
+    expect(ast.right.type).toBe('logical_not');
+    expect(ast.right.operand.type).toBe('logical_or');
+    expect(ast.right.operand.right).toMatchObject({
+      type: 'comparison',
+      left: { type: 'literal', value: 6 },
+      operator: '<',
+      right: { type: 'variable', name: '金币' },
+    });
   });
 
   test('renders Narrative Workbench chrome and keeps Source Dock in layout flow', async () => {
@@ -1690,6 +1939,7 @@ author: QA
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
 
+    await page.getByTestId('graph-lab-workspace-browser').locator('summary').click();
     await page.getByTestId('graph-lab-choose-workspace').click();
     const workspaceFile = page.getByTestId('graph-lab-workspace-file').filter({ hasText: 'workspace-branch.mdstory' });
     await expect(workspaceFile).toBeVisible({ timeout: 10_000 });
@@ -1734,6 +1984,7 @@ author: QA
 
     const originalSource = await sourceSlice.inputValue();
     await sourceSlice.fill(originalSource.replace('你醒来。', '打开工作区前自动保存。'));
+    await page.getByTestId('graph-lab-workspace-browser').locator('summary').click();
     await page.getByTestId('graph-lab-choose-workspace').click();
     const workspaceFile = page.getByTestId('graph-lab-workspace-file').filter({ hasText: 'workspace-guard.mdstory' });
     await expect(workspaceFile).toBeVisible({ timeout: 10_000 });
@@ -1763,6 +2014,65 @@ author: QA
     expect(await getEditorContent(page)).not.toContain('节点：工作区起点');
   });
 
+  test('supports keyboard chapter tabs and node context menus with focus restoration', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+
+    const tabs = page.getByTestId('graph-lab-chapter-tab');
+    await tabs.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect.poll(() => page.evaluate(() => (
+      (window as TestWindow).__test_store__?.getUIState().activeChapterId
+    ))).toBe('第二章');
+    await tabs.nth(1).press('Home');
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.first()).toBeFocused();
+
+    const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    await node.click();
+    await node.focus();
+    await page.keyboard.press('Shift+F10');
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem').first()).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(menu.getByRole('menuitem').last()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(node).toBeFocused();
+  });
+
+  test('drops an in-flight node drag when an external reload replaces the story session', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    await expect(node).toBeVisible({ timeout: 10_000 });
+    const start = await nodeDragPoint(page, '起点');
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 90, start.y + 60, { steps: 5 });
+
+    const reloaded = START_STORY.replace('Graph Lab E2E', 'External Reload E2E').replace('你醒来。', '外部重载正文。');
+    await page.evaluate((content) => {
+      (window as TestWindow).__test_store__?.applyExternalFileContent({
+        filePath: 'D:/PlotFlowE2E/external-reload.mdstory',
+        content,
+        hash: 'external-reload-hash',
+        modifiedAt: 42,
+      });
+    }, reloaded);
+    await page.mouse.up();
+
+    await waitForContent(page, '外部重载正文。');
+    expect(await getEditorContent(page)).not.toContain('layout:');
+    await expect(page.getByTestId('graph-lab-undo')).toBeDisabled();
+    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' }).first()).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test('persists node dragging into .mdstory layout data', async () => {
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
@@ -1771,8 +2081,9 @@ author: QA
 
     const before = await node.boundingBox();
     expect(before).not.toBeNull();
-    const beforePosition = await page.evaluate(() =>
-      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === '第一章-起点')?.position ?? null,
+    const beforePosition = await page.evaluate((fullId) =>
+      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)?.position ?? null,
+      FIRST_START_ID,
     );
     expect(beforePosition).not.toBeNull();
     const start = await nodeDragPoint(page, '起点');
@@ -1786,8 +2097,9 @@ author: QA
     await expect(movedNode).toBeVisible({ timeout: 10_000 });
     const after = await movedNode.boundingBox();
     expect(after).not.toBeNull();
-    const afterPosition = await page.evaluate(() =>
-      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === '第一章-起点')?.position ?? null,
+    const afterPosition = await page.evaluate((fullId) =>
+      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)?.position ?? null,
+      FIRST_START_ID,
     );
     expect(afterPosition).not.toBeNull();
     expect(
@@ -1795,7 +2107,24 @@ author: QA
     ).toBeGreaterThan(30);
 
     const content = await getEditorContent(page);
-    expect(content).toContain('      - id: "第一章-起点"');
+    expect(content).toContain(`      - id: ${JSON.stringify(FIRST_START_ID)}`);
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible();
+    await sourceSlice.fill((await sourceSlice.inputValue()).replace('你醒来。', '未提交的拖动冲突草稿。'));
+    await setEditorContentPreservingUI(
+      page,
+      (await getEditorContent(page)).replace('你醒来。', '磁盘侧更新后的正文。'),
+    );
+    await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化');
+
+    const rollbackStart = await nodeDragPoint(page, '起点');
+    await dragFromTo(page, rollbackStart, { x: rollbackStart.x + 90, y: rollbackStart.y + 60 });
+    await expect.poll(async () => page.evaluate((fullId) =>
+      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)?.position ?? null,
+      FIRST_START_ID,
+    )).toEqual(afterPosition);
   });
 
   test('connects an option to an existing node by dragging a cable', async () => {
@@ -1814,7 +2143,7 @@ author: QA
 
     await dragHandleToMenu(page, handle, blankPoint);
     await page.getByTestId('wire-drop-connect-existing').filter({ hasText: '树林' }).click();
-    await waitForContent(page, '[选项] 查看四周 -> 节点：树林');
+    await waitForContent(page, '[选项] 查看四周 -> 第一章/节点：树林');
   });
 
   test('opens a cable drop menu on blank space and creates a connected node there', async () => {
@@ -1836,8 +2165,9 @@ author: QA
     await page.getByTestId('wire-drop-create-node').click();
 
     await waitForContent(page, '[选项] 查看四周 -> 节点：新节点');
-    await waitForContent(page, '      - id: "第一章-新节点"');
-    await expect(page.getByTestId('rf__node-第一章-新节点')).toBeVisible({ timeout: 10_000 });
+    const newNodeFullId = createFullId('第一章', '新节点');
+    await waitForContent(page, `      - id: ${JSON.stringify(newNodeFullId)}`);
+    await expect(page.getByTestId(`rf__node-${newNodeFullId}`)).toBeVisible({ timeout: 10_000 });
   });
 
   test('disconnects an existing option by dragging its cable endpoint to blank space', async () => {
@@ -1859,6 +2189,125 @@ author: QA
     await waitForContent(page, '[选项] 查看四周');
     const content = await getEditorContent(page);
     expect(content).not.toContain('[选项] 查看四周 -> 节点：树林');
+  });
+
+  test('commits a dirty Source Drawer draft before switching to Split', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const source = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(source).toBeVisible();
+    await source.fill((await source.inputValue()).replace('你醒来。', '你在雨声中醒来。'));
+
+    await page.getByTestId('workspace-mode-split').click();
+    await expect(page.locator('.split-workspace')).toBeVisible();
+    await waitForContent(page, '你在雨声中醒来。');
+  });
+
+  test('blocks Graph to Split when the Source Drawer draft is stale', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await page.getByTestId('graph-lab-source-toggle').click();
+    const source = page.getByTestId('graph-lab-chapter-source-slice');
+    await source.fill((await source.inputValue()).replace('你醒来。', '本地草稿。'));
+    await page.evaluate((content) => {
+      (window as unknown as TestWindow).__test_store__?.setEditorContentPreservingUI(content);
+    }, START_STORY.replace('你醒来。', '外部更新。'));
+    await expect(page.locator('.source-drawer__slice-message')).toContainText(
+      /完整源码已在其他位置变化|full source changed elsewhere/i,
+    );
+
+    await page.getByTestId('workspace-mode-split').click();
+    await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+    await expect(page.locator('.split-workspace')).toHaveCount(0);
+  });
+
+  test('creates a palette node in the active second chapter', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    await page.getByTestId('graph-lab-chapter-tab').filter({ hasText: '第二章' }).click();
+    await page.getByTestId('graph-lab-create-node').click();
+    await waitForContent(page, '## 节点：新节点');
+
+    const content = await getEditorContent(page);
+    const secondChapter = content.indexOf('# 第二章');
+    const newNode = content.lastIndexOf('## 节点：新节点');
+    expect(secondChapter).toBeGreaterThan(-1);
+    expect(newNode).toBeGreaterThan(secondChapter);
+  });
+
+  test('searches nodes with Ctrl+K and focuses the selected result without changing source', async () => {
+    await setEditorContent(page, TWO_CHAPTER_STORY);
+    await switchToGraphLab(page);
+    const before = await getEditorContent(page);
+
+    await page.keyboard.press('Control+K');
+    const search = page.getByPlaceholder(/搜索标题、ID、正文或选项|search title, ID, body, or option/i);
+    await expect(search).toBeFocused();
+    await search.fill('终点');
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByTestId('graph-lab-selection-label')).toContainText('终点');
+    await expect.poll(() => page.evaluate(() => (
+      (window as unknown as TestWindow).__test_store__?.getUIState().activeChapterId
+    ))).toBe('第二章');
+    expect(await getEditorContent(page)).toBe(before);
+  });
+
+  test('keeps the canvas first and exposes compact Palette and Inspector drawers', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1280, height: 720 },
+      { width: 1180, height: 720 },
+      { width: 1179, height: 720 },
+      { width: 901, height: 720 },
+      { width: 900, height: 720 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(viewport.width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const paletteToggle = page.getByTestId('graph-lab-palette-toggle');
+      if (viewport.width <= 900) {
+        await expect(paletteToggle).toBeVisible();
+        const box = await paletteToggle.boundingBox();
+        expect(box?.width).toBeGreaterThanOrEqual(44);
+        expect(box?.height).toBeGreaterThanOrEqual(44);
+      } else {
+        await expect(paletteToggle).toBeHidden();
+        await expect(page.getByTestId('graph-lab-create-node')).toBeVisible();
+      }
+    }
+
+    await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(page.getByTestId('graph-lab-palette-toggle')).toBeVisible();
+    await page.getByTestId('graph-lab-palette-toggle').click();
+    await expect(page.getByTestId('graph-lab-create-node')).toBeInViewport();
+    await page.getByTestId('graph-lab-inspector-toggle').click();
+    await expect(page.getByTestId('graph-lab-inspector')).toBeInViewport();
+    await expect(page.getByTestId('graph-lab-create-node')).not.toBeInViewport();
+
+    await page.getByTestId('graph-lab-source-toggle').click();
+    await expect(page.getByTestId('graph-lab-chapter-source-slice')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
+  test('shows tagged system-open failures with their path and error code', async () => {
+    const failedPath = 'D:/PlotFlowE2E/missing-system-open.mdstory';
+    await electronApp.evaluate(({ BrowserWindow }, payload) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send(payload.channel, payload.result);
+    }, {
+      channel: IPC_CHANNELS.file.systemOpenNotify,
+      result: { status: 'error' as const, path: failedPath, code: 'ENOENT' },
+    });
+
+    const status = page.locator('.status-bar');
+    await expect(status).toContainText(failedPath, { timeout: 10_000 });
+    await expect(status).toContainText('ENOENT');
   });
 
   test('keeps dirty window open on close cancel and closes only after discard', async () => {

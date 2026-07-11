@@ -2,7 +2,7 @@
   "meta": {
     "projectName": "PlotFlow",
     "schemaVersion": "2026-06-25.v1",
-    "generatedAt": "2026-07-01T12:21:35.404Z",
+    "generatedAt": "2026-07-10T17:48:16.777Z",
     "repoRoot": "D:/VibeCoding/PlotFlow"
   },
   "summary": {
@@ -44,8 +44,8 @@
       "target": 100
     },
     "publicCompleted": {
-      "status": "pass",
-      "value": 132,
+      "status": "unknown",
+      "value": null,
       "sourceRefs": [
         {
           "path": "README.md",
@@ -56,8 +56,8 @@
       "unit": "tasks"
     },
     "publicCompletionRate": {
-      "status": "pass",
-      "value": 92.96,
+      "status": "warn",
+      "value": 92.07,
       "sourceRefs": [
         {
           "path": "README.md",
@@ -94,8 +94,8 @@
       "target": 100
     },
     "deltaPublicVsReal": {
-      "status": "pass",
-      "value": 0,
+      "status": "warn",
+      "value": -0.89,
       "sourceRefs": [
         {
           "path": "README.md",
@@ -228,7 +228,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 47,
+                "line": 59,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -246,7 +246,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 48,
+                "line": 60,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -263,7 +263,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 49,
+                "line": 61,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -280,7 +280,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 50,
+                "line": 62,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -297,7 +297,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 51,
+                "line": 63,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -314,7 +314,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 52,
+                "line": 64,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -332,7 +332,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 53,
+                "line": 65,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -349,7 +349,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 54,
+                "line": 66,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -366,7 +366,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 55,
+                "line": 67,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -383,7 +383,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 56,
+                "line": 68,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -400,7 +400,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 57,
+                "line": 69,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -417,7 +417,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 58,
+                "line": 70,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -434,7 +434,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 59,
+                "line": 71,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -451,7 +451,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 41,
+            "line": 53,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -492,7 +492,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 71,
+                "line": 83,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -510,7 +510,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 72,
+                "line": 84,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -528,7 +528,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 73,
+                "line": 85,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -546,7 +546,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 74,
+                "line": 86,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -564,7 +564,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 75,
+                "line": 87,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -582,7 +582,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 76,
+                "line": 88,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -600,7 +600,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 77,
+                "line": 89,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -618,7 +618,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 83,
+                "line": 95,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -636,7 +636,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 84,
+                "line": 96,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -653,7 +653,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 85,
+                "line": 97,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -670,7 +670,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 86,
+                "line": 98,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -687,7 +687,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 87,
+                "line": 99,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -704,7 +704,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 88,
+                "line": 100,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -721,7 +721,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 94,
+                "line": 106,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -738,7 +738,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 95,
+                "line": 107,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -755,7 +755,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 101,
+                "line": 113,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -772,7 +772,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 102,
+                "line": 114,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -789,7 +789,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 63,
+            "line": 75,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -830,7 +830,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 112,
+                "line": 124,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -848,7 +848,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 113,
+                "line": 125,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -866,7 +866,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 114,
+                "line": 126,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -884,7 +884,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 115,
+                "line": 127,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -902,7 +902,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 116,
+                "line": 128,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -920,7 +920,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 117,
+                "line": 129,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -938,7 +938,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 118,
+                "line": 130,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -956,7 +956,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 119,
+                "line": 131,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -974,7 +974,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 120,
+                "line": 132,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -991,7 +991,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 121,
+                "line": 133,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1008,7 +1008,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 122,
+                "line": 134,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1025,7 +1025,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 123,
+                "line": 135,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1042,7 +1042,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 124,
+                "line": 136,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1059,7 +1059,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 125,
+                "line": 137,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1076,7 +1076,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 126,
+                "line": 138,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1093,7 +1093,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 127,
+                "line": 139,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1110,7 +1110,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 106,
+            "line": 118,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -1151,7 +1151,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 139,
+                "line": 151,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1169,7 +1169,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 140,
+                "line": 152,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1187,7 +1187,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 141,
+                "line": 153,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1205,7 +1205,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 142,
+                "line": 154,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1223,7 +1223,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 143,
+                "line": 155,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1241,7 +1241,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 144,
+                "line": 156,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1259,7 +1259,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 145,
+                "line": 157,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1277,7 +1277,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 146,
+                "line": 158,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1295,7 +1295,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 152,
+                "line": 164,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1312,7 +1312,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 153,
+                "line": 165,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1329,7 +1329,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 154,
+                "line": 166,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1346,7 +1346,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 155,
+                "line": 167,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1364,7 +1364,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 161,
+                "line": 173,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1382,7 +1382,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 162,
+                "line": 174,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1400,7 +1400,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 163,
+                "line": 175,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1418,7 +1418,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 164,
+                "line": 176,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1436,7 +1436,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 165,
+                "line": 177,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1454,7 +1454,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 166,
+                "line": 178,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1471,7 +1471,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 131,
+            "line": 143,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -1512,7 +1512,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 178,
+                "line": 190,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1530,7 +1530,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 179,
+                "line": 191,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1548,7 +1548,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 180,
+                "line": 192,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1566,7 +1566,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 181,
+                "line": 193,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1584,7 +1584,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 187,
+                "line": 199,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1602,7 +1602,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 188,
+                "line": 200,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1620,7 +1620,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 189,
+                "line": 201,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1638,7 +1638,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 190,
+                "line": 202,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1656,7 +1656,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 191,
+                "line": 203,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1674,7 +1674,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 197,
+                "line": 209,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1692,7 +1692,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 203,
+                "line": 215,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1710,7 +1710,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 204,
+                "line": 216,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1728,7 +1728,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 210,
+                "line": 222,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1746,7 +1746,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 211,
+                "line": 223,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1764,7 +1764,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 212,
+                "line": 224,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1782,7 +1782,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 213,
+                "line": 225,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1800,7 +1800,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 214,
+                "line": 226,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1818,7 +1818,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 215,
+                "line": 227,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1836,7 +1836,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 216,
+                "line": 228,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1854,7 +1854,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 217,
+                "line": 229,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1872,7 +1872,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 218,
+                "line": 230,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1890,7 +1890,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 224,
+                "line": 236,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1908,7 +1908,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 225,
+                "line": 237,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1924,7 +1924,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 226,
+                "line": 238,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1942,7 +1942,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 232,
+                "line": 244,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1960,7 +1960,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 233,
+                "line": 245,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -1977,7 +1977,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 170,
+            "line": 182,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -2016,7 +2016,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 245,
+                "line": 257,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2032,7 +2032,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 246,
+                "line": 258,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2048,7 +2048,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 247,
+                "line": 259,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2064,7 +2064,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 248,
+                "line": 260,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2080,7 +2080,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 249,
+                "line": 261,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2098,7 +2098,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 250,
+                "line": 262,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2116,7 +2116,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 251,
+                "line": 263,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2134,7 +2134,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 252,
+                "line": 264,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2152,7 +2152,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 253,
+                "line": 265,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2170,7 +2170,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 254,
+                "line": 266,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2188,7 +2188,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 255,
+                "line": 267,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2206,7 +2206,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 256,
+                "line": 268,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2224,7 +2224,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 257,
+                "line": 269,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2242,7 +2242,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 258,
+                "line": 270,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2260,7 +2260,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 259,
+                "line": 271,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2278,7 +2278,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 260,
+                "line": 272,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2296,7 +2296,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 261,
+                "line": 273,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2314,7 +2314,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 262,
+                "line": 274,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2332,7 +2332,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 263,
+                "line": 275,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2349,7 +2349,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 237,
+            "line": 249,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -2390,7 +2390,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 273,
+                "line": 285,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2408,7 +2408,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 274,
+                "line": 286,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2426,7 +2426,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 275,
+                "line": 287,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2444,7 +2444,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 276,
+                "line": 288,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2462,7 +2462,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 277,
+                "line": 289,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2480,7 +2480,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 278,
+                "line": 290,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2498,7 +2498,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 279,
+                "line": 291,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2516,7 +2516,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 280,
+                "line": 292,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2534,7 +2534,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 281,
+                "line": 293,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2552,7 +2552,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 282,
+                "line": 294,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2570,7 +2570,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 283,
+                "line": 295,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2588,7 +2588,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 284,
+                "line": 296,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2606,7 +2606,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 285,
+                "line": 297,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2624,7 +2624,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 286,
+                "line": 298,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2642,7 +2642,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 287,
+                "line": 299,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2660,7 +2660,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 288,
+                "line": 300,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2678,7 +2678,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 289,
+                "line": 301,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2696,7 +2696,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 290,
+                "line": 302,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2713,7 +2713,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 267,
+            "line": 279,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -2754,7 +2754,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 311,
+                "line": 323,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2772,7 +2772,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 312,
+                "line": 324,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2788,7 +2788,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 313,
+                "line": 325,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2804,7 +2804,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 314,
+                "line": 326,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2822,7 +2822,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 315,
+                "line": 327,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2840,7 +2840,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 316,
+                "line": 328,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2858,7 +2858,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 317,
+                "line": 329,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2876,7 +2876,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 318,
+                "line": 330,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2892,7 +2892,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 319,
+                "line": 331,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2908,7 +2908,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 320,
+                "line": 332,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2926,7 +2926,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 321,
+                "line": 333,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2942,7 +2942,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 322,
+                "line": 334,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2958,7 +2958,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 323,
+                "line": 335,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2976,7 +2976,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 324,
+                "line": 336,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -2992,7 +2992,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 325,
+                "line": 337,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3009,252 +3009,36 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 305,
+            "line": 317,
             "capturedAt": "2026-06-25"
           }
         ]
       },
       {
         "id": "M8",
-        "title": "Graph Lab Core锛堝浘浼樺厛姝ｅ紡鍏ュ彛锛?",
+        "title": "Graph Lab Core（图优先正式入口）",
         "totalTasks": 18,
         "computedCounts": {
-          "complete": 17,
-          "inProgress": 1,
+          "complete": 18,
+          "inProgress": 0,
           "notStarted": 0,
           "blocked": 0,
           "skipped": 0,
           "removed": 0,
-          "remaining": 1
+          "remaining": 0
         },
-        "computedProgress": 94.44,
+        "computedProgress": 100,
         "declaredProgress": null,
         "publicProgress": null,
         "tasks": [
           {
             "id": "M8-01",
-            "title": "`workspaceMode: 'split' \\ | 'graphLab'` 鐘舵€佷笌鎸佷箙鍖?",
+            "title": "`workspaceMode: 'split' \\ | 'graphLab'` 状态与持久化",
             "status": "complete",
-            "rawStatus": "鉁?",
+            "rawStatus": "✅",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "`useUIStore` 鎸佷箙鍖栨ā寮忥紝娴嬭瘯妗ユ帴鍙鍐?",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 334,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-02",
-            "title": "椤堕儴妯″紡鍒囨崲鎸夐挳涓庡揩鎹烽敭",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "Toolbar Split/Graph Lab 鎸夐挳涓?`Ctrl+Shift+G`",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 335,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-03",
-            "title": "Graph Lab 鍏ㄥ睆鐢诲竷澹?",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "`GraphLabWorkspace` 涓夋爮鍥句紭鍏堝竷灞€",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 336,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-04",
-            "title": "鑺傜偣 palette 涓庣┖鐧界敾甯冨垱寤哄叆鍙?",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "`GraphLabPalette` 鍒涘缓绔犺妭/鑺傜偣/缁撳眬涓庨噸鏂板竷灞€",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 337,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-05",
-            "title": "`graphEditService` 鍛戒护灞?",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "GUI 鎿嶄綔缁熶竴鐢熸垚 `.mdstory` 鏂囨湰缂栬緫骞惰蛋瑙ｆ瀽绠＄嚎",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 338,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-06",
-            "title": "GUI 鍒涘缓/鍒犻櫎鑺傜偣",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "Palette 鍒涘缓锛孖nspector 鍒犻櫎",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 339,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-07",
-            "title": "Inspector 缂栬緫鑺傜偣鏍囬銆佺珷鑺傘€佹鏂?",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "鏀瑰悕鍚庡悓姝ラ€変腑鑺傜偣 id锛岄伩鍏?Inspector 涓㈠け涓婁笅鏂?",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 340,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-08",
-            "title": "GUI 鍒涘缓/缂栬緫/鍒犻櫎/鎺掑簭閫夐」",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "鏀寔鎻忚堪銆佺洰鏍囥€佹潯浠躲€佹晥鏋溿€佷笂绉?涓嬬Щ/鍒犻櫎",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 341,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-09",
-            "title": "鎷栫嚎杩炴帴宸叉湁鐩爣鑺傜偣",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "钃濆浘寮忕嚎缂嗙儹鍖猴紱鎷栧埌宸叉湁鑺傜偣鐩存帴鍐欏洖閫夐」鐩爣",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 342,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-10",
-            "title": "鎷栫嚎鍒扮┖鐧藉鍒涘缓鐩爣鑺傜偣骞惰繛鎺?",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "绌烘姇鍔ㄤ綔鑿滃崟鏀寔鍒涘缓鏅€氳妭鐐广€佸垱寤虹粨灞€鑺傜偣銆佹悳绱㈠凡鏈夎妭鐐广€佸彇娑?",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 343,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-11",
-            "title": "鏉′欢缂栬緫鍣ㄥ祵鍏?Inspector",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "Inspector 鍐呰仈缂栬緫 `[鏉′欢]`锛屼繚鐣欏師娴眰鏉′欢缂栬緫鍣?",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 344,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-12",
-            "title": "鏁堟灉缂栬緫鍣?",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "Inspector 鍐呰仈缂栬緫 `[鏁堟灉]`",
-            "sourceRefs": [
-              {
-                "path": "spec/progress.md",
-                "kind": "markdown",
-                "confidence": "high",
-                "line": 345,
-                "capturedAt": "2026-06-25"
-              }
-            ]
-          },
-          {
-            "id": "M8-13",
-            "title": "鍙橀噺鍜?meta 缂栬緫鍏ュ彛",
-            "status": "complete",
-            "rawStatus": "鉁?",
-            "startedAt": "2026-06-24",
-            "completedAt": "2026-06-24",
-            "note": "Meta title/author 涓?`vars:` 绫诲瀷澹版槑缂栬緫",
+            "note": "`useUIStore` 持久化模式；当前默认值、一次性旧偏好迁移与迁移后的用户选择遵循 ADR-012",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3266,13 +3050,13 @@
             ]
           },
           {
-            "id": "M8-14",
-            "title": "鍥炬ā寮忚瘖鏂姸鎬佷笌 ProblemPanel 鑱斿姩",
+            "id": "M8-02",
+            "title": "顶部模式切换按钮与快捷键",
             "status": "complete",
-            "rawStatus": "鉁?",
+            "rawStatus": "✅",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "Graph Lab 澶嶇敤 ProblemPanel 涓庤瘖鏂悓姝ョ姸鎬?",
+            "note": "Toolbar Split/Graph Lab 按钮与 `Ctrl+Shift+G`",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3284,13 +3068,13 @@
             ]
           },
           {
-            "id": "M8-15",
-            "title": "鍙姌鍙?Source Drawer",
+            "id": "M8-03",
+            "title": "Graph Lab 全屏画布壳",
             "status": "complete",
-            "rawStatus": "鉁?",
+            "rawStatus": "✅",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "婧愭枃鏈彧璇?瀹氫綅杈呭姪鎶藉眽锛孏raph Lab 鍐呭彲灞曞紑",
+            "note": "`GraphLabWorkspace` 三栏图优先布局",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3302,13 +3086,13 @@
             ]
           },
           {
-            "id": "M8-16",
-            "title": "GUI 鎿嶄綔涓?Monaco 鎾ら攢鏍堝悓姝?",
+            "id": "M8-04",
+            "title": "节点 palette 与空白画布创建入口",
             "status": "complete",
-            "rawStatus": "鉁?",
+            "rawStatus": "✅",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "浼樺厛 `executeEdits()`锛屾棤 editor 瀹炰緥鏃?fallback 鍒?store",
+            "note": "`GraphLabPalette` 创建章节/节点/结局与重新布局",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3320,13 +3104,13 @@
             ]
           },
           {
-            "id": "M8-17",
-            "title": "Graph Lab 瀹屾暣鐢ㄦ埛鏃呯▼ E2E",
+            "id": "M8-05",
+            "title": "`graphEditService` 命令层",
             "status": "complete",
-            "rawStatus": "鉁?",
+            "rawStatus": "✅",
             "startedAt": "2026-06-24",
             "completedAt": "2026-06-24",
-            "note": "`graph-lab.e2e.spec.ts` 瑕嗙洊鍒涘缓銆佺紪杈戙€佽妭鐐逛綅缃寔涔呭寲銆佹嫋绾垮埌宸叉湁鑺傜偣銆佺┖鎶曞垱寤鸿妭鐐广€佹柇寮€绾跨紗銆佸彉閲忋€丼ource Drawer銆佸鍑?JSON",
+            "note": "GUI 操作统一生成 `.mdstory` 文本编辑并走解析管线",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
@@ -3338,18 +3122,235 @@
             ]
           },
           {
-            "id": "M8-18",
-            "title": "鍙戝竷璇存槑銆佸府鍔╂枃妗堛€佸叕寮€涓嬭浇椤垫敹灏?",
-            "status": "in_progress",
-            "rawStatus": "馃數",
+            "id": "M8-06",
+            "title": "GUI 创建/删除节点",
+            "status": "complete",
+            "rawStatus": "✅",
             "startedAt": "2026-06-24",
-            "note": "Graph Lab 宸茶浆姝ｅ紡鍏ュ彛锛涘叕寮€鍙戝竷鏂囨寰呴殢涓嬭浇椤电粺涓€鏀跺熬",
+            "completedAt": "2026-06-24",
+            "note": "Palette 创建，Inspector 删除",
             "sourceRefs": [
               {
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
                 "line": 351,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-07",
+            "title": "Inspector 编辑节点标题、章节、正文",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "改名后同步选中节点 id，避免 Inspector 丢失上下文",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 352,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-08",
+            "title": "GUI 创建/编辑/删除/排序选项",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "支持描述、目标、条件、效果、上移/下移/删除",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 353,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-09",
+            "title": "拖线连接已有目标节点",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "拖到已有节点直接写回选项目标",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 354,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-10",
+            "title": "拖线到空白处创建目标节点并连接",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "空投动作菜单支持创建普通节点、结局节点、搜索已有节点、取消",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 355,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-11",
+            "title": "条件编辑器嵌入 Inspector",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Inspector 内联编辑条件，保留原浮层条件编辑器",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 356,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-12",
+            "title": "效果编辑器",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Inspector 内联编辑效果，变量来自 frontmatter `vars:`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 357,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-13",
+            "title": "变量和 meta 编辑入口",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "Meta title/author 与单文件全局 `vars:` 声明编辑；变量可进入条件/效果下拉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 358,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-14",
+            "title": "图模式诊断状态与 ProblemPanel 联动",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "Graph Lab 复用 ProblemPanel；W007 闭环诊断纳入选项边和 `下一步` 边",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 359,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-15",
+            "title": "可折叠 Source Drawer",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "Graph Lab 中按当前章节显示源码切片并映射回全文件",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 360,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-16",
+            "title": "GUI 操作与 Monaco 撤销栈同步",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "优先 `executeEdits()`，无 editor 实例时 fallback 到 store",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 361,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-17",
+            "title": "Graph Lab 完整用户旅程 E2E",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "`graph-lab.e2e.spec.ts` 覆盖创建、编辑、布局持久化、拖线、变量、Source Drawer、导出、章节标签可见性和截图附件；当前窄回归 19/19",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 362,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-18",
+            "title": "发布说明、帮助文案、公开下载页收口",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-10",
+            "note": "README/PRD/UX/QA/门禁与官网已同步 Graph Lab 默认主工作区决策；正式 release candidate 仍取决于新包、unpacked/installed blackbox 与人工巡检",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 363,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3360,7 +3361,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 329,
+            "line": 341,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -3395,7 +3396,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 361,
+                "line": 373,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3413,7 +3414,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 362,
+                "line": 374,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3431,7 +3432,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 363,
+                "line": 375,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3449,7 +3450,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 364,
+                "line": 376,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3467,7 +3468,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 365,
+                "line": 377,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3485,7 +3486,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 366,
+                "line": 378,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3503,7 +3504,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 367,
+                "line": 379,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3519,7 +3520,7 @@
                 "path": "spec/progress.md",
                 "kind": "markdown",
                 "confidence": "high",
-                "line": 368,
+                "line": 380,
                 "capturedAt": "2026-06-25"
               }
             ]
@@ -3530,7 +3531,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 355,
+            "line": 367,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -3587,7 +3588,7 @@
       },
       {
         "date": "2026-06-24",
-        "completedTasks": 19,
+        "completedTasks": 15,
         "sourceRefs": [
           {
             "path": "spec/progress.md",
@@ -3600,6 +3601,30 @@
       {
         "date": "2026-06-25",
         "completedTasks": 7,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-06",
+        "completedTasks": 4,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-10",
+        "completedTasks": 1,
         "sourceRefs": [
           {
             "path": "spec/progress.md",
@@ -4588,11 +4613,11 @@
         "id": "readme",
         "label": "README public snapshot",
         "path": "README.md",
-        "status": "pass",
+        "status": "warn",
         "discrepancyCount": 0,
         "missingFields": [],
         "notes": [
-          "作为公开口径保留，不参与真实值重算"
+          "未解析到对外总进度口径"
         ]
       },
       {
@@ -4753,7 +4778,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 41,
+            "line": 53,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4771,7 +4796,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 63,
+            "line": 75,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4789,7 +4814,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 106,
+            "line": 118,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4807,7 +4832,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 131,
+            "line": 143,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4825,7 +4850,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 170,
+            "line": 182,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4843,7 +4868,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 237,
+            "line": 249,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4861,7 +4886,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 267,
+            "line": 279,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4879,7 +4904,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 305,
+            "line": 317,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4891,7 +4916,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 329,
+            "line": 341,
             "capturedAt": "2026-06-25"
           }
         ]
@@ -4903,7 +4928,7 @@
             "path": "spec/progress.md",
             "kind": "markdown",
             "confidence": "high",
-            "line": 355,
+            "line": 367,
             "capturedAt": "2026-06-25"
           }
         ]

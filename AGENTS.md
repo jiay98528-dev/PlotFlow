@@ -15,16 +15,17 @@
 
 ## 一、项目身份
 
-**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为磁盘格式基础，提供 split 文本编辑与 Graph Lab 图优先实验模式双入口，以多格式导出为目标。
+**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并保留顶栏并列的 Split 完整源码投影，以多格式导出为目标。
 
 **一句话**：让叙事设计师用 Markdown 或流程图管理分支剧情，程序拿干净 JSON 直接跑。不锁死数据，不强制联网，$29 买断。
 
 ### 核心闭环
 
 ```
-用户打开/创建 .mdstory 文件 → 选择 split 分栏或 Graph Lab 实验模式编辑分支叙事
+用户打开/创建 .mdstory 文件 → 默认进入 Graph Lab，以完整 GUI 工作流编辑分支叙事
     ├── 实时分支可视化图（React Flow，可拖拽编辑，双向同步源文本）
-    ├── Graph Lab 实验模式（流程图优先、Inspector 编辑、Source Drawer 辅助）
+    ├── Graph Lab 默认主工作区（流程图优先、Inspector 编辑、Source Drawer 辅助）
+    ├── Split 辅助源码投影（完整 `.mdstory`、Monaco、Outline 与分支图）
     ├── 图形化条件编辑器（Airtable 风格，零代码）
     ├── 三级语法错误检测（错误/警告/建议，波浪线+侧边标记）
     ├── 四维幽灵字符补全（节点标题/选项句式/正文描述/变量名）
@@ -114,9 +115,9 @@
 **当前进度（2026-06-24 V0.3）**：
 - M0-M7 历史任务明细：132 个 ✅、9 个 ⏭️、1 个 ❌，总进度 **132/142（92.96%）**
 - M0 1 项历史 E2E 框架任务已移除；M4/M5 各 1 项延后；M7 7 项平台发布任务延后
-- 基础门禁：lint/typecheck/test/build/lint:css 均通过；`pnpm.cmd test` 为 39 files / 1222 tests
-- 当前发行门禁：最新 save-flow 源码修复已通过 Graph Lab 窄回归 18/18、完整 app 集成 E2E 49/49 和 source blackbox 10 passed / 4 packaged-or-installed skipped；unpacked blackbox、installed blackbox 和人工巡检必须在本次修复后重跑。历史 package/unpacked 结果只能作为 stale evidence，详见 spec/release-blackbox-gate.md
-- M8 Graph Lab Core：18 项新增图优先任务，当前 17/18，不混入旧 142 项统计；剩余发布说明/帮助文案收尾
+- 基础门禁：lint/typecheck/test/build/lint:css/lint:tokens/lint:bundle/UI literal/Schema/engine/website/audit 均通过；`pnpm.cmd test` 为 68 files / 1376 tests
+- 当前发行门禁：Graph-first/P2 完整 app 集成 E2E 79/79、source blackbox 11 passed / 6 目标专属 skipped、全新 Windows package 和 unpacked blackbox 16 passed / 1 installed-only skipped 均通过。远程 CI、installed blackbox、30 分钟人工巡检、真实引擎 smoke 和 Authenticode 签名仍待完成，不得宣称公共正式发行完成；详见 `spec/release-blackbox-gate.md`
+- M8 Graph Lab Core：18 项新增图优先任务，当前 18/18（源码与文档级），不混入旧 142 项统计
 
 ### V0.1 核心交付范围
 

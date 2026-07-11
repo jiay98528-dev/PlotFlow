@@ -7,6 +7,7 @@ export interface NativeDialogOptions {
   readonly filePath: string;
   readonly timeoutMs?: number;
   readonly buttonPattern?: string;
+  readonly mode?: 'save' | 'open';
 }
 
 export async function completeNativeFileDialog(options: NativeDialogOptions): Promise<void> {
@@ -17,6 +18,7 @@ export async function completeNativeFileDialog(options: NativeDialogOptions): Pr
   const timeoutMs = options.timeoutMs ?? 15_000;
   const buttonPattern = options.buttonPattern
     ?? 'Save|Open|Select|Export|OK|\u4fdd\u5b58|\u6253\u5f00|\u9009\u62e9|\u5bfc\u51fa|\u78ba\u5b9a|\u4fdd\u5b58\u3059\u308b|\uc800\uc7a5';
+  const mode = options.mode ?? 'save';
 const script = `
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -34,6 +36,7 @@ $filePath = @'
 ${options.filePath}
 '@
 $buttonPattern = '${buttonPattern}'
+$dialogMode = '${mode}'
 
 function Find-Dialog {
   $root = [System.Windows.Automation.AutomationElement]::RootElement
@@ -205,7 +208,7 @@ function Test-DialogVisible($dialog) {
 function Wait-DialogSubmitted($dialog, $path) {
   $submitDeadline = [DateTime]::UtcNow.AddMilliseconds(5000)
   while ([DateTime]::UtcNow -lt $submitDeadline) {
-    if (Test-Path -LiteralPath $path) {
+    if ($dialogMode -eq 'save' -and (Test-Path -LiteralPath $path)) {
       return $true
     }
     if (-not (Test-DialogVisible $dialog)) {
@@ -231,7 +234,10 @@ function Try-BlindSubmit($path) {
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
     $submitDeadline = [DateTime]::UtcNow.AddMilliseconds(900)
     while ([DateTime]::UtcNow -lt $submitDeadline) {
-      if (Test-Path -LiteralPath $path) {
+      if ($dialogMode -eq 'save' -and (Test-Path -LiteralPath $path)) {
+        return $true
+      }
+      if (-not (Test-DialogVisible $dialog)) {
         return $true
       }
       Start-Sleep -Milliseconds 100

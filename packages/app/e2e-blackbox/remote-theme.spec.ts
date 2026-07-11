@@ -66,8 +66,8 @@ test.describe('blackbox official remote themes', () => {
       const remoteAction = launched.page.getByTestId('theme-center-remote-action').first();
       await expect(remoteAction).toBeEnabled({ timeout: 20_000 });
       await remoteAction.click();
-      await expect(launched.page.locator('html[data-theme-id="plotflow-narrative-workbench"]')).toHaveCount(1);
-      await expect(launched.page.locator('[data-theme-card-id="plotflow-narrative-workbench"]')).toBeVisible();
+      await expect(launched.page.locator('html[data-theme-id="plotflow-prism-foundry"]')).toHaveCount(1);
+      await expect(launched.page.locator('[data-theme-card-id="plotflow-prism-foundry"]')).toBeVisible();
     } finally {
       await closeBlackboxApp(launched.app);
     }

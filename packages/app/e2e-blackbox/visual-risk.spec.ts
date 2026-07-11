@@ -32,20 +32,24 @@ test.describe('blackbox visual and theme risk checks', () => {
       const page = launched.page;
       await dismissHomeIfVisible(page);
 
-      await switchToSplit(page);
-      await expect(page.locator('.split-workspace')).toBeVisible();
-      await capture(page, testInfo, 'split-default');
-
-      await switchToGraphLab(page);
-      await expect(page.locator('[data-official-node-theme="plotflow-narrative-workbench"]').first()).toBeVisible();
-      await expect(page.locator('[data-official-edge-theme="plotflow-narrative-workbench"]').first()).toBeVisible();
+      await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+      await expect(page.locator('.split-workspace')).toHaveCount(0);
+      await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
+      await expect(page.locator('[data-official-node-theme="plotflow-prism-foundry"]').first()).toBeVisible();
+      await expect(page.locator('[data-official-edge-theme="plotflow-prism-foundry"]').first()).toBeVisible();
       for (const viewport of VIEWPORTS) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
-        await capture(page, testInfo, `graph-lab-narrative-${viewport.name}`);
+        await capture(page, testInfo, `graph-lab-prism-${viewport.name}`);
       }
 
+      // Split remains a first-class auxiliary projection, but is no longer the default capture.
       await page.setViewportSize({ width: 1440, height: 900 });
+      await switchToSplit(page);
+      await expect(page.locator('.split-workspace')).toBeVisible();
+      await capture(page, testInfo, 'split-auxiliary');
+      await switchToGraphLab(page);
+
       await page.getByTestId('toolbar-theme-center').click();
       await expect(page.getByTestId('theme-center')).toBeVisible();
       await capture(page, testInfo, 'theme-center');
@@ -56,7 +60,7 @@ test.describe('blackbox visual and theme risk checks', () => {
         await expect(page.locator('html[data-theme-id="plotflow-engine-telemetry"]')).toHaveCount(1);
         await expect(page.locator('[data-official-node-theme="plotflow-engine-telemetry"]').first()).toBeVisible();
         await expect(page.locator('[data-official-edge-theme="plotflow-engine-telemetry"]').first()).toBeVisible();
-        await expect(page.locator('[data-official-node-theme="plotflow-narrative-workbench"]')).toHaveCount(0);
+        await expect(page.locator('[data-official-node-theme="plotflow-prism-foundry"]')).toHaveCount(0);
         await capture(page, testInfo, 'graph-lab-engine-telemetry');
       }
     } finally {

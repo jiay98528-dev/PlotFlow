@@ -297,7 +297,7 @@ function LandingPage({
       <section className="section">
         <div className="section__intro">
           <p className="eyebrow">{copy.featureTitle}</p>
-          <h2>{locale === 'zh' ? '先稳定文本与图的协作，再推进全图形界面。' : 'Stabilize text plus graph first, then move toward full GUI.'}</h2>
+          <h2>{locale === 'zh' ? '默认在画布上完成创作，源码始终透明可控。' : 'Create on the canvas by default, with the source always transparent and controllable.'}</h2>
         </div>
         <div className="feature-grid">
           {copy.features.map((feature, index) => (
@@ -491,7 +491,7 @@ function DevelopmentPage({ locale, status }: PageProps & { status: ProjectStatus
       <section className="section">
         <div className="section__intro">
           <p className="eyebrow">{copy.roadmapTitle}</p>
-          <h2>{locale === 'zh' ? '下一步围绕公开发行与图优先模式推进。' : 'Next work focuses on public release and graph-first editing.'}</h2>
+          <h2>{locale === 'zh' ? '下一步完成安装态门禁、真实引擎 smoke、人工巡检与发行签名。' : 'Next: installed-app gates, real engine smoke, manual patrol, and release signing.'}</h2>
         </div>
         <div className="roadmap-list">
           {status.roadmap.map((item) => {

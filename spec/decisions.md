@@ -2,6 +2,12 @@
 
 > **当前主题决策覆盖说明（2026-06-27）**：ADR-011 覆盖并修正旧 ADR-010 中关于“远程下载暂不开放、购买入口、夜航蓝图、社区市场后续立项”的表述。当前路线为官方远程免费 ZIP 代码主题：无第三方、无社区上传、无本地导入、无支付授权；支持官方远程注册、下载、更新、`sha256` 校验、安全解包、`plotflow-theme://` 动态加载，以及与内置主题同等的当前 `ThemeDescriptor` / Surface / Slot / UX recipe 能力。完整开发标准见 `doc/standards-theme-development.md`。
 
+> **Graph-first 默认工作区覆盖说明（2026-07-10）**：`doc/adr/ADR-012-graph-lab-default-workspace.md` 仅覆盖 ADR-008 中“Graph Lab 不替代 Split 默认工作流”的旧条款。Graph Lab 现为主要且默认创作工作区；Split 在顶栏并列保留，定位为辅助与高级的完整源码投影。ADR-008 关于 `.mdstory` 唯一磁盘真相源和双投影同步的其余决策继续有效。
+
+> **FullID / Schema 覆盖说明（2026-07-11）**：`doc/adr/ADR-013-fullid-schema-02.md` 覆盖历史 `${chapterId}-${nodeId}` FullID、继续写出 JSON Schema 0.1、以及 chapter scope 没有显式归属章节的旧实现口径。当前 canonical FullID 为 `encodeURIComponent(chapterId) + "/" + encodeURIComponent(nodeId)`，并作为 opaque key 使用；旧 hyphen layout 只允许按当前 AST 枚举 alias 后唯一匹配迁移，碰撞时禁止猜测。当前导出合同为 JSON Schema 0.2，`.mdstory` 的系统管理 `plotflow` 仍为 0.1。源/Inspector/internal engine 使用 `generic | godot | unity | unreal`，JSON 0.2 使用 `none | godot | unity | unreal`，导出器执行 `generic → none`；源 parser 不接受 JSON 专用的 `none`。0.2 Comparison 写出 typed `left/right` operands，历史 0.1 `variable/value` 只读兼容，所有引擎运行时必须容忍两者。章节变量仅顶层声明 `scope/chapter`，值随故事会话持久化但只在归属章节可见。P1 源码与严格 unpacked/Ajv 门禁已通过；installed、人工巡检、真实引擎工具链与签名仍待验收。
+
+> **Graph Lab P2 硬化说明（2026-07-11）**：`doc/adr/ADR-014-graph-lab-p2-hardening.md` 记录模式切换草稿守卫、故事会话边界、诊断本地化合同、canvas-first 响应式结构和 CI/Windows 发行分层。该 ADR 已确认、实现与门禁补跑中；不得把工作流文件存在写成门禁已通过。
+
 
 > **鐗堟湰**锛歏0.1 | **鍒涘缓鏃ユ湡**锛?026-06-12
 > **鏍煎紡**锛歁ichael Nygard ADR 妯℃澘锛堣儗鏅?鈫?鍐崇瓥 鈫?鍚庢灉 鈫?鏇夸唬鏂规锛?
@@ -20,6 +26,10 @@
 | ADR-008 | Graph-first Dual Projection | 2026-06-23 | 鉁?宸茬‘璁?|
 | ADR-009 | Electron 42 鏀寔绾垮畨鍏ㄨ縼绉?| 2026-06-24 | 鉁?宸茬‘璁?|
 | ADR-010 | 瀹樻柟涓婚缂栬瘧鍐呯疆鐑彃鎷旀灦鏋?| 2026-06-25 | 鉁?宸茬‘璁?|
+| ADR-011 | 官方远程免费 ZIP 代码主题 | 2026-06-27 | ✅ 已通过 |
+| ADR-012 | Graph Lab 作为主要且默认工作区 | 2026-07-10 | ✅ 已通过 |
+| ADR-013 | 编码斜杠 FullID、布局迁移与 JSON Schema 0.2 | 2026-07-11 | ✅ 已通过（源码与 unpacked 自动门禁通过） |
+| ADR-014 | Graph Lab P2 可靠性、响应式与发行硬化 | 2026-07-11 | 🟡 已确认，实施中 |
 
 ---
 
@@ -226,6 +236,8 @@ PlotFlow 闇€閫夋嫨妗岄潰搴旂敤妗嗘灦銆傚€欓€夛細Electron
 ---
 
 ## ADR-008: Graph-first Dual Projection
+
+> **状态补充（2026-07-10）**：部分被 ADR-012 覆盖。下文关于 Split 为默认工作流、Graph Lab 仅作为并行验证入口的表述为历史记录；当前默认模式以 ADR-012 为准。`.mdstory` 唯一真相源与双投影原则未被覆盖。
 
 **鏃ユ湡**锛?026-06-23
 **鐘舵€?*锛氣渽 宸茬‘璁?

@@ -48,7 +48,7 @@ describe('site content', () => {
     expect(zhSource).toMatch(/Godot/);
     expect(zhSource).toMatch(/叙事工作台/);
     expect(zhSource).toMatch(/霓虹档案/);
-    expect(zhSource).toMatch(/当前无已知阻断 BUG/);
+    expect(zhSource).toMatch(/安装态、真实引擎 smoke、人工巡检和发行签名待完成/);
   });
 
   it('describes official free themes without exposing local import or payment', () => {
@@ -82,7 +82,7 @@ describe('site content', () => {
   it('has generated project status data for the development page', () => {
     let status: {
       summary: { completed: number; total: number };
-      releaseGates: Array<{ name: string; zhName?: string; zhDetail?: string; result?: string }>;
+      releaseGates: Array<{ name: string; status?: string; zhName?: string; zhDetail?: string; result?: string }>;
       stableFeatures: Array<{ title: string; zhTitle?: string }>;
     };
     try {
@@ -98,10 +98,10 @@ describe('site content', () => {
     const appE2eGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd --filter @plotflow/app test:e2e');
     const packageGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd package:win');
 
-    expect(unitGate?.zhDetail).toContain('44 个测试文件 / 1252 条测试用例通过');
-    expect(unitGate?.result).toContain('✅');
-    expect(appE2eGate?.zhDetail).toContain('44 条应用 E2E 全部通过');
-    expect(packageGate?.result).toContain('✅');
+    expect(unitGate?.zhDetail).toContain('68 个测试文件 / 1376 条测试用例通过');
+    expect(unitGate?.status).toBe('pass');
+    expect(appE2eGate?.zhDetail).toContain('74 条 ADR-013 Graph-first 应用 E2E 全部通过');
+    expect(packageGate?.status).toBe('pass');
 
     const visibleStatus = collectVisibleStrings(status).join('\n');
     expect(visibleStatus).not.toContain('39 条应用 E2E');

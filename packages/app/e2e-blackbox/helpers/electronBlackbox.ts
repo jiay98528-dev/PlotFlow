@@ -26,13 +26,15 @@ export interface LaunchBlackboxOptions {
   readonly env?: Record<string, string>;
   readonly cwd?: string;
   readonly target?: BlackboxLaunchTarget;
+  /** Reuse a profile across launches when a journey must verify persisted preferences or recent files. */
+  readonly userDataDir?: string;
 }
 
 export async function launchBlackboxApp(options: LaunchBlackboxOptions = {}): Promise<LaunchedBlackboxApp> {
   const target = options.target ?? getBlackboxTarget();
   const executablePath = getBlackboxExecutablePath(target);
   const electronArgs = getBlackboxArgs(target, options.storyPath);
-  const userDataDir = await ensureDir(join(
+  const userDataDir = await ensureDir(options.userDataDir ?? join(
     tmpdir(),
     `plotflow-blackbox-user-data-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   ));

@@ -53,8 +53,50 @@ export function makeStory(nodeCount: number, title = 'Blackbox Story'): string {
   ].join('\n');
 }
 
+/**
+ * Strict Graph-first release fixture.
+ *
+ * The only error-level diagnostic is the missing option target on the entry
+ * node. A user can repair it entirely through the Graph Inspector by choosing
+ * the visible `第一章 / 出口` target; no source editor or test bridge is needed.
+ */
+export function makeGraphFirstDiagnosticStory(): string {
+  return [
+    '---',
+    'plotflow: 0.2',
+    'title: "Graph First Native Journey"',
+    'author: "Blackbox QA"',
+    'engine: generic',
+    'vars:',
+    '  trust:',
+    '    type: int',
+    '    default: 1',
+    '    scope: global',
+    '---',
+    '',
+    '# 第一章',
+    '',
+    '## 节点：入口',
+    '',
+    '这段正文将通过 Graph Inspector 修改。',
+    '',
+    '[选项] 前往出口 -> 节点：缺失目标',
+    '',
+    '## 节点：出口',
+    '',
+    '这是严格黑盒旅程的出口节点。',
+    '',
+  ].join('\n');
+}
+
 export async function writeStory(path: string, nodeCount: number, title?: string): Promise<string> {
   const content = makeStory(nodeCount, title);
+  await writeFile(path, content, 'utf-8');
+  return content;
+}
+
+export async function writeGraphFirstDiagnosticStory(path: string): Promise<string> {
+  const content = makeGraphFirstDiagnosticStory();
   await writeFile(path, content, 'utf-8');
   return content;
 }

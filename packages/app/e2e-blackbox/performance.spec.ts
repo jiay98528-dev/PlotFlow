@@ -4,10 +4,7 @@ import { join } from 'node:path';
 import {
   closeBlackboxApp,
   dismissHomeIfVisible,
-  ensureSplitGraphVisible,
   launchBlackboxApp,
-  switchToGraphLab,
-  switchToSplit,
   waitForAnyGraphNode,
 } from './helpers/electronBlackbox';
 import { createBlackboxWorkspace, writeStory } from './helpers/fixtures';
@@ -23,13 +20,13 @@ async function recordSample(reportPath: string, sample: PerfSample): Promise<voi
 }
 
 test.describe('blackbox performance baseline', () => {
-  test('opens 100/500/1000 node stories and switches Graph Lab within desktop thresholds @perf', async ({ browserName: _browserName }, testInfo) => {
+  test('opens 100/500/1000 node stories directly into the default Graph Lab within desktop thresholds @perf', async ({ browserName: _browserName }, testInfo) => {
     const workspace = await createBlackboxWorkspace('perf-open');
     const reportPath = testInfo.outputPath('blackbox-performance.jsonl');
     const cases = [
-      { count: 100, openThresholdMs: 3_000, graphLabThresholdMs: 3_000 },
-      { count: 500, openThresholdMs: 8_000, graphLabThresholdMs: 3_000 },
-      { count: 1000, openThresholdMs: 12_000, graphLabThresholdMs: 5_000 },
+      { count: 100, openThresholdMs: 3_000 },
+      { count: 500, openThresholdMs: 8_000 },
+      { count: 1000, openThresholdMs: 12_000 },
     ];
 
     for (const item of cases) {
@@ -49,27 +46,20 @@ test.describe('blackbox performance baseline', () => {
       });
       try {
         await dismissHomeIfVisible(launched.page);
-        await switchToSplit(launched.page);
-        await ensureSplitGraphVisible(launched.page);
-        await expect(launched.page.locator('.official-graph-node').first()).toBeVisible();
+        await expect(launched.page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
+        await expect(launched.page.getByTestId('graph-lab-workspace')).toBeVisible();
+        await expect(launched.page.locator('.split-workspace')).toHaveCount(0);
+        await waitForAnyGraphNode(launched.page);
         const openDuration = Date.now() - start;
         await recordSample(reportPath, {
-          name: `open-${item.count}`,
+          name: `open-graph-lab-${item.count}`,
           durationMs: openDuration,
           thresholdMs: item.openThresholdMs,
         });
         expect(openDuration).toBeLessThanOrEqual(item.openThresholdMs);
-
-        const graphLabStart = Date.now();
-        await switchToGraphLab(launched.page);
-        await waitForAnyGraphNode(launched.page);
-        const graphLabDuration = Date.now() - graphLabStart;
-        await recordSample(reportPath, {
-          name: `graph-lab-switch-${item.count}`,
-          durationMs: graphLabDuration,
-          thresholdMs: item.graphLabThresholdMs,
-        });
-        expect(graphLabDuration).toBeLessThanOrEqual(item.graphLabThresholdMs);
+        if (item.count >= 500) {
+          await expect(launched.page.locator('[data-official-node-theme="plotflow-prism-foundry"]').first()).toBeVisible();
+        }
         expect(runtimeErrors.filter((message) => /RangeError|Maximum call stack/i.test(message))).toEqual([]);
       } finally {
         await closeBlackboxApp(launched.app);

@@ -361,7 +361,7 @@ test.describe('Parser & Validator E2E Tests', () => {
     expect(e002Items.length).toBeGreaterThanOrEqual(1);
     expect(e002Items[0]!.severity).toBe('error');
     // 验证消息中包含未声明的变量名
-    expect(e002Items[0]!.message).toContain('未声明变量');
+    expect(e002Items[0]!.message).toContain('未在 Frontmatter 中声明');
     // 验证位置行号格式正确
     expect(e002Items[0]!.location).toMatch(/行\s*\d+/);
   });
@@ -403,7 +403,7 @@ test.describe('Parser & Validator E2E Tests', () => {
     const w001Items = items.filter((i) => i.code === 'W001');
     expect(w001Items.length).toBeGreaterThanOrEqual(1);
     expect(w001Items[0]!.severity).toBe('warning');
-    expect(w001Items[0]!.message).toContain('孤立');
+    expect(w001Items[0]!.message).toContain('没有入口路线');
 
     // Check graph node -- orphan should have node-status-orphan class
     await waitForGraphStatus(page, 'orphan');

@@ -18,50 +18,50 @@ export const navigation = {
 export const landing = {
   zh: {
     eyebrow: '本地优先的叙事分支工作台',
-    title: '把剧情分支写清楚、看清楚，再交给引擎运行。',
+    title: '在画布上编排剧情分支，再把干净数据交给引擎。',
     subtitle:
-      'PlotFlow 面向独立游戏团队，把 .mdstory 源文件、Graph Lab、实时诊断、条件编辑和 JSON / HTML / TXT 导出收束到一个离线桌面工具。',
+      'PlotFlow 面向独立游戏团队，默认用 Graph Lab 完成图形化创作，同时把所有内容可靠保存为开放的 .mdstory 纯文本。',
     primaryCta: '阅读使用说明',
     secondaryCta: '查看开发进度',
-    status: '当前无已知阻断 BUG；Windows 包、Graph Lab 和主题平台持续收敛。',
+    status: 'Graph-first 源码态与全新 Windows 解包态自动门禁已通过；安装态、真实引擎 smoke、人工巡检和发行签名待完成。',
     loopTitle: '核心闭环',
-    loop: '打开或创建 .mdstory → 编写节点与选项 → 在 Graph Lab 检查走向 → 修复诊断 → 导出 JSON / HTML / TXT → 接入 Godot。',
+    loop: '打开或创建 .mdstory → 默认进入 Graph Lab → 用画布与 Inspector 编排剧情 → 修复诊断 → 保存并导出 → 接入 Godot。',
     audiencesTitle: '服务写作、设计和程序交接',
     audiences: [
-      { title: '独立游戏开发者', body: '用一个本地文本文件管理剧情结构，避免云端依赖和格式锁死。' },
-      { title: '叙事设计师', body: '保留 Markdown 写作体验，同时用流程图检查路径、死胡同和条件逻辑。' },
+      { title: '独立游戏开发者', body: '默认用图形工作流管理剧情结构，同时保留一个本地纯文本文件，避免云端依赖和格式锁死。' },
+      { title: '叙事设计师', body: '无需先学习语法，用画布、Inspector 和章节导航完成创作闭环。' },
       { title: '程序与引擎集成者', body: '拿到结构化 JSON 与 Godot 运行时约定，减少手工翻译。' },
     ],
     featureTitle: '已形成闭环的能力',
     features: [
-      { title: 'Split 双投影', body: 'Monaco 文本编辑器与 React Flow 分支图并排工作，源文本仍可直接打开。' },
+      { title: 'Graph Lab 默认工作区', body: '用节点、连线、Inspector、章节标签与 Source Drawer 完成图优先创作。' },
       { title: '实时诊断', body: '错误、警告和建议同步到波浪线、问题面板和节点状态。' },
-      { title: 'Graph Lab', body: '图优先入口支持节点、连线、Inspector 与 Source Drawer。' },
-      { title: '多格式导出', body: '面向程序的 JSON、面向试玩的 HTML、面向校对的 TXT 共用同一解析结果。' },
+      { title: 'Split 源码投影', body: '顶栏并列保留完整 Monaco 源码视图，服务精确编辑、透明性与恢复。' },
+      { title: '多格式导出', body: 'JSON / HTML / TXT 共用同一解析结果；JSON 使用 Schema 0.2，Error 诊断会阻断全部格式导出。' },
     ],
   },
   en: {
     eyebrow: 'A local-first branching narrative workspace',
-    title: 'Write the branch, see the branch, ship it to your engine.',
+    title: 'Shape branches on the canvas, then ship clean data to your engine.',
     subtitle:
-      'PlotFlow brings .mdstory files, Graph Lab, diagnostics, visual conditions, and JSON / HTML / TXT export into one offline desktop tool.',
+      'PlotFlow defaults to a complete Graph Lab workflow while saving every story to an open, local .mdstory text file.',
     primaryCta: 'Read the guide',
     secondaryCta: 'See development',
-    status: 'No known blocking bugs; Windows packaging, Graph Lab, and the theme platform continue to converge.',
+    status: 'Graph-first source and fresh Windows unpacked automation pass; installed-app, real engine smoke, manual patrol, and signing remain.',
     loopTitle: 'Core loop',
-    loop: 'Open or create .mdstory → write nodes and choices → inspect Graph Lab → fix diagnostics → export JSON / HTML / TXT → load in Godot.',
+    loop: 'Open or create .mdstory → enter Graph Lab by default → shape the story with the canvas and Inspector → fix diagnostics → save and export → load in Godot.',
     audiencesTitle: 'Built for the handoff between writing, design, and implementation',
     audiences: [
-      { title: 'Indie game developers', body: 'Manage story structure in a local text file without cloud lock-in.' },
-      { title: 'Narrative designers', body: 'Keep Markdown writing while checking paths, dead ends, and conditions visually.' },
+      { title: 'Indie game developers', body: 'Use a visual workflow while keeping story data in one local text file without cloud lock-in.' },
+      { title: 'Narrative designers', body: 'Create with the canvas, Inspector, and chapter navigation without learning syntax first.' },
       { title: 'Engine integrators', body: 'Use structured JSON and Godot runtime contracts instead of manual translation.' },
     ],
     featureTitle: 'Closed-loop capabilities',
     features: [
-      { title: 'Split projection', body: 'Monaco text editing and React Flow graph views stay synchronized.' },
+      { title: 'Graph Lab default workspace', body: 'Create graph-first with nodes, edges, Inspector, chapter tabs, and Source Drawer.' },
       { title: 'Live diagnostics', body: 'Errors, warnings, and suggestions appear in markers, panels, and node states.' },
-      { title: 'Graph Lab', body: 'A graph-first entry with nodes, edges, Inspector, and Source Drawer.' },
-      { title: 'Multi-format export', body: 'JSON for code, HTML for playtest, and TXT for review share one parse result.' },
+      { title: 'Split source projection', body: 'A parallel full-source Monaco view remains available for precision, transparency, and recovery.' },
+      { title: 'Multi-format export', body: 'JSON Schema 0.2, HTML playtest, and TXT review outputs share one parse result; Error diagnostics block export.' },
     ],
   },
 };
@@ -117,32 +117,32 @@ export const officialThemes = {
 };
 
 const zhGuideSections = [
-  ['create', '创建故事', '从新建或打开 .mdstory 文件开始，文件就是唯一数据源。'],
-  ['write', '编写节点', '使用“# 节点：”和“[选项]”组织剧情分支。'],
-  ['graph', '检查 Graph Lab', '进入图优先画布，检查节点连接、走向和孤立分支。'],
-  ['conditions', '编辑条件', '用面板编辑变量、比较器、AND / OR 条件并回写文本。'],
+  ['create', '创建故事', '新建或打开 .mdstory 后默认进入 Graph Lab；文件仍是唯一数据源。'],
+  ['write', '在画布创建节点', '使用 Palette、节点卡片和 Inspector 创建章节、节点、正文、选项，以及六种类型和章节作用域变量。'],
+  ['graph', '连接剧情走向', '在默认图优先画布上连接节点，检查分支、死胡同和孤立路径。'],
+  ['conditions', '编辑条件', '用类型化左右操作数编辑 AND / OR / NOT 三层条件；支持 5 < $金币 等 literal-left 表达式并无损回写。'],
   ['diagnostics', '修复诊断', '根据错误、警告和建议修复语法与结构问题。'],
   ['themes', '切换官方主题', '在主题中心启用叙事工作台或下载官方免费主题。'],
-  ['export', '导出交付', '导出 JSON / HTML / TXT 供程序、试玩和校对使用。'],
-  ['godot', '接入 Godot', '使用 Godot 运行时约定读取导出的结构化 JSON。'],
+  ['export', '导出交付', '先修复全部 Error，再导出 JSON Schema 0.2 / HTML / TXT 供程序、试玩和校对使用。'],
+  ['godot', '接入引擎', 'Godot 与 Unity 运行时兼容 0.1/0.2，并按当前章节隔离 chapter scope 变量；Unreal 提供数据与 Blueprint 合同。'],
 ] as const;
 
 const enGuideSections = [
-  ['create', 'Create a story', 'Start from a new or existing .mdstory file. The file is the source of truth.'],
-  ['write', 'Write nodes', 'Use “# Node:” and “[Choice]” syntax to organize branches.'],
-  ['graph', 'Inspect Graph Lab', 'Use the graph-first canvas to check links, direction, and orphan branches.'],
-  ['conditions', 'Edit conditions', 'Edit variables, operators, and AND / OR conditions in panels.'],
+  ['create', 'Create a story', 'New and existing .mdstory files open in Graph Lab by default; the file remains the source of truth.'],
+  ['write', 'Create nodes on the canvas', 'Use the Palette, node cards, and Inspector to create chapters, nodes, body text, choices, and six typed or chapter-scoped variables.'],
+  ['graph', 'Connect the story flow', 'Connect nodes on the default graph-first canvas and inspect branches, dead ends, and orphan paths.'],
+  ['conditions', 'Edit conditions', 'Edit typed left/right operands with three-level AND / OR / NOT, including literal-left expressions such as 5 < $coins.'],
   ['diagnostics', 'Fix diagnostics', 'Resolve errors, warnings, and suggestions before export.'],
   ['themes', 'Switch official themes', 'Enable Narrative Workbench or download official free themes in Theme Center.'],
-  ['export', 'Export handoff files', 'Export JSON / HTML / TXT for code, playtest, and review.'],
-  ['godot', 'Load in Godot', 'Use the Godot runtime contract to read structured JSON.'],
+  ['export', 'Export handoff files', 'Resolve every Error, then export JSON Schema 0.2 / HTML / TXT for code, playtest, and review.'],
+  ['godot', 'Load in an engine', 'Godot and Unity consume 0.1/0.2 with chapter-scoped state; Unreal provides data and Blueprint contracts.'],
 ] as const;
 
 export const guide = {
   zh: {
     eyebrow: '使用说明',
     title: 'PlotFlow 使用说明',
-    intro: '这份指南按真实工作流组织：创建文件、编写节点、检查分支、修复问题、导出交付。',
+    intro: '这份指南按默认 Graph-first 工作流组织：创建文件、画布编排、修复问题、保存并导出交付。',
     sections: zhGuideSections.map(([id, title, body]) => ({
       id,
       title,
@@ -155,7 +155,7 @@ export const guide = {
   en: {
     eyebrow: 'User guide',
     title: 'PlotFlow guide',
-    intro: 'The guide follows the real workflow: create, write, inspect, fix, and export.',
+    intro: 'The guide follows the default Graph-first workflow: create, shape on the canvas, fix, save, and export.',
     sections: enGuideSections.map(([id, title, body]) => ({
       id,
       title,

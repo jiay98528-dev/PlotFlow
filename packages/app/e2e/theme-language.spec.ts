@@ -68,7 +68,7 @@ test.describe('Theme and language E2E', () => {
     await closeElectronApp(app, page);
   });
 
-  test('apply workbench theme and verify persistence', async () => {
+  test('enables workbench, then resets to Prism Foundry and verifies persistence', async () => {
     await expect(page.getByTestId('toolbar-theme-center')).toBeVisible();
     await expect(page.getByRole('button', { name: /亮色|暗色|Light|Dark/i })).toHaveCount(0);
 
@@ -76,14 +76,21 @@ test.describe('Theme and language E2E', () => {
     await expect(page.getByTestId('theme-center')).toBeVisible();
 
     const workbenchCard = page.locator('.official-theme-card').filter({ hasText: '叙事工作台' });
+    const prismCard = page.locator('[data-theme-card-id="plotflow-prism-foundry"]');
     await expect(workbenchCard).toBeVisible({ timeout: 5_000 });
-    await expect(workbenchCard.getByTestId('theme-center-apply')).toBeDisabled();
-    await page.getByTestId('theme-center-reset').click();
+    await expect(prismCard.getByTestId('theme-center-apply')).toBeDisabled();
+    await expect(workbenchCard.getByTestId('theme-center-apply')).toBeEnabled();
+    await workbenchCard.getByTestId('theme-center-apply').click();
 
     await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    expect(await page.evaluate(() => window.localStorage.getItem('plotflow:themeId'))).toBe('plotflow-narrative-workbench');
+
+    await page.getByTestId('theme-center-reset').click();
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
-    expect(await page.evaluate(() => window.localStorage.getItem('plotflow:themeId'))).toBe('plotflow-narrative-workbench');
+    expect(await page.evaluate(() => window.localStorage.getItem('plotflow:themeId'))).toBe('plotflow-prism-foundry');
     expect(await page.evaluate(() => window.localStorage.getItem('plotflow:theme'))).toBeNull();
     expect(await page.evaluate(() => window.localStorage.getItem('plotflow:accent'))).toBeNull();
   });
@@ -97,11 +104,12 @@ test.describe('Theme and language E2E', () => {
 
     await languageSelect.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
   });
 
-  test('migrates legacy dark preference to narrative workbench', async () => {
+  test('migrates legacy dark preference to Prism Foundry', async () => {
     await page.evaluate(() => {
+      window.localStorage.removeItem('plotflow:themeId');
       window.localStorage.removeItem('plotflow:officialTheme');
       window.localStorage.removeItem('plotflow:themePack');
       window.localStorage.setItem('plotflow:theme', 'dark');
@@ -110,8 +118,7 @@ test.describe('Theme and language E2E', () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.app-shell', { timeout: 20_000 });
 
-    // M7: dark maps to workbench (only builtin theme)
-    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 });

@@ -1,8 +1,18 @@
 ﻿# PlotFlow 鎶€鏈灦鏋勮璁?(TAD)
 
+> **Graph-first 默认工作区权威口径（2026-07-10）**：ADR-012 将 Graph Lab 定义为主要且默认创作工作区；首次启动、新建、打开、命令行打开和 Continue editing 默认进入 Graph Lab。Split 在顶栏并列保留，作为辅助与高级的完整 `.mdstory` 源码投影。`.mdstory` 继续是唯一磁盘真相源，Graph Lab 命令必须写回同一源文本后再进入 parser、validator 与 exporter。本文旧段落中关于 Split 默认或 Graph Lab 仅为实验/并行入口的描述均为历史口径并已被覆盖。
+
+> **ADR-013 身份与导出权威口径（2026-07-11）**：命名章节节点的 canonical FullID 只能由 core 共享 helper 生成：`encodeURIComponent(chapterId) + "/" + encodeURIComponent(nodeId)`；匿名章节节点使用 `encodeURIComponent(nodeId)`。FullID 是 opaque key，App、布局、validator、exporter 和插件不得通过拆分或自行拼接推导身份，显示与业务判断读取独立 `chapterId` / `nodeId`。`layout.graph.version` 保持 1；旧 `chapter-node` 坐标仅允许通过枚举当前 AST 二元组计算 alias 后唯一命中迁移，碰撞时禁止猜测，打开文件不静默改写。
+
+> 当前 JSON 写出合同是 `https://plotflow.dev/schema/0.2/story.json`；0.1 只用于旧产物读取兼容，`.mdstory` 的系统管理 `meta.plotflow` 仍为 0.1。源文件、Inspector 与内部 AST 的 engine 是 `generic | godot | unity | unreal`，JSON 0.2 engine 是 `none | godot | unity | unreal`；exporter 执行 `generic → none`，JSON loader 反向映射，源 parser 不接受 `none`。0.2 中 `targetChapterId` 必填可空，`targetNodeId` / `targetFullId` 必填可空，object 始终输出 `fields`（允许 `{}`）。章节变量仅顶层声明 `scope/chapter`：chapter scope 必须指向真实章节，值随故事会话持久化但仅在归属章节可见；嵌套 fields 继承且不得覆盖作用域。
+
+> **Condition JSON 边界**：0.2 Comparison 固定写为 `{ type: "comparison", left: Operand, operator, right: Operand }`；Operand 只能是 `{ type: "variable", name }` 或 `{ type: "literal", value }`。历史 0.1 `{ type, variable, operator, value }` 只用于旧 JSON 读取。Godot、Unity、Unreal loader/evaluator 必须在输入边界兼容两种形状，内部统一转为 typed operands，任何新导出只写 0.2。
+
+> **发行状态**：P1 源码、严格 packaged/unpacked Graph-first journey 与磁盘 JSON Schema 0.2 Ajv 校验已通过；installed、30 分钟人工巡检、真实 Godot/Unity/Unreal 工具链 smoke 与 Authenticode 仍待完成，不得宣称 release candidate passed。本文 §6 及其他 V0.1 类型/导出代码块中与 ADR-013 冲突的 `${chapterId}-${nodeId}`、Schema 0.1 当前写出、源 engine 使用 `none`、Comparison `variable/value` 和无章节归属 scope 表述均作为历史记录保留并已被本段覆盖。
+
 > **主题架构权威口径（2026-06-27）**：主题系统只服务官方主题。内置官方主题随应用编译发布；官方远程免费主题通过 `website/public/data/official-themes.json` 注册，下载 `.pf-official-theme.zip` 后由 Electron 主进程执行 `sha256` 校验、路径安全校验和 manifest 校验，再通过 `plotflow-theme://` 动态加载包内 `index.mjs`。远程包与内置主题拥有同等当前主题能力：`ThemeDescriptor`、React `surfaces`、React `slots`、tokens、layout/UX recipes、Monaco 配色、CSS 和 assets。第三方上传、社区主题、本地 `.pf-theme.zip` 导入、支付和授权均不属于当前架构。完整开发标准见 `doc/standards-theme-development.md`。
 
-> **V0.3 外审架构补充（2026-07-06）**：以下合同覆盖本文旧段落中相冲突的内容。Home `Continue editing` 必须通过最近文件路径和文件 IPC 重新读盘；Graph Lab 写回必须基于 source offset edit 和共享 source analysis；Graph Lab Source Drawer 只编辑当前 H1 章节切片并映射回完整 `.mdstory`；frontmatter `vars:` 是 app 模式单文件全局变量源；`下一步: 节点：X` 是独立于 `[选项]` 的节点级流程边，JSON schema v0.1 导出时投影为无条件合成 option；W007 表示包含选项边和 `下一步` 边的无外部出口 SCC 闭环风险，旧版 “IncompleteOptionDetector” 语义已废弃；章节标签栏必须是可见命令栏行并有截图 E2E 证据。
+> **V0.3 外审架构补充（2026-07-06，部分被 ADR-013 覆盖）**：以下合同覆盖本文旧段落中相冲突的内容。Home `Continue editing` 必须通过最近文件路径和文件 IPC 重新读盘；Graph Lab 写回必须基于 source offset edit 和共享 source analysis；Graph Lab Source Drawer 只编辑当前 H1 章节切片并映射回完整 `.mdstory`；frontmatter `vars:` 是 app 模式单文件全局变量源；`下一步: 节点：X` 是独立于 `[选项]` 的节点级流程边，当前 JSON schema v0.2 导出时投影为无条件合成 option；W007 表示包含选项边和 `下一步` 边的无外部出口 SCC 闭环风险，旧版 “IncompleteOptionDetector” 语义已废弃；章节标签栏必须是可见命令栏行并有截图 E2E 证据。
 
 
 **鐗堟湰**锛歏0.1 | **鏃ユ湡**锛?026-06-10 | **鐘舵€?*锛歁VP 瀹炵幇钃濆浘
@@ -932,7 +942,7 @@ function frontmatterPlugin(): Transformer {
       plotflow: frontmatter.plotflow ?? '0.1',
       title: frontmatter.title ?? 'Untitled',
       author: frontmatter.author,
-      engine: frontmatter.engine ?? 'none',
+      engine: frontmatter.engine ?? 'generic',
       variables,
       raw: frontmatter,
     };
@@ -1137,10 +1147,14 @@ type ConditionAST =
 
 interface ComparisonNode {
   type: 'comparison';
-  variable: string;       // e.g. '濂芥劅搴? 鎴?'瑙掕壊鐘舵€?榄斿姏'
+  left: ComparisonOperand;
   operator: '==' | '!=' | '>' | '<' | '>=' | '<=';
-  value: string | number | boolean;
+  right: ComparisonOperand;
 }
+
+type ComparisonOperand =
+  | { type: 'variable'; name: string }
+  | { type: 'literal'; value: string | number | boolean | Record<string, unknown> };
 
 interface LogicalAndNode {
   type: 'logical_and';
@@ -1430,7 +1444,7 @@ class JSONExporter implements IExporter {
         plotflow: data.meta.plotflow,
         title: data.meta.title,
         author: data.meta.author,
-        engine: data.meta.engine ?? 'none',
+        engine: data.meta.engine === 'generic' ? 'none' : (data.meta.engine ?? 'none'),
         exportedAt: new Date().toISOString(),
       },
       variables: this.serializeVariables(data.variables),
@@ -2417,7 +2431,7 @@ interface PlotFlowMeta {
   plotflow: string;                     // 鐗堟湰鍙?e.g. '0.1'
   title: string;
   author?: string;
-  engine?: 'godot' | 'unity' | 'unreal' | 'none';
+  engine?: 'generic' | 'godot' | 'unity' | 'unreal';
 }
 
 /** 鍙橀噺瀹氫箟 */
@@ -2487,9 +2501,14 @@ type ConditionAST =
 
 interface ConditionComparison {
   type: 'comparison';
-  variable: string;                     // 鍙橀噺鍚嶏紙鏀寔鐐瑰彿璁块棶: '瑙掕壊.鑱屼笟'锛?  operator: ComparisonOperator;
-  value: string | number | boolean;
+  left: ConditionOperand;
+  operator: ComparisonOperator;
+  right: ConditionOperand;
 }
+
+type ConditionOperand =
+  | { type: 'variable'; name: string }
+  | { type: 'literal'; value: string | number | boolean | Record<string, unknown> };
 
 type ComparisonOperator = '==' | '!=' | '>' | '<' | '>=' | '<=';
 

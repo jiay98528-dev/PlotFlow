@@ -1,12 +1,12 @@
 # ADR-011 — 官方远程代码主题与全 UX 权限
 
-- **日期：** 2026-06-26
+- **日期：** 2026-06-26（2026-07-10 更新）
 - **状态：** 已通过
 - **适用范围：** 官方主题系统、Theme Center、远程官方主题目录、UX 配方权限
 
 ## 背景
 
-PlotFlow 主题系统已经从旧双轨架构收敛到 `ThemePlatformProvider + ThemeRegistry + ThemeDescriptor`。M8 后只保留 `plotflow-narrative-workbench` 作为内置主题，并删除夜航主题。
+PlotFlow 主题系统已经从旧双轨架构收敛到 `ThemePlatformProvider + ThemeRegistry + ThemeDescriptor`。当前内置官方主题包括 `plotflow-narrative-workbench`、`plotflow-engine-telemetry` 与 `plotflow-prism-foundry`；Prism Foundry 是新安装与未知主题回退的亮色默认主题。旧夜航主题已删除。
 
 新的产品目标不是开放第三方主题生态，而是让 PlotFlow 官方主题拥有足够高的 UX 控制权，并通过官方远程目录分发免费主题。第三方上传、社区主题、本地 `.pf-theme.zip` 导入、授权销售和用户自定义包均不属于当前产品方向。
 

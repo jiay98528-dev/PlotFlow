@@ -51,13 +51,13 @@
     ],
     stableFeatures: [
       {
-        title: 'Split 双栏编辑工作流',
-        zhTitle: 'Split 双栏编辑工作流',
+        title: 'Split 辅助源码工作流',
+        zhTitle: 'Split 辅助源码工作流',
         status: 'pass',
         detail: 'Monaco 编辑、React Flow 分支图、节点导航和源文本刷新已经形成稳定闭环。',
         zhDetail: 'Monaco 编辑、React Flow 分支图、节点导航和源文本刷新已经形成稳定闭环。',
-        evidence: 'M1/M2 已完成；默认应用 E2E 当前 30/30 通过。',
-        zhEvidence: 'M1/M2 已完成；默认应用 E2E 当前 30/30 通过。',
+        evidence: 'M1/M2 已完成；Split 在顶栏并列保留，但不再是默认落点。',
+        zhEvidence: 'M1/M2 已完成；Split 在顶栏并列保留，但不再是默认落点。',
       },
       {
         title: '解析器、校验器与诊断系统',
@@ -89,31 +89,31 @@
       {
         title: 'Windows 本地安装包冒烟验收',
         zhTitle: 'Windows 本地安装包冒烟验收',
-        status: 'pass',
-        detail: 'Windows 本地安装包和 win-unpacked 应用已验证启动、命令行打开、Graph Lab 图形编辑、Source Drawer 和 JSON 导出。',
-        zhDetail: 'Windows 本地安装包和 win-unpacked 应用已验证启动、命令行打开、Graph Lab 图形编辑、Source Drawer 和 JSON 导出。',
-        evidence: 'M7-02 与 M7-14 已完成。',
-        zhEvidence: 'M7-02 与 M7-14 已完成。',
+        status: 'neutral',
+        detail: '当前 win-unpacked 应用已通过 15/16 黑盒；安装器已生成，但真实安装态与文件关联仍需授权安装后验证。',
+        zhDetail: '当前 win-unpacked 应用已通过 15/16 黑盒；安装器已生成，但真实安装态与文件关联仍需授权安装后验证。',
+        evidence: '2026-07-10 package passed; installed blackbox, manual patrol, and signing remain.',
+        zhEvidence: '2026-07-10 package 已通过；安装态黑盒、人工巡检和签名仍待完成。',
       },
       {
-        title: 'Graph Lab 图优先工作流',
-        zhTitle: 'Graph Lab 图优先工作流',
+        title: 'Graph Lab 默认图优先工作流',
+        zhTitle: 'Graph Lab 默认图优先工作流',
         status: 'pass',
-        detail: 'Graph Lab 已作为核心入口接入，覆盖模式切换、节点素材盘、检查器、源文本抽屉、文本命令层和 E2E。',
-        zhDetail: 'Graph Lab 已作为核心入口接入，覆盖模式切换、节点素材盘、检查器、源文本抽屉、文本命令层和 E2E。',
-        evidence: 'M8 Graph Lab Core 当前 17/18；默认应用 E2E 当前 30/30 通过。',
-        zhEvidence: 'M8 Graph Lab Core 当前 17/18；默认应用 E2E 当前 30/30 通过。',
+        detail: 'Graph Lab 是主要且默认工作区，覆盖模式切换、节点素材盘、检查器、源文本抽屉和文本命令层。',
+        zhDetail: 'Graph Lab 是主要且默认工作区，覆盖模式切换、节点素材盘、检查器、源文本抽屉和文本命令层。',
+        evidence: 'ADR-012 与 M8 18/18；应用 E2E 71/71、源码黑盒 11/16、解包态黑盒 15/16。',
+        zhEvidence: 'ADR-012 与 M8 18/18；应用 E2E 71/71、源码黑盒 11/16、解包态黑盒 15/16。',
       },
     ],
     experimentalFeatures: [
       {
-        title: 'Graph Lab 发布文案与上手说明',
-        zhTitle: 'Graph Lab 发布文案与上手说明',
+        title: '安装态与公开发行门禁',
+        zhTitle: '安装态与公开发行门禁',
         status: 'neutral',
-        detail: 'Graph Lab 核心流程已实现；公开发布文案、帮助说明和首次上手引导仍需最终打磨。',
-        zhDetail: 'Graph Lab 核心流程已实现；公开发布文案、帮助说明和首次上手引导仍需最终打磨。',
-        evidence: 'M8-18 仍处于进行中。',
-        zhEvidence: 'M8-18 仍处于进行中。',
+        detail: 'Graph-first 源码态和解包态已通过；per-machine 安装、30 分钟人工巡检与 Authenticode 签名仍待完成。',
+        zhDetail: 'Graph-first 源码态和解包态已通过；per-machine 安装、30 分钟人工巡检与 Authenticode 签名仍待完成。',
+        evidence: '当前 installer 与 unpacked executable 均为 NotSigned。',
+        zhEvidence: '当前 installer 与 unpacked executable 均为 NotSigned。',
       },
       {
         title: 'macOS / Linux 打包',
@@ -135,9 +135,9 @@
       },
     ],
     roadmap: [
-      { title: 'Graph Lab 发布说明收尾', zhTitle: 'Graph Lab 发布说明收尾', status: 'neutral', detail: '完成 Graph Lab 公开文案、帮助说明、首次上手引导和官网下载说明。', zhDetail: '完成 Graph Lab 公开文案、帮助说明、首次上手引导和官网下载说明。' },
+      { title: '完成 Windows 发行门禁', zhTitle: '完成 Windows 发行门禁', status: 'neutral', detail: '授权安装当前包，完成 installed blackbox、30 分钟人工巡检与 Authenticode 签名。', zhDetail: '授权安装当前包，完成 installed blackbox、30 分钟人工巡检与 Authenticode 签名。' },
       { title: '补齐七号发布链路', zhTitle: '补齐七号发布链路', status: 'warn', detail: '补齐 macOS / Linux 打包、自动更新、GitHub Release 草稿、首次启动引导和跨平台冒烟验收。', zhDetail: '补齐 macOS / Linux 打包、自动更新、GitHub Release 草稿、首次启动引导和跨平台冒烟验收。' },
-      { title: '扩展 Graph Lab 图形编辑器', zhTitle: '扩展 Graph Lab 图形编辑器', status: 'neutral', detail: '把当前内联条件/效果字段升级为更完整的图形化构建器，同时继续复用 graphEditService 命令层。', zhDetail: '把当前内联条件/效果字段升级为更完整的图形化构建器，同时继续复用 graphEditService 命令层。' },
+      { title: '持续加固 Graph Lab 编辑器', zhTitle: '持续加固 Graph Lab 编辑器', status: 'neutral', detail: '在保持完整 GUI 往返合同的前提下继续补充可用性与边界回归。', zhDetail: '在保持完整 GUI 往返合同的前提下继续补充可用性与边界回归。' },
       { title: '部署独立官网', zhTitle: '部署独立官网', status: 'neutral', detail: '单独部署官网构建产物，不进入桌面应用安装包。', zhDetail: '单独部署官网构建产物，不进入桌面应用安装包。' },
     ],
   };
@@ -147,42 +147,42 @@
       nav: ['首页', '使用说明', '开发'],
       home: {
         eyebrow: '本地优先的叙事分支工作台',
-        title: '把剧情分支写清楚、看清楚，再交给引擎运行。',
+        title: '在画布上编排剧情分支，再把干净数据交给引擎。',
         subtitle:
-          'PlotFlow 面向独立游戏团队，把 .mdstory 剧情源文件、实时流程图、条件编辑、错误检测和多格式导出收束到同一个离线桌面工具里。',
+          'PlotFlow 面向独立游戏团队，默认用 Graph Lab 完成图形化创作，同时把所有内容可靠保存为开放的 .mdstory 纯文本。',
         primary: '阅读使用说明',
         secondary: '查看开发进度',
-        status: '当前 Windows 正式包与核心发行门禁已通过；Graph Lab 已作为图优先核心入口接入。',
+        status: 'Graph-first 源码态与 Windows 解包态门禁已通过；安装态、人工巡检和发行签名待完成。',
         loopTitle: '核心闭环',
         loop:
-          '打开或创建 .mdstory → 编写节点与选项 → 在分支图检查走向 → 修复诊断 → 导出 JSON / HTML / TXT → 接入 Godot 或运行时。',
+          '打开或创建 .mdstory → 默认进入 Graph Lab → 用画布与 Inspector 编排剧情 → 修复诊断 → 保存并导出 → 接入 Godot 或运行时。',
         featuresTitle: '已经形成闭环的能力',
         features: [
-          ['Split 双栏编辑工作流', 'Monaco 文本编辑器与 React Flow 分支图并排工作，文本仍可直接用普通编辑器打开。'],
+          ['Graph Lab 默认工作区', '用节点、连线、Inspector、章节标签和 Source Drawer 完成图优先创作。'],
           ['实时诊断', '错误、警告和建议会同步到波浪线、侧边标记、问题面板和节点状态。'],
-          ['图形化条件编辑', '面板化编辑变量、比较运算与 AND / OR 条件，并回写为可读 .mdstory 文本。'],
+          ['Split 源码投影', '顶栏并列保留完整 Monaco 源码视图，服务精确编辑、透明性与恢复。'],
           ['多格式导出', '面向程序的 JSON、面向试玩的 HTML、面向校对的 TXT，共用同一解析结果。'],
         ],
         audienceTitle: '为三类用户降低沟通成本',
         audiences: [
-          ['独立游戏开发者', '用一个本地文件管理剧情结构，避免工具锁死、云端依赖和导出格式不透明。'],
-          ['叙事设计师', '在编辑器里写正文，同时用分支图检查路径、死胡同、孤立节点和条件逻辑。'],
+          ['独立游戏开发者', '默认用图形工作流管理剧情结构，同时保留一个本地纯文本文件，避免工具锁死和云端依赖。'],
+          ['叙事设计师', '无需先学习语法，用画布、Inspector 和章节导航完成创作闭环。'],
           ['程序与引擎集成者', '拿到结构化 JSON 和 Godot 运行时约定，减少从文案到游戏逻辑的手工转译。'],
         ],
       },
       guide: {
         eyebrow: '使用说明',
         title: '从第一份 .mdstory 到可交付导出',
-        intro: '这份指南按实际用户旅程组织：先建立文件，再写节点、检查分支、修复问题，最后导出给引擎或团队成员。',
+        intro: '这份指南按默认 Graph-first 旅程组织：创建文件、画布编排、修复问题、保存并导出给引擎或团队成员。',
         sections: [
-          ['创建或打开故事文件', 'PlotFlow 的磁盘真相源是 .mdstory 剧情源文件。它是 Markdown 方言文本，可以用 PlotFlow 编辑，也可以用普通文本编辑器查看。', ['启动应用后选择新建文件、打开现有 .mdstory，或通过命令行/文件关联打开故事文件。', '优先从内置模板开始：角色扮演对话、视觉小说、解谜游戏或空白故事。', '保存后，后续编辑、图形状态、导出结果都从同一份 .mdstory 解析得到。']],
-          ['编写章节、节点和选项', '常用结构由章节标题、节点标题、正文和选项组成。节点是剧情跳转的最小单位，选项决定玩家能走向哪里。', ['用章节组织大段剧情，用节点承载具体场景。', '在节点正文里写对白、旁白和行动描述。', '用选项行表达玩家选择，并指向目标节点。', '需要条件或效果时，把它们挂在选项下面，让解析器生成结构化数据。']],
-          ['使用 Split 双栏工作台', '当前稳定工作流是左侧文本、右侧分支图。文本是高精度编辑入口，图形视图负责结构确认和导航。', ['在左侧编辑器修改文本，等待解析管线刷新。', '右侧图会显示节点、选项连线和诊断状态。', '点击图上节点可跳回对应文本位置；拖拽连线会更新跳转目标。', '使用缩放、平移和重新布局检查大型剧情图。']],
+          ['创建或打开故事文件', 'PlotFlow 的磁盘真相源是 .mdstory 剧情源文件；首次启动、新建、打开和继续编辑默认进入 Graph Lab。', ['启动应用后选择新建文件、打开现有 .mdstory，或通过命令行/文件关联打开故事文件。', '确认默认显示 Graph Lab 画布；文件仍可用普通文本编辑器查看。', '保存后，后续编辑、图形状态、导出结果都从同一份 .mdstory 解析得到。']],
+          ['在 Graph Lab 编排剧情', '使用 Palette、节点卡片、连线和 Inspector 创建章节、节点、正文与选项。', ['用章节标签组织大段剧情。', '在 Inspector 中写对白、旁白和行动描述。', '拖线连接目标节点，并在字段化面板维护条件和效果。', '通过诊断入口检查死胡同、孤立节点和语法问题。']],
+          ['按需使用 Split 源码投影', 'Split 在顶栏并列保留，提供完整 .mdstory 的精确编辑、透明性与恢复能力，但不是默认工作区。', ['显式切换到 Split 查看完整文件。', '修改文本后等待解析管线同步 Graph Lab。', '确认图形编辑与源码编辑始终落回同一文件。', '完成高级源码操作后可随时返回 Graph Lab。']],
           ['处理错误、警告和建议', '诊断分为错误、警告和建议。错误通常会阻断可靠导出；警告常见于孤立节点、死胡同或潜在逻辑问题。', ['查看编辑器波浪线和右侧节点颜色，定位问题发生在哪里。', '打开问题面板，按诊断代码跳转到具体文本位置。', '优先修复未定义目标、重复标识、条件语法错误等错误级问题。', '再处理孤立节点、死胡同和建议级质量问题。']],
           ['图形化编辑条件', '条件编辑器适合把复杂布尔逻辑交给非程序用户维护，同时保留可读的 .mdstory 文本。', ['从选项或连线入口打开条件编辑器。', '选择变量、比较运算符和值，必要时组合 AND / OR。', '应用后检查生成文本是否符合团队约定。', '如果变量来自引擎插件模式，应以引擎同步的变量清单为准。']],
           ['使用本地补全', '幽灵补全基于本地 N-gram 和语料，不依赖联网。它适合补节点标题、选项句式、正文描述和变量名。', ['看到灰色幽灵文本时，按 Tab 接受，按 Esc 忽略。', '在 $ 后触发变量名补全；在节点标题和选项文本中会使用不同候选来源。', '导入语料后，补全会更贴近团队自己的表达习惯。']],
           ['导出 JSON / HTML / TXT', '导出前先确保错误级诊断已处理。三个导出格式面向不同协作者，但都来自同一份解析结果。', ['JSON 给程序或运行时加载，遵循项目 JSON Schema。', 'HTML 给策划、测试或外部成员快速试玩分支流程。', 'TXT 给文本校对和非技术审阅使用。', '导出后用目标工具打开一次，确认编码、节点数量和跳转关系符合预期。']],
-          ['关于 Graph Lab', 'Graph Lab 是“完全图形界面操控”的图优先核心入口，不替代当前稳定 Split 工作流。', ['当前公开说明应把 Graph Lab 写成核心入口，但保留发布说明和首次上手引导仍需收尾的状态。', '它仍会序列化回 .mdstory，不引入数据库或专有二进制工程文件。', '当前已用 E2E 覆盖图形界面创建、编辑、连线、Source Drawer 和 JSON 导出；更丰富的可视化条件/效果构建器仍可继续增强。']],
+          ['关于 Graph Lab', 'Graph Lab 是主要且默认的“完全图形界面操控”工作区；Split 是并列保留的辅助源码投影。', ['首次启动、新建、打开和继续编辑默认进入 Graph Lab。', '所有 GUI 操作仍序列化回 .mdstory，不引入数据库或专有二进制工程文件。', '发行门禁必须验证不进入 Split 的真实 Graph-first 保存、重启、诊断与导出闭环。']],
         ],
       },
       development: {
@@ -191,7 +191,7 @@
         intro: '这个页面面向试用用户和协作者，直接说明哪些能力已通过当前门禁，哪些仍是发布收尾或发行后续任务。',
         gates: '发行门禁',
         milestones: '零号至七号里程碑',
-        stable: '当前无已知阻断 BUG 的稳固能力',
+        stable: '当前已通过自动门禁的稳固能力',
         experimental: '可能仍有风险的实验性能力',
         roadmap: '后续开发规划',
       },
@@ -200,42 +200,42 @@
       nav: ['Home', 'Guide', 'Development'],
       home: {
         eyebrow: 'A local-first branching narrative workspace',
-        title: 'Write the branch, see the branch, ship it to your engine.',
+        title: 'Shape branches on the canvas, then ship clean data to your engine.',
         subtitle:
-          'PlotFlow brings .mdstory text, live flow graphs, visual conditions, diagnostics, and multi-format export into one offline desktop tool for indie game teams.',
+          'PlotFlow defaults to a complete Graph Lab workflow while saving every story to an open, local .mdstory text file.',
         primary: 'Read the guide',
         secondary: 'See development',
-        status: 'Windows local packaging and the core release gates currently pass; Graph Lab remains experimental.',
+        status: 'Graph-first source and Windows unpacked gates pass; installed-app, manual patrol, and signing gates remain.',
         loopTitle: 'Core loop',
         loop:
-          'Open or create a .mdstory file → write nodes and choices → inspect the graph → fix diagnostics → export JSON / HTML / TXT → load it in Godot or runtime code.',
+          'Open or create .mdstory → enter Graph Lab by default → shape the story with the canvas and Inspector → fix diagnostics → save and export → load it in Godot or runtime code.',
         featuresTitle: 'Stable workflow capabilities',
         features: [
-          ['Split editing workflow', 'Monaco text editing and React Flow visualization work side by side while the source file stays readable.'],
+          ['Graph Lab default workspace', 'Create graph-first with nodes, edges, Inspector, chapter tabs, and Source Drawer.'],
           ['Real-time diagnostics', 'Errors, warnings, and suggestions appear in markers, the problem panel, and graph node states.'],
-          ['Visual condition editing', 'Edit variables, comparisons, and AND/OR groups in a panel and write them back to .mdstory text.'],
+          ['Split source projection', 'A parallel full-source Monaco view remains available for precision, transparency, and recovery.'],
           ['Multi-format export', 'JSON for code, HTML for playable review, and TXT for proofreading share the same parsed story model.'],
         ],
         audienceTitle: 'Built for the handoff between writing and implementation',
         audiences: [
-          ['Indie game developers', 'Keep branching stories in a local file without cloud lock-in or opaque export formats.'],
-          ['Narrative designers', 'Write prose in the editor while checking routes, dead ends, orphan nodes, and conditions in the graph.'],
+          ['Indie game developers', 'Use a visual workflow while keeping branching stories in one local text file without cloud lock-in.'],
+          ['Narrative designers', 'Create with the canvas, Inspector, and chapter navigation without learning syntax first.'],
           ['Engine integrators', 'Use structured JSON and Godot runtime conventions instead of translating narrative documents by hand.'],
         ],
       },
       guide: {
         eyebrow: 'User guide',
         title: 'From the first .mdstory file to a usable export',
-        intro: 'This guide follows the real workflow: create a file, write nodes, inspect branches, fix issues, and export for the engine or the team.',
+        intro: 'This guide follows the default Graph-first workflow: create, shape on the canvas, fix, save, and export for the engine or the team.',
         sections: [
-          ['Create or open a story file', 'The source of truth is a .mdstory file. It is Markdown-like text, editable in PlotFlow and readable in any text editor.', ['Start the app and create a file, open an existing .mdstory, or launch one through the command line/file association.', 'Start from a built-in template when possible: RPG dialogue, visual novel, puzzle escape, or blank story.', 'After saving, editing state, graph state, and export output all come from the same parsed file.']],
-          ['Write chapters, nodes, and choices', 'The common structure uses chapters, nodes, body text, and choices. Nodes are the smallest jump targets; choices decide where players go.', ['Use chapters to organize large story regions.', 'Use node bodies for dialogue, narration, and action.', 'Use choice lines to express player decisions and target nodes.', 'Attach conditions and effects under choices when logic is needed.']],
-          ['Work in Split mode', 'The stable workflow is text on the left and the branch graph on the right. Text is the precise editing surface; the graph is for structure, navigation, and review.', ['Edit the source on the left and wait for the parser pipeline to refresh.', 'Inspect nodes, choice edges, and diagnostic states on the right.', 'Click graph nodes to jump back to source text; reconnect edges to update jump targets.', 'Use zoom, pan, and relayout to review larger story maps.']],
+          ['Create or open a story file', 'The source of truth is a .mdstory file; first launch, new, open, and Continue editing land in Graph Lab by default.', ['Create a file, open an existing .mdstory, or launch one through the command line/file association.', 'Confirm the Graph Lab canvas is the default surface; the file remains readable in any text editor.', 'After saving, editing state, graph state, and export output all come from the same parsed file.']],
+          ['Shape the story in Graph Lab', 'Use the Palette, node cards, edges, and Inspector to create chapters, nodes, body text, and choices.', ['Organize regions with chapter tabs.', 'Write dialogue, narration, and action in the Inspector.', 'Connect target nodes and maintain conditions and effects in structured controls.', 'Use diagnostics to find dead ends, orphan nodes, and syntax issues.']],
+          ['Use the Split source projection when needed', 'Split remains parallel in the top bar for full-source precision, transparency, and recovery, but it is not the default workspace.', ['Explicitly switch to Split to inspect the complete file.', 'Wait for source edits to synchronize back to Graph Lab.', 'Confirm graphical and source edits always return to the same file.', 'Return to Graph Lab after advanced source work.']],
           ['Fix errors, warnings, and suggestions', 'Diagnostics are grouped into errors, warnings, and suggestions. Errors usually block reliable export; warnings often indicate orphan nodes, dead ends, or logic issues.', ['Use editor markers and graph node colors to locate problems.', 'Open the ProblemPanel and jump to the exact source range.', 'Fix undefined targets, duplicate IDs, and condition syntax errors first.', 'Then clean up orphan nodes, dead ends, and quality suggestions.']],
           ['Edit conditions visually', 'The condition editor lets non-programmers maintain boolean logic while preserving readable .mdstory text.', ['Open it from a choice or edge entry point.', 'Pick a variable, operator, and value; combine rules with AND / OR when needed.', 'Apply the change and review the generated text.', 'In engine-plugin mode, variables should come from the engine-provided list.']],
           ['Use local completion', 'Ghost text completion is local and N-gram based. It helps with node titles, choice phrasing, prose, and variables without requiring network calls.', ['Press Tab to accept ghost text or Esc to ignore it.', 'Use $ to trigger variable completion.', 'Importing team corpus data makes suggestions closer to your writing style.']],
           ['Export JSON / HTML / TXT', 'Before export, resolve error-level diagnostics. The three export formats serve different collaborators but use the same parsed story model.', ['JSON is for code and runtime loading, following the project JSON Schema.', 'HTML is for playable review by designers, testers, or external collaborators.', 'TXT is for proofreading and non-technical review.', 'Open the exported file once in the target tool and verify encoding, node count, and links.']],
-          ['About Graph Lab experimental mode', 'Graph Lab is the future graph-first GUI direction. It does not replace the current stable Split workflow yet.', ['Public copy should label Graph Lab as experimental.', 'It still serializes back to .mdstory and does not introduce a database or proprietary binary project file.', 'Before production use, it needs E2E coverage for GUI create, delete, connect, undo, and source synchronization.']],
+          ['About Graph Lab', 'Graph Lab is the primary and default full-GUI workspace; Split remains a parallel auxiliary source projection.', ['First launch, new, open, and Continue editing land in Graph Lab by default.', 'Every GUI command still serializes back to .mdstory without a database or proprietary binary project file.', 'Release gates must prove a real Graph-first save, restart, diagnostics, and export journey without entering Split.']],
         ],
       },
       development: {
@@ -244,7 +244,7 @@
         intro: 'This page is for testers and collaborators: it separates what currently passes release gates from what remains experimental or deferred.',
         gates: 'Release gates',
         milestones: 'M0-M7 milestones',
-        stable: 'Stable surfaces with no known blocking bugs',
+        stable: 'Stable surfaces that pass current automated gates',
         experimental: 'Experimental or risk-accepted areas',
         roadmap: 'Roadmap',
       },
@@ -483,7 +483,7 @@
           <div class="section__intro"><p class="eyebrow">${t.loopTitle}</p><h2>${t.loop}</h2></div>
         </section>
         <section class="section">
-          <div class="section__intro"><p class="eyebrow">${t.featuresTitle}</p><h2>${state.locale === 'zh' ? '先稳定文本与图的协作，再推进全图形界面。' : 'Stabilize text plus graph first, then move toward full GUI.'}</h2></div>
+          <div class="section__intro"><p class="eyebrow">${t.featuresTitle}</p><h2>${state.locale === 'zh' ? '默认在画布上完成创作，源码始终透明可控。' : 'Create on the canvas by default, with the source always transparent and controllable.'}</h2></div>
           <div class="feature-grid">${t.features.map(([title, body]) => `<article class="feature-item"><span class="mark"></span><h3>${title}</h3><p>${body}</p></article>`).join('')}</div>
         </section>
         <section class="section section--audience">
@@ -576,7 +576,7 @@ The guard stops you.
           <h1>${t.title}</h1>
           <p class="lead">${t.intro}</p>
           <div class="metric-strip">
-            <div class="metric-block"><span>${state.locale === 'zh' ? '历史任务' : 'Historical tasks'}</span><strong>${status.summary.completed}/${status.summary.total}</strong><small>${state.locale === 'zh' ? '零号至七号，不含八号实验范围' : 'M0-M7, excluding M8 experimental scope'}</small></div>
+            <div class="metric-block"><span>${state.locale === 'zh' ? '历史任务' : 'Historical tasks'}</span><strong>${status.summary.completed}/${status.summary.total}</strong><small>${state.locale === 'zh' ? '零号至七号，不含八号 Graph-first 范围' : 'M0-M7, excluding the M8 Graph-first scope'}</small></div>
             <div class="metric-block"><span>${state.locale === 'zh' ? '完成率' : 'Completion'}</span><strong>${status.summary.rate}%</strong><small>${state.locale === 'zh' ? `${status.summary.deferred} 项延后` : `${status.summary.deferred} deferred`}</small></div>
             <div class="metric-block"><span>${state.locale === 'zh' ? '剩余项' : 'Remaining'}</span><strong>${status.summary.remaining}</strong><small>${state.locale === 'zh' ? `${status.summary.removed} 项已移除` : `${status.summary.removed} removed`}</small></div>
           </div>
@@ -618,7 +618,7 @@ The guard stops you.
         ${statusSection(t.stable, status.stableFeatures)}
         ${statusSection(t.experimental, status.experimentalFeatures)}
         <section class="section">
-          <div class="section__intro"><p class="eyebrow">${t.roadmap}</p><h2>${state.locale === 'zh' ? '下一步围绕公开发行与图优先模式推进。' : 'Next work focuses on public release and graph-first editing.'}</h2></div>
+          <div class="section__intro"><p class="eyebrow">${t.roadmap}</p><h2>${state.locale === 'zh' ? '下一步完成安装态门禁、人工巡检与发行签名。' : 'Next: installed-app gates, manual patrol, and release signing.'}</h2></div>
           <div class="roadmap-list">
             ${status.roadmap
               .map((rawItem) => {

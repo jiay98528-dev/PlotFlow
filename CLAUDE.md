@@ -15,16 +15,17 @@
 
 ## 一、项目身份
 
-**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为磁盘格式基础，提供 split 文本编辑与 Graph Lab 图优先实验模式双入口，以多格式导出为目标。
+**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并保留顶栏并列的 Split 完整源码投影，以多格式导出为目标。
 
 **一句话**：让叙事设计师用 Markdown 或流程图管理分支剧情，程序拿干净 JSON 直接跑。不锁死数据，不强制联网，$29 买断。
 
 ### 核心闭环
 
 ```
-用户打开/创建 .mdstory 文件 → 选择 split 分栏或 Graph Lab 实验模式编辑分支叙事
+用户打开/创建 .mdstory 文件 → 默认进入 Graph Lab，以完整 GUI 工作流编辑分支叙事
     ├── 实时分支可视化图（React Flow，可拖拽编辑，双向同步源文本）
-    ├── Graph Lab 实验模式（流程图优先、Inspector 编辑、Source Drawer 辅助）
+    ├── Graph Lab 默认主工作区（流程图优先、Inspector 编辑、Source Drawer 辅助）
+    ├── Split 辅助源码投影（完整 `.mdstory`、Monaco、Outline 与分支图）
     ├── 图形化条件编辑器（Airtable 风格，零代码）
     ├── 三级语法错误检测（错误/警告/建议，波浪线+侧边标记）
     ├── 四维幽灵字符补全（节点标题/选项句式/正文描述/变量名）
@@ -111,16 +112,16 @@
 
 详见 `spec/progress.md`（进度权威来源）。
 
-**当前进度（2026-06-24 V0.3）**：
+**当前进度（2026-07-11 V0.3）**：
 - M0-M7 历史任务明细：132 个 ✅、9 个 ⏭️、1 个 ❌，总进度 **132/142（92.96%）**
 - M0 1 项历史 E2E 框架任务已移除；M4/M5 各 1 项延后；M7 7 项平台发布任务延后
 - M4 Godot 插件（9项）+ Unity 接口（2项）+ Unreal 接口（2项）均已实现
 - M5 增量学习器/语料导入/预处理/持久化/CorpusManager 面板均已实现
 - M7 核心配置/图标/文件关联/双击打开/CHANGELOG/Windows NSIS 正式包/Windows packaged smoke 完成，其余 7 项延后
 - V0.2 QA 审计 2 CRITICAL + 8 HIGH 全部修复验证通过
-- 基础门禁：lint/typecheck/test/build/lint:css 均通过；`pnpm.cmd test` 为 39 files / 1222 tests
-- 当前发行门禁：最新 save-flow 源码修复已通过 Graph Lab 窄回归 18/18、完整 app 集成 E2E 49/49 和 source blackbox 10 passed / 4 packaged-or-installed skipped；unpacked blackbox、installed blackbox 和人工巡检必须在本次修复后重跑。历史 package/unpacked 结果只能作为 stale evidence，详见 spec/release-blackbox-gate.md
-- M8 Graph Lab Core：18 项新增图优先任务，当前 17/18，不混入旧 142 项统计；剩余发布说明/帮助文案收尾
+- 基础门禁：lint（0 errors / 9 既有 warnings）、typecheck、test、build、lint:css、lint:tokens、lint:bundle 与 dependency audit 均通过；`pnpm.cmd test` 为 60 files / 1356 tests
+- 当前发行门禁：Graph-first/P2 完整 app 集成 E2E 79/79、source blackbox 11 passed / 6 目标专属 skipped、引擎合同 fixture 6/6、全新 Windows package 和 unpacked blackbox 16 passed / 1 installed-only skipped 均通过；严格 unpacked 旅程已通过原生 Open/Export 与磁盘 JSON Schema 0.2 Ajv 校验。远程 CI、installed blackbox、30 分钟人工巡检、Godot/Unity/Unreal 真实工具链 smoke 与 Authenticode 签名仍待完成，不得宣称 release-candidate-passed 或公共正式发行完成；详见 `spec/release-blackbox-gate.md`
+- M8 Graph Lab Core：18 项新增图优先源码任务当前 18/18，不混入旧 142 项统计；源码任务计数与发行验收继续分开记录
 
 ### V0.1 核心交付范围
 
@@ -193,7 +194,7 @@
 
 ### 5.1 CI 自动检查
 
-L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元测试）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
+PR 的 Ubuntu 门禁覆盖 ESLint、TypeScript、Vitest、build、CSS/token/bundle、Graph 主路径 UI 字面量、Schema mirror、引擎合同、moderate+ 依赖审计和网站静态验证；PR 的 `windows-2022` 门禁覆盖 app E2E、视觉旅程和 source blackbox。nightly/manual Windows package、unpacked、性能、SHA256 与受保护 self-hosted installed 分层见 `.github/workflows/release-validation.yml`。工作流配置存在不等于门禁已通过，发行证据仍以 `spec/release-blackbox-gate.md` 为准。
 
 ### 5.2 里程碑复审
 
