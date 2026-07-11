@@ -80,7 +80,7 @@ vars:
       expect(ch.nodes).toHaveLength(1);
       const node = ch.nodes[0]!;
       expect(node.id).toBe('森林入口');
-      expect(node.fullId).toBe('第一章-森林入口');
+      expect(node.fullId).toBe('%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3');
       expect(node.chapterId).toBe('第一章');
       expect(node.options).toHaveLength(2);
     }
@@ -185,7 +185,7 @@ vars:
     const result = parseStory(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('孤魂');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('%E5%AD%A4%E9%AD%82');
     }
   });
 
@@ -261,11 +261,11 @@ vars:
     const result = parseStory(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('测试节点');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('%E6%B5%8B%E8%AF%95%E8%8A%82%E7%82%B9');
     }
   });
 
-  it('命名章节 fullId = "章节ID-节点ID"', () => {
+  it('命名章节 fullId = 编码后的 "章节ID/节点ID"', () => {
     const input = `# 冒险开始
 
 ## 节点：出发
@@ -275,7 +275,7 @@ vars:
     const result = parseStory(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('冒险开始-出发');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('%E5%86%92%E9%99%A9%E5%BC%80%E5%A7%8B/%E5%87%BA%E5%8F%91');
     }
   });
 

@@ -46,7 +46,7 @@ describe('exportJSON — 基本导出', () => {
     const json = JSON.parse(exportResult.data);
 
     // 顶层结构
-    expect(json).toHaveProperty('$schema', 'https://plotflow.dev/schema/0.1/story.json');
+    expect(json).toHaveProperty('$schema', 'https://plotflow.dev/schema/0.2/story.json');
     expect(json).toHaveProperty('meta');
     expect(json).toHaveProperty('variables');
     expect(json).toHaveProperty('chapters');
@@ -72,7 +72,7 @@ describe('exportJSON — 基本导出', () => {
     const node0 = ch.nodes[0];
     expect(node0).toHaveProperty('id', '起点');
     expect(node0).toHaveProperty('chapterId', '第一章');
-    expect(node0).toHaveProperty('fullId', '第一章-起点');
+    expect(node0).toHaveProperty('fullId', '%E7%AC%AC%E4%B8%80%E7%AB%A0/%E8%B5%B7%E7%82%B9');
     expect(node0).toHaveProperty('title', '起点');
     expect(Array.isArray(node0.body)).toBe(true);
     expect(node0.body).toContain('故事在这里开始。');
@@ -89,7 +89,7 @@ describe('exportJSON — 基本导出', () => {
     expect(opt0).toHaveProperty('text', '继续');
     expect(opt0).toHaveProperty('targetNodeId', '终点');
     // targetFullId 由 M2 resolveTargetFullIds() 回填
-    expect(opt0).toHaveProperty('targetFullId', '第一章-终点');
+    expect(opt0).toHaveProperty('targetFullId', '%E7%AC%AC%E4%B8%80%E7%AB%A0/%E7%BB%88%E7%82%B9');
     expect(opt0.conditions).toBeNull();
     expect(opt0.sideEffects).toEqual([]);
 
@@ -230,8 +230,7 @@ vars:
     // 嵌套字段默认值使用类型默认值（int → 0）
     expect(json.variables['角色状态'].fields['生命']).toEqual({ type: 'int', default: 0 });
     expect(json.variables['角色状态'].fields['魔力']).toEqual({ type: 'int', default: 0 });
-    // object 不应该有 default 字段（Schema 不允许）
-    expect(json.variables['角色状态']).not.toHaveProperty('default');
+    expect(json.variables['角色状态'].default).toEqual({ 生命: 0, 魔力: 0 });
 
     // ---- chapters ----
     expect(json.chapters).toHaveLength(1);
@@ -243,7 +242,7 @@ vars:
     // ---- 森林入口 ----
     const forestEntry = chapter.nodes.find((n: Record<string, unknown>) => n['id'] === '森林入口');
     expect(forestEntry).toBeDefined();
-    expect(forestEntry.fullId).toBe('第一章：村庄-森林入口');
+    expect(forestEntry.fullId).toBe('%E7%AC%AC%E4%B8%80%E7%AB%A0%EF%BC%9A%E6%9D%91%E5%BA%84/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3');
     expect(forestEntry.body).toEqual([
       '你站在幽暗森林的边缘，两条小径延伸向前。\n夜幕即将降临，你必须做出选择。',
     ]);
@@ -255,7 +254,7 @@ vars:
     expect(opt1.text).toBe('走向左边的狼嚎声');
     expect(opt1.targetNodeId).toBe('狼穴');
     // targetFullId 由 M2 resolveTargetFullIds() 回填
-    expect(opt1.targetFullId).toBe('第一章：村庄-狼穴');
+    expect(opt1.targetFullId).toBe('%E7%AC%AC%E4%B8%80%E7%AB%A0%EF%BC%9A%E6%9D%91%E5%BA%84/%E7%8B%BC%E7%A9%B4');
     expect(opt1.conditions).toBeNull();
     expect(opt1.sideEffects).toHaveLength(1);
     expect(opt1.sideEffects[0]).toEqual({
@@ -283,13 +282,13 @@ vars:
     expect(feedOpt.conditions.expression).toBe("($金币>=10) AND ($武器!='无')");
     expect(feedOpt.conditions.ast.type).toBe('logical_and');
     expect(feedOpt.conditions.ast.left.type).toBe('comparison');
-    expect(feedOpt.conditions.ast.left.variable).toBe('金币');
+    expect(feedOpt.conditions.ast.left.left).toEqual({ type: 'variable', name: '金币' });
     expect(feedOpt.conditions.ast.left.operator).toBe('>=');
-    expect(feedOpt.conditions.ast.left.value).toBe(10);
+    expect(feedOpt.conditions.ast.left.right).toEqual({ type: 'literal', value: 10 });
     expect(feedOpt.conditions.ast.right.type).toBe('comparison');
-    expect(feedOpt.conditions.ast.right.variable).toBe('武器');
+    expect(feedOpt.conditions.ast.right.left).toEqual({ type: 'variable', name: '武器' });
     expect(feedOpt.conditions.ast.right.operator).toBe('!=');
-    expect(feedOpt.conditions.ast.right.value).toBe('无');
+    expect(feedOpt.conditions.ast.right.right).toEqual({ type: 'literal', value: '无' });
     expect(feedOpt.sideEffects).toHaveLength(2);
     expect(feedOpt.sideEffects[0]).toEqual({ variable: '金币', operation: 'subtract', value: 10 });
     expect(feedOpt.sideEffects[1]).toEqual({ variable: '好感度', operation: 'add', value: 5 });
@@ -313,9 +312,9 @@ vars:
     expect(runeOpt).toBeDefined();
     expect(runeOpt.conditions.expression).toBe('($角色状态.魔力>=10)');
     expect(runeOpt.conditions.ast.type).toBe('comparison');
-    expect(runeOpt.conditions.ast.variable).toBe('角色状态.魔力');
+    expect(runeOpt.conditions.ast.left).toEqual({ type: 'variable', name: '角色状态.魔力' });
     expect(runeOpt.conditions.ast.operator).toBe('>=');
-    expect(runeOpt.conditions.ast.value).toBe(10);
+    expect(runeOpt.conditions.ast.right).toEqual({ type: 'literal', value: 10 });
     expect(runeOpt.sideEffects[0]).toEqual({
       variable: '拥有钥匙',
       operation: 'set',
@@ -383,7 +382,43 @@ vars:
     expect(v['属性'].type).toBe('object');
     expect(v['属性'].fields['力量']).toEqual({ type: 'int', default: 0 });
     expect(v['属性'].fields['敏捷']).toEqual({ type: 'int', default: 0 });
-    expect(v['属性']).not.toHaveProperty('default');
+    expect(v['属性'].default).toEqual({ 力量: 0, 敏捷: 0 });
+  });
+
+  it('保留结构化变量的 default、scope 与 description', () => {
+    const input = `---
+vars:
+  职业:
+    type: enum
+    values: [战士, 法师]
+    default: 法师
+    scope: chapter
+    chapter: 章
+    description: 当前伪装职业
+---
+
+# 章
+
+## 节点：测试
+
+内容。
+`;
+    const parseResult = parseStory(input);
+    expect(parseResult.ok).toBe(true);
+    if (!parseResult.ok) return;
+
+    const exportResult = exportJSON(parseResult.data);
+    expect(exportResult.ok).toBe(true);
+    if (!exportResult.ok) return;
+
+    expect(JSON.parse(exportResult.data).variables['职业']).toEqual({
+      type: 'enum',
+      default: '法师',
+      scope: 'chapter',
+      chapter: '章',
+      description: '当前伪装职业',
+      values: ['战士', '法师'],
+    });
   });
 
   it('空变量列表 → 空对象', () => {
@@ -406,6 +441,35 @@ vars:
 // ============================================================================
 
 describe('exportJSON — 条件 AST 转换', () => {
+  it('Schema 0.2 保留 literal-left 与 variable-right 的操作数顺序', () => {
+    const input = `---
+vars:
+  金币: int
+---
+# 章
+
+## 节点：入口
+
+[选项] 通过 -> 节点：结果
+  条件: 5 < $金币
+`;
+    const parseResult = parseStory(input);
+    expect(parseResult.ok).toBe(true);
+    if (!parseResult.ok) return;
+
+    const exportResult = exportJSON(parseResult.data);
+    expect(exportResult.ok).toBe(true);
+    if (!exportResult.ok) return;
+
+    const ast = JSON.parse(exportResult.data).chapters[0].nodes[0].options[0].conditions.ast;
+    expect(ast).toEqual({
+      type: 'comparison',
+      left: { type: 'literal', value: 5 },
+      operator: '<',
+      right: { type: 'variable', name: '金币' },
+    });
+  });
+
   it('NOT 表达式正确转换', () => {
     const input = `---
 vars:
@@ -433,9 +497,9 @@ vars:
 
     expect(opt.conditions.ast.type).toBe('logical_not');
     expect(opt.conditions.ast.operand.type).toBe('comparison');
-    expect(opt.conditions.ast.operand.variable).toBe('金币');
+    expect(opt.conditions.ast.operand.left).toEqual({ type: 'variable', name: '金币' });
     expect(opt.conditions.ast.operand.operator).toBe('>=');
-    expect(opt.conditions.ast.operand.value).toBe(10);
+    expect(opt.conditions.ast.operand.right).toEqual({ type: 'literal', value: 10 });
   });
 
   it('OR 表达式正确转换', () => {
@@ -468,8 +532,8 @@ vars:
     expect(ast.type).toBe('logical_or');
     expect(ast.left.type).toBe('comparison');
     expect(ast.right.type).toBe('comparison');
-    expect(ast.left.variable).toBe('等级');
-    expect(ast.right.variable).toBe('金币');
+    expect(ast.left.left).toEqual({ type: 'variable', name: '等级' });
+    expect(ast.right.left).toEqual({ type: 'variable', name: '金币' });
   });
 
   it('三重 AND 折叠为二叉树', () => {
@@ -502,13 +566,13 @@ vars:
     // 三层AND: { left: a>=1, right: { left: b>=2, right: c>=3 } }
     expect(ast.type).toBe('logical_and');
     expect(ast.left.type).toBe('comparison');
-    expect(ast.left.variable).toBe('a');
+    expect(ast.left.left).toEqual({ type: 'variable', name: 'a' });
 
     expect(ast.right.type).toBe('logical_and');
     expect(ast.right.left.type).toBe('comparison');
-    expect(ast.right.left.variable).toBe('b');
+    expect(ast.right.left.left).toEqual({ type: 'variable', name: 'b' });
     expect(ast.right.right.type).toBe('comparison');
-    expect(ast.right.right.variable).toBe('c');
+    expect(ast.right.right.left).toEqual({ type: 'variable', name: 'c' });
   });
 
   it('无条件选项 → conditions 为 null', () => {
@@ -699,8 +763,8 @@ describe('exportJSON — 匿名章节', () => {
     expect(ch.nodes).toHaveLength(2);
 
     // 匿名节点 fullId 不含前缀
-    expect(ch.nodes[0].fullId).toBe('孤儿');
-    expect(ch.nodes[1].fullId).toBe('终结');
+    expect(ch.nodes[0].fullId).toBe('%E5%AD%A4%E5%84%BF');
+    expect(ch.nodes[1].fullId).toBe('%E7%BB%88%E7%BB%93');
   });
 });
 
@@ -809,7 +873,8 @@ describe('exportJSON — 多章节', () => {
 
     // 跨章节引用 — targetFullId 由 M2 resolveTargetFullIds() 回填
     expect(json.chapters[0].nodes[0].options[0].targetNodeId).toBe('第二章起点');
-    expect(json.chapters[0].nodes[0].options[0].targetFullId).toBe('第二章-第二章起点');
+    expect(json.chapters[0].nodes[0].options[0].targetChapterId).toBeNull();
+    expect(json.chapters[0].nodes[0].options[0].targetFullId).toBe('%E7%AC%AC%E4%BA%8C%E7%AB%A0/%E7%AC%AC%E4%BA%8C%E7%AB%A0%E8%B5%B7%E7%82%B9');
   });
 });
 

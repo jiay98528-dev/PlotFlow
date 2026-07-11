@@ -45,7 +45,7 @@ describe('node-level next target flow syntax', () => {
     expect(node.body).toBe('Body text.');
     expect(node.options).toHaveLength(0);
     expect(node.nextTarget?.targetNodeId).toBe('B');
-    expect(node.nextTarget?.targetFullId).toBe('Chapter-B');
+    expect(node.nextTarget?.targetFullId).toBe('Chapter/B');
     expect(node.nextTarget?.effectsRaw).toBe('coins+1');
     expect(node.nextTarget?.sideEffects[0]?.variableName).toBe('coins');
   });
@@ -82,7 +82,7 @@ describe('node-level next target flow syntax', () => {
     expect(exportedNode.options[0]).toMatchObject({
       text: NEXT,
       targetNodeId: 'B',
-      targetFullId: 'Chapter-B',
+      targetFullId: 'Chapter/B',
     });
 
     const txt = exportTXT(parse(source));

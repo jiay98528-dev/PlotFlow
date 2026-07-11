@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plotflow.dev/schema/0.2/story.json",
+  "title": "PlotFlow Story Export 0.2",
+  "description": "Graph-first PlotFlow export contract with explicit cross-chapter targets and structured variables.",
+  "type": "object",
+  "required": ["$schema", "meta", "variables", "chapters"],
+  "properties": {
+    "$schema": { "const": "https://plotflow.dev/schema/0.2/story.json" },
+    "meta": { "$ref": "#/$defs/Meta" },
+    "variables": { "$ref": "#/$defs/Variables" },
+    "chapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Chapter" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Meta": {
+      "type": "object",
+      "required": ["plotflow", "title", "engine", "exportedAt"],
+      "properties": {
+        "plotflow": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "author": { "type": "string" },
+        "engine": { "enum": ["godot", "unity", "unreal", "none"] },
+        "exportedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "VariableScope": {
+      "enum": ["global", "chapter"]
+    },
+    "Variables": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[^$]+$" },
+      "additionalProperties": { "$ref": "#/$defs/TopLevelVariableDef" }
+    },
+    "TopLevelVariableDef": {
+      "type": "object",
+      "properties": {
+        "scope": { "$ref": "#/$defs/VariableScope" },
+        "chapter": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        { "$ref": "#/$defs/VariableShape" },
+        {
+          "if": {
+            "required": ["scope"],
+            "properties": { "scope": { "const": "chapter" } }
+          },
+          "then": {
+            "required": ["chapter"],
+            "properties": { "chapter": {} }
+          },
+          "else": {
+            "not": {
+              "required": ["chapter"],
+              "properties": { "chapter": {} }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "FieldDef": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/VariableShape" }
+      ],
+      "unevaluatedProperties": false
+    },
+    "VariableShape": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["int", "float", "bool", "string", "enum", "object"] },
+        "description": { "type": "string" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "int" },
+            "default": { "type": "integer" }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "float" },
+            "default": { "type": "number" }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "bool" },
+            "default": { "type": "boolean" }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "string" },
+            "default": { "type": "string" }
+          }
+        },
+        {
+          "required": ["values"],
+          "properties": {
+            "type": { "const": "enum" },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            },
+            "default": { "type": "string" }
+          }
+        },
+        {
+          "required": ["fields"],
+          "properties": {
+            "type": { "const": "object" },
+            "default": { "type": "object" },
+            "fields": {
+              "type": "object",
+              "minProperties": 0,
+              "additionalProperties": { "$ref": "#/$defs/FieldDef" }
+            }
+          }
+        }
+      ]
+    },
+    "Chapter": {
+      "type": "object",
+      "required": ["id", "title", "nodes"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Node" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Position": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "Node": {
+      "type": "object",
+      "required": ["id", "chapterId", "fullId", "title", "body", "options", "position", "isRoot", "isOrphan", "isDeadEnd"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "chapterId": { "type": "string", "minLength": 1 },
+        "fullId": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "body": { "type": "array", "items": { "type": "string" } },
+        "options": { "type": "array", "items": { "$ref": "#/$defs/Option" } },
+        "position": { "$ref": "#/$defs/Position" },
+        "isRoot": { "type": "boolean" },
+        "isOrphan": { "type": "boolean" },
+        "isDeadEnd": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "Option": {
+      "type": "object",
+      "required": ["index", "text", "targetNodeId", "targetChapterId", "targetFullId", "conditions", "sideEffects"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "text": { "type": "string", "minLength": 1 },
+        "targetNodeId": { "type": ["string", "null"], "minLength": 1 },
+        "targetChapterId": { "type": ["string", "null"] },
+        "targetFullId": { "type": ["string", "null"], "minLength": 1 },
+        "conditions": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/ConditionExpression" }
+          ]
+        },
+        "sideEffects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SideEffect" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConditionExpression": {
+      "type": "object",
+      "required": ["expression", "ast"],
+      "properties": {
+        "expression": { "type": "string", "minLength": 1 },
+        "ast": { "$ref": "#/$defs/ConditionAst" }
+      },
+      "additionalProperties": false
+    },
+    "ConditionAst": {
+      "oneOf": [
+        { "$ref": "#/$defs/Comparison" },
+        { "$ref": "#/$defs/LogicalAnd" },
+        { "$ref": "#/$defs/LogicalOr" },
+        { "$ref": "#/$defs/LogicalNot" },
+        { "$ref": "#/$defs/FieldAccess" }
+      ]
+    },
+    "Comparison": {
+      "type": "object",
+      "required": ["type", "left", "operator", "right"],
+      "properties": {
+        "type": { "const": "comparison" },
+        "left": { "$ref": "#/$defs/Operand" },
+        "operator": { "enum": ["==", "!=", ">", "<", ">=", "<="] },
+        "right": { "$ref": "#/$defs/Operand" }
+      },
+      "additionalProperties": false
+    },
+    "Operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "name"],
+          "properties": {
+            "type": { "const": "variable" },
+            "name": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "const": "literal" },
+            "value": { "$ref": "#/$defs/VariableValue" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "LogicalAnd": {
+      "type": "object",
+      "required": ["type", "left", "right"],
+      "properties": {
+        "type": { "const": "logical_and" },
+        "left": { "$ref": "#/$defs/ConditionAst" },
+        "right": { "$ref": "#/$defs/ConditionAst" }
+      },
+      "additionalProperties": false
+    },
+    "LogicalOr": {
+      "type": "object",
+      "required": ["type", "left", "right"],
+      "properties": {
+        "type": { "const": "logical_or" },
+        "left": { "$ref": "#/$defs/ConditionAst" },
+        "right": { "$ref": "#/$defs/ConditionAst" }
+      },
+      "additionalProperties": false
+    },
+    "LogicalNot": {
+      "type": "object",
+      "required": ["type", "operand"],
+      "properties": {
+        "type": { "const": "logical_not" },
+        "operand": { "$ref": "#/$defs/ConditionAst" }
+      },
+      "additionalProperties": false
+    },
+    "FieldAccess": {
+      "type": "object",
+      "required": ["type", "object", "field"],
+      "properties": {
+        "type": { "const": "field_access" },
+        "object": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "$ref": "#/$defs/FieldAccess" }
+          ]
+        },
+        "field": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "SideEffect": {
+      "type": "object",
+      "required": ["variable", "operation", "value"],
+      "properties": {
+        "variable": { "type": "string", "minLength": 1 },
+        "operation": { "enum": ["set", "add", "subtract", "append"] },
+        "value": { "$ref": "#/$defs/VariableValue" }
+      },
+      "additionalProperties": false
+    },
+    "VariableValue": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/VariableValue" }
+        }
+      ]
+    }
+  }
+}

@@ -19,8 +19,8 @@
 //   var vars = new Dictionary<string, object> { { "金币", 10L } };
 //   var available = reader.GetAvailableOptions(rootNode.FullId, vars);
 //
-// 版本: 0.1.0
-// 日期: 2026-06-13
+// 版本: 0.2.0（兼容 0.1/0.2 JSON）
+// 日期: 2026-07-11
 // ============================================================================
 
 using System;
@@ -38,10 +38,14 @@ namespace PlotFlow
     ///
     /// 线程安全: 非线程安全。应在主线程中串行调用。
     /// </summary>
-    public class PlotFlowJsonReader : IPlotFlowReader
+    public class PlotFlowJsonReader : IPlotFlowScopedReader
     {
         // fullId → StoryNode 映射表（Step 2: 索引节点）
         private Dictionary<string, StoryNode> _nodeIndex;
+
+        // Unique chapter-local id fallback for 0.1 exports. Ambiguous ids are omitted.
+        private Dictionary<string, StoryNode> _legacyNodeIndex;
+        private HashSet<string> _ambiguousLegacyNodeIds;
 
         // 章节索引（chapterId → Chapter）
         private Dictionary<string, Chapter> _chapterIndex;
@@ -105,8 +109,11 @@ namespace PlotFlow
             // 初始化内部索引
             _storyData = data;
             _nodeIndex = new Dictionary<string, StoryNode>();
+            _legacyNodeIndex = new Dictionary<string, StoryNode>();
+            _ambiguousLegacyNodeIds = new HashSet<string>();
             _chapterIndex = new Dictionary<string, Chapter>();
             _variableDefs = data.Variables ?? new Dictionary<string, VariableDeclaration>();
+            WarnForSchemaVersion(data);
 
             // Step 1: 构建变量表（验证变量声明）
             ValidateVariableDefs(_variableDefs);
@@ -125,10 +132,14 @@ namespace PlotFlow
                     {
                         foreach (var node in chapter.Nodes)
                         {
+                            if (string.IsNullOrEmpty(node.ChapterId))
+                                node.ChapterId = chapter.Id;
                             if (!string.IsNullOrEmpty(node.FullId))
                             {
+                                // fullId is opaque: index the exported value verbatim.
                                 _nodeIndex[node.FullId] = node;
                             }
+                            IndexLegacyNodeId(node);
                         }
                     }
                 }
@@ -147,6 +158,9 @@ namespace PlotFlow
                 return null;
 
             _nodeIndex.TryGetValue(nodeId, out var node);
+            if (node != null)
+                return node;
+            _legacyNodeIndex.TryGetValue(nodeId, out node);
             return node;
         }
 
@@ -163,7 +177,7 @@ namespace PlotFlow
                 return new List<StoryOption>();
 
             var available = new List<StoryOption>();
-            foreach (var option in node.Options)
+            foreach (var option in node.Options ?? new List<StoryOption>())
             {
                 if (EvaluateCondition(option.Conditions, variables))
                 {
@@ -173,9 +187,35 @@ namespace PlotFlow
             return available;
         }
 
+        /// <summary>
+        /// Scope-aware 0.2 entry point. The current chapter namespace is selected
+        /// by PlotFlowVariableStore.CurrentChapterId.
+        /// </summary>
+        public List<StoryOption> GetAvailableOptions(string nodeId, PlotFlowVariableStore variables)
+        {
+            var node = GetNode(nodeId);
+            var available = new List<StoryOption>();
+            if (node == null || variables == null)
+                return available;
+            foreach (var option in node.Options ?? new List<StoryOption>())
+            {
+                if (EvaluateCondition(option.Conditions, variables))
+                    available.Add(option);
+            }
+            return available;
+        }
+
         // ======================================================================
         // 条件评估器
         // ======================================================================
+
+        private delegate bool TryResolveVariable(string path, out object value);
+
+        private sealed class OperandResolution
+        {
+            public bool Found;
+            public object Value;
+        }
 
         /// <summary>
         /// 评估条件表达式。
@@ -193,14 +233,29 @@ namespace PlotFlow
             if (!(conditions.Ast is JObject ast))
                 return true; // 无 AST 视为无条件（前向兼容）
 
-            return EvaluateAst(ast, variables);
+            TryResolveVariable resolver = (string path, out object value) =>
+                TryResolveVariablePath(path, variables ?? new Dictionary<string, object>(), out value);
+            return CanResolveAllVariables(ast, resolver) && EvaluateAst(ast, resolver);
+        }
+
+        public bool EvaluateCondition(ConditionExpression conditions, PlotFlowVariableStore variables)
+        {
+            if (conditions == null)
+                return true;
+            if (!(conditions.Ast is JObject ast) || variables == null)
+                return false;
+            TryResolveVariable resolver = (string path, out object value) =>
+                TryResolveVariablePath(path, variables, out value);
+            return CanResolveAllVariables(ast, resolver) && EvaluateAst(ast, resolver);
         }
 
         /// <summary>
         /// 递归评估 AST 节点。
         /// </summary>
-        private bool EvaluateAst(JObject ast, Dictionary<string, object> variables)
+        private bool EvaluateAst(JObject ast, TryResolveVariable resolver)
         {
+            if (ast == null)
+                return false;
             var type = ast["type"]?.Value<string>();
             if (string.IsNullOrEmpty(type))
                 return false;
@@ -208,27 +263,66 @@ namespace PlotFlow
             switch (type)
             {
                 case AstNodeTypes.LogicalAnd:
-                    return EvaluateAst(ast["left"] as JObject, variables)
-                        && EvaluateAst(ast["right"] as JObject, variables);
+                    return EvaluateAst(ast["left"] as JObject, resolver)
+                        && EvaluateAst(ast["right"] as JObject, resolver);
 
                 case AstNodeTypes.LogicalOr:
-                    return EvaluateAst(ast["left"] as JObject, variables)
-                        || EvaluateAst(ast["right"] as JObject, variables);
+                    return EvaluateAst(ast["left"] as JObject, resolver)
+                        || EvaluateAst(ast["right"] as JObject, resolver);
 
                 case AstNodeTypes.LogicalNot:
                     var operand = ast["operand"] as JObject;
-                    return !EvaluateAst(operand, variables);
+                    return !EvaluateAst(operand, resolver);
 
                 case AstNodeTypes.Comparison:
-                    return EvaluateComparison(ast, variables);
+                    return EvaluateComparison(ast, resolver);
 
                 case AstNodeTypes.FieldAccess:
                     // FieldAccess 不是终端节点——实际取值后由 Comparison 包装评估
-                    return EvaluateFieldAccess(ast, variables);
+                    return EvaluateFieldAccess(ast, resolver);
 
                 default:
                     UnityEngine.Debug.LogWarning($"PlotFlow: Unknown AST node type '{type}' — skipping condition");
                     return false;
+            }
+        }
+
+        private bool CanResolveAllVariables(JObject ast, TryResolveVariable resolver)
+        {
+            if (ast == null)
+                return false;
+            switch (ast["type"]?.Value<string>())
+            {
+                case AstNodeTypes.LogicalAnd:
+                case AstNodeTypes.LogicalOr:
+                    return CanResolveAllVariables(ast["left"] as JObject, resolver)
+                        && CanResolveAllVariables(ast["right"] as JObject, resolver);
+                case AstNodeTypes.LogicalNot:
+                    return CanResolveAllVariables(ast["operand"] as JObject, resolver);
+                case AstNodeTypes.Comparison:
+                    if (ast["left"] != null || ast["right"] != null)
+                        return CanResolveOperand(ast["left"], resolver) && CanResolveOperand(ast["right"], resolver);
+                    return resolver(ast["variable"]?.Value<string>(), out _);
+                case AstNodeTypes.FieldAccess:
+                {
+                    var objectName = ast["object"]?.Value<string>();
+                    var fieldName = ast["field"]?.Value<string>();
+                    return resolver($"{objectName}.{fieldName}", out _);
+                }
+                default:
+                    return true;
+            }
+        }
+
+        private bool CanResolveOperand(JToken token, TryResolveVariable resolver)
+        {
+            if (!(token is JObject operand))
+                return false;
+            switch (operand["type"]?.Value<string>())
+            {
+                case "literal": return operand["value"] != null;
+                case "variable": return resolver(operand["name"]?.Value<string>(), out _);
+                default: return false;
             }
         }
 
@@ -237,23 +331,38 @@ namespace PlotFlow
         /// 支持运算符: ==, !=, >, <, >=, <=
         /// 支持嵌套字段访问路径如 "角色状态.魔力"。
         /// </summary>
-        private bool EvaluateComparison(JObject comp, Dictionary<string, object> variables)
+        private bool EvaluateComparison(JObject comp, TryResolveVariable resolver)
         {
-            var variable = comp["variable"]?.Value<string>();
             var operatorStr = comp["operator"]?.Value<string>();
-            var valueToken = comp["value"];
-
-            if (string.IsNullOrEmpty(variable) || string.IsNullOrEmpty(operatorStr) || valueToken == null)
+            if (string.IsNullOrEmpty(operatorStr))
                 return false;
 
-            // 解析变量值（支持点号分隔的嵌套字段路径）
-            object varValue = ResolveVariablePath(variable, variables);
+            OperandResolution left;
+            OperandResolution right;
+            if (comp["left"] != null || comp["right"] != null)
+            {
+                // PlotFlow 0.2: preserve operand order, including literal-left.
+                left = ResolveOperand(comp["left"], resolver);
+                right = ResolveOperand(comp["right"], resolver);
+            }
+            else
+            {
+                // PlotFlow 0.1: variable is the left operand, value is the right.
+                var variable = comp["variable"]?.Value<string>();
+                left = ResolveVariableOperand(variable, resolver);
+                var valueToken = comp["value"];
+                right = new OperandResolution
+                {
+                    Found = valueToken != null,
+                    Value = valueToken == null ? null : PlotFlowVariableStore.NormalizeJsonValue(valueToken.ToObject<object>())
+                };
+            }
 
-            // 解析比较值
-            object cmpValue = valueToken.ToObject<object>();
+            if (!left.Found || !right.Found)
+                return false;
 
             // 执行比较
-            int comparisonResult = CompareValues(varValue, cmpValue);
+            int comparisonResult = CompareValues(left.Value, right.Value);
 
             return operatorStr switch
             {
@@ -267,22 +376,47 @@ namespace PlotFlow
             };
         }
 
+        private OperandResolution ResolveOperand(JToken token, TryResolveVariable resolver)
+        {
+            if (!(token is JObject operand))
+                return new OperandResolution { Found = false };
+            switch (operand["type"]?.Value<string>())
+            {
+                case "literal":
+                    var valueToken = operand["value"];
+                    return new OperandResolution
+                    {
+                        Found = valueToken != null,
+                        Value = valueToken == null ? null : PlotFlowVariableStore.NormalizeJsonValue(valueToken.ToObject<object>())
+                    };
+                case "variable":
+                    return ResolveVariableOperand(operand["name"]?.Value<string>(), resolver);
+                default:
+                    return new OperandResolution { Found = false };
+            }
+        }
+
+        private OperandResolution ResolveVariableOperand(string path, TryResolveVariable resolver)
+        {
+            if (string.IsNullOrEmpty(path) || !resolver(path, out var value))
+                return new OperandResolution { Found = false };
+            return new OperandResolution { Found = true, Value = value };
+        }
+
         /// <summary>
         /// 解析带点号分隔符的变量路径。
         /// 例如: "角色状态.魔力" → 先取 variables["角色状态"]（Dictionary），再取 ["魔力"]。
         /// </summary>
-        private object ResolveVariablePath(string path, Dictionary<string, object> variables)
+        private bool TryResolveVariablePath(string path, Dictionary<string, object> variables, out object value)
         {
+            value = null;
+            if (string.IsNullOrEmpty(path))
+                return false;
+            if (path[0] == '$')
+                path = path.Substring(1);
             var parts = path.Split('.');
-            if (parts.Length == 1)
-            {
-                variables.TryGetValue(parts[0], out var value);
-                return value;
-            }
-
-            // 嵌套字段访问
             if (!variables.TryGetValue(parts[0], out var current))
-                return null;
+                return false;
 
             for (int i = 1; i < parts.Length; i++)
             {
@@ -292,10 +426,31 @@ namespace PlotFlow
                 }
                 else
                 {
-                    return null;
+                    return false;
                 }
             }
-            return current;
+            value = current;
+            return true;
+        }
+
+        private bool TryResolveVariablePath(string path, PlotFlowVariableStore variables, out object value)
+        {
+            value = null;
+            if (string.IsNullOrEmpty(path))
+                return false;
+            if (path[0] == '$')
+                path = path.Substring(1);
+            var parts = path.Split('.');
+            if (!variables.TryGetValue(parts[0], out var current))
+                return false; // Includes cross-chapter ownership denial.
+            for (int i = 1; i < parts.Length; i++)
+            {
+                if (!(current is Dictionary<string, object> dictionary)
+                    || !dictionary.TryGetValue(parts[i], out current))
+                    return false;
+            }
+            value = current;
+            return true;
         }
 
         /// <summary>
@@ -337,7 +492,7 @@ namespace PlotFlow
         /// 评估 FieldAccess AST 节点。
         /// 预留实现，当前比较表达式直接在 variable 字段中使用点号路径。
         /// </summary>
-        private bool EvaluateFieldAccess(JObject fieldAccess, Dictionary<string, object> variables)
+        private bool EvaluateFieldAccess(JObject fieldAccess, TryResolveVariable resolver)
         {
             var objName = fieldAccess["object"]?.Value<string>();
             var field = fieldAccess["field"]?.Value<string>();
@@ -345,16 +500,7 @@ namespace PlotFlow
             if (string.IsNullOrEmpty(objName) || string.IsNullOrEmpty(field))
                 return false;
 
-            if (!variables.TryGetValue(objName, out var obj))
-                return false;
-
-            if (obj is Dictionary<string, object> dict)
-            {
-                dict.TryGetValue(field, out var value);
-                return value != null;
-            }
-
-            return false;
+            return resolver($"{objName}.{field}", out var value) && value != null;
         }
 
         // ======================================================================
@@ -375,6 +521,14 @@ namespace PlotFlow
             return defaults;
         }
 
+        /// <summary>Create an isolated global/chapter variable store.</summary>
+        public PlotFlowVariableStore CreateVariableStore(string currentChapterId = null)
+        {
+            if (currentChapterId == null)
+                currentChapterId = FindInitialChapterId();
+            return new PlotFlowVariableStore(_variableDefs, currentChapterId);
+        }
+
         /// <summary>
         /// 执行副作用列表，修改变量状态。
         /// 对应 json-schema.md §9.2 Godot VariableStore.apply_effects()。
@@ -390,6 +544,15 @@ namespace PlotFlow
             {
                 ApplySingleEffect(effect, variables);
             }
+        }
+
+        /// <summary>Scope-aware side-effect entry point.</summary>
+        public void ApplySideEffects(List<SideEffect> effects, PlotFlowVariableStore variables)
+        {
+            if (effects == null || variables == null)
+                return;
+            foreach (var effect in effects)
+                ApplySingleEffect(effect, variables);
         }
 
         /// <summary>
@@ -428,6 +591,41 @@ namespace PlotFlow
                     dict[lastKey] = ApplyOperation(dict[lastKey], effect.Operation, value);
                 }
             }
+        }
+
+        private void ApplySingleEffect(SideEffect effect, PlotFlowVariableStore variables)
+        {
+            if (effect == null || string.IsNullOrEmpty(effect.Variable))
+                return;
+            var parts = effect.Variable.Split('.');
+            var value = PlotFlowVariableStore.NormalizeJsonValue(effect.Value);
+            if (!variables.CanAccess(parts[0]))
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"PlotFlow: Cannot apply effect to chapter variable '{parts[0]}' from chapter '{variables.CurrentChapterId}'");
+                return;
+            }
+            if (parts.Length == 1)
+            {
+                if (!variables.TryGetValue(parts[0], out var current))
+                    return;
+                if (!variables.TrySet(parts[0], ApplyOperation(current, effect.Operation, value)))
+                    UnityEngine.Debug.LogWarning($"PlotFlow: Effect write denied for variable '{parts[0]}'");
+                return;
+            }
+
+            if (!(variables.Get(parts[0]) is Dictionary<string, object> dictionary))
+                return;
+            for (var index = 1; index < parts.Length - 1; index++)
+            {
+                if (!dictionary.TryGetValue(parts[index], out var nested)
+                    || !(nested is Dictionary<string, object> nestedDictionary))
+                    return;
+                dictionary = nestedDictionary;
+            }
+            var lastKey = parts[parts.Length - 1];
+            if (dictionary.TryGetValue(lastKey, out var currentValue))
+                dictionary[lastKey] = ApplyOperation(currentValue, effect.Operation, value);
         }
 
         /// <summary>
@@ -479,19 +677,7 @@ namespace PlotFlow
         /// </summary>
         private object ResolveDefaultValue(VariableDeclaration def)
         {
-            if (def.DefaultValue != null)
-                return def.DefaultValue;
-
-            return def.Type switch
-            {
-                "int"    => 0L,
-                "float"  => 0.0d,
-                "bool"   => false,
-                "string" => "",
-                "enum"   => def.Values != null && def.Values.Count > 0 ? def.Values[0] : "",
-                "object" => ResolveObjectDefaults(def.Fields),
-                _        => null
-            };
+            return PlotFlowVariableStore.ResolveDefaultValue(def);
         }
 
         private Dictionary<string, object> ResolveObjectDefaults(Dictionary<string, VariableDeclaration> fields)
@@ -544,6 +730,67 @@ namespace PlotFlow
                     def.Type = "string";
                 }
             }
+        }
+
+        private void IndexLegacyNodeId(StoryNode node)
+        {
+            if (node == null || string.IsNullOrEmpty(node.Id) || _ambiguousLegacyNodeIds.Contains(node.Id))
+                return;
+            if (_legacyNodeIndex.TryGetValue(node.Id, out var existing) && !ReferenceEquals(existing, node))
+            {
+                _legacyNodeIndex.Remove(node.Id);
+                _ambiguousLegacyNodeIds.Add(node.Id);
+                return;
+            }
+            _legacyNodeIndex[node.Id] = node;
+        }
+
+        private string FindInitialChapterId()
+        {
+            if (_storyData?.Chapters == null)
+                return string.Empty;
+            foreach (var chapter in _storyData.Chapters)
+            {
+                foreach (var node in chapter.Nodes ?? new List<StoryNode>())
+                {
+                    if (node.IsRoot)
+                        return node.ChapterId ?? chapter.Id ?? string.Empty;
+                }
+            }
+            return _storyData.Chapters.Count > 0 ? _storyData.Chapters[0].Id ?? string.Empty : string.Empty;
+        }
+
+        private static void WarnForSchemaVersion(PlotFlowData data)
+        {
+            var version = ReadSchemaVersion(data);
+            if (string.IsNullOrEmpty(version))
+                return; // Legacy 0.1 exports may omit meta.plotflow.
+            var normalized = version.Split('-')[0];
+            if (!Version.TryParse(normalized, out var parsed))
+            {
+                UnityEngine.Debug.LogWarning($"PlotFlow: Unknown story version '{version}'; loading supported fields only");
+                return;
+            }
+            if (parsed.Major > 0 || parsed.Minor > 2)
+                UnityEngine.Debug.LogWarning($"PlotFlow: Story version '{version}' is newer than the 0.2 runtime contract; unknown fields are ignored");
+        }
+
+        private static string ReadSchemaVersion(PlotFlowData data)
+        {
+            var schema = data?.SchemaVersion;
+            if (!string.IsNullOrEmpty(schema))
+            {
+                const string marker = "/schema/";
+                var markerIndex = schema.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (markerIndex >= 0)
+                {
+                    var tail = schema.Substring(markerIndex + marker.Length);
+                    var slashIndex = tail.IndexOf('/');
+                    return slashIndex >= 0 ? tail.Substring(0, slashIndex) : tail;
+                }
+                return schema;
+            }
+            return data?.Meta?.Plotflow;
         }
     }
 }

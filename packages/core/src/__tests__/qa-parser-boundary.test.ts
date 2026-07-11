@@ -13,6 +13,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parseStory } from '../parser/parser.js';
+import { createFullId } from '../fullId.js';
 
 // ============================================================================
 // P-01: 空/近空输入
@@ -99,7 +100,7 @@ describe('P-03: 节点边界', () => {
       expect(result.data.chapters).toHaveLength(1);
       expect(result.data.chapters[0]!.isAnonymous).toBe(true);
       expect(result.data.chapters[0]!.id).toBe('_anonymous');
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('孤狼');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe(createFullId(null, '孤狼'));
       expect(result.data.chapters[0]!.nodes[0]!.chapterId).toBe('_anonymous');
       // 应附带 I003 信息诊断
       const hasI003 = result.diagnostics.some((d) => d.code === 'I003');
@@ -242,7 +243,7 @@ vars:
       // 第一个选项：含条件、效果、目标
       expect(options[0]!.description).toBe('使用魔法攻击');
       expect(options[0]!.targetNodeId).toBe('魔法结局');
-      expect(options[0]!.targetFullId).toBe('冒险-魔法结局');
+      expect(options[0]!.targetFullId).toBe(createFullId('冒险', '魔法结局'));
       expect(options[0]!.condition).not.toBeNull();
       expect(options[0]!.sideEffects).toHaveLength(1);
       expect(options[0]!.conditionRaw).toBe('$魔法值 >= 50');

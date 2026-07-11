@@ -1,0 +1,88 @@
+{
+  "$schema": "https://plotflow.dev/schema/0.3/story.json",
+  "meta": {
+    "plotflow": "0.1",
+    "title": "Engine Contract Forward Compatibility",
+    "engine": "none",
+    "futureMeta": "ignored"
+  },
+  "variables": {
+    "coins": {
+      "type": "int",
+      "default": 10,
+      "scope": "global",
+      "futureConstraint": { "min": 0 }
+    },
+    "chapterFlag": {
+      "type": "bool",
+      "default": false,
+      "scope": "chapter",
+      "chapter": "chapter/alpha"
+    },
+    "betaFlag": {
+      "type": "bool",
+      "default": false,
+      "scope": "chapter",
+      "chapter": "chapter/beta"
+    }
+  },
+  "chapters": [
+    {
+      "id": "chapter/alpha",
+      "title": "Alpha",
+      "nodes": [
+        {
+          "id": "entry",
+          "chapterId": "chapter/alpha",
+          "fullId": "pf://chapter%2Falpha::node%2Fentry?rev=1",
+          "title": "Alpha Entry",
+          "body": ["Alpha body"],
+          "options": [
+            {
+              "index": 0,
+              "text": "Cross chapter",
+              "targetNodeId": "entry",
+              "targetChapterId": "chapter/beta",
+              "targetFullId": "opaque+plotflow://beta%2Fentry#node",
+              "conditions": {
+                "expression": "10 <= $coins",
+                "ast": {
+                  "type": "comparison",
+                  "left": { "type": "literal", "value": 10 },
+                  "operator": "<=",
+                  "right": { "type": "variable", "name": "coins" }
+                }
+              },
+              "sideEffects": [],
+              "futureOptionField": true
+            }
+          ],
+          "position": { "x": 0, "y": 0 },
+          "isRoot": true,
+          "isOrphan": false,
+          "isDeadEnd": false,
+          "futureNodeField": [1, 2, 3]
+        }
+      ]
+    },
+    {
+      "id": "chapter/beta",
+      "title": "Beta",
+      "nodes": [
+        {
+          "id": "entry",
+          "chapterId": "chapter/beta",
+          "fullId": "opaque+plotflow://beta%2Fentry#node",
+          "title": "Beta Entry",
+          "body": ["Beta body"],
+          "options": [],
+          "position": { "x": 100, "y": 0 },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": true
+        }
+      ]
+    }
+  ],
+  "futureTopLevel": { "ignored": true }
+}

@@ -21,7 +21,7 @@ import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
 import type { StoryLayout, VariableDeclaration, VariableType, VariableValue } from '../types/ast.js';
 import type { Diagnostic, ErrorCode, SourceRange } from '../types/diagnostic.js';
-import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
+import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { analyzeStorySource } from './source.js';
 
 // ============================================================================
@@ -150,6 +150,7 @@ function createDiagnostic(
     code,
     severity: 'error',
     message: message ?? DIAGNOSTIC_MESSAGES[code],
+    ...createDiagnosticLocalization(code),
     detail,
     range,
   };
@@ -265,6 +266,8 @@ interface MetaFields {
   layout?: StoryLayout;
 }
 
+const ENGINE_TARGETS = new Set(['generic', 'godot', 'unity', 'unreal']);
+
 /**
  * 使用 js-yaml 解析元信息字段。
  */
@@ -305,7 +308,19 @@ function parseMetaSection(
 
   if (typeof obj['title'] === 'string') meta.title = obj['title'];
   if (typeof obj['author'] === 'string') meta.author = obj['author'];
-  if (typeof obj['engine'] === 'string') meta.engine = obj['engine'];
+  if (typeof obj['engine'] === 'string') {
+    if (ENGINE_TARGETS.has(obj['engine'])) {
+      meta.engine = obj['engine'];
+    } else {
+      errors.push(createDiagnostic(
+        'E005',
+        absoluteStartLine,
+        1,
+        1,
+        `engine "${obj['engine']}" 无效；仅支持 generic、godot、unity、unreal`,
+      ));
+    }
+  }
   if (typeof obj['plotflow'] === 'string' || typeof obj['plotflow'] === 'number') {
     meta.plotflow = String(obj['plotflow']);
   }
@@ -357,6 +372,468 @@ function parseStoryLayout(value: unknown): StoryLayout | undefined {
 }
 
 // ============================================================================
+// 结构化 YAML 变量声明
+// ============================================================================
+
+const STRUCTURED_VARIABLE_KEYS = new Set([
+  'type',
+  'default',
+  'scope',
+  'chapter',
+  'description',
+  'values',
+  'fields',
+]);
+
+const HAS_OWN = (value: Record<string, unknown>, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
+
+function findStructuredVariableEnd(
+  lines: readonly string[],
+  startIndex: number,
+  parentIndent: number,
+): number {
+  let i = startIndex + 1;
+  while (i < lines.length) {
+    const line = lines[i]!;
+    if (line.trim() === '' || line.trimStart().startsWith('#')) {
+      i++;
+      continue;
+    }
+    const indent = line.match(/^([ \t]*)/)?.[1]?.length ?? 0;
+    if (indent <= parentIndent) break;
+    i++;
+  }
+  return i;
+}
+
+function parseStructuredYamlValue(
+  lines: readonly string[],
+  startIndex: number,
+  endIndex: number,
+  parentIndent: number,
+  variableName: string,
+  absoluteLine: number,
+  errors: Diagnostic[],
+): unknown {
+  const yamlText = lines
+    .slice(startIndex, endIndex)
+    .map((line) => line.slice(Math.min(parentIndent, line.length)))
+    .join('\n');
+
+  try {
+    const parsed = yaml.load(yamlText);
+    if (!isRecord(parsed) || !HAS_OWN(parsed, variableName)) {
+      errors.push(createDiagnostic(
+        'E005',
+        absoluteLine,
+        1,
+        1 + variableName.length,
+        `变量 "${variableName}" 的结构化 YAML 声明无效`,
+      ));
+      return undefined;
+    }
+    return parsed[variableName];
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push(createDiagnostic(
+      'E005',
+      absoluteLine,
+      1,
+      1 + variableName.length,
+      `变量 "${variableName}" 的 YAML 语法错误: ${message}`,
+      message,
+    ));
+    return undefined;
+  }
+}
+
+function createStructuredDiagnostic(
+  errors: Diagnostic[],
+  code: ErrorCode,
+  line: number,
+  name: string,
+  message: string,
+): void {
+  errors.push(createDiagnostic(code, line, 1, 1 + name.length, message));
+}
+
+function parseStructuredPrimitiveDefault(
+  type: VariableType,
+  rawDefault: unknown,
+  name: string,
+  absoluteLine: number,
+  errors: Diagnostic[],
+): VariableValue | undefined {
+  let valid = false;
+  switch (type) {
+    case 'int':
+      valid = typeof rawDefault === 'number'
+        && Number.isInteger(rawDefault)
+        && rawDefault >= -2147483648
+        && rawDefault <= 2147483647;
+      break;
+    case 'float':
+      valid = typeof rawDefault === 'number' && Number.isFinite(rawDefault);
+      break;
+    case 'bool':
+      valid = typeof rawDefault === 'boolean';
+      break;
+    case 'string':
+      valid = typeof rawDefault === 'string';
+      break;
+    default:
+      break;
+  }
+
+  if (!valid) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 的 default 与 ${type} 类型不匹配`,
+    );
+    return undefined;
+  }
+  return rawDefault as VariableValue;
+}
+
+function resolveStructuredDefault(
+  declaration: VariableDeclaration,
+  rawDefault: unknown,
+  absoluteLine: number,
+  errors: Diagnostic[],
+): VariableValue | undefined {
+  if (declaration.type === 'enum') {
+    if (
+      typeof rawDefault !== 'string'
+      || !declaration.enumValues?.includes(rawDefault)
+    ) {
+      createStructuredDiagnostic(
+        errors,
+        'E003',
+        absoluteLine,
+        declaration.name,
+        `变量 "${declaration.name}" 的 default 必须是 values 中的一个值`,
+      );
+      return undefined;
+    }
+    return rawDefault;
+  }
+
+  if (declaration.type !== 'object') {
+    return parseStructuredPrimitiveDefault(
+      declaration.type,
+      rawDefault,
+      declaration.name,
+      absoluteLine,
+      errors,
+    );
+  }
+
+  if (!isRecord(rawDefault)) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      declaration.name,
+      `对象变量 "${declaration.name}" 的 default 必须是 YAML 映射`,
+    );
+    return undefined;
+  }
+
+  const fields = declaration.fields ?? [];
+  const fieldNames = new Set(fields.map((field) => field.name));
+  const unknownField = Object.keys(rawDefault).find((key) => !fieldNames.has(key));
+  if (unknownField) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      declaration.name,
+      `对象变量 "${declaration.name}" 的 default 包含未声明字段 "${unknownField}"`,
+    );
+    return undefined;
+  }
+
+  const resolved: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (!HAS_OWN(rawDefault, field.name)) {
+      resolved[field.name] = field.defaultValue;
+      continue;
+    }
+    const fieldDefault = resolveStructuredDefault(field, rawDefault[field.name], absoluteLine, errors);
+    if (fieldDefault === undefined) return undefined;
+    resolved[field.name] = fieldDefault;
+  }
+  return resolved;
+}
+
+function parseStructuredVariable(
+  name: string,
+  rawDeclaration: unknown,
+  absoluteLine: number,
+  depth: number,
+  errors: Diagnostic[],
+): VariableDeclaration | null {
+  // fields 内仍可使用现有 shorthand，便于渐进迁移。
+  if (typeof rawDeclaration === 'string') {
+    if (PRIMITIVE_TYPES.has(rawDeclaration)) {
+      const type = rawDeclaration as VariableType;
+      return { name, type, defaultValue: TYPE_DEFAULTS[type], lineNumber: absoluteLine };
+    }
+    if (ENUM_REGEX.test(rawDeclaration)) {
+      return parseEnumType(rawDeclaration, name, absoluteLine, errors);
+    }
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `无法识别的字段类型: "${rawDeclaration}"`,
+    );
+    return null;
+  }
+
+  if (!isRecord(rawDeclaration)) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 的结构化声明必须是 YAML 映射`,
+    );
+    return null;
+  }
+
+  const unknownKey = Object.keys(rawDeclaration).find((key) => !STRUCTURED_VARIABLE_KEYS.has(key));
+  if (unknownKey) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 包含未知属性 "${unknownKey}"`,
+    );
+    return null;
+  }
+
+  const rawType = rawDeclaration['type'];
+  if (typeof rawType !== 'string' || (!PRIMITIVE_TYPES.has(rawType) && rawType !== 'enum' && rawType !== 'object')) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 缺少合法 type；支持 int、float、bool、string、enum、object`,
+    );
+    return null;
+  }
+  const type = rawType as VariableType;
+
+  const rawScope = rawDeclaration['scope'];
+  if (rawScope !== undefined && rawScope !== 'global' && rawScope !== 'chapter') {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 的 scope 只能是 global 或 chapter`,
+    );
+    return null;
+  }
+
+  const rawChapter = rawDeclaration['chapter'];
+  if (rawChapter !== undefined && (typeof rawChapter !== 'string' || rawChapter.trim().length === 0)) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 的 chapter 必须是非空字符串`,
+    );
+    return null;
+  }
+  if (depth > 1 && (rawScope !== undefined || rawChapter !== undefined)) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `嵌套字段 "${name}" 继承顶层变量作用域，不能声明 scope 或 chapter`,
+    );
+    return null;
+  }
+  if (rawScope === 'chapter' && rawChapter === undefined) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `chapter scope 变量 "${name}" 必须声明 chapter`,
+    );
+    return null;
+  }
+  if (rawScope !== 'chapter' && rawChapter !== undefined) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `只有 scope: chapter 的变量 "${name}" 可以声明 chapter`,
+    );
+    return null;
+  }
+
+  const rawDescription = rawDeclaration['description'];
+  if (rawDescription !== undefined && typeof rawDescription !== 'string') {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 的 description 必须是字符串`,
+    );
+    return null;
+  }
+
+  if (type === 'enum') {
+    const rawValues = rawDeclaration['values'];
+    if (
+      !Array.isArray(rawValues)
+      || rawValues.length === 0
+      || rawValues.some((value) => typeof value !== 'string' || value.length === 0)
+    ) {
+      createStructuredDiagnostic(
+        errors,
+        'E003',
+        absoluteLine,
+        name,
+        `变量 "${name}" 的 values 必须是非空字符串数组`,
+      );
+      return null;
+    }
+    const enumValues = rawValues as string[];
+    if (new Set(enumValues).size !== enumValues.length) {
+      createStructuredDiagnostic(
+        errors,
+        'E003',
+        absoluteLine,
+        name,
+        `变量 "${name}" 的 values 包含重复项`,
+      );
+      return null;
+    }
+    if (HAS_OWN(rawDeclaration, 'fields')) {
+      createStructuredDiagnostic(errors, 'E005', absoluteLine, name, `enum 变量 "${name}" 不能声明 fields`);
+      return null;
+    }
+
+    const implicitDefault = enumValues[0]!;
+    const base: VariableDeclaration = {
+      name,
+      type,
+      defaultValue: implicitDefault,
+      enumValues,
+      ...(rawScope !== undefined ? { scope: rawScope } : {}),
+      ...(typeof rawChapter === 'string' ? { chapterId: rawChapter.trim() } : {}),
+      ...(rawDescription !== undefined ? { description: rawDescription } : {}),
+      lineNumber: absoluteLine,
+    };
+    const defaultValue = HAS_OWN(rawDeclaration, 'default')
+      ? resolveStructuredDefault(base, rawDeclaration['default'], absoluteLine, errors)
+      : implicitDefault;
+    return defaultValue === undefined ? null : { ...base, defaultValue };
+  }
+
+  if (type === 'object') {
+    if (depth > MAX_OBJECT_DEPTH) {
+      errors.push(createDiagnostic(
+        'E006',
+        absoluteLine,
+        1,
+        1 + name.length,
+        DIAGNOSTIC_MESSAGES['E006'],
+        `变量 "${name}" 的嵌套深度为 ${depth}，超过最大限制 ${MAX_OBJECT_DEPTH} 层`,
+      ));
+      return null;
+    }
+    if (HAS_OWN(rawDeclaration, 'values')) {
+      createStructuredDiagnostic(errors, 'E005', absoluteLine, name, `object 变量 "${name}" 不能声明 values`);
+      return null;
+    }
+    const rawFields = rawDeclaration['fields'];
+    if (!isRecord(rawFields)) {
+      createStructuredDiagnostic(
+        errors,
+        'E005',
+        absoluteLine,
+        name,
+        `对象变量 "${name}" 的 fields 必须是 YAML 映射`,
+      );
+      return null;
+    }
+
+    const fields: VariableDeclaration[] = [];
+    const seenFields = new Map<string, number>();
+    for (const [fieldName, rawField] of Object.entries(rawFields)) {
+      const nameError = validateVariableName(fieldName, absoluteLine, seenFields);
+      if (nameError) {
+        errors.push(nameError);
+        continue;
+      }
+      const field = parseStructuredVariable(fieldName, rawField, absoluteLine, depth + 1, errors);
+      if (field) fields.push(field);
+    }
+    if (errors.length > 0 && fields.length !== Object.keys(rawFields).length) return null;
+
+    const implicitDefault: Record<string, unknown> = {};
+    for (const field of fields) implicitDefault[field.name] = field.defaultValue;
+    const base: VariableDeclaration = {
+      name,
+      type,
+      defaultValue: implicitDefault,
+      fields,
+      ...(rawScope !== undefined ? { scope: rawScope } : {}),
+      ...(typeof rawChapter === 'string' ? { chapterId: rawChapter.trim() } : {}),
+      ...(rawDescription !== undefined ? { description: rawDescription } : {}),
+      lineNumber: absoluteLine,
+    };
+    const defaultValue = HAS_OWN(rawDeclaration, 'default')
+      ? resolveStructuredDefault(base, rawDeclaration['default'], absoluteLine, errors)
+      : implicitDefault;
+    return defaultValue === undefined ? null : { ...base, defaultValue };
+  }
+
+  if (HAS_OWN(rawDeclaration, 'values') || HAS_OWN(rawDeclaration, 'fields')) {
+    createStructuredDiagnostic(
+      errors,
+      'E005',
+      absoluteLine,
+      name,
+      `变量 "${name}" 的 ${type} 类型不能声明 values 或 fields`,
+    );
+    return null;
+  }
+
+  const implicitDefault = TYPE_DEFAULTS[type];
+  const defaultValue = HAS_OWN(rawDeclaration, 'default')
+    ? parseStructuredPrimitiveDefault(type, rawDeclaration['default'], name, absoluteLine, errors)
+    : implicitDefault;
+  if (defaultValue === undefined) return null;
+  return {
+    name,
+    type,
+    defaultValue,
+    ...(rawScope !== undefined ? { scope: rawScope } : {}),
+    ...(typeof rawChapter === 'string' ? { chapterId: rawChapter.trim() } : {}),
+    ...(rawDescription !== undefined ? { description: rawDescription } : {}),
+    lineNumber: absoluteLine,
+  };
+}
+
+// ============================================================================
 // 变量声明区解析（手动逐行解析）
 // ============================================================================
 
@@ -395,6 +872,46 @@ function parseVarsSection(
     if (indent === 0) {
       // 无缩进 = 不是变量声明，可能到了 Frontmatter 结束或其他区段
       i++;
+      continue;
+    }
+
+    const trimmedLine = line.trimStart();
+    const structuredHeader = /^([^:：]+):[ \t]*(.*)$/.exec(trimmedLine);
+    const structuredName = structuredHeader?.[1]?.trim();
+    const structuredTail = structuredHeader?.[2]?.trim() ?? '';
+    const isStructuredDeclaration = structuredName !== undefined
+      && (structuredTail === '' || structuredTail.startsWith('{'));
+
+    if (isStructuredDeclaration) {
+      const endIndex = structuredTail === ''
+        ? findStructuredVariableEnd(lines, i, indent)
+        : i + 1;
+      const nameError = validateVariableName(structuredName, absoluteLine, seenNames);
+      if (nameError) {
+        errors.push(nameError);
+        i = endIndex;
+        continue;
+      }
+      const rawDeclaration = parseStructuredYamlValue(
+        lines,
+        i,
+        endIndex,
+        indent,
+        structuredName,
+        absoluteLine,
+        errors,
+      );
+      if (rawDeclaration !== undefined) {
+        const variable = parseStructuredVariable(
+          structuredName,
+          rawDeclaration,
+          absoluteLine,
+          1,
+          errors,
+        );
+        if (variable) variables.push(variable);
+      }
+      i = endIndex;
       continue;
     }
 

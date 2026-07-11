@@ -38,12 +38,17 @@ import type {
   SourceRange,
   DiagnosticSeverity,
 } from '../types/diagnostic.js';
-import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
+import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { parseFrontmatter } from './frontmatter.js';
 import type { FrontmatterResult } from './frontmatter.js';
 import { analyzeStorySource } from './source.js';
 import { parseOptions } from './options.js';
 import { parseEffects } from './effects.js';
+import {
+  ANONYMOUS_CHAPTER_ID,
+  createFullId,
+  legacyFullId,
+} from '../fullId.js';
 
 // ============================================================================
 // 诊断创建辅助
@@ -90,6 +95,7 @@ function createDiagnostic(
     code,
     severity,
     message: message ?? DIAGNOSTIC_MESSAGES[code],
+    ...createDiagnosticLocalization(code),
     detail,
     range,
   };
@@ -126,9 +132,6 @@ const SEPARATOR_RE = /^[ \t]*---[ \t]*$/;
 // ============================================================================
 // 常量
 // ============================================================================
-
-/** 匿名章节 ID */
-const ANONYMOUS_CHAPTER_ID = '_anonymous';
 
 /** 默认元信息字段 */
 const DEFAULT_TITLE = 'Untitled';
@@ -353,6 +356,24 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
 
   const chapters = cnResult.ok ? cnResult.data.chapters : [];
 
+  const knownChapterIds = new Set(chapters.flatMap((chapter) => [chapter.id, chapter.title]));
+  for (const variable of fmMeta.variables) {
+    if (
+      variable.scope === 'chapter'
+      && variable.chapterId
+      && !knownChapterIds.has(variable.chapterId)
+    ) {
+      allDiagnostics.push(createDiagnostic(
+        'E005',
+        'error',
+        variable.lineNumber,
+        1,
+        1,
+        `chapter scope 变量 "${variable.name}" 引用了不存在的章节 "${variable.chapterId}"`,
+      ));
+    }
+  }
+
   return success(
     {
       sourcePath: null,
@@ -378,7 +399,7 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
  * - 无显式 `#` 章节的节点 → 归入匿名章节（id = "_anonymous"）
  * - 提取节点正文 body（节点标题之后到下一个 `##` 或 `#` 或文件尾之间的文本）
  * - 对每个节点的 body 调用 parseOptions 解析选项（含条件/效果）
- * - fullId 格式：`章节ID-节点ID`（匿名章节：`节点ID`）
+ * - fullId 格式：percent-encoded `章节ID/节点ID`（匿名章节：编码后的 `节点ID`）
  * - E007：fullId 重名检测
  * - I003：匿名章节归属检测
  * - W005：空正文检测
@@ -476,9 +497,7 @@ export function parseChaptersAndNodes(
     }
 
     // 生成 fullId
-    const fullId = chapterIsAnonymous
-      ? currentNodeId
-      : `${chapterId}-${currentNodeId}`;
+    const fullId = createFullId(chapterId, currentNodeId);
 
     // 确保章节构建器存在
     const builder = ensureChapter(
@@ -825,6 +844,35 @@ export function parseChaptersAndNodes(
     nodes.push(...builder.nodes);
   }
 
+  // Canonical layout keys win. A legacy hyphen key is accepted only when it
+  // maps to one node; collided legacy keys are inherently ambiguous.
+  const legacyMatches = new Map<string, StoryNode[]>();
+  for (const node of nodes) {
+    const legacyKey = legacyFullId(node.chapterId, node.id);
+    const matches = legacyMatches.get(legacyKey) ?? [];
+    matches.push(node);
+    legacyMatches.set(legacyKey, matches);
+  }
+  for (const [legacyKey, matches] of legacyMatches) {
+    const position = layoutPositions.get(legacyKey);
+    if (!position) continue;
+    if (matches.length === 1) {
+      const match = matches[0]!;
+      if (!match.position) {
+        (match as { position?: GraphPosition }).position = position;
+      }
+      continue;
+    }
+    allErrors.push(createDiagnostic(
+      'W006',
+      'warning',
+      1,
+      1,
+      1,
+      `旧版布局键 "${legacyKey}" 同时匹配 ${matches.length} 个节点，已忽略并等待重新布局`,
+    ));
+  }
+
   // 回填 targetFullId（M2: 跨章节引用解析）
   resolveTargetFullIds(chapterBuilders);
 
@@ -867,15 +915,11 @@ function resolveTargetFullIds(chapterBuilders: Map<string, ChapterBuilder>): voi
     targetChapterId: string | null,
   ): string | null => {
     if (targetChapterId) {
-      const explicitFullId = targetChapterId === ANONYMOUS_CHAPTER_ID
-        ? targetNodeId
-        : `${targetChapterId}-${targetNodeId}`;
+      const explicitFullId = createFullId(targetChapterId, targetNodeId);
       return allNodes.has(explicitFullId) ? explicitFullId : null;
     }
 
-    const sameChapterFullId = sourceChapterId === ANONYMOUS_CHAPTER_ID
-      ? targetNodeId
-      : `${sourceChapterId}-${targetNodeId}`;
+    const sameChapterFullId = createFullId(sourceChapterId, targetNodeId);
     if (allNodes.has(sameChapterFullId)) return sameChapterFullId;
 
     const matches = nodeIdToFullIds.get(targetNodeId);
@@ -888,7 +932,11 @@ function resolveTargetFullIds(chapterBuilders: Map<string, ChapterBuilder>): voi
       for (const option of node.options) {
         if (option.targetFullId !== null) continue;
         if (!option.targetNodeId) continue;
-        const resolved = resolveTarget(node.chapterId, option.targetNodeId, null);
+        const resolved = resolveTarget(
+          node.chapterId,
+          option.targetNodeId,
+          option.targetChapterId,
+        );
         if (resolved) (option as { targetFullId: string | null }).targetFullId = resolved;
       }
 

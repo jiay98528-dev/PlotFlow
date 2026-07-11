@@ -80,6 +80,7 @@ function createOption(
   return {
     description,
     targetNodeId,
+    targetChapterId: null,
     targetFullId: targetNodeId,
     indentLevel: 0,
     condition: null,

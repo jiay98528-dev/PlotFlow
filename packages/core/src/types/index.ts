@@ -24,6 +24,7 @@ export type {
   VariableDeclaration,
   VariableType,
   VariableValue,
+  VariableScope,
   Chapter,
   StoryNode,
   NodeNextTarget,
@@ -46,6 +47,11 @@ export type {
 export type {
   Diagnostic,
   DiagnosticCode,
+  DiagnosticDetailKey,
+  DiagnosticLocalization,
+  DiagnosticMessageKey,
+  DiagnosticMessageParam,
+  DiagnosticMessageParams,
   DiagnosticSeverity,
   DiagnosticSuggestion,
   DiagnosticSummary,
@@ -61,6 +67,8 @@ export type {
 // ============================================================================
 
 export {
+  createDiagnosticLocalization,
+  DIAGNOSTIC_MESSAGE_KEYS,
   DIAGNOSTIC_MESSAGES,
   DIAGNOSTIC_SEVERITY,
 } from './diagnostic.js';

@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseStory } from '../parser/parser.js';
 import { validate } from '../validator/index.js';
+import { createFullId } from '../fullId.js';
 
 // ============================================================================
 // 辅助：生成大文件 .mdstory 内容
@@ -341,11 +342,11 @@ describe('EDGE-03: 循环引用', () => {
       const nodeB = nodes.find((n) => n.id === 'B')!;
       for (const opt of nodeA.options) {
         expect(opt.targetNodeId).toBe('B');
-        expect(opt.targetFullId).toBe('第一章-B');
+        expect(opt.targetFullId).toBe(createFullId('第一章', 'B'));
       }
       for (const opt of nodeB.options) {
         expect(opt.targetNodeId).toBe('C');
-        expect(opt.targetFullId).toBe('第一章-C');
+        expect(opt.targetFullId).toBe(createFullId('第一章', 'C'));
       }
     }
   });
@@ -368,7 +369,7 @@ describe('EDGE-03: 循环引用', () => {
       expect(nodeA.options).toHaveLength(2);
       for (const opt of nodeA.options) {
         expect(opt.targetNodeId).toBe('A');
-        expect(opt.targetFullId).toBe('第一章-A');
+        expect(opt.targetFullId).toBe(createFullId('第一章', 'A'));
       }
     }
   });

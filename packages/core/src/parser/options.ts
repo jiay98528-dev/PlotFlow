@@ -24,7 +24,7 @@ import type {
   WarningCode,
   SourceRange,
 } from '../types/diagnostic.js';
-import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
+import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { parseCondition } from './conditions.js';
 import { parseEffects } from './effects.js';
 
@@ -134,6 +134,7 @@ function createDiagnostic(
     code,
     severity,
     message: message ?? DIAGNOSTIC_MESSAGES[code],
+    ...createDiagnosticLocalization(code),
     detail,
     range,
   };
@@ -328,6 +329,7 @@ function parseOneOption(
   // ------------------------------------------------------------------
 
   let targetNodeId: string | null = null;
+  let targetChapterId: string | null = null;
 
   if (arrowPart !== undefined) {
     // 有 -> 部分
@@ -366,10 +368,7 @@ function parseOneOption(
         );
       } else {
         targetNodeId = targetMatch[2].trim();
-
-        // 章节前缀（暂存，M1-04 使用）
-        // const chapterPrefix = targetMatch[1]?.trim() ?? undefined;
-        // M1-04 将通过 chapterPrefix + targetNodeId 解析 targetFullId
+        targetChapterId = targetMatch[1]?.trim() || null;
       }
     }
   } else {
@@ -523,6 +522,7 @@ function parseOneOption(
     description,
     indentLevel,
     targetNodeId,
+    targetChapterId,
     targetFullId: null,       // M2 填充（跨章节引用解析）
     condition,
     sideEffects,

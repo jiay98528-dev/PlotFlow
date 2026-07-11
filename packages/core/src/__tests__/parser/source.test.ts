@@ -93,7 +93,7 @@ describe('analyzeStorySource', () => {
     expect(chapter.title).toBe('第一章');
     expect(chapter.titleRange).toMatchObject({ startLine: 8 });
     expect(node.title).toBe('开始');
-    expect(node.fullId).toBe('第一章-开始');
+    expect(node.fullId).toBe('%E7%AC%AC%E4%B8%80%E7%AB%A0/%E5%BC%80%E5%A7%8B');
     expect(node.titleRange).toMatchObject({ startLine: 10 });
     expect(option.descriptionRange).toMatchObject({ startLine: 12 });
     expect(option.targetRange).toMatchObject({ startLine: 12 });

@@ -1,3 +1,5 @@
+import { createFullId } from '../fullId.js';
+
 export type SourceNewline = '\n' | '\r\n' | '\r';
 
 export interface StorySourceLine {
@@ -167,7 +169,7 @@ function lineValueRange(
 }
 
 function fullIdFor(chapterTitle: string | null, nodeTitle: string): string {
-  return chapterTitle ? `${chapterTitle}-${nodeTitle}` : nodeTitle;
+  return createFullId(chapterTitle, nodeTitle);
 }
 
 function scanFrontmatterDocuments(lines: readonly StorySourceLine[], raw: string): StoryFrontmatterRange[] {

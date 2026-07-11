@@ -111,8 +111,8 @@ function checkJsonSchema(json: Record<string, unknown>): SchemaCheckResult {
   }
 
   // 2. $schema 必须为正确标识符
-  if (json['$schema'] !== 'https://plotflow.dev/schema/0.1/story.json') {
-    issues.push(`$schema 应为 "https://plotflow.dev/schema/0.1/story.json"，实际为 "${json['$schema']}"`);
+  if (json['$schema'] !== 'https://plotflow.dev/schema/0.2/story.json') {
+    issues.push(`$schema 应为 "https://plotflow.dev/schema/0.2/story.json"，实际为 "${json['$schema']}"`);
   }
 
   // 3. meta 字段验证
@@ -168,7 +168,7 @@ function checkJsonSchema(json: Record<string, unknown>): SchemaCheckResult {
             for (let oi = 0; oi < opts.length; oi++) {
               const o = opts[oi];
               if (!o) continue;
-              for (const of2 of ['index', 'text', 'targetNodeId', 'targetFullId', 'conditions', 'sideEffects']) {
+              for (const of2 of ['index', 'text', 'targetNodeId', 'targetChapterId', 'targetFullId', 'conditions', 'sideEffects']) {
                 if (!(of2 in o)) issues.push(`chapters[${ci}].nodes[${ni}].options[${oi}] 缺少字段: ${of2}`);
               }
             }

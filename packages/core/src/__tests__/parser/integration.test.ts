@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parseStory } from '../../parser/parser.js';
+import { createFullId } from '../../fullId.js';
 import type { PlotFlowData } from '../../types/ast.js';
 
 // ==========================================================================
@@ -121,9 +122,9 @@ describe('Integration — 完整解析管道', () => {
       expect(nodeNames).toContain('古井');
 
       // ---- fullId ----
-      expect(chapter.nodes[0]!.fullId).toBe('第一章：村庄-森林入口');
-      expect(chapter.nodes[1]!.fullId).toBe('第一章：村庄-狼穴');
-      expect(chapter.nodes[2]!.fullId).toBe('第一章：村庄-古井');
+      expect(chapter.nodes[0]!.fullId).toBe(createFullId('第一章：村庄', '森林入口'));
+      expect(chapter.nodes[1]!.fullId).toBe(createFullId('第一章：村庄', '狼穴'));
+      expect(chapter.nodes[2]!.fullId).toBe(createFullId('第一章：村庄', '古井'));
 
       // ---- 森林入口节点：3 个选项 ----
       const forestEntry = chapter.nodes.find((n) => n.id === '森林入口')!;

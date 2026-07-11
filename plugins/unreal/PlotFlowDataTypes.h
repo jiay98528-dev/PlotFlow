@@ -18,8 +18,8 @@
 //   3. 包含 #include "PlotFlowDataTypes.h" 后即可使用
 //   4. 在 Unreal 编辑器中创建 BPI_PlotFlowReader 蓝图接口引用这些结构体
 //
-// 版本: 0.1.0
-// 日期: 2026-06-13
+// 版本: 0.2.0（保留 0.1 平面 Map 合同）
+// 日期: 2026-07-11
 // ============================================================================
 
 #pragma once
@@ -137,9 +137,16 @@ struct FPlotFlowVariable
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
     EPlotFlowVariableScope Scope = EPlotFlowVariableScope::Global;
 
-    /// <summary>仅 scope==Chapter 时使用，指明所属章节 ID。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    /// <summary>
+    /// 0.1 兼容字段。0.2 的 chapter scope 表示“按当前章节分区”，不再把
+    /// 声明绑定到单一章节；运行时应使用 FPlotFlowVariableStore.CurrentChapterId。
+    /// </summary>
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable", meta = (DeprecatedProperty, DeprecationMessage = "Use FPlotFlowVariableStore.CurrentChapterId"))
     FString Chapter;
+
+    /// <summary>变量用途说明。</summary>
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    FString Description;
 
     /// <summary>
     /// 默认值。
@@ -191,6 +198,38 @@ struct FPlotFlowSideEffect
     /// </summary>
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|SideEffect")
     FString Value;
+};
+
+/// <summary>一个章节的变量值命名空间。</summary>
+USTRUCT(BlueprintType)
+struct FPlotFlowChapterVariableValues
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    FString ChapterId;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    TMap<FString, FString> Values;
+};
+
+/// <summary>
+/// 作用域感知的运行时变量状态。GlobalValues 跨章节共享；ChapterValues
+/// 按章节隔离；CurrentChapterId 决定条件与副作用使用哪个章节命名空间。
+/// </summary>
+USTRUCT(BlueprintType)
+struct FPlotFlowVariableStore
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    FString CurrentChapterId;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    TMap<FString, FString> GlobalValues;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    TArray<FPlotFlowChapterVariableValues> ChapterValues;
 };
 
 /// <summary>
@@ -277,7 +316,11 @@ struct FPlotFlowOption
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
     FString TargetNodeId;
 
-    /// <summary>跳转目标全局唯一 fullId。例如 "第一章/狼穴"。</summary>
+    /// <summary>显式目标章节 ID；空表示由 targetFullId 或当前章节解析。</summary>
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    FString TargetChapterId;
+
+    /// <summary>跳转目标全局唯一 opaque fullId。不得拆分或自行拼接。</summary>
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
     FString TargetFullId;
 
@@ -335,7 +378,7 @@ struct FPlotFlowNode
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
     FString ChapterId;
 
-    /// <summary>全局唯一节点 ID，格式 "chapterId/nodeId"。例如 "第一章/森林入口"。</summary>
+    /// <summary>导出器提供的全局唯一 opaque fullId。不得假设分隔符格式。</summary>
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
     FString FullId;
 
@@ -368,6 +411,22 @@ struct FPlotFlowNode
     bool bIsDeadEnd = false;
 };
 
+/// <summary>章节及其节点。JSON 读取器必须遍历 chapters[].nodes[]。</summary>
+USTRUCT(BlueprintType)
+struct FPlotFlowChapter
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Chapter")
+    FString Id;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Chapter")
+    FString Title;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Chapter")
+    TArray<FPlotFlowNode> Nodes;
+};
+
 // ============================================================================
 // 辅助函数命名空间
 // ============================================================================
@@ -392,6 +451,12 @@ namespace PlotFlow
     bool ParseNodesFromJson(const FString& JsonString, TArray<FPlotFlowNode>& OutNodes);
 
     /// <summary>
+    /// 解析标准 chapters[].nodes[] 合同并保留导出的 opaque fullId。
+    /// 支持 PlotFlow 0.1/0.2；更高版本应记录 warning 后忽略未知字段。
+    /// </summary>
+    bool ParseStoryFromJson(const FString& JsonString, TArray<FPlotFlowChapter>& OutChapters, TArray<FPlotFlowNode>& OutNodes, FString& OutPlotFlowVersion);
+
+    /// <summary>
     /// 评估条件 AST 节点。
     /// 对应 json-schema.md §9.2 Godot ConditionEval 的 C++ 等价实现。
     ///
@@ -402,6 +467,9 @@ namespace PlotFlow
     /// <returns>条件满足返回 true，否则返回 false。</returns>
     bool EvaluateCondition(const FPlotFlowConditionNode& Condition, const TMap<FString, FString>& Variables);
 
+    /// <summary>按 Store.CurrentChapterId 合并 global/chapter 后评估条件。</summary>
+    bool EvaluateCondition(const FPlotFlowConditionNode& Condition, const FPlotFlowVariableStore& Store);
+
     /// <summary>
     /// 应用副作用列表。
     /// 对应 json-schema.md §9.2 Godot VariableStore.apply_effects()。
@@ -411,4 +479,13 @@ namespace PlotFlow
     /// <param name="Effects">要执行的副作用列表。</param>
     /// <param name="Variables">要修改的变量状态映射（原地修改）。</param>
     void ApplySideEffects(const TArray<FPlotFlowSideEffect>& Effects, TMap<FString, FString>& Variables);
+
+    /// <summary>按变量声明 scope 修改 global 或当前章节命名空间。</summary>
+    void ApplySideEffects(const TArray<FPlotFlowSideEffect>& Effects, const TMap<FString, FPlotFlowVariable>& Definitions, FPlotFlowVariableStore& Store);
+
+    /// <summary>切换当前章节并按声明默认值初始化该章节命名空间。</summary>
+    void SetCurrentChapter(const FString& ChapterId, const TMap<FString, FPlotFlowVariable>& Definitions, FPlotFlowVariableStore& Store);
+
+    /// <summary>生成兼容旧蓝图 Dictionary 入口的当前有效变量平面视图。</summary>
+    TMap<FString, FString> BuildEffectiveVariables(const FPlotFlowVariableStore& Store);
 };

@@ -114,6 +114,9 @@ export interface VariableDeclaration {
   /** 变量作用域（global | chapter），可选 */
   readonly scope?: VariableScope;
 
+  /** scope === 'chapter' 时所属章节 ID，仅顶层变量可声明 */
+  readonly chapterId?: string;
+
   /** 描述（可选） */
   readonly description?: string;
 
@@ -246,6 +249,9 @@ export interface Option {
 
   /** 跳转目标节点 ID */
   readonly targetNodeId: string | null;
+
+  /** 显式跳转目标章节 ID；未写章节前缀时为 null */
+  readonly targetChapterId: string | null;
 
   /** 跳转目标完整 ID（解析后填充） */
   readonly targetFullId: string | null;

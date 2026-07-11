@@ -15,6 +15,7 @@ import type {
 } from '../types/diagnostic.js';
 
 import {
+  createDiagnosticLocalization,
   DIAGNOSTIC_MESSAGES,
   DIAGNOSTIC_SEVERITY,
 } from '../types/diagnostic.js';
@@ -43,6 +44,7 @@ export function createDiagnostic(
     code,
     severity: DIAGNOSTIC_SEVERITY[code],
     message: DIAGNOSTIC_MESSAGES[code],
+    ...createDiagnosticLocalization(code),
     ...(detail !== undefined ? { detail } : {}),
     ...(relatedNodeId !== undefined ? { relatedNodeId } : {}),
     range,

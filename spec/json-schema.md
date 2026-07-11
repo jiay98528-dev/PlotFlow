@@ -1,9 +1,12 @@
-# PlotFlow JSON 导出格式规范 V0.1
+# PlotFlow JSON 导出格式规范 V0.2
 
-**版本**：V0.1
-**日期**：2026-06-10
-**Schema 标识符**：`https://plotflow.dev/schema/0.1/story.json`
+**版本**：V0.2
+**日期**：2026-07-11
+**当前写出 Schema 标识符**：`https://plotflow.dev/schema/0.2/story.json`
+**历史读取兼容 Schema**：`https://plotflow.dev/schema/0.1/story.json`
 **JSON Schema 版本**：draft-2020-12
+
+> ADR-013 是当前身份与导出合同。`.mdstory` frontmatter 中系统管理的 `plotflow: "0.1"` 是源语法版本，不随 JSON Schema 升级而改变；当前 JSON exporter 写出 0.2，0.1 只用于读取旧导出物。源文件与内部 AST 的 engine 枚举为 `generic | godot | unity | unreal`，导出器在 JSON 0.2 边界把 `generic` 映射为 `none`。P1 源码与严格 unpacked/Ajv 门禁已通过；installed、人工巡检、真实引擎工具链与签名仍待验收，因此本规范不能作为 release-candidate-passed 声明。
 
 ---
 
@@ -42,20 +45,21 @@
 
 | 属性 | 值 |
 |------|-----|
-| PlotFlow 版本 | 0.1 |
-| Schema 标识符 | `https://plotflow.dev/schema/0.1/story.json` |
+| `.mdstory` `meta.plotflow` | `0.1`（系统管理、只读） |
+| 当前写出 Schema 标识符 | `https://plotflow.dev/schema/0.2/story.json` |
+| 历史读取 Schema | `https://plotflow.dev/schema/0.1/story.json` |
 | JSON Schema 规范 | [draft-2020-12](https://json-schema.org/draft/2020-12) |
 | 验证器兼容性 | ajv（推荐）、jsonschema（Python）、everit-org/json-schema（Java）等 |
 
 ### 1.3 JSON Schema 完整定义文件
 
-以下完整 Schema 定义可以保存为 `story.schema.json`，直接用 ajv 或任何 draft-2020-12 兼容验证器加载。
+机器可执行合同以 `packages/core/schema/0.2/story.json` 为唯一当前写出来源，并镜像到 `website/public/schema/0.2/story.json`。0.1 冻结文件位于相邻 `0.1/story.json`，只用于历史读取兼容。本文内嵌片段用于解释；与机器文件冲突时以对应版本机器文件和 ADR-013 为准。
 
 ---
 
 ## 2. 顶层结构
 
-### 2.1 完整 JSON Schema（顶层 + 所有 $defs）
+### 2.1 历史 0.1 顶层片段（已被 ADR-013 的 0.2 写出合同覆盖）
 
 ```json
 {
@@ -85,7 +89,7 @@
 
 | 字段 | 类型 | 必须 | 说明 |
 |------|------|------|------|
-| `$schema` | string | 否 | 应等于 `https://plotflow.dev/schema/0.1/story.json` |
+| `$schema` | string | **是** | 当前写出必须等于 `https://plotflow.dev/schema/0.2/story.json` |
 | `meta` | object | **是** | 文件元信息，版本/标题/作者/引擎/时间戳 |
 | `variables` | object | **是** | 所有变量定义，key 为变量名 |
 | `chapters` | array | **是** | 章节数组，至少 1 个章节 |
@@ -138,8 +142,10 @@
 | `plotflow` | string | **是** | PlotFlow 版本号，格式 `主.次`（如 `0.1`） |
 | `title` | string | **是** | 故事标题，不可为空 |
 | `author` | string | 否 | 作者名，可省略 |
-| `engine` | string | **是** | 目标引擎枚举：`godot` / `unity` / `unreal` / `none` |
+| `engine` | string | **是** | JSON 输出枚举：`godot` / `unity` / `unreal` / `none`；源/内部 `generic` 导出为 `none` |
 | `exportedAt` | string | **是** | ISO-8601 UTC 时间戳，如 `2026-06-10T12:00:00Z` |
+
+`engine` 只允许上表四个 JSON 枚举值。`.mdstory` 与 Inspector 使用 `generic | godot | unity | unreal`：导出时 `generic → none`，读取 JSON 时 `none → generic`。源 parser 不需要接受 `engine: none`；未知字符串不得原样进入 0.2 导出，必须先产生 Error 诊断并阻断导出。
 
 ---
 
@@ -158,7 +164,7 @@ PlotFlow 支持 6 种变量类型：
 | 枚举 | `enum[值1, 值2, ...]` | 第一个值 | `"enum"`（带 `values` 数组） |
 | 对象 | `object{字段: 类型, ...}` | 各字段默认值 | `"object"`（带 `fields` 对象） |
 
-### 4.2 JSON Schema 定义
+### 4.2 历史/过渡期内嵌片段（由 0.2 机器 Schema 覆盖）
 
 ```json
     "Variables": {
@@ -178,7 +184,8 @@ PlotFlow 支持 6 种变量类型：
           "properties": {
             "type": { "type": "string", "enum": ["int"] },
             "default": { "type": "integer", "default": 0 },
-            "scope": { "$ref": "#/$defs/VariableScope" }
+            "scope": { "$ref": "#/$defs/VariableScope" },
+            "description": { "type": "string" }
           },
           "required": ["type"],
           "additionalProperties": false
@@ -187,7 +194,8 @@ PlotFlow 支持 6 种变量类型：
           "properties": {
             "type": { "type": "string", "enum": ["float"] },
             "default": { "type": "number", "default": 0.0 },
-            "scope": { "$ref": "#/$defs/VariableScope" }
+            "scope": { "$ref": "#/$defs/VariableScope" },
+            "description": { "type": "string" }
           },
           "required": ["type"],
           "additionalProperties": false
@@ -196,7 +204,8 @@ PlotFlow 支持 6 种变量类型：
           "properties": {
             "type": { "type": "string", "enum": ["bool"] },
             "default": { "type": "boolean", "default": false },
-            "scope": { "$ref": "#/$defs/VariableScope" }
+            "scope": { "$ref": "#/$defs/VariableScope" },
+            "description": { "type": "string" }
           },
           "required": ["type"],
           "additionalProperties": false
@@ -205,7 +214,8 @@ PlotFlow 支持 6 种变量类型：
           "properties": {
             "type": { "type": "string", "enum": ["string"] },
             "default": { "type": "string", "default": "" },
-            "scope": { "$ref": "#/$defs/VariableScope" }
+            "scope": { "$ref": "#/$defs/VariableScope" },
+            "description": { "type": "string" }
           },
           "required": ["type"],
           "additionalProperties": false
@@ -219,7 +229,8 @@ PlotFlow 支持 6 种变量类型：
               "items": { "type": "string" }
             },
             "default": { "type": "string" },
-            "scope": { "$ref": "#/$defs/VariableScope" }
+            "scope": { "$ref": "#/$defs/VariableScope" },
+            "description": { "type": "string" }
           },
           "required": ["type", "values"],
           "additionalProperties": false
@@ -228,6 +239,8 @@ PlotFlow 支持 6 种变量类型：
           "properties": {
             "type": { "type": "string", "enum": ["object"] },
             "scope": { "$ref": "#/$defs/VariableScope" },
+            "description": { "type": "string" },
+            "default": { "type": "object" },
             "chapter": {
               "type": "string",
               "description": "Required when scope is 'chapter'. Specifies which chapter the variable belongs to."
@@ -254,8 +267,10 @@ PlotFlow 支持 6 种变量类型：
 
 | 值 | 说明 |
 |------|------|
-| `global` | 全局变量，整个故事范围内可读写 |
-| `chapter` | 章节局部变量，仅在其声明的章节内可读写。声明时需附带 `chapter` 字段指明所属章节 |
+| `global` | 全局变量，整个故事范围内可读写；顶层省略 `scope` 时等价于 global，且禁止携带 `chapter` |
+| `chapter` | 章节局部变量；顶层声明必须附带非空 `chapter` 并引用真实章节。值随故事会话持久化，但只在该章节的叙事上下文中可见 |
+
+`scope` 与 `chapter` 只属于顶层变量。object 的嵌套 `fields` 继承根变量的有效作用域与章节，禁止自行声明二者。所有 object 导出都必须包含 `fields`，即使为空也必须写为 `"fields": {}`。
 
 ### 4.4 Object 嵌套规则
 
@@ -365,7 +380,7 @@ PlotFlow 支持 6 种变量类型：
         "fullId": {
           "type": "string",
           "minLength": 1,
-          "description": "Globally unique node ID in the format 'chapterId/id'."
+            "description": "Opaque canonical ID: encodeURIComponent(chapterId) + '/' + encodeURIComponent(id)."
         },
         "title": {
           "type": "string",
@@ -415,7 +430,7 @@ PlotFlow 支持 6 种变量类型：
 |------|------|------|------|
 | `id` | string | **是** | 节点 ID（不含章节前缀），如 `森林入口` |
 | `chapterId` | string | **是** | 所属章节的 ID |
-| `fullId` | string | **是** | 全局唯一 ID，格式 `章节ID/节点ID`，如 `第一章/森林入口` |
+| `fullId` | string | **是** | opaque canonical ID：`encodeURIComponent(chapterId) + "/" + encodeURIComponent(id)`；消费者禁止自行拆分 |
 | `title` | string | **是** | 节点显示名称 |
 | `body` | string[] | **是** | 描述文本数组，每个元素为一个段落 |
 | `options` | array | **是** | 该节点的选项列表，可为空数组（死胡同节点） |
@@ -424,7 +439,7 @@ PlotFlow 支持 6 种变量类型：
 | `isOrphan` | boolean | **是** | 诊断：是否为孤立节点（无入口路径，根节点除外） |
 | `isDeadEnd` | boolean | **是** | 诊断：是否为死胡同（无出口选项） |
 
-> V0.3 兼容说明：`.mdstory` 源码中的节点级 `下一步` 流程出口在 JSON schema 升级前不新增 `nextTarget` 字段。导出器必须把它投影为一个合成 `Option`：`text` 固定为 `下一步`、`conditions` 为 `null`、`sideEffects` 来自紧邻 `效果:` 行、`targetNodeId/targetFullId` 指向流程出口目标。存在 `下一步` 的节点不应仅因 `options` 源列表为空而被运行时视为无出口节点。
+> V0.3 兼容说明：JSON Schema 0.2 仍不新增独立 `nextTarget` 字段。导出器必须把 `.mdstory` 的节点级 `下一步` 投影为一个合成 `Option`：`text` 固定为 `下一步`、`conditions` 为 `null`、`sideEffects` 来自紧邻 `效果:` 行、`targetNodeId/targetChapterId/targetFullId` 指向流程出口目标。存在 `下一步` 的节点不应仅因源 `options` 列表为空而被运行时视为无出口节点。
 
 ---
 
@@ -433,7 +448,7 @@ PlotFlow 支持 6 种变量类型：
 ```json
     "Option": {
       "type": "object",
-      "required": ["index", "text", "conditions", "sideEffects"],
+      "required": ["index", "text", "targetNodeId", "targetChapterId", "targetFullId", "conditions", "sideEffects"],
       "properties": {
         "index": {
           "type": "integer",
@@ -448,6 +463,10 @@ PlotFlow 支持 6 种变量类型：
         "targetNodeId": {
           "type": ["string", "null"],
           "description": "Target node ID (without chapter prefix). null if option has no target."
+        },
+        "targetChapterId": {
+          "type": ["string", "null"],
+          "description": "Explicit target chapter from .mdstory. null when the source used an unqualified same-chapter reference."
         },
         "targetFullId": {
           "type": ["string", "null"],
@@ -476,8 +495,9 @@ PlotFlow 支持 6 种变量类型：
 |------|------|------|------|
 | `index` | integer | **是** | 选项在节点内的序号（从 0 开始） |
 | `text` | string | **是** | 选项显示文本，不可为空 |
-| `targetNodeId` | string | **是** | 跳转目标节点的 ID（不含章节前缀） |
-| `targetFullId` | string | **是** | 跳转目标节点的全局唯一 fullId |
+| `targetNodeId` | string\|null | **是** | 跳转目标节点 ID；无目标时为 `null` |
+| `targetChapterId` | string\|null | **是** | `.mdstory` 中显式写出的目标章节；未显式限定章节时为 `null` |
+| `targetFullId` | string\|null | **是** | canonical opaque FullID；无目标时为 `null`，不得从该字符串反向猜章节 |
 | `conditions` | object\|null | **是** | 出现条件，`null` 表示无条件（默认选项） |
 | `sideEffects` | array | **是** | 副作用数组，空数组 `[]` 表示无副作用 |
 
@@ -616,36 +636,48 @@ PlotFlow 支持 6 种变量类型：
 ```json
     "Comparison": {
       "type": "object",
-      "required": ["type", "variable", "operator", "value"],
+      "required": ["type", "left", "operator", "right"],
       "properties": {
-        "type": { "type": "string", "const": "comparison" },
-        "variable": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Variable name (without $ prefix), e.g. '金币'. For field access on objects, use field_access AST node instead."
-        },
+        "type": { "const": "comparison" },
+        "left": { "$ref": "#/$defs/Operand" },
         "operator": {
-          "type": "string",
-          "enum": ["==", "!=", ">", "<", ">=", "<="],
-          "description": "Comparison operator."
+          "enum": ["==", "!=", ">", "<", ">=", "<="]
         },
-        "value": {
-          "description": "Value to compare against. Type must match the variable's declared type.",
-          "oneOf": [
-            { "type": "integer" },
-            { "type": "number" },
-            { "type": "boolean" },
-            { "type": "string" }
-          ]
-        }
+        "right": { "$ref": "#/$defs/Operand" }
       },
       "additionalProperties": false
     },
+    "Operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "name"],
+          "properties": {
+            "type": { "const": "variable" },
+            "name": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "value"],
+          "properties": {
+            "type": { "const": "literal" },
+            "value": { "$ref": "#/$defs/VariableValue" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
 ```
+
+0.2 的 `Comparison` 两侧都显式标记为 variable 或 literal，因而可无损表示变量与变量、变量与字面量或字面量与字面量的合法比较。variable operand 的 `name` 不含 `$`；object 字段访问以完整点路径保存，例如 `角色状态.魔力`。
+
+历史 0.1 的 `{ "type": "comparison", "variable": string, "operator": string, "value": VariableValue }` 只属于读取兼容合同。0.2 schema 不接受该旧形状，serializer 也不得继续写出；引擎加载器应按 `$schema` 读取，并在运行时边界同时容忍两种形状。
 
 #### FieldAccess
 
-`FieldAccess` 表示对 object 类型变量的字段访问。当条件表达式涉及对象字段（如 `$角色状态.魔力 >= 10`）时，先用 `FieldAccess` 解析出字段路径，再对其结果应用 `Comparison`。
+`FieldAccess` 是 0.2 `ConditionAst` 保留的显式对象字段访问节点。普通比较中的对象字段引用直接写入 variable operand 的完整点路径；独立 `field_access` 节点仍可供需要显式字段树的消费者使用。
 
 ```json
     "FieldAccess": {
@@ -668,19 +700,19 @@ PlotFlow 支持 6 种变量类型：
     }
 ```
 
-> **注**：FieldAccess 不是终端 AST 节点——引擎评估时先解析 `field_access` 获取实际值，再将该值作为 `Comparison` 节点的 `variable` 进行比对。例如：
+> **注**：比较 `$角色状态.魔力 >= 10` 的 0.2 标准写出为：
 > ```json
 > {
 >   "expression": "($角色状态.魔力>=10)",
 >   "ast": {
 >     "type": "comparison",
->     "variable": "角色状态.魔力",
+>     "left": { "type": "variable", "name": "角色状态.魔力" },
 >     "operator": ">=",
->     "value": 10
+>     "right": { "type": "literal", "value": 10 }
 >   }
 > }
 > ```
-> 在实际实现中，引擎解析 `角色状态.魔力` 时通过 `.` 分隔符逐级访问 object 字段。`field_access` AST 类型预留用于未来嵌套字段访问的显式建模。
+> 引擎解析 variable operand 的 `name` 时通过 `.` 分隔符逐级访问 object 字段。
 
 ---
 
@@ -733,7 +765,7 @@ PlotFlow 支持 6 种变量类型：
 
 ---
 
-## 6. 完整示例
+## 6. 历史 0.1 完整示例（保留记录，已被 ADR-013 的 0.2 合同覆盖）
 
 以下是将 PRD §4.6 的完整 `.mdstory` 文件导出为标准 JSON 的结果。
 
@@ -785,6 +817,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 0,
               "text": "走向左边的狼嚎声",
               "targetNodeId": "狼穴",
+              "targetChapterId": null,
               "targetFullId": "第一章/狼穴",
               "conditions": null,
               "sideEffects": [
@@ -795,6 +828,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 1,
               "text": "探索右边的古井",
               "targetNodeId": "古井",
+              "targetChapterId": null,
               "targetFullId": "第一章/古井",
               "conditions": null,
               "sideEffects": []
@@ -803,6 +837,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 2,
               "text": "返回村庄",
               "targetNodeId": "村庄广场",
+              "targetChapterId": null,
               "targetFullId": "第一章/村庄广场",
               "conditions": null,
               "sideEffects": []
@@ -827,6 +862,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 0,
               "text": "战斗",
               "targetNodeId": "战斗结果",
+              "targetChapterId": null,
               "targetFullId": "第一章/战斗结果",
               "conditions": null,
               "sideEffects": [
@@ -837,6 +873,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 1,
               "text": "投喂食物",
               "targetNodeId": "驯服狼",
+              "targetChapterId": null,
               "targetFullId": "第一章/驯服狼",
               "conditions": {
                 "expression": "($金币>=10) AND ($武器!='无')",
@@ -865,6 +902,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 2,
               "text": "悄悄退后",
               "targetNodeId": "森林入口",
+              "targetChapterId": null,
               "targetFullId": "第一章/森林入口",
               "conditions": null,
               "sideEffects": []
@@ -889,6 +927,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 0,
               "text": "喝井水",
               "targetNodeId": "井水效果",
+              "targetChapterId": null,
               "targetFullId": "第一章/井水效果",
               "conditions": null,
               "sideEffects": [
@@ -899,6 +938,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 1,
               "text": "调查符文",
               "targetNodeId": "符文秘密",
+              "targetChapterId": null,
               "targetFullId": "第一章/符文秘密",
               "conditions": {
                 "expression": "($角色状态.魔力>=10)",
@@ -917,6 +957,7 @@ PlotFlow 支持 6 种变量类型：
               "index": 2,
               "text": "离开",
               "targetNodeId": "森林入口",
+              "targetChapterId": null,
               "targetFullId": "第一章/森林入口",
               "conditions": null,
               "sideEffects": []
@@ -937,10 +978,10 @@ PlotFlow 支持 6 种变量类型：
 
 | 要点 | 说明 |
 |------|------|
-| `fullId` 唯一性 | 每个节点的 `fullId` 在整个 JSON 文件中唯一；`第一章/森林入口` 不是 `第一章/森林入口` |
+| `fullId` 唯一性 | 每个节点的 canonical `fullId` 在整个 JSON 文件中唯一；身份来自独立 chapterId/id 组件，不从 FullID 反向拆分 |
 | `conditions: null` | 无条件选项（默认选项），引擎应始终显示该选项 |
 | `sideEffects: []` | 无副作用的选项，空数组而非省略 |
-| `targetFullId` 引用 | 每个选项的 `targetFullId` 必须能在 JSON 中找到对应的 `Node.fullId` |
+| `targetFullId` 引用 | 非 null 的 `targetFullId` 必须能在 JSON 中找到对应的 `Node.fullId`；它是 opaque key，禁止拆分 |
 | 对象字段路径 | `角色状态.生命` 用 `.` 分隔符表示嵌套对象字段访问 |
 | 诊断标志 | `isRoot`、`isOrphan`、`isDeadEnd` 由编辑器计算，引擎插件**不应**依赖它们做运行时判断——引擎应自行评估可达性 |
 | `position` | 仅用于编辑器分支图布局恢复；引擎运行时忽略此字段 |
@@ -956,10 +997,10 @@ PlotFlow 支持 6 种变量类型：
 | 编号 | 规则 | 严重性 | 检查方法 |
 |------|------|--------|---------|
 | V01 | 所有 `fullId` 必须全局唯一 | 🔴 Error | 收集所有 `Node.fullId`，检查重复 |
-| V02 | 每个 `Option.targetFullId` 必须引用一个存在的 `Node.fullId` | 🔴 Error | 收集所有 `Node.fullId`，检查引用存在性 |
+| V02 | 每个非 null 的 `Option.targetFullId` 必须引用一个存在的 `Node.fullId` | 🔴 Error | 收集所有 `Node.fullId`，检查引用存在性 |
 | V03 | 有且只有一个 `isRoot: true` 的节点 | 🔴 Error | 统计 `isRoot` 为 `true` 的节点数，不等于 1 则错误 |
 | V04 | `Node.chapterId` 必须匹配其所属 `Chapter.id` | 🔴 Error | 检查 `chapterId` 与容器 Chapter 的 `id` 一致 |
-| V05 | `Node.fullId` 必须等于 `${chapterId}/${id}` | 🔴 Error | 字符串拼接验证 |
+| V05 | `Node.fullId` 必须等于共享 helper 对 chapterId/id 生成的 encoded-slash canonical ID | 🔴 Error | 调用同一 helper 比较；禁止手写模板或拆分 FullID |
 
 ### 7.2 变量与类型规则
 
@@ -971,7 +1012,9 @@ PlotFlow 支持 6 种变量类型：
 | V13 | `SideEffect.value` 类型必须与变量声明类型匹配 | 🔴 Error | 按 `integration`、`number`、`boolean`、`string` 分别校验 |
 | V14 | 枚举变量的 `SideEffect.value`（当 `operation="set"`）必须在声明 `values` 中 | 🔴 Error | 查找 `VariableDef.values` 数组，检查包含关系 |
 | V15 | Object 嵌套深度不超过 3 层 | 🔴 Error | 递归遍历 `VariableDef.fields`，计数深度 |
-| V16 | `Comparison` 的 `value` 类型必须与 `variable` 的声明类型兼容 | 🔴 Error | 查找变量定义，比较 JSON 类型 |
+| V16 | `Comparison.left/right` 的 typed operands 必须存在且类型兼容 | 🔴 Error | 解析 variable operand 的声明类型与 literal operand 的 JSON 类型；变量-变量比较两侧声明类型也须兼容 |
+| V17 | 顶层 `scope=chapter` 必须有真实 `chapter`；其他 scope 禁止 chapter | 🔴 Error | 对照 `chapters[].id`；阻断导出 |
+| V18 | 嵌套 fields 禁止 `scope/chapter`，并继承顶层变量可见性 | 🔴 Error | 递归字段声明并使用根变量上下文 |
 
 ### 7.3 逻辑一致性规则
 
@@ -985,8 +1028,8 @@ PlotFlow 支持 6 种变量类型：
 ### 7.4 应用层验证示例（TypeScript）
 
 ```typescript
-import Ajv from "ajv";
-import schema from "./story.schema.json";
+import Ajv2020 from "ajv/dist/2020.js";
+import schema from "../packages/core/schema/0.2/story.json";
 
 /**
  * Validate a PlotFlow story JSON against both JSON Schema and
@@ -994,7 +1037,7 @@ import schema from "./story.schema.json";
  */
 function validateStory(json: unknown): ValidationResult {
   // Step 1: JSON Schema validation (structural + type checking)
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = new Ajv2020({ allErrors: true });
   const validate = ajv.compile(schema);
   const schemaValid = validate(json);
 
@@ -1032,7 +1075,7 @@ function runAppValidationRules(story: Story): AppError[] {
   for (const ch of story.chapters) {
     for (const node of ch.nodes) {
       for (const opt of node.options) {
-        if (!fullIds.has(opt.targetFullId)) {
+        if (opt.targetFullId !== null && !fullIds.has(opt.targetFullId)) {
           errors.push({
             code: "V02",
             message: `Option "${opt.text}" targets non-existent node "${opt.targetFullId}"`,
@@ -1105,8 +1148,10 @@ Schema 标识符格式：`https://plotflow.dev/schema/{MAJOR}.{MINOR}/story.json
 
 | Schema 版本 | Godot 插件版本 | Unity 插件版本 | Unreal 插件版本 |
 |-------------|---------------|---------------|----------------|
-| 0.1 | 0.1.x | 0.1.x | 0.1.x |
-| 0.2（未来） | 0.2.x | 0.2.x | 0.1.x（只读兼容层） |
+| 0.1（历史读取兼容） | 0.1.x | 0.1.x | 0.1.x |
+| 0.2（当前写出合同；实现门禁进行中） | 0.2.x | 0.2.x | 0.1.x（只读兼容层） |
+
+0.2 的 FullID 是 `encodeURIComponent(chapterId) + "/" + encodeURIComponent(nodeId)` 生成的 opaque key。`targetChapterId` 必填但可空；`targetNodeId` / `targetFullId` 必填且可空。encoded-slash 对等关系、引用存在性、章节变量所指章节存在性和 FullID 唯一性由语义 validator 负责，不用 JSON Schema 正则模拟。
 
 ### 8.5 前向兼容处理建议
 
@@ -1192,6 +1237,7 @@ class_name PlotFlowOption
 var index: int
 var text: String
 var target_node_id: String
+var target_chapter_id: String
 var target_full_id: String
 var conditions   # null or Dictionary (AST)
 var side_effects: Array[PlotFlowSideEffect]
@@ -1291,16 +1337,29 @@ static func _eval_ast(ast: Dictionary, vars: Dictionary) -> bool:
         "logical_not":
             return not _eval_ast(ast["operand"], vars)
         "comparison":
-            var var_value = _resolve_variable(ast["variable"], vars)
-            var cmp_value = ast["value"]
+            # 0.2 uses typed left/right operands. The fallback is historical 0.1.
+            var left_value
+            var right_value
+            if ast.has("left") and ast.has("right"):
+                left_value = _resolve_operand(ast["left"], vars)
+                right_value = _resolve_operand(ast["right"], vars)
+            else:
+                left_value = _resolve_variable(str(ast.get("variable", "")), vars)
+                right_value = ast.get("value")
             match ast["operator"]:
-                "==": return var_value == cmp_value
-                "!=": return var_value != cmp_value
-                ">":  return var_value > cmp_value
-                "<":  return var_value < cmp_value
-                ">=": return var_value >= cmp_value
-                "<=": return var_value <= cmp_value
+                "==": return left_value == right_value
+                "!=": return left_value != right_value
+                ">":  return left_value > right_value
+                "<":  return left_value < right_value
+                ">=": return left_value >= right_value
+                "<=": return left_value <= right_value
     return false
+
+static func _resolve_operand(operand: Dictionary, vars: Dictionary):
+    match operand.get("type", ""):
+        "variable": return _resolve_variable(str(operand.get("name", "")), vars)
+        "literal": return operand.get("value")
+    return null
 
 # Resolve variable including dot-path for nested objects
 static func _resolve_variable(path: String, vars: Dictionary):
@@ -1412,7 +1471,9 @@ public class PlotFlowVariableDef
 {
     public string type;
     public string scope;
+    public string description;
     public string chapter;
+    public object @default;
     public List<string> values;         // for enum
     public Dictionary<string, PlotFlowVariableDef> fields; // for object
 }
@@ -1453,6 +1514,7 @@ public class PlotFlowOption
     public int index;
     public string text;
     public string targetNodeId;
+    public string targetChapterId;
     public string targetFullId;
     public PlotFlowConditionExpression conditions;
     public List<PlotFlowSideEffect> sideEffects;
@@ -1581,6 +1643,7 @@ struct FPlotFlowOption
     UPROPERTY(BlueprintReadOnly) int32 Index;
     UPROPERTY(BlueprintReadOnly) FString Text;
     UPROPERTY(BlueprintReadOnly) FString TargetNodeId;
+    UPROPERTY(BlueprintReadOnly) FString TargetChapterId;
     UPROPERTY(BlueprintReadOnly) FString TargetFullId;
 
     // Conditions: use TSharedPtr<FJsonObject> for AST,
@@ -1621,22 +1684,24 @@ struct FPlotFlowNode
 
 ---
 
-## 附录 A：完整 schema 文件组装
+## 附录 A：当前 0.2 schema 文件组装
 
-以下是将本文档中所有 `$defs` 片段组装为可直接使用的完整 `story.schema.json` 文件的结构。
+以下仅展示当前机器合同结构索引。可直接验证的完整文件是 `packages/core/schema/0.2/story.json`，不得从本文片段重新拼装替代。
 
 ```
 story.schema.json
 ├── $schema:      "https://json-schema.org/draft/2020-12/schema"
-├── $id:          "https://plotflow.dev/schema/0.1/story.json"
+├── $id:          "https://plotflow.dev/schema/0.2/story.json"
 ├── title:        "PlotFlow Story Export"
 ├── type:         "object"
-├── required:     ["meta", "variables", "chapters"]
+├── required:     ["$schema", "meta", "variables", "chapters"]
 ├── properties:   { $schema, meta, variables, chapters }
 └── $defs:
     ├── Meta
-    ├── Variables          (patternProperties → VariableDef)
-    ├── VariableDef        (oneOf: int | float | bool | string | enum | object)
+    ├── Variables          (additionalProperties → TopLevelVariableDef)
+    ├── TopLevelVariableDef (scope/chapter 条件约束)
+    ├── FieldDef           (递归字段，禁止 scope/chapter)
+    ├── VariableShape      (int | float | bool | string | enum | object)
     ├── VariableScope      (enum: global | chapter)
     ├── Chapter
     ├── Node
@@ -1646,6 +1711,7 @@ story.schema.json
     ├── LogicalOr
     ├── LogicalNot
     ├── Comparison
+    ├── Operand            (variable{name} | literal{value})
     ├── FieldAccess
     └── SideEffect
 ```
@@ -1655,16 +1721,16 @@ story.schema.json
 ```bash
 # 使用 ajv-cli 验证导出产物
 npm install -g ajv-cli
-ajv validate -s spec/story.schema.json -d exports/story.json
+ajv validate -s packages/core/schema/0.2/story.json -d exports/story.json
 
 # 或在 Node.js 中编程验证
 ```
 
 ```typescript
-import Ajv from "ajv";
-import schema from "./story.schema.json";
+import Ajv2020 from "ajv/dist/2020.js";
+import schema from "../packages/core/schema/0.2/story.json";
 
-const ajv = new Ajv({ allErrors: true });
+const ajv = new Ajv2020({ allErrors: true });
 const validate = ajv.compile(schema);
 
 const story = JSON.parse(fs.readFileSync("story.json", "utf-8"));

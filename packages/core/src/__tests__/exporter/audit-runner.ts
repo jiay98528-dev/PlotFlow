@@ -68,7 +68,7 @@ function validateJson(json: Record<string, unknown>, _fileName: string): { valid
   const issues: string[] = [];
 
   if (!json['$schema']) issues.push('缺少 $schema 字段');
-  if (json['$schema'] !== 'https://plotflow.dev/schema/0.1/story.json') {
+  if (json['$schema'] !== 'https://plotflow.dev/schema/0.2/story.json') {
     issues.push(`$schema 值不正确: "${json['$schema']}"`);
   }
 

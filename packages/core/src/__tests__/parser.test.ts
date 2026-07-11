@@ -18,6 +18,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseStory, parseChaptersAndNodes } from '../parser/parser.js';
+import { createFullId } from '../fullId.js';
 import type { Chapter, StoryNode, VariableDeclaration } from '../types/ast.js';
 
 /** Empty variables list used for tests that don't test variable-dependent parsing */
@@ -131,7 +132,7 @@ describe('parseStory - 单章节单节点', () => {
 
       const node = ch.nodes[0]!;
       expect(node.id).toBe('森林入口');
-      expect(node.fullId).toBe('第一章：村庄-森林入口');
+      expect(node.fullId).toBe(createFullId('第一章：村庄', '森林入口'));
       expect(node.title).toBe('森林入口');
       expect(node.chapterId).toBe('第一章：村庄');
       expect(node.body).toBe('你站在幽暗森林的边缘。');
@@ -236,13 +237,13 @@ describe('parseStory - 多章节多节点', () => {
 
       const ch1 = findChapter(result.data.chapters, '第一章：村庄')!;
       expect(ch1.nodes).toHaveLength(2);
-      expect(ch1.nodes[0]!.fullId).toBe('第一章：村庄-森林入口');
-      expect(ch1.nodes[1]!.fullId).toBe('第一章：村庄-村庄广场');
+      expect(ch1.nodes[0]!.fullId).toBe(createFullId('第一章：村庄', '森林入口'));
+      expect(ch1.nodes[1]!.fullId).toBe(createFullId('第一章：村庄', '村庄广场'));
 
       const ch2 = findChapter(result.data.chapters, '第二章：洞穴')!;
       expect(ch2.nodes).toHaveLength(2);
-      expect(ch2.nodes[0]!.fullId).toBe('第二章：洞穴-狼穴');
-      expect(ch2.nodes[1]!.fullId).toBe('第二章：洞穴-古井');
+      expect(ch2.nodes[0]!.fullId).toBe(createFullId('第二章：洞穴', '狼穴'));
+      expect(ch2.nodes[1]!.fullId).toBe(createFullId('第二章：洞穴', '古井'));
     }
   });
 
@@ -292,13 +293,13 @@ describe('parseStory - 匿名章节', () => {
       expect(anonCh!.isAnonymous).toBe(true);
       expect(anonCh!.nodes).toHaveLength(1);
       expect(anonCh!.nodes[0]!.title).toBe('无章节的节点');
-      expect(anonCh!.nodes[0]!.fullId).toBe('无章节的节点');
+      expect(anonCh!.nodes[0]!.fullId).toBe(createFullId(null, '无章节的节点'));
       expect(anonCh!.nodes[0]!.chapterId).toBe('_anonymous');
 
       // 命名章节应包含其节点
       const ch1 = findChapter(result.data.chapters, '第一章')!;
       expect(ch1.nodes).toHaveLength(1);
-      expect(ch1.nodes[0]!.fullId).toBe('第一章-有章节的节点');
+      expect(ch1.nodes[0]!.fullId).toBe(createFullId('第一章', '有章节的节点'));
     }
   });
 
@@ -317,8 +318,8 @@ describe('parseStory - 匿名章节', () => {
       expect(ch.id).toBe('_anonymous');
       expect(ch.isAnonymous).toBe(true);
       expect(ch.nodes).toHaveLength(2);
-      expect(ch.nodes[0]!.fullId).toBe('节点A');
-      expect(ch.nodes[1]!.fullId).toBe('节点B');
+      expect(ch.nodes[0]!.fullId).toBe(createFullId(null, '节点A'));
+      expect(ch.nodes[1]!.fullId).toBe(createFullId(null, '节点B'));
     }
   });
 
@@ -355,7 +356,7 @@ describe('parseStory - E007 节点 ID 重名', () => {
       const errors = result.diagnostics.filter((d) => d.severity === 'error');
       expect(errors.some((e) => e.code === 'E007')).toBe(true);
       const e007 = errors.find((e) => e.code === 'E007')!;
-      expect(e007.message).toContain('第一章-森林');
+      expect(e007.message).toContain(createFullId('第一章', '森林'));
     }
   });
 
@@ -604,7 +605,7 @@ describe('parseStory - 中英混合', () => {
     if (result.ok) {
       const ch = result.data.chapters[0]!;
       expect(ch.id).toBe('第一章：暗夜森林');
-      expect(ch.nodes[0]!.fullId).toBe('第一章：暗夜森林-森林深处的古老洞穴');
+      expect(ch.nodes[0]!.fullId).toBe(createFullId('第一章：暗夜森林', '森林深处的古老洞穴'));
     }
   });
 
@@ -618,7 +619,7 @@ You stand at the edge of a dark forest.`));
     if (result.ok) {
       const ch = result.data.chapters[0]!;
       expect(ch.id).toBe('Chapter 1: The Village');
-      expect(ch.nodes[0]!.fullId).toBe('Chapter 1: The Village-Forest Entrance');
+      expect(ch.nodes[0]!.fullId).toBe(createFullId('Chapter 1: The Village', 'Forest Entrance'));
     }
   });
 
@@ -884,16 +885,16 @@ vars:
 
       // 节点
       const node1 = findNode(ch.nodes, '森林入口')!;
-      expect(node1.fullId).toBe('第一章：村庄-森林入口');
+      expect(node1.fullId).toBe(createFullId('第一章：村庄', '森林入口'));
       expect(node1.body).toContain('你站在幽暗森林的边缘');
       expect(node1.body).toContain('夜幕即将降临');
 
       const node2 = findNode(ch.nodes, '狼穴')!;
-      expect(node2.fullId).toBe('第一章：村庄-狼穴');
+      expect(node2.fullId).toBe(createFullId('第一章：村庄', '狼穴'));
       expect(node2.body).toContain('洞穴内潮湿阴暗');
 
       const node3 = findNode(ch.nodes, '古井')!;
-      expect(node3.fullId).toBe('第一章：村庄-古井');
+      expect(node3.fullId).toBe(createFullId('第一章：村庄', '古井'));
       expect(node3.body).toContain('井口长满青苔');
     }
   });
@@ -949,7 +950,7 @@ vars:
       const anonCh = findChapter(result.data.chapters, '_anonymous')!;
       expect(anonCh.nodes).toHaveLength(1);
       expect(anonCh.nodes[0]!.title).toBe('前言节点');
-      expect(anonCh.nodes[0]!.fullId).toBe('前言节点');
+      expect(anonCh.nodes[0]!.fullId).toBe(createFullId(null, '前言节点'));
 
       const ch1 = findChapter(result.data.chapters, '第一章')!;
       expect(ch1.nodes).toHaveLength(2);

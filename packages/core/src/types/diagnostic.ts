@@ -50,6 +50,26 @@ export type InfoCode =
 /** 所有诊断代码联合类型 */
 export type DiagnosticCode = ErrorCode | WarningCode | InfoCode;
 
+/** Value supported by diagnostic message interpolation. */
+export type DiagnosticMessageParam = string | number | boolean;
+
+/** Named interpolation parameters supplied to the renderer i18n layer. */
+export type DiagnosticMessageParams = Readonly<Record<string, DiagnosticMessageParam>>;
+
+/** Stable i18n key for a diagnostic's primary message. */
+export type DiagnosticMessageKey = `diagnostic.${DiagnosticCode}.message`;
+
+/** Stable i18n key for optional diagnostic detail text. */
+export type DiagnosticDetailKey = `diagnostic.${DiagnosticCode}.detail`;
+
+/** Localizable fields attached by core diagnostic factories. */
+export interface DiagnosticLocalization {
+  readonly messageKey: DiagnosticMessageKey;
+  readonly messageParams: DiagnosticMessageParams;
+  readonly detailKey?: DiagnosticDetailKey;
+  readonly detailParams?: DiagnosticMessageParams;
+}
+
 // ============================================================================
 // 诊断信息
 // ============================================================================
@@ -71,8 +91,24 @@ export interface Diagnostic {
   /** 简短描述（≤1 行） */
   readonly message: string;
 
+  /**
+   * Stable renderer i18n key. Optional for compatibility with diagnostics
+   * constructed by older integrations; all core parser/validator factories
+   * provide it.
+   */
+  readonly messageKey?: DiagnosticMessageKey;
+
+  /** Named interpolation values for messageKey. */
+  readonly messageParams?: DiagnosticMessageParams;
+
   /** 详细信息（含修复建议） */
   readonly detail?: string;
+
+  /** Optional renderer i18n key for detail text. */
+  readonly detailKey?: DiagnosticDetailKey;
+
+  /** Named interpolation values for detailKey. */
+  readonly detailParams?: DiagnosticMessageParams;
 
   /** 可操作建议列表 */
   readonly suggestions?: DiagnosticSuggestion[];
@@ -176,3 +212,40 @@ export const DIAGNOSTIC_SEVERITY: Readonly<Record<DiagnosticCode, DiagnosticSeve
   W004: 'warning', W005: 'warning', W006: 'warning', W007: 'warning',
   I001: 'info', I002: 'info', I003: 'info',
 };
+
+/** 诊断代码 → 稳定消息 i18n key 映射。 */
+export const DIAGNOSTIC_MESSAGE_KEYS: Readonly<Record<DiagnosticCode, DiagnosticMessageKey>> = {
+  E001: 'diagnostic.E001.message',
+  E002: 'diagnostic.E002.message',
+  E003: 'diagnostic.E003.message',
+  E004: 'diagnostic.E004.message',
+  E005: 'diagnostic.E005.message',
+  E006: 'diagnostic.E006.message',
+  E007: 'diagnostic.E007.message',
+  E008: 'diagnostic.E008.message',
+  W001: 'diagnostic.W001.message',
+  W002: 'diagnostic.W002.message',
+  W003: 'diagnostic.W003.message',
+  W004: 'diagnostic.W004.message',
+  W005: 'diagnostic.W005.message',
+  W006: 'diagnostic.W006.message',
+  W007: 'diagnostic.W007.message',
+  I001: 'diagnostic.I001.message',
+  I002: 'diagnostic.I002.message',
+  I003: 'diagnostic.I003.message',
+};
+
+/**
+ * Create the localization contract shared by parser and validator diagnostics.
+ * Callers may supply parameters once a message needs interpolation; a stable
+ * empty object keeps the contract present for code-only messages.
+ */
+export function createDiagnosticLocalization(
+  code: DiagnosticCode,
+  messageParams: DiagnosticMessageParams = {},
+): DiagnosticLocalization {
+  return {
+    messageKey: DIAGNOSTIC_MESSAGE_KEYS[code],
+    messageParams,
+  };
+}
