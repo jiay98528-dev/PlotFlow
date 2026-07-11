@@ -2,14 +2,14 @@
  * StoryEdge — 自定义 React Flow 连线组件（V0.2 交互升级）
  *
  * 两种连线类型（由 adapter.ts 中的 edge.type 决定）：
- * - type='default': 无条件连线 → 青色 #4EC9B0 实线 + 贝塞尔曲线
- * - type='conditional': 条件连线 → 橙色 #CE9178 虚线 + 贝塞尔曲线 + 条件标签
+ * - type='default': 无条件连线 → 主题 token 实线 + 贝塞尔曲线
+ * - type='conditional': 条件连线 → 主题 token 虚线 + 贝塞尔曲线 + 条件标签
  *
  * 对应 TAD.md §2.4 React Flow 集成和 adapter.ts 中 Option → Edge 的映射规则。
  *
  * 约束（CLAUDE.md §6.3）：
  * - 节点状态着色通过 className 注入 — 但连线颜色是数据语义的一部分（无/有条件的可视化区分），
- *   此处直接使用指定的语义色值：#4EC9B0（无条件）、#CE9178（条件）。
+ *   Edge colors are provided by semantic theme tokens.
  * - 箭头通过 MarkerType.ArrowClosed 渲染，颜色自动继承连线 stroke。
  *
  * V0.2 新增交互能力（DG-1~5, FR-1）：
@@ -52,18 +52,12 @@ export type StoryEdgeType = Edge<StoryEdgeData>;
 
 /** 连线类型 → 颜色映射 */
 const EDGE_COLORS = {
-  default: 'var(--color-syntax-target, #4EC9B0)',
-  conditional: 'var(--color-syntax-condition, #CE9178)',
+  default: 'var(--theme-graph-cable-default, var(--color-syntax-target))',
+  conditional: 'var(--theme-graph-cable-conditional, var(--color-syntax-condition))',
 } as const;
 
 /** 条件标签最长字符数（超出截断加 "..."） */
 const MAX_LABEL_LENGTH = 30;
-
-/** 条件标签宽度 */
-const LABEL_WIDTH = 160;
-
-/** 条件标签高度 */
-const LABEL_HEIGHT = 24;
 
 /** 连线默认线宽 */
 const DEFAULT_STROKE_WIDTH = 2;
@@ -72,7 +66,7 @@ const DEFAULT_STROKE_WIDTH = 2;
 const HOVER_STROKE_WIDTH = 3;
 
 /** 交互点击区域宽度（比视觉线宽更宽，便于点击） */
-const INTERACTION_WIDTH = 12;
+const INTERACTION_WIDTH = 18;
 
 // ============================================================================
 // 子组件：EdgeLabel
@@ -104,7 +98,7 @@ const EdgeLabel: React.FC<{
         style={{
           position: 'absolute',
           transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-          background: 'rgba(255, 255, 255, 0.92)',
+          background: 'var(--color-bg-elevated)',
           border: `1px solid ${EDGE_COLORS.conditional}`,
           borderRadius: 4,
           padding: '1px 6px',
@@ -142,7 +136,7 @@ const EdgeLabel: React.FC<{
  *
  * 所有交互事件通过 React Flow 的 EdgeProps 透传至 GraphCanvas 层处理。
  */
-const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
+export const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
   id,
   sourceX,
   sourceY,
@@ -197,7 +191,7 @@ const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
         fill="none"
         stroke="transparent"
         strokeWidth={INTERACTION_WIDTH}
-        style={{ cursor: 'pointer' }}
+        style={{ cursor: hovered ? 'grab' : 'pointer' }}
         className="edge-interaction-path"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -216,7 +210,6 @@ const StoryEdge: React.FC<EdgeProps<StoryEdgeType>> = ({
           strokeWidth,
           strokeDasharray: isConditional ? '5,5' : undefined,
           cursor: 'pointer',
-          transition: 'stroke-width 0.12s ease',
           pointerEvents: 'none',
         }}
         markerEnd={MarkerType.ArrowClosed}

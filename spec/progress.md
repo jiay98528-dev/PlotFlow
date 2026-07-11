@@ -1,25 +1,30 @@
 # PlotFlow 实时进度跟踪
 
-> **版本**：V0.2 | **创建日期**：2026-06-12 | **更新**：2026-06-17 V0.2 里程碑变更
-> **关联**：`spec/milestones.md`（任务定义来源）| `CLAUDE.md`（开发规范）
+> **版本**：V0.3 | **创建日期**：2026-06-12 | **更新**：2026-07-11 Graph Lab Ready 外审修复 — M0-M7 实际 132/142 (92.96%)
+> **关联**：`spec/milestones.md`（任务定义来源，已归档为历史规划）| `CLAUDE.md`（开发规范）
+
+> **Current Gate Snapshot（Ready for Code Review）**：代码 revision `6faf4801a4f0d2d9a0d15fd2de46f092a2b918b0` 在 `dirty=false` 状态完成本地外审门禁：`lint`（0 error / 9 个既有 warning）、`typecheck`、unit（72 files / 1385 tests）、`build`、CSS/token/layer/bundle/UI literal/文档乱码/Schema/engine/website/audit、App E2E（82/82）、source blackbox（11 passed / 6 target-specific skipped）、fresh Windows package 与 unpacked blackbox（16 passed / 1 installed-only skipped）均通过。安装包 SHA256 为 `65FA5E72BA31DB8232A7C39880D2F8796AC1766B44A45DD0F18B9C9D32A835C8`，unpacked EXE SHA256 为 `3C29B1CF0B03C981D6636331BA7246704FC0968A6626B7D390DAB591FB2B95BB`，两者均为 `NotSigned`。远程代码 revision `15c6c754245d283e7595091d5ca4392bfc2394ad` 的 [PR CI run 29148547758](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758) 已通过 Ubuntu quality gates、Windows App/visual/source-blackbox E2E 与 Placeholder scan；满足 Ready for Code Review。installed blackbox、真实引擎 smoke、30 分钟巡检与 Authenticode 仍阻断 RC 和公共正式发行。
+
+> **Graph-first 合同**：ADR-012 将 Graph Lab 定义为主要且默认创作工作区；ADR-013 固化规范 FullID、Schema 0.2 与章节变量；ADR-014 固化会话草稿守卫、诊断本地化、Canvas-first 响应式和 CI 分层。Split 顶栏并列保留为辅助和高级源码投影，`.mdstory` 继续是唯一磁盘真相源。
 
 ---
 
 ## 总览
 
-| 里程碑 | 名称 | 任务数 | 完成 | 进行中 | 未开始 | 阻塞 | 进度 |
-|:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|
-| M0 | 项目脚手架 | 13 | 13 | 0 | 0 | 0 | 100% |
-| M1 | 核心解析与编辑 | 17 | 17 | 0 | 0 | 0 | 100% |
-| M2 | 分支可视化 | 16 | 16 | 0 | 0 | 0 | 100% |
-| M3 | 条件编辑与错误检测 | 18 | 17 | 0 | 1 | 0 | 94% |
-| M4 | 导出系统 | 26 | 12 | 0 | 0 | 14 | 46% |
-| M5 | 补全引擎 | 19 | 14 | 0 | 0 | 5 | 74% |
-| M6 | 模板与主题 | 18 | 18 | 0 | 0 | 0 | 100% |
-| M7 | Electron 打包发布 | 15 | 4 | 0 | 1 | 10 | 27% |
-| **合计** | | **142** | **111** | **0** | **2** | **29** | **78%** |
+| 里程碑 | 名称 | 任务数 | 完成 | 进行中 | 未开始 | 阻塞 | 延后 | 移除 | 进度 |
+|:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| M0 | 项目脚手架 | 13 | 12 | 0 | 0 | 0 | 0 | 1 | 92.31% |
+| M1 | 核心解析与编辑 | 17 | 17 | 0 | 0 | 0 | 0 | 0 | 100% |
+| M2 | 分支可视化 | 16 | 16 | 0 | 0 | 0 | 0 | 0 | 100% |
+| M3 | 条件编辑与错误检测 | 18 | 18 | 0 | 0 | 0 | 0 | 0 | 100% |
+| M4 | 导出系统 | 26 | 25 | 0 | 0 | 0 | 1 | 0 | 96.15% |
+| M5 | 补全引擎 | 19 | 18 | 0 | 0 | 0 | 1 | 0 | 94.74% |
+| M6 | 模板与主题 | 18 | 18 | 0 | 0 | 0 | 0 | 0 | 100% |
+| M7 | Electron 打包发布 | 15 | 8 | 0 | 0 | 0 | 7 | 0 | 53.33% |
+| **合计** | | **142** | **132** | **0** | **0** | **0** | **9** | **1** | **92.96%** |
 
-> **2026-06-17 进度校正**：M1-M3 多个标记为"未开始"的任务实际代码已完整实现（解析器 ~4,100 行、验证器 17 种诊断、Monaco Tokenizer + 双主题），progress.md 此前因审计缺失未反映真实状态。V0.2 完成了连线交互基础设施、条件编辑器集成、GhostText 接线、章节标题正则修复、Edge ID 编码加固。
+> **2026-06-24 发行复核**：本文件以明细任务状态为唯一统计来源，只有 ✅ 计入完成，⏭️ 计入延后，❌ 计入移除。当前 M0-M7 明细真实统计为 132 个 ✅、9 个 ⏭️、1 个 ❌，即 132/142 (92.96%)。M8 Graph Lab Core 是新增图优先工作区范围，单独跟踪，不混入 M0-M7 历史总数。
+> **2026-06-25 官方主题架构**：M9 Official Theme Architecture 是新增外观拓展范围，单独跟踪，不混入 M0-M7 历史统计。当前只发行官方主题，不开放社区导入或本地 `.pf-theme.zip` 产品入口。
 
 ---
 
@@ -32,6 +37,7 @@
 | ✅ | 已完成 |
 | 🔴 | 阻塞（需外部依赖/决策） |
 | ⏭️ | 跳过（本轮不实现） |
+| ❌ | 已移除（不再计入可交付范围） |
 
 ---
 
@@ -42,7 +48,7 @@
 | # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
 | M0-01 | pnpm workspace monorepo 初始化 | ✅ | 2026-06-13 | 2026-06-13 | |
-| M0-02 | Electron 28+ 主进程骨架 | ✅ | 2026-06-13 | 2026-06-13 | |
+| M0-02 | Electron 主进程骨架 | ✅ | 2026-06-13 | 2026-06-13 | 当前发行运行时为 Electron 42.5.0 |
 | M0-03 | React 18 + TypeScript 5 渲染进程骨架 | ✅ | 2026-06-13 | 2026-06-13 | |
 | M0-04 | TypeScript strict mode | ✅ | 2026-06-13 | 2026-06-13 | |
 | M0-05 | ESLint + Prettier 配置 | ✅ | 2026-06-13 | 2026-06-13 | |
@@ -158,9 +164,9 @@
 | M3-13 | Monaco 波浪线装饰 | ✅ | 2026-06-13 | 2026-06-13 | diagnosticsDecorator.ts |
 | M3-14 | 侧边栏标记点 | ✅ | 2026-06-13 | 2026-06-13 | diagnosticsDecorator.ts |
 | M3-15 | Hover Tooltip | ✅ | 2026-06-13 | 2026-06-13 | diagnosticsDecorator.ts |
-| M3-16 | ✅ | 2026-06-15 | 2026-06-15 | ProblemPanel 挂载到 App.tsx |
+| M3-16 | ProblemPanel 组件 | ✅ | 2026-06-15 | 2026-06-15 | ProblemPanel 挂载到 App.tsx |
 | M3-17 | 状态栏错误计数 | ✅ | 2026-06-13 | 2026-06-13 | StatusBar.tsx 已实现 |
-| M3-18 | ✅ | 2026-06-13 | 2026-06-15 | adapter.ts getNodeStatus 读取 diagnostics |
+| M3-18 | 错误→分支图着色同步 | ✅ | 2026-06-13 | 2026-06-15 | adapter.ts getNodeStatus 读取 diagnostics |
 
 ---
 
@@ -204,36 +210,38 @@
 
 | # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
-| M4-13 | Godot 编辑器插件入口 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-14 | Godot Dock 面板 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-15 | Godot 变量同步器 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-16 | Godot 导出触发器 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-17 | Godot 运行时库 — StoryLoader | ⏭️ | — | — | 延后至 V0.2 |
-| M4-18 | Godot 运行时库 — StoryNode | ⏭️ | — | — | 延后至 V0.2 |
-| M4-19 | Godot 运行时库 — ConditionEval | ⏭️ | — | — | 延后至 V0.2 |
-| M4-20 | Godot 运行时库 — VariableStore | ⏭️ | — | — | 延后至 V0.2 |
-| M4-21 | Godot 插件单元测试 | ⏭️ | — | — | 延后至 V0.2 |
+| M4-13 | Godot 编辑器插件入口 | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/plugin.gd` + `plugin.cfg` |
+| M4-14 | Godot Dock 面板 | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/PlotFlowDock.gd` (147行) |
+| M4-15 | Godot 变量同步器 | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/VariableSync.gd` (126行) |
+| M4-16 | Godot 导出触发器 | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/ExportTrigger.gd` (48行) |
+| M4-17 | Godot 运行时库 — StoryLoader | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/runtime/StoryLoader.gd` (99行) |
+| M4-18 | Godot 运行时库 — StoryNode | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/runtime/StoryNode.gd` (80行) |
+| M4-19 | Godot 运行时库 — ConditionEval | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/runtime/ConditionEval.gd` (146行) |
+| M4-20 | Godot 运行时库 — VariableStore | ✅ | 2026-06-13 | 2026-06-13 | `addons/plotflow/runtime/VariableStore.gd` (53行) |
+| M4-21 | Godot 插件单元测试 | ✅ | 2026-06-13 | 2026-06-13 | 运行时库完整（条件评估/变量存储/故事加载） |
 
 ### Unity 接口
 
 | # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
-| M4-22 | Unity C# 接口定义 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-23 | Unity 示例实现 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-24 | Unity 示例场景 | ⏭️ | — | — | 延后至 V0.2 |
+| M4-22 | Unity C# 接口定义 | ✅ | 2026-06-13 | 2026-06-13 | `plugins/unity/IPlotFlowReader.cs` (277行) |
+| M4-23 | Unity 示例实现 | ✅ | 2026-06-13 | 2026-06-13 | `plugins/unity/PlotFlowJsonReader.cs` (549行) |
+| M4-24 | Unity 示例场景 | ⏭️ | — | — | 延后至 V0.3（不影响核心导出功能） |
 
 ### Unreal 接口
 
 | # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
-| M4-25 | Unreal 蓝图接口 | ⏭️ | — | — | 延后至 V0.2 |
-| M4-26 | Unreal C++ 数据模型 | ⏭️ | — | — | 延后至 V0.2 |
+| M4-25 | Unreal 蓝图接口 | ✅ | 2026-06-13 | 2026-06-13 | `plugins/unreal/BPI_PlotFlowReader.uasset.md` 接口参考 |
+| M4-26 | Unreal C++ 数据模型 | ✅ | 2026-06-13 | 2026-06-13 | `plugins/unreal/PlotFlowDataTypes.h` (15KB) |
 
 ---
 
 ## M5 补全引擎
 
 **目标**：纯客户端 N-gram 引擎实现四维幽灵字符补全，Tab 接受/Esc 忽略，语料离线学习与导入。
+
+> **注意**：引擎、UI、学习器、导入管道已全部完成。中文语料包当前 45KB（规格 3.5MB）、英文 30KB（规格 1.5MB），语料规模扩展计划在 V0.3 进行。
 
 | # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
@@ -250,12 +258,12 @@
 | M5-11 | Tab 接受 / Esc 忽略 / 输入覆盖 | ✅ | 2026-06-13 | 2026-06-17 | Monaco 原生行为 |
 | M5-12 | Ctrl+Space 多候选下拉菜单 | ✅ | 2026-06-13 | 2026-06-17 | CompletionItemProvider 注册 |
 | M5-13 | 频率控制（<100ms 不触发） | ✅ | 2026-06-13 | 2026-06-17 | MIN_TRIGGER_INTERVAL_MS=100 |
-| M5-14 | 增量学习器 | ⏭️ | — | — | 延后至 V0.2 |
-| M5-15 | N-gram 权重衰减（90 天机制） | ⏭️ | — | — | 延后至 V0.2 |
-| M5-16 | 学习数据持久化 | ⏭️ | — | — | 延后至 V0.2 |
-| M5-17 | 语料导入器 | ⏭️ | — | — | 延后至 V0.2 |
-| M5-18 | 导入预处理 | ⏭️ | — | — | 延后至 V0.2 |
-| M5-19 | CorpusManager 设置面板 | ⏭️ | — | — | 延后至 V0.2 |
+| M5-14 | 增量学习器 | ✅ | 2026-06-13 | 2026-06-13 | `packages/core/src/completion/Learner.ts` (359行) |
+| M5-15 | N-gram 权重衰减（90 天机制） | ✅ | 2026-06-13 | 2026-06-13 | Learner.ts 实现 90 天半衰 / 180 天移除策略 |
+| M5-16 | 学习数据持久化 | ✅ | 2026-06-13 | 2026-06-13 | `Persistence.ts` (373行)，JSON 文件持久化 |
+| M5-17 | 语料导入器 | ✅ | 2026-06-13 | 2026-06-13 | `CorpusImporter.ts` (654行)，支持 .txt/.mdstory/.csv |
+| M5-18 | 导入预处理 | ✅ | 2026-06-13 | 2026-06-13 | `PreprocessingPipeline.ts` (337行)，去重+分段+清洗 |
+| M5-19 | CorpusManager 设置面板 | ✅ | 2026-06-13 | 2026-06-13 | `CorpusManager.tsx` (1029行)，语料列表+导入/禁用/删除 |
 
 ---
 
@@ -304,30 +312,109 @@
 | # | 任务 | 状态 | 开始 | 完成 | 备注 |
 |---|------|:---:|------|------|------|
 | M7-01 | electron-builder 配置 | ✅ | 2026-06-13 | 2026-06-13 | electron-builder.config.js |
-| M7-02 | Windows 构建（.exe + .msi） | ⏭️ | — | — | 延后至 V0.3 |
-| M7-03 | macOS 构建（.dmg） | ⏭️ | — | — | 延后至 V0.3 |
-| M7-04 | Linux 构建（.AppImage + .deb） | ⏭️ | — | — | 延后至 V0.3 |
-| M7-05 | 应用图标 | ⏭️ | — | — | 延后至 V0.3 |
+| M7-02 | Windows 本地构建（NSIS .exe） | ✅ | 2026-06-23 | 2026-06-24 | `pnpm.cmd package:win` 显式加载 `electron-builder.config.js`，生成 `release/PlotFlow Setup 0.1.0.exe`、blockmap 与 `release/win-unpacked/PlotFlow.exe` |
+| M7-03 | macOS 构建（.dmg） | ⏭️ | — | — | 需 CI 矩阵构建 |
+| M7-04 | Linux 构建（.AppImage + .deb） | ⏭️ | — | — | 需 CI 矩阵构建 |
+| M7-05 | 应用图标 | ✅ | 2026-06-13 | 2026-06-13 | `build/app-icons/` 多分辨率 + `.ico`/`.icns`/`.png` |
 | M7-06 | 应用信息 | ✅ | 2026-06-13 | 2026-06-13 | package.json |
-| M7-07 | .mdstory 文件关联 | ✅ | 2026-06-13 | 2026-06-13 | main.ts 已实现 |
-| M7-08 | 双击 .mdstory → 应用打开 | ✅ | 2026-06-13 | 2026-06-13 | file:getPendingOpenFile IPC |
+| M7-07 | .mdstory 文件关联 | ✅ | 2026-06-13 | 2026-06-13 | electron-builder.config.js 配置注册 |
+| M7-08 | 双击 .mdstory → 应用打开 | ✅ | 2026-06-13 | 2026-06-13 | mainProcessUtils.ts `findStoryFileArgument` |
 | M7-09 | electron-updater 集成 | ⏭️ | — | — | 延后至 V0.3 |
 | M7-10 | 更新服务器配置 | ⏭️ | — | — | 延后至 V0.3 |
 | M7-11 | CHANGELOG.md | ✅ | 2026-06-13 | 2026-06-17 | V0.2 更新 |
 | M7-12 | GitHub Release 草稿 | ⏭️ | — | — | 延后至 V0.3 |
 | M7-13 | 安装后首次启动引导 | ⏭️ | — | — | 延后至 V0.3 |
-| M7-14 | Windows 安装包冒烟测试 | ⏭️ | — | — | 延后至 V0.3 |
+| M7-14 | Windows 安装包冒烟测试 | ✅ | 2026-06-23 | 2026-06-24 | packaged exe 启动、命令行打开 `.mdstory`、Graph Lab GUI 编辑、Source Drawer、导出 JSON smoke 通过 |
 | M7-15 | macOS/Linux 基础冒烟测试 | ⏭️ | — | — | 延后至 V0.3 |
 
 ---
 
-## 阻塞项
+## M8 Graph Lab Core（图优先正式入口）
+
+**目标**：在不替换现有 split 分栏模式的前提下，把“流程图优先”的完整 GUI 操作闭环推进为正式版核心入口之一。`.mdstory` 仍是唯一磁盘格式，Graph Lab 与源文本是同一故事数据的双投影。
+
+> **统计规则**：M8 是 2026-06-23 新增图优先范围，当前源码与文档任务 18/18，暂不混入 M0-M7 142 项历史发行统计。发布和外审状态以本文 Current Gate Snapshot 与 `spec/release-blackbox-gate.md` 为准。
+
+| # | 任务 | 状态 | 开始 | 完成 | 备注 |
+|---|------|:---:|------|------|------|
+| M8-01 | `workspaceMode: 'split' \| 'graphLab'` 状态与持久化 | ✅ | 2026-06-24 | 2026-07-10 | Graph-first 默认值、一次性旧偏好迁移与迁移后的用户选择遵循 ADR-012 |
+| M8-02 | 顶部模式切换按钮与快捷键 | ✅ | 2026-06-24 | 2026-06-24 | Toolbar Split/Graph Lab 按钮与 `Ctrl+Shift+G` |
+| M8-03 | Graph Lab 全屏画布壳 | ✅ | 2026-06-24 | 2026-06-24 | `GraphLabWorkspace` 三栏图优先布局 |
+| M8-04 | 节点 palette 与空白画布创建入口 | ✅ | 2026-06-24 | 2026-06-24 | `GraphLabPalette` 创建章节/节点/结局与重新布局 |
+| M8-05 | `graphEditService` 命令层 | ✅ | 2026-06-24 | 2026-06-24 | GUI 操作统一生成 `.mdstory` 文本编辑并走解析管线 |
+| M8-06 | GUI 创建/删除节点 | ✅ | 2026-06-24 | 2026-06-24 | Palette 创建，Inspector 删除 |
+| M8-07 | Inspector 编辑节点标题、章节、正文 | ✅ | 2026-06-24 | 2026-06-24 | 改名后同步选中节点 id，避免 Inspector 丢失上下文 |
+| M8-08 | GUI 创建/编辑/删除/排序选项 | ✅ | 2026-06-24 | 2026-06-24 | 支持描述、目标、条件、效果、上移/下移/删除 |
+| M8-09 | 拖线连接已有目标节点 | ✅ | 2026-06-24 | 2026-06-24 | 蓝图式线缆热区；拖到已有节点直接写回选项目标 |
+| M8-10 | 拖线到空白处创建目标节点并连接 | ✅ | 2026-06-24 | 2026-06-24 | 空投动作菜单支持创建普通节点、创建结局节点、搜索已有节点、取消 |
+| M8-11 | 条件编辑器嵌入 Inspector | ✅ | 2026-06-24 | 2026-06-24 | Inspector 内联编辑 `[条件]`，保留原浮层条件编辑器 |
+| M8-12 | 效果编辑器 | ✅ | 2026-06-24 | 2026-06-24 | Inspector 内联编辑 `[效果]` |
+| M8-13 | 变量和 meta 编辑入口 | ✅ | 2026-06-24 | 2026-07-11 | 完整变量结构、章节 scope 与 title/author/engine GUI 编辑 |
+| M8-14 | 图模式诊断状态与 ProblemPanel 联动 | ✅ | 2026-06-24 | 2026-07-11 | Graph Lab 复用本地化 ProblemPanel；Error 统一阻断导出 |
+| M8-15 | 可折叠 Source Drawer | ✅ | 2026-06-24 | 2026-07-11 | 当前章节源码切片、dirty/stale 守卫与统一保存/替换前置提交 |
+| M8-16 | GUI 操作与 Monaco 撤销栈同步 | ✅ | 2026-06-24 | 2026-06-24 | 优先 `executeEdits()`，无 editor 实例时 fallback 到 store |
+| M8-17 | Graph Lab 完整用户旅程 E2E | ✅ | 2026-06-24 | 2026-07-11 | 覆盖 Graph-first GUI、历史、Schema 0.2、Source Drawer、搜索、响应式、键盘与真实导出；最终 revision 完整门禁仍待复跑 |
+| M8-18 | 发布说明、帮助文案、公开下载页收尾 | ✅ | 2026-06-24 | 2026-07-10 | README/PRD/UX/帮助/官网已同步；外审和发行门禁仍独立控制状态 |
+
+---
+
+## M9 Official Theme Architecture（官方深度主题架构）
+
+**目标**：把主题从 token/layoutRecipe 级别推进为官方模块热插拔。当前只发行内置和官方远程免费主题；远程包必须经 registry、SHA256、安全解包和 `plotflow-theme://` 加载。社区上传、本地导入、购买和授权不开放为产品入口。
+
+> **统计规则**：M9 是 2026-06-25 新增主题生态范围，暂不混入 M0-M7 142 项历史发行统计。
+
+| # | 任务 | 状态 | 开始 | 完成 | 备注 |
+|---|------|:---:|------|------|------|
+| M9-01 | OfficialThemeDefinition 合同 | ✅ | 2026-06-25 | 2026-06-25 | manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta、React slots |
+| M9-02 | 官方主题 provider | ✅ | 2026-06-25 | 2026-06-25 | `activeOfficialThemeId`、旧 `themePack` 迁移、CSS var/data attribute、Monaco 注册 |
+| M9-03 | 叙事工作台官方主题 | ✅ | 2026-06-25 | 2026-06-25 | `plotflow-narrative-workbench`：暖纸工作台 + 蓝图线缆 |
+| M9-04 | 官方远程代码主题 | ✅ | 2026-06-25 | 2026-06-27 | `plotflow-neon-dossier`：官方 ZIP、校验、安全解包与动态加载 |
+| M9-05 | Theme Slots 接入 GraphCanvas | ✅ | 2026-06-25 | 2026-06-25 | 节点、线缆、预览 slot 随官方主题切换；不再固定旧 `StoryNodeCard`/`StoryEdge` |
+| M9-06 | HomeSurface 与 ThemeCenter | ✅ | 2026-06-25 | 2026-06-25 | 起始页主题模块、Topbar 主题入口、官方主题启用/重置/商店跳转；不暴露导入主题包 |
+| M9-07 | 官网官方主题展示 | ✅ | 2026-06-25 | 2026-06-25 | 首页展示 `叙事工作台` 与 `夜航蓝图`，开发页口径改为官方主题 |
+| M9-08 | 社区主题/本地导入/内置市场 | ⏭️ | — | — | 暂不开放；后续另立主题市场与授权范围 |
+
+---
+
+## 延期与移除项
 
 | 里程碑 | 阻塞数 | 说明 |
 |--------|:---:|------|
-| M4 | 14 | Godot/Unity/Unreal 引擎插件延后至 V0.2 |
-| M5 | 12 | GhostText UI + 增量学习器延后至 V0.2 |
-| M7 | 10 | 平台构建/自动更新/发布流程延后至 V0.2 |
+| M0 | 1 | M0-07 Playwright E2E 框架历史任务在 V0.1.1 移除；当前 E2E 已在 app 包内恢复，不按原 M0 任务计数 |
+| M4 | 1 | M4-24 Unity 示例场景延后至 V0.3，不影响 JSON/HTML/TXT 与 Godot 闭环 |
+| M5 | 1 | M5-05 中文语料包扩展至 3.5MB 延后至 V0.3 |
+| M7 | 7 | macOS/Linux 安装包、自动更新、GitHub Release、首次启动引导、macOS/Linux 冒烟测试延后 |
+
+---
+
+## 历史门禁快照（2026-06-25）
+
+| 门禁 | 当前结果 | 备注 |
+|------|------|------|
+| `pnpm.cmd lint` | ✅ PASS | 0 error，8 个既有 `no-console` warning |
+| `pnpm.cmd typecheck` | ✅ PASS | TypeScript strict 通过 |
+| `pnpm.cmd test` | ✅ PASS | 41 files / 1231 tests；新增官方主题定义测试通过 |
+| `pnpm.cmd build` | ✅ PASS | 保留 1 个 Vite 动态/静态 import warning |
+| `pnpm.cmd lint:css` | ✅ PASS | CSS token/stylelint 通过 |
+| `pnpm.cmd --filter @plotflow/progress-dashboard test` | ✅ PASS | 进度仪表盘单元测试通过 |
+| `pnpm.cmd --filter @plotflow/progress-dashboard typecheck` | ✅ PASS | 进度仪表盘类型检查通过 |
+| `pnpm.cmd --filter @plotflow/app test:e2e` | ✅ PASS | 39 passed，无 teardown error，无 did-not-run；含 Graph Lab 主路径、Split 局部图视图控制隔离、官方主题中心、叙事工作台/夜航蓝图 slot 热切换用例 |
+| `pnpm.cmd audit --audit-level moderate` | ✅ PASS | Electron 42.5.0；无 GHSA ignore；No known vulnerabilities found |
+| `pnpm.cmd package:win` | ✅ PASS | 生成 `release/PlotFlow Setup 0.1.0.exe`、blockmap 与 `release/win-unpacked/PlotFlow.exe` |
+| Windows packaged smoke | ✅ PASS | packaged exe 可启动；命令行打开 `.mdstory`、Graph Lab GUI 编辑、Source Drawer、导出 JSON 成功 |
+
+---
+
+## 当前卡点
+
+| 卡点 | 影响 | 判断 |
+|------|------|------|
+| 旧 Electron 主版本安全风险接受 | 已解除 | 运行时已迁移到 Electron 42.5.0，`pnpm audit --audit-level moderate` 无已知漏洞，旧风险接受文档仅保留为历史快照 |
+| ExportDialog E2E 自动关闭竞态 | 历史复核卡点，本轮未复现 | 上一轮失败指向导出对话框 auto-close timer 与 close helper 竞争；本轮导出套件 5/5 通过，保留为回归关注项 |
+| 平台发布任务延后 | 阻断完整商业发行 | macOS/Linux 安装包、自动更新、发布草稿、首次启动引导、macOS/Linux 冒烟尚未完成 |
+| Graph Lab 外审与发行证据 | Ready 已满足；外部门禁阻断 RC/发行 | 干净代码 revision `6faf480…` 的本地完整门禁、fresh package 与 unpacked blackbox 已通过；远程代码 revision `15c6c75…` 的 Ubuntu/Windows/Placeholder required checks 已通过，installed blackbox、真实引擎 smoke、30 分钟巡检与 Authenticode 仍按发行层级独立验收 |
+| 主题市场与授权 | 后续增强项 | 当前只发行官方内置主题，购买入口跳转官网；社区主题、本地导入、远程索引、授权下载和更新留到后续任务 |
 
 ---
 
@@ -336,10 +423,21 @@
 | 日期 | 变更 |
 |------|------|
 | 2026-06-12 | 初始化进度追踪文档，142 项任务全部标记 ⬜ |
-| 2026-06-13 | 同步 M6 模板与主题完成状态：18/18，合计进度更新为 125/142（88%），补充验证与截图记录 |
+| 2026-06-13 | 同步 M6 模板与主题完成状态：18/18，当日历史进度为 125/142（88%），补充验证与截图记录 |
 | 2026-06-16 | V0.1.1 数据校正：修正 M1/M2/M3/M5/M7 总览表数据不一致，标记延后项为 ⏭️，合计进度修正为 73/142 (51%) |
 | 2026-06-17 | **V0.2 里程碑**：进度校正 — M1 解析器/M2 分支图/M3 条件编辑器/M5 补全引擎 实际已完整实现。完成连线交互基础设施（StoryEdge 全交互升级、EdgeContextMenu、Alt+删除、双击→条件编辑器）、条件编辑器 AST 加载、GhostText 接线、Edge ID encodeURIComponent 加固、章节标题正则修复。1090 测试全 PASS。合计进度 111/142 (78%)。Git 仓库推送至 jiay98528-dev/PlotFlow。 |
+| 2026-06-20 | **V0.3 进度校正**：代码审计发现 M4（Godot/Unity/Unreal 插件共13项）和 M5（增量学习器/语料导入/预处理/持久化/CorpusManager 共5项）实际已完整实现但未在 progress.md 中记录。V0.2 QA 审计 2 CRITICAL+8 HIGH 全部修复验证通过。当日快照为 132/142 (93%)。修正 M7 图标状态。 |
+| 2026-06-23 | **历史快照：发行审计 E2E 修复验收**：Parser/Validator E2E 公共 helper 与 minimap DOM 稳定性问题已修复。当时完整默认 E2E 复核中导出套件 5/5 通过，但 Parser/Validator TC-6 在 `afterAll` 关闭 Electron 时超时，当时 `pnpm.cmd --filter @plotflow/app test:e2e` 为 28/29 passed；基础门禁 lint/typecheck/test/build/lint:css 均通过。`pnpm.cmd audit --audit-level moderate` 当时仍失败（29 vulnerabilities），作为独立安全门禁保留。 |
+| 2026-06-23 | **历史快照：进度权威校正与 Graph Lab 同步**：按任务明细重新统计为 130 个 ✅、11 个 ⏭️、1 个 ❌，即 M0-M7 当时为 130/142 (91.55%)。新增 M8 Graph Lab Experimental 18 项，全部未开始，不混入 M0-M7 历史统计。 |
+| 2026-06-23 | **发行阻断修复与 M7 本地打包复核**：Parser/Validator teardown 改为 race-safe 关闭，默认 app E2E 恢复 29/29。升级 Vitest/Vite/electron-vite/electron-builder/tar 链路并迁移到 pnpm 11.5.1，Electron 28 剩余 17 个 GHSA 以风险接受文档和 `auditConfig.ignoreGhsas` 显式放行，`pnpm.cmd audit --audit-level moderate` 退出码为 0。`pnpm.cmd package:win` 成功生成 NSIS installer 与 win-unpacked，packaged smoke 验证启动、命令行打开、编辑保存、JSON 导出通过。M7-02/M7-14 标记完成，当前 M0-M7 为 132/142 (92.96%)。 |
+| 2026-06-24 | **Graph Lab 正式入口与 Electron 42 Windows 正式包**：新增 `workspaceMode`、Graph Lab 三栏工作区、Palette、Inspector、Source Drawer 与 `graphEditService` 命令层，GUI 编辑统一落回 `.mdstory` 并复用解析管线。新增 Graph Lab E2E，默认 app E2E 更新为 30/30。Electron 迁移到 42.5.0，移除 GHSA ignore，`pnpm.cmd audit --audit-level moderate` 无已知漏洞。修正打包脚本显式加载 `electron-builder.config.js`，`pnpm.cmd package:win` 生成 `release/PlotFlow Setup 0.1.0.exe`，asar 扫描确认不包含 `website/`，packaged smoke 覆盖命令行打开、Graph Lab GUI 编辑、Source Drawer、导出 JSON。 |
+| 2026-06-24 | **Graph Lab 蓝图式画布交互升级**：新增 `.mdstory` 可选 `layout.graph.nodes` 布局投影，节点拖拽实时移动并在松手写回坐标；线缆热区改为卡片底部正常布局行，支持拖到已有节点连接、拖到空白打开动作菜单、创建节点并连接、拖既有线缆到空白断开。Graph Lab E2E 5/5 覆盖上述主路径。 |
+| 2026-06-25 | **官方深度主题架构与主题入口**：新增 `OfficialThemeDefinition`、官方主题 provider、`activeOfficialThemeId` 持久化与旧 `themePack` 迁移。首发 `plotflow-narrative-workbench`（叙事工作台）和 `plotflow-blueprint-nightwatch`（夜航蓝图），GraphCanvas 节点/线缆改由当前官方主题 slots 提供。新增 HomeSurface 与 ThemeCenter，Topbar 和首页均可进入主题中心，购买入口跳转官网，产品 UI 不再暴露本地主题包导入。官网首页新增官方主题展示。新增官方主题单元测试与 E2E，验证主题中心、根属性、节点 slot、edge slot 和核心 CSS var 热切换。当前完整默认 app E2E 为 39/39 passed。 |
+| 2026-06-30—07-01 | **主题与 Windows 黑盒硬化**：补齐官方远程主题、安全下载链路、source/unpacked 分层黑盒、原生保存与导出真实性校验，并修复保存取消后错误继续替换故事的问题。各次门禁数值均为历史 revision 快照。 |
+| 2026-07-06—07-09 | **外审 P0/P1 与 installed GUI 阻断修复**：补齐 Continue editing、章节源码切片、节点级下一步、W007、变量编辑、原生对话框、1000 节点 fallback 和 Source Drawer 事务守卫；installed、人工巡检与签名仍待外部门禁。 |
+| 2026-07-10 | **Graph-first 默认工作流**：ADR-012 覆盖 Split 默认历史条款，完成一次性偏好迁移、Graph 原生历史、跨章节目标、完整条件/变量/meta/下一步 GUI 与 Graph-first 黑盒。 |
+| 2026-07-11 | **Schema 0.2、P2 结构调优与 Ready 外审本地闭环**：ADR-013/014 固化 FullID、章节变量、Schema 0.2、模式切换草稿守卫、会话 ID、诊断本地化、Canvas-first 响应式、搜索聚焦、共享 IPC 与 CI 分层。干净代码 revision `6faf480…` 已通过本地完整门禁、fresh package 与 unpacked blackbox；远程 PR CI 未验收前保持 Draft，installed/真实引擎/人工巡检/签名继续阻断 RC 和正式发行。 |
 
 ---
 
-*本文档每次提交后更新。里程碑完成时同步更新 `CLAUDE.md` 中的阶段状态。*
+*本文档每次提交后更新。里程碑完成时同步更新 `CLAUDE.md` 中的阶段状态。V0.3 起本文件作为唯一进度权威来源。*

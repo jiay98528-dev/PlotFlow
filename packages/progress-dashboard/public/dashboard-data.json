@@ -1,0 +1,4938 @@
+{
+  "meta": {
+    "projectName": "PlotFlow",
+    "schemaVersion": "2026-06-25.v1",
+    "generatedAt": "2026-07-10T17:48:16.777Z",
+    "repoRoot": "D:/VibeCoding/PlotFlow"
+  },
+  "summary": {
+    "totalTasks": {
+      "status": "neutral",
+      "value": 142,
+      "sourceRefs": [
+        {
+          "path": "spec/milestones.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "tasks"
+    },
+    "realCompleted": {
+      "status": "pass",
+      "value": 132,
+      "sourceRefs": [
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "tasks"
+    },
+    "realCompletionRate": {
+      "status": "pass",
+      "value": 92.96,
+      "sourceRefs": [
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "%",
+      "target": 100
+    },
+    "publicCompleted": {
+      "status": "unknown",
+      "value": null,
+      "sourceRefs": [
+        {
+          "path": "README.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "tasks"
+    },
+    "publicCompletionRate": {
+      "status": "warn",
+      "value": 92.07,
+      "sourceRefs": [
+        {
+          "path": "README.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "%",
+      "target": 100
+    },
+    "declaredCompleted": {
+      "status": "pass",
+      "value": 132,
+      "sourceRefs": [
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "tasks"
+    },
+    "declaredCompletionRate": {
+      "status": "pass",
+      "value": 92.96,
+      "sourceRefs": [
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "%",
+      "target": 100
+    },
+    "deltaPublicVsReal": {
+      "status": "warn",
+      "value": -0.89,
+      "sourceRefs": [
+        {
+          "path": "README.md",
+          "kind": "markdown",
+          "confidence": "high"
+        },
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "pts"
+    },
+    "remainingTasks": {
+      "status": "blocked",
+      "value": 9,
+      "sourceRefs": [
+        {
+          "path": "spec/milestones.md",
+          "kind": "markdown",
+          "confidence": "high"
+        },
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "tasks"
+    },
+    "blockerTasks": {
+      "status": "pass",
+      "value": 0,
+      "sourceRefs": [
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "tasks"
+    },
+    "lastUpdated": {
+      "status": "neutral",
+      "value": "2026-06-25",
+      "sourceRefs": [
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ]
+    },
+    "overallGrade": {
+      "status": "neutral",
+      "value": "B+ / 82",
+      "sourceRefs": [
+        {
+          "path": "spec/audit/pass1-data.json",
+          "kind": "json",
+          "confidence": "high"
+        }
+      ]
+    },
+    "discrepancies": {
+      "status": "pass",
+      "value": 0,
+      "sourceRefs": [
+        {
+          "path": "README.md",
+          "kind": "markdown",
+          "confidence": "high"
+        },
+        {
+          "path": "spec/progress.md",
+          "kind": "markdown",
+          "confidence": "high"
+        }
+      ],
+      "unit": "issues"
+    }
+  },
+  "milestones": {
+    "order": [
+      "M0",
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9"
+    ],
+    "items": [
+      {
+        "id": "M0",
+        "title": "椤圭洰鑴氭墜鏋?",
+        "totalTasks": 13,
+        "computedCounts": {
+          "complete": 12,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 0,
+          "removed": 1,
+          "remaining": 0
+        },
+        "declaredCounts": {
+          "complete": 12,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 92.31,
+        "declaredProgress": 92.31,
+        "publicProgress": 92.31,
+        "tasks": [
+          {
+            "id": "M0-01",
+            "title": "pnpm workspace monorepo 初始化",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 59,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-02",
+            "title": "Electron 主进程骨架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "褰撳墠鍙戣杩愯鏃朵负 Electron 42.5.0",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 60,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-03",
+            "title": "React 18 + TypeScript 5 渲染进程骨架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 61,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-04",
+            "title": "TypeScript strict mode",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 62,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-05",
+            "title": "ESLint + Prettier 配置",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 63,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-06",
+            "title": "Vitest 单元测试框架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 64,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-07",
+            "title": "Playwright E2E 框架",
+            "status": "removed",
+            "rawStatus": "鉂?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-16",
+            "note": "V0.1.1 绉婚櫎",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 65,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-08",
+            "title": "GitHub Actions CI 骨架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 66,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-09",
+            "title": "Git Hooks（pre-commit + commit-msg）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 67,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-10",
+            "title": "目录结构全量建立",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 68,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-11",
+            "title": "Zustand 状态管理初始化",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 69,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-12",
+            "title": "Monaco Editor 占位集成",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 70,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M0-13",
+            "title": "`@plotflow/core` 包骨架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 71,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 43
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 53,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M1",
+        "title": "鏍稿績瑙ｆ瀽涓庣紪杈?",
+        "totalTasks": 17,
+        "computedCounts": {
+          "complete": 17,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 0,
+          "removed": 0,
+          "remaining": 0
+        },
+        "declaredCounts": {
+          "complete": 17,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 100,
+        "declaredProgress": 100,
+        "publicProgress": 100,
+        "tasks": [
+          {
+            "id": "M1-01",
+            "title": "YAML Frontmatter 解析器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "parser/frontmatter.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 83,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-02",
+            "title": "Markdown 节点解析器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "parser/parser.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 84,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-03",
+            "title": "选项语法解析（含条件/效果子行）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "parser/options.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 85,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-04",
+            "title": "条件表达式解析器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "parser/conditions.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 86,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-05",
+            "title": "变量操作解析器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "parser/effects.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 87,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-06",
+            "title": "PlotFlowData 中间表示模型",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "types/ast.ts (301 琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 88,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-07",
+            "title": "解析器单元测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "__tests__/parser/ 鐩綍",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 89,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-08",
+            "title": "Monaco 语法高亮 — Tokenizer",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "monaco-tokenizer.ts (V0.2 淇绔犺妭鏍囬姝ｅ垯)",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 95,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-09",
+            "title": "Monaco 语法高亮 — Theme",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "monaco-theme-dark.json + light.json",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 96,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-10",
+            "title": "括号自动闭合",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 97,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-11",
+            "title": "节点折叠（Code Folding）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 98,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-12",
+            "title": "响应式保存（500ms debounce）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 99,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-13",
+            "title": "文件操作服务",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 100,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-14",
+            "title": "OutlinePanel 组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 106,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-15",
+            "title": "大纲与编辑器联动",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 107,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-16",
+            "title": "StatusBar 组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 113,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M1-17",
+            "title": "应用菜单栏（Electron Menu API）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 114,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 88
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 75,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M2",
+        "title": "鍒嗘敮鍙鍖?",
+        "totalTasks": 16,
+        "computedCounts": {
+          "complete": 16,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 0,
+          "removed": 0,
+          "remaining": 0
+        },
+        "declaredCounts": {
+          "complete": 16,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 100,
+        "declaredProgress": 100,
+        "publicProgress": 100,
+        "tasks": [
+          {
+            "id": "M2-01",
+            "title": "React Flow 画布集成",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "GraphCanvas.tsx",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 124,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-02",
+            "title": "Dagre 布局引擎适配",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "layout.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 125,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-03",
+            "title": "AST → React Flow 数据适配器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "adapter.ts (V0.2 Edge ID 缂栫爜鍔犲浐)",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 126,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-04",
+            "title": "StoryNodeCard 自定义节点组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "StoryNodeCard.tsx",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 127,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-05",
+            "title": "节点状态着色（5 种状态）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "adapter-helpers.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 128,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-06",
+            "title": "StoryEdge 自定义连线组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "StoryEdge.tsx (V0.2 鍏ㄤ氦浜掑崌绾?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 129,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-07",
+            "title": "单击节点 → 编辑器跳转",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "handleNodeClick",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 130,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-08",
+            "title": "双击节点 → 重命名模式",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "handleNodeDoubleClick + StoryNodeCard",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 131,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-09",
+            "title": "拖拽连线端点 → 修改跳转目标",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "handleConnect",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 132,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-10",
+            "title": "右键菜单（节点/空白）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 133,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-11",
+            "title": "Ctrl+点击 → 多选节点",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 134,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-12",
+            "title": "缩放（10%~200%）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 135,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-13",
+            "title": "中键拖拽平移",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 136,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-14",
+            "title": "200 节点虚拟滚动",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 137,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-15",
+            "title": "同层节点水平折叠",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 138,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M2-16",
+            "title": "编辑器修改 → 分支图实时更新",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 139,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 162
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 118,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M3",
+        "title": "鏉′欢缂栬緫涓庨敊璇娴?",
+        "totalTasks": 18,
+        "computedCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 0,
+          "removed": 0,
+          "remaining": 0
+        },
+        "declaredCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 100,
+        "declaredProgress": 100,
+        "publicProgress": 100,
+        "tasks": [
+          {
+            "id": "M3-01",
+            "title": "ConditionEditor 弹出面板组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "ConditionEditor.tsx (1,948 琛? V0.2 鎺ョ嚎瀹屾垚)",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 151,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-02",
+            "title": "变量下拉框（读取 Frontmatter/引擎）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "绫诲瀷鎰熺煡涓嬫媺",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 152,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-03",
+            "title": "比较运算符下拉框",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "鎸夊彉閲忕被鍨嬭繃婊?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 153,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-04",
+            "title": "值输入框（类型感知）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "int/float/bool/enum/string",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 154,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-05",
+            "title": "AND/OR 逻辑组构建器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宓屽鏈€澶?3 灞?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 155,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-06",
+            "title": "条件预览行（实时文本）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "瀹炴椂鏂囨湰琛ㄨ揪寮?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 156,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-07",
+            "title": "双向同步（面板 ↔ 文本）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 娣诲姞 AST鈫掗潰鏉垮姞杞?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 157,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-08",
+            "title": "触发入口",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 杩炵嚎鍙屽嚮 + [馃敡鏉′欢] 鍥炬爣",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 158,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-09",
+            "title": "验证器引擎 — 8 种错误（E001-E008）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "validator.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 164,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-10",
+            "title": "验证器引擎 — 6 种警告（W001-W006）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 165,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-11",
+            "title": "验证器引擎 — 3 种建议（I001-I003）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 166,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-12",
+            "title": "验证器单元测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 167,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-13",
+            "title": "Monaco 波浪线装饰（Decorations）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "diagnosticsDecorator.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 173,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-14",
+            "title": "侧边栏标记点（Gutter Glyphs）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "diagnosticsDecorator.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 174,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-15",
+            "title": "Hover Tooltip（错误说明+修复建议）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "diagnosticsDecorator.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 175,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-16",
+            "title": "ProblemPanel 问题面板",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-15",
+            "completedAt": "2026-06-15",
+            "note": "ProblemPanel 鎸傝浇鍒?App.tsx",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 176,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-17",
+            "title": "状态栏错误计数",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "StatusBar.tsx 宸插疄鐜?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 177,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M3-18",
+            "title": "错误状态 → 分支图节点着色同步",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-15",
+            "note": "adapter.ts getNodeStatus 璇诲彇 diagnostics",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 178,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 241
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 143,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M4",
+        "title": "瀵煎嚭绯荤粺",
+        "totalTasks": 26,
+        "computedCounts": {
+          "complete": 25,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 1,
+          "removed": 0,
+          "remaining": 1
+        },
+        "declaredCounts": {
+          "complete": 25,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 96.15,
+        "declaredProgress": 96.15,
+        "publicProgress": 96.15,
+        "tasks": [
+          {
+            "id": "M4-01",
+            "title": "JSON 导出器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 190,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-02",
+            "title": "JSON Schema 验证",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸叉帴鍏ラ獙璇佹祦绋?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 191,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-03",
+            "title": "往返一致性测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸茶鐩栨牳蹇冭矾寰?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 192,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-04",
+            "title": "特殊字符/边界测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸茶鐩栬竟鐣岃緭鍏?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 193,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-05",
+            "title": "HTML 导出器（单文件自包含）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 199,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-06",
+            "title": "HTML 交互逻辑",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 200,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-07",
+            "title": "HTML 变量面板",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 201,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-08",
+            "title": "HTML 面包屑导航",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 202,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-09",
+            "title": "HTML 响应式布局",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 203,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-10",
+            "title": "TXT 导出器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 209,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-11",
+            "title": "ExportDialog 组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸插疄鐜板苟楠岃瘉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 215,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-12",
+            "title": "导出快捷键 + 菜单入口",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸叉帴鍏ヨ彍鍗曚笌蹇嵎閿?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 216,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-13",
+            "title": "Godot 编辑器插件入口",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/plugin.gd` + `plugin.cfg`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 222,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-14",
+            "title": "Godot Dock 面板",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/PlotFlowDock.gd` (147琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 223,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-15",
+            "title": "Godot 变量同步器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/VariableSync.gd` (126琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 224,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-16",
+            "title": "Godot 导出触发器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/ExportTrigger.gd` (48琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 225,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-17",
+            "title": "Godot 运行时库 — StoryLoader",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/runtime/StoryLoader.gd` (99琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 226,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-18",
+            "title": "Godot 运行时库 — StoryNode",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/runtime/StoryNode.gd` (80琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 227,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-19",
+            "title": "Godot 运行时库 — ConditionEval",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/runtime/ConditionEval.gd` (146琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 228,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-20",
+            "title": "Godot 运行时库 — VariableStore",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`addons/plotflow/runtime/VariableStore.gd` (53琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 229,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-21",
+            "title": "Godot 插件单元测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "杩愯鏃跺簱瀹屾暣锛堟潯浠惰瘎浼?鍙橀噺瀛樺偍/鏁呬簨鍔犺浇锛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 230,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-22",
+            "title": "Unity C# 接口定义",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`plugins/unity/IPlotFlowReader.cs` (277琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 236,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-23",
+            "title": "Unity 示例实现",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`plugins/unity/PlotFlowJsonReader.cs` (549琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 237,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-24",
+            "title": "Unity 示例场景",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3锛堜笉褰卞搷鏍稿績瀵煎嚭鍔熻兘锛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 238,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-25",
+            "title": "Unreal 蓝图接口",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`plugins/unreal/BPI_PlotFlowReader.uasset.md` 鎺ュ彛鍙傝€?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 244,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M4-26",
+            "title": "Unreal C++ 数据模型",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`plugins/unreal/PlotFlowDataTypes.h` (15KB)",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 245,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 326
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 182,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M5",
+        "title": "琛ュ叏寮曟搸",
+        "totalTasks": 19,
+        "computedCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 1,
+          "removed": 0,
+          "remaining": 1
+        },
+        "declaredCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 94.74,
+        "declaredProgress": 94.74,
+        "publicProgress": 94.74,
+        "tasks": [
+          {
+            "id": "M5-01",
+            "title": "NGramEngine 核心",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "note": "`packages/core/src/completion/NGramEngine.ts`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 257,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-02",
+            "title": "预置语料库加载器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "note": "`packages/core/src/completion/CorpusLoader.ts`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 258,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-03",
+            "title": "倒排索引",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "note": "`packages/core/src/completion/InvertedIndex.ts`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 259,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-04",
+            "title": "引擎单元测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "note": "658 鐢ㄤ緥锛堝惈 11 鏂板 CorpusLoader 娴嬭瘯锛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 260,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-05",
+            "title": "中文语料包（3.5MB）",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 261,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-06",
+            "title": "英文语料包（1.5MB）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`packages/core/corpus/en.json` 鈥?152 鍙ワ紝50% 娓告垙+50% 鏂囧",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 262,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-07",
+            "title": "语料预处理脚本",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`scripts/preprocess-corpus.ts` 鈥?绌烘牸鍒嗚瘝+鍒嗙被鎺ㄦ柇+杈撳嚭",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 263,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-08",
+            "title": "GhostTextPlugin（Monaco 扩展）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 鎺ョ嚎鍒?setupEditor.ts",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 264,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-09",
+            "title": "四维触发检测",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 鍏?4 缁村害灏辩华",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 265,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-10",
+            "title": "幽灵字符渲染逻辑",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "InlineCompletionItem 鐏拌壊鍗婇€忔槑",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 266,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-11",
+            "title": "Tab 接受 / Esc 忽略 / 输入覆盖",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "Monaco 鍘熺敓琛屼负",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 267,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-12",
+            "title": "Ctrl+Space 多候选下拉菜单",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "CompletionItemProvider 娉ㄥ唽",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 268,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-13",
+            "title": "频率控制（<100ms 不触发）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "MIN_TRIGGER_INTERVAL_MS=100",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 269,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-14",
+            "title": "增量学习器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`packages/core/src/completion/Learner.ts` (359琛?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 270,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-15",
+            "title": "N-gram 权重衰减（90 天机制）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "Learner.ts 瀹炵幇 90 澶╁崐琛?/ 180 澶╃Щ闄ょ瓥鐣?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 271,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-16",
+            "title": "学习数据持久化",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`Persistence.ts` (373琛?锛孞SON 鏂囦欢鎸佷箙鍖?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 272,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-17",
+            "title": "语言料导入器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`CorpusImporter.ts` (654琛?锛屾敮鎸?.txt/.mdstory/.csv",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 273,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-18",
+            "title": "导入预处理",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`PreprocessingPipeline.ts` (337琛?锛屽幓閲?鍒嗘+娓呮礂",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 274,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M5-19",
+            "title": "CorpusManager 设置面板",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`CorpusManager.tsx` (1029琛?锛岃鏂欏垪琛?瀵煎叆/绂佺敤/鍒犻櫎",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 275,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 419
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 249,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M6",
+        "title": "妯℃澘涓庝富棰?",
+        "totalTasks": 18,
+        "computedCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 0,
+          "removed": 0,
+          "remaining": 0
+        },
+        "declaredCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 100,
+        "declaredProgress": 100,
+        "publicProgress": 100,
+        "tasks": [
+          {
+            "id": "M6-01",
+            "title": "模板引擎",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`packages/core/src/template/TemplateEngine.ts`锛屼繚鐣欐湭鐭ュ崰浣嶇",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 285,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-02",
+            "title": "RPG 对话模板（8 节点）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`templates/rpg-dialogue.mdstory`锛屽崟鍏冩祴璇曢獙璇佽妭鐐规暟",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 286,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-03",
+            "title": "视觉小说模板（6 节点）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`templates/visual-novel.mdstory`锛屽崟鍏冩祴璇曢獙璇佽妭鐐规暟",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 287,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-04",
+            "title": "解谜游戏模板（10 节点）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`templates/puzzle-escape.mdstory`锛屽崟鍏冩祴璇曢獙璇佽妭鐐规暟",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 288,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-05",
+            "title": "Godot 示例项目模板（10 节点）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`templates/godot-example/`锛屽惈 story銆丷EADME銆乸roject銆乺untime script",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 289,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-06",
+            "title": "NewFileDialog 组件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "妯℃澘閫夋嫨銆佹爣棰?浣滆€呰緭鍏ャ€侀瑙堛€佸垱寤洪棴鐜凡鎺ュ叆 App",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 290,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-07",
+            "title": "暗色主题 CSS 变量",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`tokens-dark.css`锛孋SS 鍙橀噺椹卞姩",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 291,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-08",
+            "title": "暗色主题 Monaco 主题",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`ThemeProvider` 鍚屾 Monaco theme",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 292,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-09",
+            "title": "暗色主题分支图节点样式",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`branch-graph.css` 浣跨敤 token 鐘舵€佽壊",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 293,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-10",
+            "title": "亮色主题 CSS 变量",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`tokens-light.css`锛岄粯璁や寒鑹蹭富棰?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 294,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-11",
+            "title": "亮色主题 Monaco 主题",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`ThemeProvider` 鍚屾 Monaco theme",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 295,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-12",
+            "title": "亮色主题分支图节点样式",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "榛樿浜壊 token 瑕嗙洊鑺傜偣鍜岃繛绾跨姸鎬?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 296,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-13",
+            "title": "ThemeProvider 机制",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`html[data-theme]` + Monaco 涓婚鍗虫椂鍚屾",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 297,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-14",
+            "title": "ThemeToggle 工具栏按钮",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸ュ叿鏍忓浘鏍囨寜閽?+ `Ctrl+Shift+T` 鑿滃崟浜嬩欢",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 298,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-15",
+            "title": "i18n 框架",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`packages/core/src/i18n/i18n.ts`锛岃交閲忔湰鍦拌祫婧愯闃?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 299,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-16",
+            "title": "中文翻译文件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`locales/zh-CN.json` + core runtime resources",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 300,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-17",
+            "title": "英文翻译文件",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`locales/en-US.json` + core runtime resources",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 301,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M6-18",
+            "title": "语言切换器",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "宸ュ叿鏍忚瑷€ select锛屽嵆鏃跺垏鎹紝鏃犲埛鏂?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 302,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 500
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 279,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M7",
+        "title": "Electron 鎵撳寘涓庡彂甯?",
+        "totalTasks": 15,
+        "computedCounts": {
+          "complete": 8,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 7,
+          "removed": 0,
+          "remaining": 7
+        },
+        "declaredCounts": {
+          "complete": 8,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0
+        },
+        "computedProgress": 53.33,
+        "declaredProgress": 53.33,
+        "publicProgress": 53.33,
+        "tasks": [
+          {
+            "id": "M7-01",
+            "title": "electron-builder 配置",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "electron-builder.config.js",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 323,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-02",
+            "title": "Windows 构建（.exe + .msi）",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-23",
+            "completedAt": "2026-06-24",
+            "note": "`pnpm.cmd package:win` 鏄惧紡鍔犺浇 `electron-builder.config.js`锛岀敓鎴?`release/PlotFlow Setup 0.1.0.exe`銆乥lockmap 涓?`release/win-unpacked/PlotFlow.exe`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 324,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-03",
+            "title": "macOS 构建（.dmg）",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "闇€ CI 鐭╅樀鏋勫缓",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 325,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-04",
+            "title": "Linux 构建（.AppImage + .deb）",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "闇€ CI 鐭╅樀鏋勫缓",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 326,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-05",
+            "title": "应用图标",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "`build/app-icons/` 澶氬垎杈ㄧ巼 + `.ico`/`.icns`/`.png`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 327,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-06",
+            "title": "应用信息",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "package.json",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 328,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-07",
+            "title": "`.mdstory` 文件关联",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "electron-builder.config.js 閰嶇疆娉ㄥ唽",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 329,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-08",
+            "title": "双击 `.mdstory` → 应用打开",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-13",
+            "note": "mainProcessUtils.ts `findStoryFileArgument`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 330,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-09",
+            "title": "electron-updater 集成",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 331,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-10",
+            "title": "更新服务器配置",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 332,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-11",
+            "title": "CHANGELOG.md",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-13",
+            "completedAt": "2026-06-17",
+            "note": "V0.2 鏇存柊",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 333,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-12",
+            "title": "GitHub Release 草稿",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 334,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-13",
+            "title": "安装后首次启动引导",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 335,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-14",
+            "title": "Windows 安装包冒烟测试",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-23",
+            "completedAt": "2026-06-24",
+            "note": "packaged exe 鍚姩銆佸懡浠よ鎵撳紑 `.mdstory`銆丟raph Lab GUI 缂栬緫銆丼ource Drawer銆佸鍑?JSON smoke 閫氳繃",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 336,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M7-15",
+            "title": "macOS/Linux 基础冒烟测试",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "寤跺悗鑷?V0.3",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 337,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 584
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 317,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M8",
+        "title": "Graph Lab Core（图优先正式入口）",
+        "totalTasks": 18,
+        "computedCounts": {
+          "complete": 18,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 0,
+          "removed": 0,
+          "remaining": 0
+        },
+        "computedProgress": 100,
+        "declaredProgress": null,
+        "publicProgress": null,
+        "tasks": [
+          {
+            "id": "M8-01",
+            "title": "`workspaceMode: 'split' \\ | 'graphLab'` 状态与持久化",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "`useUIStore` 持久化模式；当前默认值、一次性旧偏好迁移与迁移后的用户选择遵循 ADR-012",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 346,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-02",
+            "title": "顶部模式切换按钮与快捷键",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Toolbar Split/Graph Lab 按钮与 `Ctrl+Shift+G`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 347,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-03",
+            "title": "Graph Lab 全屏画布壳",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "`GraphLabWorkspace` 三栏图优先布局",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 348,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-04",
+            "title": "节点 palette 与空白画布创建入口",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "`GraphLabPalette` 创建章节/节点/结局与重新布局",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 349,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-05",
+            "title": "`graphEditService` 命令层",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "GUI 操作统一生成 `.mdstory` 文本编辑并走解析管线",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 350,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-06",
+            "title": "GUI 创建/删除节点",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Palette 创建，Inspector 删除",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 351,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-07",
+            "title": "Inspector 编辑节点标题、章节、正文",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "改名后同步选中节点 id，避免 Inspector 丢失上下文",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 352,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-08",
+            "title": "GUI 创建/编辑/删除/排序选项",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "支持描述、目标、条件、效果、上移/下移/删除",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 353,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-09",
+            "title": "拖线连接已有目标节点",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "拖到已有节点直接写回选项目标",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 354,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-10",
+            "title": "拖线到空白处创建目标节点并连接",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "空投动作菜单支持创建普通节点、结局节点、搜索已有节点、取消",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 355,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-11",
+            "title": "条件编辑器嵌入 Inspector",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Inspector 内联编辑条件，保留原浮层条件编辑器",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 356,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-12",
+            "title": "效果编辑器",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "Inspector 内联编辑效果，变量来自 frontmatter `vars:`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 357,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-13",
+            "title": "变量和 meta 编辑入口",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "Meta title/author 与单文件全局 `vars:` 声明编辑；变量可进入条件/效果下拉",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 358,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-14",
+            "title": "图模式诊断状态与 ProblemPanel 联动",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "Graph Lab 复用 ProblemPanel；W007 闭环诊断纳入选项边和 `下一步` 边",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 359,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-15",
+            "title": "可折叠 Source Drawer",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "Graph Lab 中按当前章节显示源码切片并映射回全文件",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 360,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-16",
+            "title": "GUI 操作与 Monaco 撤销栈同步",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-06-24",
+            "note": "优先 `executeEdits()`，无 editor 实例时 fallback 到 store",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 361,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-17",
+            "title": "Graph Lab 完整用户旅程 E2E",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-06",
+            "note": "`graph-lab.e2e.spec.ts` 覆盖创建、编辑、布局持久化、拖线、变量、Source Drawer、导出、章节标签可见性和截图附件；当前窄回归 19/19",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 362,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M8-18",
+            "title": "发布说明、帮助文案、公开下载页收口",
+            "status": "complete",
+            "rawStatus": "✅",
+            "startedAt": "2026-06-24",
+            "completedAt": "2026-07-10",
+            "note": "README/PRD/UX/QA/门禁与官网已同步 Graph Lab 默认主工作区决策；正式 release candidate 仍取决于新包、unpacked/installed blackbox 与人工巡检",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 363,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 341,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "id": "M9",
+        "title": "Official Theme Architecture锛堝畼鏂规繁搴︿富棰樻灦鏋勶級",
+        "totalTasks": 8,
+        "computedCounts": {
+          "complete": 7,
+          "inProgress": 0,
+          "notStarted": 0,
+          "blocked": 0,
+          "skipped": 1,
+          "removed": 0,
+          "remaining": 1
+        },
+        "computedProgress": 87.5,
+        "declaredProgress": null,
+        "publicProgress": null,
+        "tasks": [
+          {
+            "id": "M9-01",
+            "title": "OfficialThemeDefinition 鍚堝悓",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "manifest銆乼okens銆丮onaco銆乤ssets銆乴ayoutRecipe銆乵otionRecipe銆乻toreMeta銆丷eact slots",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 373,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-02",
+            "title": "瀹樻柟涓婚 provider",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "`activeOfficialThemeId`銆佹棫 `themePack` 杩佺Щ銆丆SS var/data attribute銆丮onaco 娉ㄥ唽",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 374,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-03",
+            "title": "鍙欎簨宸ヤ綔鍙板畼鏂逛富棰?",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "`plotflow-narrative-workbench`锛氭殩绾稿伐浣滃彴 + 钃濆浘绾跨紗",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 375,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-04",
+            "title": "澶滆埅钃濆浘瀹樻柟涓婚",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "`plotflow-neon-dossier`锛氫綆鍏夌紪杈戝 + 鍙戝厜绾跨紗",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 376,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-05",
+            "title": "Theme Slots 鎺ュ叆 GraphCanvas",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "鑺傜偣銆佺嚎缂嗐€侀瑙?slot 闅忓畼鏂逛富棰樺垏鎹紱涓嶅啀鍥哄畾鏃?`StoryNodeCard`/`StoryEdge`",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 377,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-06",
+            "title": "HomeSurface 涓?ThemeCenter",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "璧峰椤典富棰樻ā鍧椼€乀opbar 涓婚鍏ュ彛銆佸畼鏂逛富棰樺惎鐢?閲嶇疆/鍟嗗簵璺宠浆锛涗笉鏆撮湶瀵煎叆涓婚鍖?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 378,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-07",
+            "title": "瀹樼綉瀹樻柟涓婚灞曠ず",
+            "status": "complete",
+            "rawStatus": "鉁?",
+            "startedAt": "2026-06-25",
+            "completedAt": "2026-06-25",
+            "note": "棣栭〉灞曠ず `鍙欎簨宸ヤ綔鍙癭 涓?`澶滆埅钃濆浘`锛屽紑鍙戦〉鍙ｅ緞鏀逛负瀹樻柟涓婚",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 379,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          },
+          {
+            "id": "M9-08",
+            "title": "绀惧尯涓婚/鏈湴瀵煎叆/鍐呯疆甯傚満",
+            "status": "skipped",
+            "rawStatus": "鈴笍",
+            "note": "鏆備笉寮€鏀撅紱鍚庣画鍙︾珛涓婚甯傚満涓庢巿鏉冭寖鍥?",
+            "sourceRefs": [
+              {
+                "path": "spec/progress.md",
+                "kind": "markdown",
+                "confidence": "high",
+                "line": 380,
+                "capturedAt": "2026-06-25"
+              }
+            ]
+          }
+        ],
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 367,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      }
+    ],
+    "timeline": [
+      {
+        "date": "2026-06-13",
+        "completedTasks": 110,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-06-15",
+        "completedTasks": 2,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-06-16",
+        "completedTasks": 1,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-06-17",
+        "completedTasks": 14,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-06-24",
+        "completedTasks": 15,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-06-25",
+        "completedTasks": 7,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-06",
+        "completedTasks": 4,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-10",
+        "completedTasks": 1,
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "medium",
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      }
+    ]
+  },
+  "qualityGates": {
+    "gates": [
+      {
+        "id": "L1_tsc",
+        "title": "L1 tsc",
+        "status": "pass",
+        "summary": "通过",
+        "metric": {
+          "status": "pass",
+          "value": 0,
+          "sourceRefs": [
+            {
+              "path": "spec/audit/pass1-data.json",
+              "kind": "json",
+              "confidence": "high",
+              "capturedAt": "2026-06-19"
+            }
+          ],
+          "target": 0,
+          "unit": "errors"
+        },
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "L1_eslint",
+        "title": "L1 eslint",
+        "status": "pass",
+        "summary": "通过",
+        "metric": {
+          "status": "pass",
+          "value": 0,
+          "sourceRefs": [
+            {
+              "path": "spec/audit/pass1-data.json",
+              "kind": "json",
+              "confidence": "high",
+              "capturedAt": "2026-06-19"
+            }
+          ],
+          "target": 0,
+          "unit": "errors"
+        },
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "L2_vitest",
+        "title": "L2 vitest",
+        "status": "pass",
+        "summary": "通过",
+        "metric": {
+          "status": "pass",
+          "value": 1204,
+          "sourceRefs": [
+            {
+              "path": "spec/audit/pass1-data.json",
+              "kind": "json",
+              "confidence": "high",
+              "capturedAt": "2026-06-19"
+            }
+          ],
+          "unit": "tests",
+          "target": 1204
+        },
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "L3_placeholder",
+        "title": "L3 placeholder",
+        "status": "pass",
+        "summary": "通过",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "L3_reachability",
+        "title": "L3 reachability",
+        "status": "pass",
+        "summary": "通过",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "L3_progress_consistency",
+        "title": "L3 progress consistency",
+        "status": "fail",
+        "summary": "失败",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "L4_manual_review",
+        "title": "L4 manual review",
+        "status": "blocked",
+        "summary": "跳过",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      }
+    ],
+    "testCounts": {
+      "progressDoc": {
+        "files": 25,
+        "tests": 746
+      },
+      "audited": {
+        "files": 36,
+        "tests": 1204,
+        "failed": 0,
+        "durationSeconds": 3.53
+      },
+      "delta": {
+        "files": 11,
+        "tests": 458
+      }
+    },
+    "e2eCoverage": {
+      "matchedFiles": 1,
+      "totalFiles": 5,
+      "matchedLines": 469,
+      "totalLines": 2298,
+      "excludedLines": 1829,
+      "coverageRatio": 20.41,
+      "sourceRefs": [
+        {
+          "path": "spec/audit/pass1-data.json",
+          "kind": "json",
+          "confidence": "high",
+          "capturedAt": "2026-06-19"
+        }
+      ]
+    }
+  },
+  "findings": {
+    "total": 16,
+    "bySeverity": [
+      {
+        "severity": "HIGH",
+        "count": 8
+      },
+      {
+        "severity": "MEDIUM",
+        "count": 6
+      },
+      {
+        "severity": "CRITICAL",
+        "count": 2
+      },
+      {
+        "severity": "LOW",
+        "count": 0
+      }
+    ],
+    "byCategory": [
+      {
+        "category": "数据不一致 (Data)",
+        "count": 4
+      },
+      {
+        "category": "配置错误 (Config)",
+        "count": 3
+      },
+      {
+        "category": "代码规范 (Style)",
+        "count": 2
+      },
+      {
+        "category": "文档维护 (Docs)",
+        "count": 2
+      },
+      {
+        "category": "安全加固 (Security)",
+        "count": 2
+      },
+      {
+        "category": "工程债务 (TechDebt)",
+        "count": 2
+      },
+      {
+        "category": "架构卫生 (Arch)",
+        "count": 1
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "P0",
+        "items": [
+          {
+            "id": "C1",
+            "action": "修正 playwright.config.ts testMatch",
+            "effort": 1
+          },
+          {
+            "id": "C2",
+            "action": "修正 progress.md M3/M5 数据矛盾",
+            "effort": 5
+          }
+        ]
+      },
+      {
+        "priority": "P1",
+        "items": [
+          {
+            "id": "H1",
+            "action": "替换裸 hex 为 Design Token",
+            "effort": 1
+          },
+          {
+            "id": "H2",
+            "action": "更新 blocking 区域 V0.2→V0.3",
+            "effort": 2
+          },
+          {
+            "id": "H3",
+            "action": "修复 M3-16/M3-18 表格行",
+            "effort": 2
+          },
+          {
+            "id": "H4",
+            "action": "修正 M5 blocking 数据",
+            "effort": 3
+          },
+          {
+            "id": "H5",
+            "action": "更新 M6 测试统计数据",
+            "effort": 2
+          },
+          {
+            "id": "H6",
+            "action": "统一 E2E 扩展名",
+            "effort": 3
+          },
+          {
+            "id": "H7",
+            "action": "移动 test 文件至 src-electron/__tests__/",
+            "effort": 5
+          },
+          {
+            "id": "H8",
+            "action": "迁移 .npmrc 配置",
+            "effort": 5
+          }
+        ]
+      },
+      {
+        "priority": "P2",
+        "items": [
+          {
+            "id": "M1",
+            "action": "添加 CSP connect-src",
+            "effort": 1
+          },
+          {
+            "id": "M3",
+            "action": "更新 M0-07 状态或清理 E2E",
+            "effort": 3
+          },
+          {
+            "id": "M5",
+            "action": "创建 IPC 通道枚举",
+            "effort": 10
+          },
+          {
+            "id": "M6",
+            "action": "决定 E2E CI 策略",
+            "effort": "决策项"
+          }
+        ]
+      }
+    ],
+    "top": [
+      {
+        "id": "C1",
+        "severity": "CRITICAL",
+        "category": "配置错误 (Config)",
+        "title": "Playwright testMatch 排除 4/5 E2E 测试文件",
+        "file": "packages/app/e2e/playwright.config.ts",
+        "line": 16,
+        "status": "未修复",
+        "detail": "配置 testMatch: '*.e2e.ts' 仅匹配 condition-editor.e2e.ts。4 个 .spec.ts 文件 (1829 行) 被静默排除: branch-graph.spec.ts, export.e2e.spec.ts, parser-validator-e2e.spec.ts, theme-language.spec.ts",
+        "priority": "P0",
+        "effortMinutes": 1,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "C2",
+        "severity": "CRITICAL",
+        "category": "数据不一致 (Data)",
+        "title": "Progress.md M3/M5 多处计数矛盾",
+        "file": "spec/progress.md",
+        "line": "15,17,128-163,234-258,328-330",
+        "status": "未修复",
+        "detail": "M3 overview 17/18 vs detail 18/18; M5 overview 5 ⏭️ vs detail 7 ⏭️ vs blocking 12; 总完成数应为 112 非 111",
+        "priority": "P0",
+        "effortMinutes": 5,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "H1",
+        "severity": "HIGH",
+        "category": "代码规范 (Style)",
+        "title": "GraphCanvas.tsx 裸 hex 色值违反 Design Token 约束",
+        "file": "packages/app/src/components/branch-graph/GraphCanvas.tsx",
+        "line": 874,
+        "status": "未修复",
+        "detail": "color: '#FFFFFF' 未使用 var(--color-*) CSS 变量, 违反 CLAUDE.md §6.1",
+        "priority": "P1",
+        "effortMinutes": 1,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "H2",
+        "severity": "HIGH",
+        "category": "数据不一致 (Data)",
+        "title": "Progress.md 阻塞区域引用过时目标版本 V0.2",
+        "file": "spec/progress.md",
+        "line": "328-330",
+        "status": "未修复",
+        "detail": "blocking 区域 M4/M5/M7 均写 '延后至 V0.2', 当前已是 V0.2 后, 应改为 V0.3",
+        "priority": "P1",
+        "effortMinutes": 2,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "H3",
+        "severity": "HIGH",
+        "category": "文档维护 (Docs)",
+        "title": "M3-16/M3-18 表格行格式损坏",
+        "file": "spec/progress.md",
+        "line": "161,163",
+        "status": "未修复",
+        "detail": "两行缺少任务名称列 (| M3-16 | ✅ | ... 跳过了任务名), 造成 overview 计数偏差的根因之一",
+        "priority": "P1",
+        "effortMinutes": 2,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "H4",
+        "severity": "HIGH",
+        "category": "数据不一致 (Data)",
+        "title": "M5 blocking 区域数据严重过时",
+        "file": "spec/progress.md",
+        "line": 329,
+        "status": "未修复",
+        "detail": "声称 12 项阻塞, 实际 detail 中仅 7 项 ⏭️; 声称 'GhostText UI 延后至 V0.2' 但 M5-08~13 已标记 ✅",
+        "priority": "P1",
+        "effortMinutes": 3,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "H5",
+        "severity": "HIGH",
+        "category": "数据不一致 (Data)",
+        "title": "Progress.md M6 验证记录测试数据过时",
+        "file": "spec/progress.md",
+        "line": 293,
+        "status": "未修复",
+        "detail": "记录 '25 files / 746 tests', 实测 36 files / 1204 tests",
+        "priority": "P1",
+        "effortMinutes": 2,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "H6",
+        "severity": "HIGH",
+        "category": "配置错误 (Config)",
+        "title": "E2E 文件扩展名不一致",
+        "file": "packages/app/e2e/",
+        "line": null,
+        "status": "未修复",
+        "detail": "4 个文件用 .spec.ts, 1 个用 .e2e.ts, 与 playwright.config.ts testMatch 不匹配",
+        "priority": "P1",
+        "effortMinutes": 3,
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      }
+    ]
+  },
+  "contradictions": {
+    "total": 6,
+    "items": [
+      {
+        "id": "X1",
+        "severity": "critical",
+        "description": "Progress.md M3 overview (17/18) 与 detail (18/18) 矛盾",
+        "location": "spec/progress.md:L15 vs L128-L163",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "X2",
+        "severity": "critical",
+        "description": "Progress.md M5 overview (5 ⏭️) 与 detail (7 ⏭️) 与 blocking (12) 三处矛盾",
+        "location": "spec/progress.md:L17 vs L234-L258 vs L329",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "X3",
+        "severity": "high",
+        "description": "M5 blocking 描述 'GhostText UI 延后至 V0.2' 与 M5-08~13 ✅ 状态矛盾",
+        "location": "spec/progress.md:L329 vs L248-L253",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "X4",
+        "severity": "high",
+        "description": "Blocking 区域引用目标 V0.2, 当前已是 post-V0.2",
+        "location": "spec/progress.md:L328-L330",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "X5",
+        "severity": "medium",
+        "description": "M0-07 标记 ❌ 但 e2e/ 目录有 5 个测试文件",
+        "location": "spec/progress.md:L50 vs packages/app/e2e/",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      },
+      {
+        "id": "X6",
+        "severity": "medium",
+        "description": "4 个 E2E 文件扩展名 .spec.ts 与 playwright.config.ts testMatch *.e2e.ts 不匹配",
+        "location": "packages/app/e2e/*.spec.ts vs playwright.config.ts:16",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high",
+            "capturedAt": "2026-06-19"
+          }
+        ]
+      }
+    ]
+  },
+  "discrepancies": [],
+  "e2e": {
+    "configStatus": "fail",
+    "matchedFiles": 1,
+    "totalFiles": 5,
+    "matchedLines": 469,
+    "totalLines": 2298,
+    "deadCodeLines": 1829,
+    "files": [
+      {
+        "name": "condition-editor.e2e.ts",
+        "lines": 469,
+        "matchedByConfig": true
+      },
+      {
+        "name": "branch-graph.spec.ts",
+        "lines": 559,
+        "matchedByConfig": false
+      },
+      {
+        "name": "export.e2e.spec.ts",
+        "lines": 469,
+        "matchedByConfig": false
+      },
+      {
+        "name": "parser-validator-e2e.spec.ts",
+        "lines": 398,
+        "matchedByConfig": false
+      },
+      {
+        "name": "theme-language.spec.ts",
+        "lines": 403,
+        "matchedByConfig": false
+      }
+    ]
+  },
+  "journey": {
+    "storyStats": {
+      "totalNodes": 59,
+      "totalOptions": 102,
+      "totalConditions": 11,
+      "totalEffects": 54,
+      "chapters": 5,
+      "variables": 8,
+      "inputSizeChars": 7132,
+      "inputSizeLines": 668,
+      "parseTimeMs": 6.52,
+      "crossChapterReferences": 21
+    },
+    "chapters": [
+      {
+        "id": "第一章：村庄",
+        "nodes": 24,
+        "conditions": 5,
+        "effects": 26
+      },
+      {
+        "id": "第二章：矿坑",
+        "nodes": 15,
+        "conditions": 2,
+        "effects": 13
+      },
+      {
+        "id": "第三章：熔炉",
+        "nodes": 5,
+        "conditions": 1,
+        "effects": 4
+      },
+      {
+        "id": "第四章：龙巢",
+        "nodes": 2,
+        "conditions": 2,
+        "effects": 2
+      },
+      {
+        "id": "第五章：结局",
+        "nodes": 13,
+        "conditions": 1,
+        "effects": 9
+      }
+    ],
+    "variableTypes": [
+      {
+        "type": "int",
+        "count": 4
+      },
+      {
+        "type": "enum",
+        "count": 2
+      },
+      {
+        "type": "bool",
+        "count": 1
+      },
+      {
+        "type": "object",
+        "count": 1
+      }
+    ],
+    "checkpoints": [
+      {
+        "id": "1_open_complex_story",
+        "status": "pass",
+        "description": "成功打开并解析59节点/5章节的复杂.mdstory文件，含11条件/54效果"
+      },
+      {
+        "id": "2_graph_validation",
+        "status": "pass",
+        "description": "所有102条连线正确渲染：11条条件连线应显示为虚线，91条普通连线为实线"
+      },
+      {
+        "id": "3_drag_rewire",
+        "status": "warn",
+        "description": "模拟拖拽连线改变分支目标——此功能需要Zustand store中的updateOptionTarget操作、adapter.ts中的连线更新逻辑、以及Monaco文本同步"
+      },
+      {
+        "id": "4_double_click_rename",
+        "status": "warn",
+        "description": "模拟双击节点内联重命名——需要在GraphCanvas中处理NodeDoubleClick事件并触发内联编辑模式"
+      },
+      {
+        "id": "5_delete_middle_node",
+        "status": "unknown",
+        "description": "删除中间节点（如'矿坑B区'）→验证孤立检测→验证连接边调整"
+      },
+      {
+        "id": "6_problems_panel",
+        "status": "pass",
+        "description": "检查问题面板→修复每个错误→验证重解析清除错误"
+      },
+      {
+        "id": "7_export_html_reachability",
+        "status": "pass",
+        "description": "导出HTML→浏览器打开→点击所有分支→验证所有路径可达"
+      }
+    ],
+    "readiness": [
+      {
+        "area": "parser",
+        "status": "pass",
+        "detail": "59节点复杂故事0错误解析，6.5ms性能，解析不中断+容错处理成熟。唯一改进点是跨章节引用在节点ID不唯一时的歧义处理。"
+      },
+      {
+        "area": "validator",
+        "status": "warn",
+        "detail": "8E+6W+3I规则正确检测所有关键问题。W003对object父变量的误报需修复。全部错误修复后0E验证通过。"
+      },
+      {
+        "area": "json_exporter",
+        "status": "pass",
+        "detail": "完整AST→Schema映射，条件AST保留，N元逻辑折叠正确。"
+      },
+      {
+        "area": "html_exporter",
+        "status": "warn",
+        "detail": "59/59节点100%可达，条件引擎+效果引擎+面包屑+变量面板完整。需增强：存档功能、条件展示、嵌套object变量面板。"
+      },
+      {
+        "area": "txt_exporter",
+        "status": "fail",
+        "detail": "Markdown语法泄漏问题需修复才能通过审计。"
+      }
+    ]
+  },
+  "performance": {
+    "benchmarks": [
+      {
+        "id": "1",
+        "name": "应用启动时间（冷启动）",
+        "type": "estimated",
+        "targetValue": 3000,
+        "actualValue": 1500,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "LOW — Electron 28 冷启动已高度优化",
+        "methodology": "基于 Electron 28 典型冷启动 profile 估算：主进程启动(~400ms) + 渲染进程创建(~300ms) + Monaco Editor 初始化(~400ms) + React Flow 初始化(~100ms) + 资源加载(~300ms)。未实测——需在目标硬件上运行 Electron app 并使用 performance.now() 测量。"
+      },
+      {
+        "id": "2",
+        "name": "应用启动时间（热启动）",
+        "type": "estimated",
+        "targetValue": 1500,
+        "actualValue": 700,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "LOW",
+        "methodology": "OS 页面缓存热启动。仅需重新创建渲染窗口和初始化 JS 上下文。Electron 主进程已驻留。"
+      },
+      {
+        "id": "3",
+        "name": "200节点 .mdstory 文件打开时间",
+        "type": "measured",
+        "targetValue": 1000,
+        "actualValue": 5625,
+        "unit": "ms",
+        "verdict": "fail",
+        "detail": "全管线（parse + validate + adapt + layout）= 5625ms。瓶颈在 Dagre 布局（5569ms，占 99%）。解析+验证+适配 <2ms。",
+        "methodology": "对 200 节点 / 500 边的 .mdstory 文件运行 10 次完整管线（parseStory → validateAll → adaptToFlow → Dagre layout），取均值。"
+      },
+      {
+        "id": "4",
+        "name": "200节点文件解析时间（parseStory）",
+        "type": "measured",
+        "targetValue": 500,
+        "actualValue": 1.26,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "500 次迭代，mean=1.26ms, min=0.93ms, max=4.82ms。远优于 M2 目标 <500ms。",
+        "methodology": "调用 parseStory(raw) 500 次（含 5 次预热），测量 performance.now() 差值。"
+      },
+      {
+        "id": "5",
+        "name": "200节点文件验证时间（17条规则）",
+        "type": "measured",
+        "targetValue": 100,
+        "actualValue": 0.14,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "500 次迭代，mean=0.14ms, min=0.08ms, max=2.14ms。17 条规则全部运行。",
+        "methodology": "调用 validateAll(ast) 500 次（含 5 次预热）。"
+      },
+      {
+        "id": "6",
+        "name": "AST → React Flow 适配时间",
+        "type": "measured",
+        "targetValue": 500,
+        "actualValue": 0.03,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "500 次迭代，mean=0.03ms, min=0.02ms, max=0.41ms。大幅优于 500ms 目标。",
+        "methodology": "内置适配器函数（镜像 adapter.ts 算法）：构建 Map O(N)，遍历选项 O(E)。Map.has() 替代 Array.find() 优化已验证有效。"
+      },
+      {
+        "id": "7",
+        "name": "Dagre 图布局时间（200节点 500边）",
+        "type": "measured",
+        "targetValue": 200,
+        "actualValue": 5569,
+        "unit": "ms",
+        "verdict": "fail",
+        "detail": "15 次迭代，mean=5569ms, min=2300ms, max=7530ms。严重超过 200ms 目标（超出约 2684%）。生成文件的跨章节拓扑导致 Dagre 网络单纯形算法进入病态行为。",
+        "methodology": "使用 @dagrejs/dagre graphlib + layout，配置 rankdir=TB, nodesep=150, ranksep=120。图中包含 200 节点、500 边，其中大量边跨越 4 个章节边界。"
+      },
+      {
+        "id": "8",
+        "name": "解析后图渲染帧率（200节点）",
+        "type": "estimated",
+        "targetValue": 30,
+        "actualValue": 30,
+        "unit": "fps",
+        "verdict": "pass",
+        "detail": "布局完成后，React Flow 对 200 个已定位节点的渲染由 Canvas/SVG 管线处理。React Flow v12 默认使用 CSS Transform 定位节点，对 200 节点场景维持 30fps 通常可行。需在 Electron 中实测确认。",
+        "methodology": "估算：200 个 DOM 节点的 CSS Transform 更新在现代浏览器中 <16ms/frame。基于 React Flow v12 的 transform 定位策略。"
+      },
+      {
+        "id": "9",
+        "name": "内存基线（空闲）",
+        "type": "estimated",
+        "targetValue": 150,
+        "actualValue": 80,
+        "unit": "mb",
+        "verdict": "pass",
+        "detail": "Electron 28 典型空闲内存：主进程 ~40MB，渲染进程 ~40MB（含 React DOM + Zustand stores）。不含 Monaco Editor 模型。",
+        "methodology": "基于 Electron 28 + React 18 典型内存 profile 估算。需在 Electron 中通过 process.memoryUsage() 实测。"
+      },
+      {
+        "id": "10",
+        "name": "内存基线（打开 200 节点文件）",
+        "type": "estimated",
+        "targetValue": 250,
+        "actualValue": 120,
+        "unit": "mb",
+        "verdict": "pass",
+        "detail": "空闲 80MB + Monaco 文本模型 ~10MB + React 渲染树 ~20MB + AST 对象图 ~5MB + Dagre 图结构 ~5MB = ~120MB。",
+        "methodology": "估算。当前 benchmark 脚本的 process.memoryUsage() 快照：heapUsed=160MB（含整个 Node.js 上下文 + 测试数据），rss=928MB。生产环境 Electron 渲染进程远低于此值。"
+      },
+      {
+        "id": "11",
+        "name": "GhostText 响应延迟（按键到建议）",
+        "type": "measured",
+        "targetValue": 100,
+        "actualValue": 15,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "端到端估算：tokenize(前缀) ≈ 2.88ms + predict() ≈ 0.087ms + Monaco inline completion 渲染 ≈ 12ms = ~15ms。",
+        "methodology": "分词（64KB 全文 2.88ms，单次按键前缀远小于此）+ 5-gram Map 查找（0.087ms）+ Monaco InlineCompletionsProvider 渲染开销。"
+      },
+      {
+        "id": "12",
+        "name": "主题切换延迟",
+        "type": "estimated",
+        "targetValue": 100,
+        "actualValue": 8,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "CSS 变量交换触发单帧 repaint。CSS custom properties 在 :root 级别切换，浏览器重绘所有受影响元素。估计 <8ms（< 半帧）。",
+        "methodology": "设计分析：项目使用 CSS 变量驱动主题（见 CLAUDE.md §6.1），切换仅涉及更新根元素的 CSS 类/属性，无 JS 重计算。"
+      },
+      {
+        "id": "13",
+        "name": "语言切换延迟",
+        "type": "estimated",
+        "targetValue": 100,
+        "actualValue": 2,
+        "unit": "ms",
+        "verdict": "pass",
+        "detail": "i18n.changeLanguage() 同步迭代 subscribers Set 通知所有监听者。估计 <50 个订阅者，纯同步操作，无 I/O。",
+        "methodology": "代码审查 i18n.ts：changeLanguage() 设置 currentLocale → 遍历 subscribers Set → 调用每个 listener(locale)。全部同步。React 组件通过 subscribeLanguage() 注册，回调触发 re-render。"
+      }
+    ],
+    "summary": {
+      "totalBenchmarks": 13,
+      "pass": 11,
+      "fail": 2,
+      "passRate": 85,
+      "criticalIssues": 1,
+      "criticalIssue": "Dagre 布局占全管线 99% 时间（5569ms/200节点），需异步化或替换布局引擎",
+      "overallAssessment": "核心解析引擎性能卓越（<2ms for 200 nodes）。唯一瓶颈是 Dagre 图布局引擎，在复杂拓扑下触发病态行为。建议 P0 替换为 ELK.js + Web Worker。修复后全管线预计 <500ms。"
+    },
+    "bottlenecks": [
+      {
+        "rank": "CRITICAL",
+        "component": "Dagre 图布局",
+        "severity": "P0 - 阻塞性",
+        "currentMs": 5569,
+        "targetMs": 200,
+        "excessPercent": 2684,
+        "impact": "200 节点文件打开耗时 5.6 秒，其中 99% 为布局计算。用户感知为应用卡死。",
+        "fix": "P0: 将 Dagre 布局移至 Web Worker 线程，避免阻塞主线程。P1: 切换到 ELK.js (Eclipse Layout Kernel) layered 布局，O(|V| log |V|) 典型复杂度。P2: 添加布局进度指示器。"
+      },
+      {
+        "rank": "MEDIUM",
+        "component": "验证器规则融合",
+        "severity": "P1 - 优化性",
+        "currentMs": 0.14,
+        "targetMs": 100,
+        "excessPercent": 0,
+        "impact": "当前可忽略（0.14ms）。随文件增长和规则增加会成比例增长。",
+        "fix": "P2: 融合 E001-E008 为单次 AST 遍历。共享 buildDeclaredVarMap() 计算结果。预计减少约 8x 验证器开销。"
+      },
+      {
+        "rank": "LOW",
+        "component": "Unicode 码点计数",
+        "severity": "P2 - 微优化",
+        "currentMs": 0,
+        "targetMs": 0,
+        "excessPercent": 0,
+        "impact": "当前可忽略。",
+        "fix": "P3: 将 [...str].length 替换为基于 codepoint 迭代器的计数函数，避免分配。"
+      },
+      {
+        "rank": "LOW",
+        "component": "NGram 训练异步化",
+        "severity": "P2 - 优化性",
+        "currentMs": 25,
+        "targetMs": 50,
+        "excessPercent": 0,
+        "impact": "当前可忽略。预测（0.087ms）近乎即时。",
+        "fix": "P3: 将 NGram 训练移至 Web Worker，仅对大文件（>500KB）触发异步训练。保持预测在主线程同步执行以保证幽灵补全的低延迟。"
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "P0",
+        "action": "Dagre 布局异步化",
+        "detail": "将 layoutNodes() 调用封装在 Web Worker 中。主线程在布局进行时显示骨架屏/进度条。布局完成后通过 postMessage 返回结果并更新 React Flow。",
+        "effort": "~3 人天",
+        "impact": "消除 200 节点文件的 5.6 秒阻塞。用户感知从'卡死'变为'加载中'。"
+      },
+      {
+        "priority": "P1",
+        "action": "替换 Dagre 为 ELK.js",
+        "detail": "ELK.js (Eclipse Layout Kernel) 的 layered 布局算法使用 Sugiyama 框架 + 网络单纯形子阶段，O(|V| log |V|) 典型复杂度。Dagre 已多年未维护。ELK.js 支持 Web Worker，且有更好的增量布局支持。",
+        "effort": "~5 人天（含 API 适配、测试、性能验证）",
+        "impact": "预计 200 节点布局从 5569ms 降至 <500ms。消除病态行为。"
+      },
+      {
+        "priority": "P1",
+        "action": "添加布局进度指示",
+        "detail": "对于 >50 节点的文件，在画布上显示布局进度条/骨架图。利用 React Flow 的 loading 状态或 overlay 机制。",
+        "effort": "~1 人天",
+        "impact": "改善感知性能——用户知道应用在工作而非卡死。"
+      },
+      {
+        "priority": "P2",
+        "action": "验证器规则融合",
+        "detail": "将 17 条验证规则融合为单次 AST 遍历。复用 buildDeclaredVarMap() 计算。提取共享的节点/选项遍历逻辑到通用 walker。",
+        "effort": "~2 人天",
+        "impact": "0.14ms → ~0.02ms。为未来规则扩展预留性能余量。"
+      },
+      {
+        "priority": "P3",
+        "action": "解析结果缓存",
+        "detail": "基于文件内容哈希（SHA-256 前 16 字节）缓存解析结果。若内容未变，跳过 parse + validate + adapt，直接使用缓存的 AST 和布局。仅在内容变更时触发完整管线。",
+        "effort": "~1 人天",
+        "impact": "相同文件的二次打开从 5.6s 降至 ~0ms（仅 React Flow 渲染）。"
+      },
+      {
+        "priority": "P3",
+        "action": "Unicode 码点计数优化",
+        "detail": "将 parser.ts 中的 [...str].length 替换为 `Array.from(str).length` 或手写的 codepoint 计数函数（使用 for...of 迭代器），避免创建完整数组。",
+        "effort": "~0.3 人天",
+        "impact": "微优化——减少 GC 压力。对 200 节点场景无感知影响。"
+      }
+    ]
+  },
+  "sourceHealth": {
+    "sources": [
+      {
+        "id": "readme",
+        "label": "README public snapshot",
+        "path": "README.md",
+        "status": "warn",
+        "discrepancyCount": 0,
+        "missingFields": [],
+        "notes": [
+          "未解析到对外总进度口径"
+        ]
+      },
+      {
+        "id": "progress",
+        "label": "Current status detail",
+        "path": "spec/progress.md",
+        "status": "pass",
+        "lastUpdated": "2026-06-25",
+        "discrepancyCount": 0,
+        "missingFields": [],
+        "notes": [
+          "总览表仅作声明值展示，真实值按明细重算"
+        ]
+      },
+      {
+        "id": "milestones",
+        "label": "Task universe baseline",
+        "path": "spec/milestones.md",
+        "status": "pass",
+        "lastUpdated": "2026-06-13",
+        "discrepancyCount": 0,
+        "missingFields": [],
+        "notes": [
+          "任务全集与里程碑结构基于本文件"
+        ]
+      },
+      {
+        "id": "audit",
+        "label": "Audit dataset",
+        "path": "spec/audit/pass1-data.json",
+        "status": "pass",
+        "lastUpdated": "2026-06-19",
+        "discrepancyCount": 6,
+        "missingFields": [],
+        "notes": [
+          "16 findings",
+          "6 contradictions"
+        ]
+      },
+      {
+        "id": "journey",
+        "label": "Journey simulation",
+        "path": "scripts/output/journey-report.json",
+        "status": "pass",
+        "lastUpdated": "2026-06-19",
+        "discrepancyCount": 0,
+        "missingFields": [],
+        "notes": [
+          "复杂故事演练数据直接透传归一"
+        ]
+      },
+      {
+        "id": "performance",
+        "label": "Performance baseline",
+        "path": "scripts/benchmark/perf-report.json",
+        "status": "warn",
+        "lastUpdated": "2026-06-19",
+        "discrepancyCount": 0,
+        "missingFields": [],
+        "notes": [
+          "Dagre 布局占全管线 99% 时间（5569ms/200节点），需异步化或替换布局引擎"
+        ]
+      },
+      {
+        "id": "last-run",
+        "label": "Playwright runtime marker",
+        "path": "packages/app/test-results/.last-run.json",
+        "status": "pass",
+        "discrepancyCount": 0,
+        "missingFields": [],
+        "notes": [
+          "可选运行态来源"
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "sourcePriority": [
+      "spec/milestones.md",
+      "spec/progress.md",
+      "spec/audit/pass1-data.json",
+      "scripts/output/journey-report.json",
+      "scripts/benchmark/perf-report.json",
+      "README.md",
+      "packages/app/test-results/.last-run.json"
+    ],
+    "mappings": [
+      {
+        "metric": "summary.realCompletionRate",
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high"
+          }
+        ]
+      },
+      {
+        "metric": "summary.publicCompletionRate",
+        "sourceRefs": [
+          {
+            "path": "README.md",
+            "kind": "markdown",
+            "confidence": "high"
+          }
+        ]
+      },
+      {
+        "metric": "summary.overallGrade",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high"
+          }
+        ]
+      },
+      {
+        "metric": "qualityGates.e2eCoverage",
+        "sourceRefs": [
+          {
+            "path": "spec/audit/pass1-data.json",
+            "kind": "json",
+            "confidence": "high"
+          }
+        ]
+      },
+      {
+        "metric": "journey.storyStats",
+        "sourceRefs": [
+          {
+            "path": "scripts/output/journey-report.json",
+            "kind": "json",
+            "confidence": "high"
+          }
+        ]
+      },
+      {
+        "metric": "performance.benchmarks",
+        "sourceRefs": [
+          {
+            "path": "scripts/benchmark/perf-report.json",
+            "kind": "json",
+            "confidence": "high"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M0.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 43
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 53,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M1.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 88
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 75,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M2.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 162
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 118,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M3.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 241
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 143,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M4.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 326
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 182,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M5.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 419
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 249,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M6.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 500
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 279,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M7.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/milestones.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 584
+          },
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 317,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M8.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 341,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      },
+      {
+        "metric": "milestones.M9.computedProgress",
+        "sourceRefs": [
+          {
+            "path": "spec/progress.md",
+            "kind": "markdown",
+            "confidence": "high",
+            "line": 367,
+            "capturedAt": "2026-06-25"
+          }
+        ]
+      }
+    ]
+  }
+}

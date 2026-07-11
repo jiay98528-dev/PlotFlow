@@ -137,9 +137,18 @@ describe('exportHTML', () => {
 
     const html = result.data;
 
-    // 验证条件原始文本嵌入
-    expect(html).toContain('金币>=10');
-    expect(html).toContain('角色状态.魔力');
+    // 安全序列化会转义 HTML 敏感字符，解析运行时 JSON 后验证语义不变。
+    const storyMatch = html.match(/var STORY = ({.*?});/s);
+    expect(storyMatch?.[1]).toBeDefined();
+    const runtime = JSON.parse(storyMatch![1]!) as {
+      nodes: Record<string, { options: Array<{ conditionRaw: string | null }> }>;
+    };
+    const conditions = Object.values(runtime.nodes)
+      .flatMap((node) => node.options)
+      .map((option) => option.conditionRaw)
+      .filter((condition): condition is string => condition !== null);
+    expect(conditions.some((condition) => condition.includes('金币>=10'))).toBe(true);
+    expect(conditions.some((condition) => condition.includes('角色状态.魔力'))).toBe(true);
 
     // 验证对象变量在运行时 JSON 中
     expect(html).toContain('角色状态');
@@ -340,12 +349,12 @@ describe('exportHTML — 响应式 meta', () => {
 // ============================================================================
 
 describe('exportHTML — XSS 实际内容防护', () => {
-  it('script 标签在正文中仅出现在 JSON 字符串内，不作为 HTML 标签执行', () => {
+  it('转义 script 结束标签，阻止运行时 JSON 逃逸脚本块', () => {
     const xssInput = `# 章
 
 ## 节点：安全
 
-正文 <script>alert('xss')</script> 内容
+正文 </script><script>alert('xss')</script> 内容
 
 [选项] 结束 -> 节点：终点
 
@@ -363,25 +372,18 @@ describe('exportHTML — XSS 实际内容防护', () => {
 
     const html = result.data;
 
-    // 用户文本中的 <script> 会被 JSON.stringify 保持在 JSON 字符串内，
-    // 而 JSON 字符串位于 var STORY = ... 赋值中，这是一个 JS 字符串上下文，
-    // 浏览器不会将其解释为 HTML 标签。
-
-    // 验证用户 XSS 载荷出现在 var STORY = 的 JSON 上下文内（而非独立的 HTML 标签）
+    // HTML parser 会在 JavaScript 字符串内部识别 </script>，因此必须在序列化时转义 '<'。
     const storyMatch = html.match(/var STORY = ({.*?});/s);
     expect(storyMatch).not.toBeNull();
     if (storyMatch) {
       const storyJson = storyMatch[1];
-      // 用户文本中的 script 出现在 JSON 字符串值中
-      expect(storyJson).toContain('<script>alert');
+      expect(storyJson).toContain('\\u003C/script\\u003E');
+      const runtime = JSON.parse(storyJson!) as { nodes: Record<string, { body: string }> };
+      expect(Object.values(runtime.nodes)[0]?.body).toContain("</script><script>alert('xss')</script>");
     }
 
-    // 提取 <script> 标签之外的 HTML 源码（即 <body> 中非脚本部分）
-    const bodyParts = html.split(/<\/?script[^>]*>/);
-    // bodyParts[0] 是 script 之前的部分，bodyParts[2] 是 script 之后的部分
-    // 这些部分不应包含用户输入的 <script> 标记
-    const outsideScript = (bodyParts[0] ?? '') + (bodyParts[2] ?? '');
-    expect(outsideScript).not.toContain('<script>alert');
+    expect(html).not.toContain("</script><script>alert('xss')</script>");
+    expect(html.match(/<\/script>/g)).toHaveLength(1);
   });
 
   it('onerror 事件处理器仅出现在 JSON 字符串内，不在 HTML 属性中', () => {

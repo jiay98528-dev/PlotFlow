@@ -313,13 +313,8 @@ export function applyWeightDecay(
   }
 
   if (modified) {
-    // 将修改后的模型写回引擎
-    // 创建新引擎 → 复制内部状态到旧引擎引用（同包内使用类型断言访问私有属性）
-    const newEngine = NGramEngine.fromModel(model);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (engine as any).ngramStore = (newEngine as any).ngramStore;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (engine as any)._totalTokens = (newEngine as any)._totalTokens;
+    // 将修改后的模型写回引擎（通过公开 API，不突破封装）
+    engine.loadModel(model);
   }
 }
 

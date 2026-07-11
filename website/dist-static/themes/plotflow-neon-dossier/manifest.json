@@ -1,0 +1,8 @@
+{
+  "id": "plotflow-neon-dossier",
+  "version": "1.0.0",
+  "themeApiVersion": 1,
+  "entry": "index.mjs",
+  "styles": ["theme.css"],
+  "assetsBase": "assets"
+}

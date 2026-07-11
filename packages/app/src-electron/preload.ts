@@ -1,75 +1,119 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+
+import { IPC_CHANNELS } from '../src/shared/ipcChannels';
+import { createBufferedResultListener } from './systemOpenBuffer';
+import type {
+  DialogConfirmOptions,
+  FileExternalChangeEvent,
+  FileOpenResult,
+  MenuEventChannel,
+  PendingOpenFileResult,
+  PlotFlowAPI,
+  WorkspaceStoriesResult,
+} from '../src/types/electron';
+
+const systemOpenResults = createBufferedResultListener<PendingOpenFileResult>();
+
+ipcRenderer.on(IPC_CHANNELS.file.systemOpenNotify, (_event, result: PendingOpenFileResult) => {
+  systemOpenResults.push(result);
+});
 
 // ============================================================================
-// 菜单事件监听器管理
+// 鑿滃崟浜嬩欢鐩戝惉鍣ㄧ鐞?
 // ============================================================================
 //
-// 存储已注册的菜单事件监听器，用于组件卸载时清理。
-// 每个 channel 只保留一个监听器，后续注册会覆盖前一个。
+// 瀛樺偍宸叉敞鍐岀殑鑿滃崟浜嬩欢鐩戝惉鍣紝鐢ㄤ簬缁勪欢鍗歌浇鏃舵竻鐞嗐€?
+// 姣忎釜 channel 鍙繚鐣欎竴涓洃鍚櫒锛屽悗缁敞鍐屼細瑕嗙洊鍓嶄竴涓€?
 
-const menuListeners = new Map<string, () => void>();
+const menuListeners = new Map<MenuEventChannel, () => void>();
 
 // ============================================================================
-// contextBridge API 暴露
+// contextBridge API 鏆撮湶
 // ============================================================================
 
-contextBridge.exposeInMainWorld('plotflow', {
+const plotflowApi = {
   platform: process.platform,
+  env: {
+    isTest: process.env['NODE_ENV'] === 'test',
+  },
   versions: {
     node: process.versions.node,
     electron: process.versions.electron,
     chrome: process.versions.chrome,
   },
 
-  // ── 文件操作 — M1-13 ──
-  file: {
-    open: () => ipcRenderer.invoke('file:open'),
-    save: (path: string, content: string) =>
-      ipcRenderer.invoke('file:save', { path, content }),
-    saveAs: (content: string) =>
-      ipcRenderer.invoke('file:saveAs', { content }),
-    saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }> }) =>
-      ipcRenderer.invoke('file:export', options),
-
-    // ── 系统文件打开 (M7-08) ──
-    /**
-     * 获取系统（双击 .mdstory / open-file 事件）传递的待打开文件。
-     * 窗口挂载后调用，返回 { filePath, content } 或 null。
-     */
-    getPendingOpenFile: () =>
-      ipcRenderer.invoke('file:getPendingOpenFile'),
-
-    /**
-     * 监听系统文件打开通知（当应用已运行且用户双击 .mdstory 时触发）。
-     * macOS 的 open-file 事件可随时发生，此回调用于窗口感知新文件。
-     * 返回一个清理函数（组件卸载时调用）。
-     */
-    onSystemOpenFile: (callback: (filePath: string) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, filePath: string): void => {
-        callback(filePath);
-      };
-      ipcRenderer.on('file:system-open-notify', listener);
-      return () => {
-        ipcRenderer.removeListener('file:system-open-notify', listener);
-      };
-    },
+  // 鈹€鈹€ 瀵硅瘽妗?鈥?P0-5 鈹€鈹€
+  dialog: {
+    confirm: (options: DialogConfirmOptions): Promise<number> =>
+      ipcRenderer.invoke(IPC_CHANNELS.dialog.confirm, options),
   },
 
-  // ── 菜单事件 — M1-17 ──
+  // 鈹€鈹€ 鏂囦欢鎿嶄綔 鈥?M1-13 鈹€鈹€
+  file: {
+    open: (): Promise<FileOpenResult | null> => ipcRenderer.invoke(IPC_CHANNELS.file.open),
+    save: (request: { path: string; content: string; expectedHash: string | null; overwriteConflict?: boolean }) =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.save, request),
+    saveAs: (content: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.saveAs, { content }),
+    saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }>; format: string }) =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.export, options),
+
+    // 鈹€鈹€ 绯荤粺鏂囦欢鎵撳紑 (M7-08) 鈹€鈹€
+    /**
+     * 鑾峰彇绯荤粺锛堝弻鍑?.mdstory / open-file 浜嬩欢锛変紶閫掔殑寰呮墦寮€鏂囦欢銆?
+     * 绐楀彛鎸傝浇鍚庤皟鐢紝杩斿洖 { filePath, content } 鎴?null銆?
+     */
+    getPendingOpenFile: (): Promise<PendingOpenFileResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.getPendingOpenFile),
+
+    /**
+     * 鐩戝惉绯荤粺鏂囦欢鎵撳紑閫氱煡锛堝綋搴旂敤宸茶繍琛屼笖鐢ㄦ埛鍙屽嚮 .mdstory 鏃惰Е鍙戯級銆?
+     * macOS 鐨?open-file 浜嬩欢鍙殢鏃跺彂鐢燂紝姝ゅ洖璋冪敤浜庣獥鍙ｆ劅鐭ユ柊鏂囦欢銆?
+     * 杩斿洖涓€涓竻鐞嗗嚱鏁帮紙缁勪欢鍗歌浇鏃惰皟鐢級銆?
+     */
+    onSystemOpenFile: (callback: (result: PendingOpenFileResult) => void): (() => void) => {
+      return systemOpenResults.register(callback);
+    },
+
+    onExternalChange: (callback: (event: FileExternalChangeEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: FileExternalChangeEvent): void => {
+        callback(payload);
+      };
+      ipcRenderer.on(IPC_CHANNELS.file.externalChange, listener);
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.file.externalChange, listener);
+      };
+    },
+
+    /**
+     * 鎸夎矾寰勮鍙?.mdstory 鏂囦欢鍐呭銆?
+     * 鐢ㄤ簬杩愯鏃剁郴缁熸枃浠舵墦寮€閫氱煡鍚庡姞杞芥枃浠跺唴瀹广€?
+     */
+    readByPath: (path: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.readByPath, { path }),
+    chooseWorkspaceFolder: (): Promise<WorkspaceStoriesResult | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.chooseWorkspaceFolder),
+    listWorkspaceStories: (rootPath: string): Promise<WorkspaceStoriesResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.listWorkspaceStories, { rootPath }),
+    readWorkspaceStory: (rootPath: string, filePath: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.file.readWorkspaceStory, { rootPath, filePath }),
+  },
+
+  // 鈹€鈹€ 鑿滃崟浜嬩欢 鈥?M1-17 鈹€鈹€
   //
-  // 主进程 Menu 点击通过 webContents.send() 发送 IPC 事件到渲染进程，
-  // 渲染进程通过 menu.onEvent() 注册回调监听。
+  // 涓昏繘绋?Menu 鐐瑰嚮閫氳繃 webContents.send() 鍙戦€?IPC 浜嬩欢鍒版覆鏌撹繘绋嬶紝
+  // 娓叉煋杩涚▼閫氳繃 menu.onEvent() 娉ㄥ唽鍥炶皟鐩戝惉銆?
   //
-  // 使用方式：
+  // 浣跨敤鏂瑰紡锛?
   //   window.plotflow.menu.onEvent('menu:file:open', () => { ... });
   //   window.plotflow.menu.removeEventListener('menu:file:open');
   menu: {
     /**
-     * 注册一个菜单事件监听器。
-     * 相同 channel 的旧监听器会被自动移除（防止重复注册）。
+     * 娉ㄥ唽涓€涓彍鍗曚簨浠剁洃鍚櫒銆?
+     * 鐩稿悓 channel 鐨勬棫鐩戝惉鍣ㄤ細琚嚜鍔ㄧЩ闄わ紙闃叉閲嶅娉ㄥ唽锛夈€?
      */
-    onEvent: (channel: string, callback: () => void): void => {
-      // 移除该 channel 上已有的监听器（防止重复）
+    onEvent: (channel: MenuEventChannel, callback: () => void): void => {
+      // 绉婚櫎璇?channel 涓婂凡鏈夌殑鐩戝惉鍣紙闃叉閲嶅锛?
       const existing = menuListeners.get(channel);
       if (existing) {
         existing();
@@ -82,16 +126,16 @@ contextBridge.exposeInMainWorld('plotflow', {
 
       ipcRenderer.on(channel, listener);
 
-      // 存储清理函数
+      // 瀛樺偍娓呯悊鍑芥暟
       menuListeners.set(channel, () => {
         ipcRenderer.removeListener(channel, listener);
       });
     },
 
     /**
-     * 移除指定 channel 的菜单事件监听器。
+     * 绉婚櫎鎸囧畾 channel 鐨勮彍鍗曚簨浠剁洃鍚櫒銆?
      */
-    removeEventListener: (channel: string): void => {
+    removeEventListener: (channel: MenuEventChannel): void => {
       const remove = menuListeners.get(channel);
       if (remove) {
         remove();
@@ -100,12 +144,32 @@ contextBridge.exposeInMainWorld('plotflow', {
     },
 
     /**
-     * 移除所有已注册的菜单事件监听器。
-     * 应用卸载时调用。
+     * 绉婚櫎鎵€鏈夊凡娉ㄥ唽鐨勮彍鍗曚簨浠剁洃鍚櫒銆?
+     * 搴旂敤鍗歌浇鏃惰皟鐢ㄣ€?
      */
     removeAllEventListeners: (): void => {
       menuListeners.forEach((remove) => remove());
       menuListeners.clear();
     },
+
+    setLanguage: (language: 'zh-CN' | 'en-US'): void => {
+      ipcRenderer.send(IPC_CHANNELS.menu.setLanguage, language);
+    },
   },
-});
+
+  theme: {
+    listOfficialInstalled: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.theme.listOfficialInstalled),
+    listOfficialRemote: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.theme.listOfficialRemote),
+    downloadOfficialTheme: (themeId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.theme.downloadOfficialTheme, themeId),
+    openThemeMarket: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.theme.openThemeMarket),
+    openOfficialThemeStore: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.theme.openOfficialThemeStore),
+  },
+} satisfies PlotFlowAPI;
+
+contextBridge.exposeInMainWorld('plotflow', plotflowApi);
+

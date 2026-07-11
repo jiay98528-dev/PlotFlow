@@ -1,0 +1,444 @@
+{
+  "reportTitle": "PlotFlow i18n 国际化翻译覆盖率审计",
+  "auditDate": "2026-06-19",
+  "summary": {
+    "totalTranslationKeysDefined": 45,
+    "keysUsedViaTFunction": 26,
+    "keysDefinedButUnused": 19,
+    "hardcodedChineseStringLocations": 58,
+    "diagMessagesInI18nButUnused": 17,
+    "overallCoverage": "26/45 (57.8%) — 所有使用的键都有翻译，但大量定义的键未被引用。大量 UI 文本仍为硬编码中文。"
+  },
+  "translationsUsedAndValid": {
+    "description": "以下翻译键通过 t() 调用，在 zh-CN 和 en-US 中均存在条目",
+    "sourceKeys": [
+      { "key": "menu.file", "sources": ["packages/app/src/renderer/App.tsx:191"] },
+      { "key": "menu.view", "sources": ["packages/app/src/renderer/App.tsx:202"] },
+      { "key": "toolbar.newFile", "sources": ["packages/app/src/renderer/App.tsx:194"] },
+      { "key": "toolbar.export", "sources": ["packages/app/src/renderer/App.tsx:198"] },
+      { "key": "toolbar.corpus", "sources": ["packages/app/src/renderer/App.tsx:205"] },
+      { "key": "toolbar.graph", "sources": ["packages/app/src/renderer/App.tsx:219", "packages/app/src/renderer/App.tsx:264"] },
+      { "key": "toolbar.graphSplit", "sources": ["packages/app/src/renderer/App.tsx:173", "packages/app/src/renderer/App.tsx:211"] },
+      { "key": "toolbar.graphMinimap", "sources": ["packages/app/src/renderer/App.tsx:173", "packages/app/src/renderer/App.tsx:211"] },
+      { "key": "toolbar.themeDark", "sources": ["packages/app/src/renderer/App.tsx:174"] },
+      { "key": "toolbar.themeLight", "sources": ["packages/app/src/renderer/App.tsx:174"] },
+      { "key": "toolbar.preferences", "sources": ["packages/app/src/renderer/App.tsx:224"] },
+      { "key": "toolbar.language", "sources": ["packages/app/src/renderer/App.tsx:241", "packages/app/src/renderer/App.tsx:244"] },
+      { "key": "statusBar.phase", "sources": ["packages/app/src/renderer/App.tsx:186"] },
+      { "key": "dialogs.newFile", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:93"] },
+      { "key": "dialogs.close", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:98"] },
+      { "key": "dialogs.title", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:108"] },
+      { "key": "dialogs.author", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:116"] },
+      { "key": "dialogs.template", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:124"] },
+      { "key": "dialogs.preview", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:159", "packages/app/src/components/panels/NewFileDialog.tsx:166"] },
+      { "key": "dialogs.cancel", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:174"] },
+      { "key": "dialogs.create", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:177"] },
+      { "key": "dialogs.blankFile", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:136 (via titleKey)"] },
+      { "key": "templates.rpg", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:136 (via titleKey)"] },
+      { "key": "templates.visualNovel", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:136 (via titleKey)"] },
+      { "key": "templates.puzzle", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:136 (via titleKey)"] },
+      { "key": "templates.godot", "sources": ["packages/app/src/components/panels/NewFileDialog.tsx:136 (via titleKey)"] }
+    ]
+  },
+  "unusedTranslationKeys": {
+    "description": "以下翻译键在 i18n.ts 中定义，但源码中没有任何 t() 调用引用它们。建议清理或补充调用。",
+    "unusedKeys": [
+      "menu.edit",
+      "menu.help",
+      "toolbar.save",
+      "statusBar.saved",
+      "statusBar.saving",
+      "statusBar.unsaved",
+      "statusBar.nodes",
+      "statusBar.zoom",
+      "panels.outline",
+      "panels.problems",
+      "panels.conditions",
+      "dialogs.export",
+      "dialogs.settings",
+      "dialogs.templateMeta",
+      "errors.E001",
+      "errors.E002",
+      "errors.E003",
+      "errors.E004",
+      "errors.E005",
+      "errors.E006",
+      "errors.E007",
+      "errors.E008",
+      "warnings.W001",
+      "warnings.W002",
+      "warnings.W003",
+      "warnings.W004",
+      "warnings.W005",
+      "warnings.W006",
+      "suggestions.I001",
+      "suggestions.I002",
+      "suggestions.I003"
+    ]
+  },
+  "diagnosticMessagesBilingualCoverage": {
+    "description": "DIAGNOSTIC_MESSAGES (packages/core/src/types/diagnostic.ts:149-167) 17 条诊断消息全部为硬编码中文。对应的 i18n 键 (errors.E001-E008, warnings.W001-W006, suggestions.I001-I003) 存在于 i18n.ts 但从未被使用。推荐：从 DIAGNOSTIC_MESSAGES 中移除硬编码字符串，改用 t() 调用。",
+    "diagCodeToI18nKeyMapping": {
+      "E001": "errors.E001",
+      "E002": "errors.E002",
+      "E003": "errors.E003",
+      "E004": "errors.E004",
+      "E005": "errors.E005",
+      "E006": "errors.E006",
+      "E007": "errors.E007",
+      "E008": "errors.E008",
+      "W001": "warnings.W001",
+      "W002": "warnings.W002",
+      "W003": "warnings.W003",
+      "W004": "warnings.W004",
+      "W005": "warnings.W005",
+      "W006": "warnings.W006",
+      "I001": "suggestions.I001",
+      "I002": "suggestions.I002",
+      "I003": "suggestions.I003"
+    },
+    "currentDIAGNOSTIC_MESSAGES": {
+      "E001": "目标节点未定义",
+      "E002": "变量未在 Frontmatter 中声明",
+      "E003": "值不在枚举合法值列表中",
+      "E004": "值的类型与变量声明类型不匹配",
+      "E005": "语法解析失败",
+      "E006": "Object 嵌套深度超过最大限制（3 层）",
+      "E007": "节点 ID 重复",
+      "E008": "变量重复声明",
+      "W001": "节点无入口选项指向（孤立节点）",
+      "W002": "节点无出口选项（死胡同）",
+      "W003": "变量在故事中未使用",
+      "W004": "选项描述文本与同级选项重复",
+      "W005": "节点正文描述为空",
+      "W006": "格式不规范",
+      "I001": "全部选项都有执行条件（可能导致此处卡关）",
+      "I002": "节点描述过短（少于 10 个字符）",
+      "I003": "节点未归属于任何章节"
+    }
+  },
+  "hardcodedChineseStrings": {
+    "description": "非注释、非测试、非翻译资源文件中的硬编码中文字符串。按文件分组，excludePatterns: test 文件、.mdstory 模板内容（story content）、仅含注释的行。",
+    "locations": [
+      {
+        "file": "packages/app/src-electron/menu.ts",
+        "reason": "Electron 主进程无法直接使用 t()，菜单标签全部硬编码中文。需通过 IPC 传递 locale 或预构建菜单。",
+        "strings": [
+          {"line": 87, "text": "'文件'"},
+          {"line": 90, "text": "'新建'"},
+          {"line": 95, "text": "'打开...'"},
+          {"line": 101, "text": "'保存'"},
+          {"line": 106, "text": "'另存为...'"},
+          {"line": 118, "text": "'编辑'"},
+          {"line": 121, "text": "'撤销'"},
+          {"line": 125, "text": "'重做'"},
+          {"line": 130, "text": "'剪切'"},
+          {"line": 135, "text": "'复制'"},
+          {"line": 140, "text": "'粘贴'"},
+          {"line": 145, "text": "'全选'"},
+          {"line": 151, "text": "'查找'"},
+          {"line": 156, "text": "'替换'"},
+          {"line": 165, "text": "'视图'"},
+          {"line": 168, "text": "'大纲'"},
+          {"line": 173, "text": "'分支图'"},
+          {"line": 178, "text": "'问题面板'"},
+          {"line": 184, "text": "'切换主题'"},
+          {"line": 199, "text": "'导出'"},
+          {"line": 202, "text": "'导出 JSON'"},
+          {"line": 207, "text": "'导出 HTML'"},
+          {"line": 212, "text": "'导出 TXT'"},
+          {"line": 224, "text": "'帮助'"},
+          {"line": 230, "text": "'关于 PlotFlow'"},
+          {"line": 237, "text": "'文档'"}
+        ]
+      },
+      {
+        "file": "packages/core/src/validator/validator.ts",
+        "reason": "诊断消息硬编码中文。应使用 DIAGNOSTIC_MESSAGES 常量或 t()。",
+        "strings": [
+          {"line": 115, "text": "`选项 \"${option.description}\" 的目标节点 \"${option.targetFullId}\" 在故事中不存在`"},
+          {"line": 129, "text": "`选项 \"${option.description}\" 的目标节点 \"${option.targetNodeId}\" 在故事中不存在`"},
+          {"line": 205, "text": "`变量 \"${varName}\" 未在 Frontmatter 中声明`"},
+          {"line": 267, "text": "`枚举变量 \"${effect.variableName}\" 的值 \"${effect.value}\" 不在合法值列表 [${varInfo.enumValues.join(', ')}] 中`"},
+          {"line": 307, "text": "`枚举变量 \"${condition.left.variableName}\" 比较值 \"${condition.right.literalValue}\" 不在合法值列表 [...]`"},
+          {"line": 329, "text": "`枚举变量 \"${condition.right.variableName}\" 比较值 \"${condition.left.literalValue}\" 不在合法值列表 [...]`"},
+          {"line": 405, "text": "`变量 \"${effect.variableName}\" 的类型为 ${varInfo.type}，但效果值类型为 ${typeof effect.value}，不匹配`"},
+          {"line": 435, "text": "`变量 \"${condition.left.variableName}\" 类型为 ${varInfo.type}，无法与 ${typeof condition.right.literalValue} 类型的字面量比较`"},
+          {"line": 450, "text": "`变量 \"${condition.right.variableName}\" 类型为 ${varInfo.type}，无法与 ...`"},
+          {"line": 473, "text": "`变量 \"${condition.left.variableName}\"（${leftInfo.type}）与 \"${condition.right.variableName}\"（${rightInfo.type}）类型不兼容`"},
+          {"line": 512, "text": "`选项 \"${option.description}\" 缺少跳转目标且无执行条件`"},
+          {"line": 570, "text": "`变量 \"${variable.name}\" 的嵌套深度为 ${maxDepth} 层，超过最大限制 3 层。...`"},
+          {"line": 609, "text": "`节点 ID \"${node.fullId}\" 重复（首次声明在第 ${existingLine} 行）`"},
+          {"line": 649, "text": "`变量 \"${fullPath}\" 重复声明（首次声明在第 ${existingLine} 行）`"}
+        ]
+      },
+      {
+        "file": "packages/core/src/validator/warnings.ts",
+        "reason": "警告诊断消息硬编码中文。",
+        "strings": [
+          {"line": 57, "text": "`节点「${node.title}」（${node.id}）无任何入口选项指向，为孤立节点`"},
+          {"line": 90, "text": "`节点「${node.title}」无出口选项，读者将在此处卡住`"},
+          {"line": 148, "text": "`变量「${fullName}」在故事中未使用，建议移除或添加引用`"},
+          {"line": 240, "text": "`选项描述「${dup.description}」与节点内其他选项重复`"},
+          {"line": 275, "text": "`节点「${node.title}」（${node.id}）正文描述为空，建议补充叙事内容`"},
+          {"line": 311, "text": "`节点标题过长（${node.title.length} 字符），建议不超过 128 字符`"},
+          {"line": 324, "text": "`选项缩进超过 1 层（当前 ${option.indentLevel} 层），建议使用扁平结构`"}
+        ]
+      },
+      {
+        "file": "packages/core/src/validator/infos.ts",
+        "reason": "建议诊断消息硬编码中文。",
+        "strings": [
+          {"line": 50, "text": "`节点「${node.title}」全部 ${totalOptions} 个选项均有执行条件...当条件全部不满足时读者将无法推进剧情`"},
+          {"line": 90, "text": "`节点「${node.title}」正文描述仅 ${node.body.trim().length} 个字符，建议扩充以增强叙事沉浸感`"},
+          {"line": 127, "text": "`节点「${node.title}」处于匿名章节中，建议使用「# 章节：名称」为其划分章节`"}
+        ]
+      },
+      {
+        "file": "packages/core/src/parser/conditions.ts",
+        "reason": "解析阶段错误消息硬编码中文。",
+        "strings": [
+          {"line": 171, "text": "\"$\" 后缺少有效的变量名"},
+          {"line": 172, "text": "'变量引用格式应为 \"$变量名\" 或 \"$变量名.字段名\"'"},
+          {"line": 192, "text": "\".\" 后缺少有效的字段名"},
+          {"line": 193, "text": "'字段访问格式应为 \"$变量名.字段名\"'"},
+          {"line": 262, "text": "'无效的运算符 \"=\"，条件表达式中应使用 \"==\" 进行比较'"},
+          {"line": 263, "text": "'请使用 \"==\" 替代 \"=\"'"},
+          {"line": 284, "text": "'无效的运算符 \"!\"，条件表达式中应使用 \"!=\" 进行比较'"},
+          {"line": 285, "text": "'请使用 \"!=\" 替代 \"!\"'"},
+          {"line": 334, "text": "`条件表达式中出现无法识别的字符: \"${ch}\"`"},
+          {"line": 335, "text": "'请检查表达式语法'"},
+          {"line": 519, "text": "`表达式不完整：缺少 ${kind} token`"},
+          {"line": 531, "text": "`语法错误：期望 \"${kind}\"，实际是 \"${tok.value}\"`"},
+          {"line": 552, "text": "'表达式不完整：缺少操作数'"},
+          {"line": 576, "text": "`语法错误：期望变量引用或字面量，实际是 \"${tok.value}\"`"},
+          {"line": 615, "text": "`比较运算符 \"${operator}\" 后缺少右操作数`"},
+          {"line": 637, "text": "'表达式不完整'"},
+          {"line": 648, "text": "'缺少右括号 \")\"'" },
+          {"line": 668, "text": "`语法错误：期望表达式，实际是 \"${badTok.value}\"`" },
+          {"line": 699, "text": "'\"NOT\" 后缺少表达式'" },
+          {"line": 745, "text": "`逻辑运算符 \"AND\" 嵌套深度 ${logicalDepth} 超过最大限制 ${MAX_LOGICAL_DEPTH} 层`" },
+          {"line": 746, "text": "'请简化条件表达式，将部分逻辑拆分到多个选项中。'" },
+          {"line": 760, "text": "'\"AND\" 后缺少表达式'" },
+          {"line": 808, "text": "`逻辑运算符 \"OR\" 嵌套深度 ${logicalDepth} 超过最大限制 ${MAX_LOGICAL_DEPTH} 层`" },
+          {"line": 809, "text": "'请简化条件表达式，将部分逻辑拆分到多个选项中。'" },
+          {"line": 823, "text": "'\"OR\" 后缺少表达式'" },
+          {"line": 903, "text": "`变量 \"${rootName}\" 未在 Frontmatter 中声明`" },
+          {"line": 904, "text": "'请在 Frontmatter 的 vars: 块中声明此变量。'" }
+        ]
+      },
+      {
+        "file": "packages/app/src/components/layout/StatusBar.tsx",
+        "reason": "状态栏标签硬编码中文，应为可翻译字符串。",
+        "strings": [
+          {"line": 62, "text": "'未保存'"},
+          {"line": 79, "text": "'节点 '"},
+          {"line": 81, "text": "'选项 '"},
+          {"line": 94, "text": "'行 '"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/panels/ProblemPanel.tsx",
+        "reason": "问题面板过滤器标签硬编码中文。",
+        "strings": [
+          {"line": 44, "text": "'全部'"},
+          {"line": 45, "text": "'错误'"},
+          {"line": 46, "text": "'警告'"},
+          {"line": 47, "text": "'建议'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/panels/ExportDialog.tsx",
+        "reason": "导出对话框格式描述和状态标签硬编码中文。",
+        "strings": [
+          {"line": 71, "text": "'标准结构化数据，适合程序读取'"},
+          {"line": 77, "text": "'自包含可玩版，浏览器直接运行'"},
+          {"line": 83, "text": "'纯文本，剥离 Markdown 标记'"},
+          {"line": 89, "text": "'导出'"},
+          {"line": 90, "text": "'导出中...'"},
+          {"line": 91, "text": "'导出成功'"},
+          {"line": 92, "text": "'导出失败'"},
+          {"line": 179, "text": "'没有可导出的故事数据。请先打开或创建故事文件。'"},
+          {"line": 369, "text": "'暂无故事数据，请先创建或打开一个 .mdstory 文件。'"},
+          {"line": 382, "text": "'取消'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/panels/ConditionEditor.tsx",
+        "reason": "条件编辑器中变量类型标签和占位符硬编码中文。",
+        "strings": [
+          {"line": 79, "text": "'整数'"},
+          {"line": 80, "text": "'浮点'"},
+          {"line": 81, "text": "'布尔'"},
+          {"line": 82, "text": "'字符串'"},
+          {"line": 83, "text": "'枚举'"},
+          {"line": 84, "text": "'对象'"},
+          {"line": 597, "text": "'搜索变量...'"},
+          {"line": 811, "text": "'值...'"},
+          {"line": 898, "text": "'删除条件'"},
+          {"line": 1039, "text": "'删除条件组'"},
+          {"line": 1299, "text": "'关闭 (Esc)'"},
+          {"line": 1398, "text": "'编辑条件' / '添加条件'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/branch-graph/StoryNodeCard.tsx",
+        "reason": "节点状态标签和 fallback 标题硬编码中文。",
+        "strings": [
+          {"line": 74, "text": "'孤立'"},
+          {"line": 75, "text": "'死胡同'"},
+          {"line": 76, "text": "'错误'"},
+          {"line": 77, "text": "'起点'"},
+          {"line": 116, "text": "'未命名节点'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/branch-graph/GraphContextMenu.tsx",
+        "reason": "上下文菜单标签和状态消息硬编码中文。",
+        "strings": [
+          {"line": 968, "text": "'跳转到编辑器'"},
+          {"line": 975, "text": "'重命名'"},
+          {"line": 981, "text": "'添加选项'"},
+          {"line": 987, "text": "'删除节点'"},
+          {"line": 998, "text": "'编辑条件'"},
+          {"line": 999, "text": "'双击'"},
+          {"line": 1005, "text": "'删除连线'"},
+          {"line": 1013, "text": "'跳转到源节点'"},
+          {"line": 1019, "text": "'跳转到目标节点'"},
+          {"line": 1027, "text": "'添加节点'"},
+          {"line": 1032, "text": "'重新布局'"},
+          {"line": 1038, "text": "'导出 PNG'"},
+          {"line": 646, "text": "`已跳转到: ${storyNode.title}`"},
+          {"line": 679, "text": "`节点已重命名为: ${newTitle}`"},
+          {"line": 721, "text": "`已为「${storyNode.title}」添加新选项`"},
+          {"line": 756, "text": "`节点「${storyNode.title}」已删除`"},
+          {"line": 793, "text": "'已添加新节点'"},
+          {"line": 808, "text": "'没有需要布局的节点'"},
+          {"line": 814, "text": "'分支图已重新布局'"},
+          {"line": 820, "text": "'导出 PNG — 待 html2canvas 集成后实现'"},
+          {"line": 400, "text": "'确定'"},
+          {"line": 401, "text": "'取消'"},
+          {"line": 1101, "text": "'删除节点'"},
+          {"line": 1103, "text": "'删除'"},
+          {"line": 1104, "text": "'取消'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/panels/CorpusManager.tsx",
+        "reason": "语料管理器 UI 标签、按钮和状态消息硬编码中文。",
+        "strings": [
+          {"line": 76, "text": "'已启用'"},
+          {"line": 77, "text": "'已禁用'"},
+          {"line": 78, "text": "'处理中...'"},
+          {"line": 79, "text": "'导入失败'"},
+          {"line": 223, "text": "`语料总计大小已达上限 (${...})`"},
+          {"line": 234, "text": "'模拟导入 — Electron IPC 不可用'"},
+          {"line": 248, "text": "'请使用文本导入功能（暂未集成通用文件对话框）'"},
+          {"line": 407, "text": "'语料库管理'"},
+          {"line": 431, "text": "'关闭语料管理'"},
+          {"line": 463, "text": "'语料总计大小已达上限 (50MB)'"},
+          {"line": 464, "text": "'导入语料文件'"},
+          {"line": 467, "text": "'导入中...' / '导入语料'"},
+          {"line": 474, "text": "'从文本导入（开发调试用）'"},
+          {"line": 488, "text": "'点击\"导入语料\"添加 .txt / .mdstory / .csv 文件'"},
+          {"line": 545, "text": "'启用' / '禁用'"},
+          {"line": 553, "text": "'重新处理（重新分词和训练）'"},
+          {"line": 561, "text": "'删除此语料源（不可恢复）'"},
+          {"line": 592, "text": "'确认操作'"},
+          {"line": 599, "text": "'删除语料源' / '禁用语料源'"},
+          {"line": 642, "text": "'确认删除' / '确认禁用'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/components/layout/OutlinePanel.tsx",
+        "reason": "大纲面板 tooltip 硬编码中文。",
+        "strings": [
+          {"line": 131, "text": "'展开大纲面板'"},
+          {"line": 160, "text": "'折叠大纲面板'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/hooks/useMenuEvents.ts",
+        "reason": "状态消息和对话框文本硬编码中文。",
+        "strings": [
+          {"line": 83, "text": "'放弃未保存的更改？'"},
+          {"line": 85, "text": "`\"${editor.filePath}\" 有未保存的修改。打开其他文件前是否保存？`"},
+          {"line": 86, "text": "'未命名的文件有未保存的修改。打开其他文件前是否保存？'"},
+          {"line": 87, "text": "['保存并打开', '不保存并打开', '取消']"},
+          {"line": 117, "text": "'打开文件'"},
+          {"line": 126, "text": "'保存失败'"},
+          {"line": 138, "text": "'另存为'"},
+          {"line": 182, "text": "'分支图: 显示' / '分支图: 隐藏'"},
+          {"line": 216, "text": "'PlotFlow V0.1 — 叙事分支管理工具'"},
+          {"line": 221, "text": "'帮助文档 — 请访问 PlotFlow GitHub 仓库'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/services/autoSaveService.ts",
+        "reason": "自动保存状态消息硬编码中文。",
+        "strings": [
+          {"line": 65, "text": "'⏳ 保存中...'"},
+          {"line": 68, "text": "'✅ 已保存'"},
+          {"line": 78, "text": "'❌ 保存失败: '"},
+          {"line": 115, "text": "'文件写入返回异常'"},
+          {"line": 239, "text": "`已保存至: ${newPath}`"}
+        ]
+      },
+      {
+        "file": "packages/app/src/services/parsePipeline.ts",
+        "reason": "解析管线状态消息硬编码中文。",
+        "strings": [
+          {"line": 73, "text": "'⚠️ 解析器异常，请检查文件格式'"},
+          {"line": 81, "text": "'⚠️ 解析失败，请检查语法'"},
+          {"line": 108, "text": "'⚠️ 语法错误 — 分支图可能不完整'"}
+        ]
+      },
+      {
+        "file": "packages/app/src/renderer/App.tsx",
+        "reason": "新建文件对话框文本硬编码中文。",
+        "strings": [
+          {"line": 132, "text": "'放弃未保存的更改？'"},
+          {"line": 134, "text": "`\"${editor.filePath}\" 有未保存的修改。创建新文件前是否保存？`"},
+          {"line": 135, "text": "'未命名的文件有未保存的修改。创建新文件前是否保存？'"},
+          {"line": 136, "text": "['保存并新建', '不保存并新建', '取消']"}
+        ]
+      },
+      {
+        "file": "packages/app/src/templates/builtinTemplates.ts",
+        "reason": "模板元信息（title、description）硬编码中文。title 有 titleKey 用于翻译，但 description 无对应翻译键。",
+        "strings": [
+          {"line": 285, "text": "'空白文件'"},
+          {"line": 286, "text": "'最小可编辑结构，适合从零写一个场景。'"},
+          {"line": 295, "text": "'RPG 对话'"},
+          {"line": 296, "text": "'村庄入口、守卫盘问和阵营变量，展示条件与效果。'"},
+          {"line": 305, "text": "'视觉小说'"},
+          {"line": 306, "text": "'放学后的双路线片段，适合轻量角色分支。'"},
+          {"line": 315, "text": "'解谜逃脱'"},
+          {"line": 316, "text": "'钥匙、电源、密码和出口变量组成的多节点条件链。'"},
+          {"line": 325, "text": "'Godot 示例'"},
+          {"line": 326, "text": "'英文 Godot runtime loader 示例，便于引擎侧集成演示。'"}
+        ]
+      }
+    ]
+  },
+  "recommendations": [
+    "1. 将 DIAGNOSTIC_MESSAGES (diagnostic.ts) 改为使用 t() 调用，移除硬编码中文。对应的 i18n 键已存在。",
+    "2. 将所有 validator/warnings/infos.ts 中的动态诊断消息改为使用 DIAGNOSTIC_MESSAGES + 参数插值，而非直接硬编码中文。",
+    "3. 将所有 parser/conditions.ts 中的错误消息统一到 i18n 系统。",
+    "4. 为 StatusBar 中的 '节点'/'选项'/'行'/'未保存' 补充翻译键并调用 t()。",
+    "5. ExportDialog 的 format descriptions、status labels 和 UI 文本应使用翻译键。",
+    "6. ProblemPanel 的 FILTER_OPTIONS label 应使用 t()。",
+    "7. ConditionEditor 的变量类型标签 ('整数'/'浮点'/etc) 和 placeholder/tooltip 文本应翻译。",
+    "8. StoryNodeCard 节点状态标签 (孤立/死胡同/错误/起点) 应补充翻译键。",
+    "9. GraphContextMenu 全部菜单 label 和 statusMessage 应翻译。",
+    "10. CorpusManager 全部 UI 文本应翻译。",
+    "11. OutlinePanel tooltip 应翻译。",
+    "12. useMenuEvents 中所有对话框文本和状态消息应使用 t()。",
+    "13. autoSaveService 保存状态消息应使用 t()。",
+    "14. parsePipeline 错误消息应使用 t()。",
+    "15. App.tsx 新建文件确认对话框文本应使用 t()。",
+    "16. builtinTemplates.ts 的 template.description 应添加对应的翻译键，移除硬编码中文。template.title 虽未直接使用（通过 titleKey），但应清理冗余字段。",
+    "17. Electron menu.ts 的菜单标签——Electron 主进程目前无法直接使用 t()，建议方案：a) 通过 preload 注入 locale 并在构建菜单时传参；b) 或维护一份独立的菜单翻译表。",
+    "18. 清理 i18n.ts 中从未使用的 19 个翻译键（如 menu.edit, toolbar.save, statusBar.saved 等），或补充对应的 t() 调用。"
+  ]
+}

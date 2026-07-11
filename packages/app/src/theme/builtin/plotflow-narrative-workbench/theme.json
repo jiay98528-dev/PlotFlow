@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "id": "plotflow-narrative-workbench",
+  "name": {
+    "zh-CN": "叙事工作台",
+    "en-US": "Narrative Workbench",
+    "default": "叙事工作台"
+  },
+  "version": "1.0.0",
+  "plotflowVersion": ">=0.1.0",
+  "author": "PlotFlow Team",
+  "license": "Bundled",
+  "description": "PlotFlow 官方默认主题。以纸张工作台、蓝图线缆、清晰节点层级和克制动效服务长时间叙事设计。",
+  "capabilities": ["tokens", "visual", "layout", "monaco"],
+  "tokens": {
+    "shared": {
+      "--theme-workbench-paper-grain": "linear-gradient(135deg, var(--theme-workbench-paper), var(--theme-workbench-paper-warm))",
+      "--theme-graph-lab-paper": "var(--theme-workbench-paper)",
+      "--theme-graph-lab-surface": "var(--theme-workbench-panel)",
+      "--theme-panel-surface": "color-mix(in oklch, var(--theme-workbench-panel), transparent 8%)",
+      "--theme-grid-size": "28px",
+      "--theme-card-radius": "var(--radius-lg)",
+      "--theme-graph-node-radius": "var(--radius-lg)",
+      "--theme-graph-canvas-grid-opacity": "0.62",
+      "--theme-graph-cable-default": "var(--theme-blueprint-cable)",
+      "--theme-graph-cable-conditional": "var(--theme-effect-line)",
+      "--theme-graph-port": "var(--theme-blueprint-cable)",
+      "--theme-port-fill": "var(--theme-blueprint-cable)",
+      "--theme-source-dock-height": "340px"
+    },
+    "light": {
+      "--theme-workbench-paper": "oklch(0.965 0.006 250)",
+      "--theme-workbench-paper-warm": "oklch(0.945 0.007 248)",
+      "--theme-workbench-rail": "oklch(0.925 0.008 250)",
+      "--theme-workbench-panel": "oklch(0.985 0.004 250)",
+      "--theme-blueprint-canvas": "oklch(0.955 0.006 250)",
+      "--theme-blueprint-grid": "oklch(0.76 0.018 250)",
+      "--theme-blueprint-cable": "oklch(0.49 0.105 248)",
+      "--theme-node-surface": "oklch(0.99 0.004 250)",
+      "--theme-node-surface-strong": "oklch(0.955 0.006 250)",
+      "--theme-node-border": "oklch(0.82 0.012 250)",
+      "--theme-node-ink": "oklch(0.22 0.018 250)",
+      "--theme-node-muted": "oklch(0.48 0.018 250)",
+      "--theme-effect-line": "oklch(0.56 0.09 60)",
+      "--theme-success-leaf": "oklch(0.52 0.075 150)",
+      "--theme-warning-leaf": "oklch(0.68 0.09 82)",
+      "--theme-danger-leaf": "oklch(0.55 0.12 30)",
+      "--theme-workbench-shadow": "0 14px 34px oklch(0.28 0.018 250 / 0.12)"
+    },
+    "dark": {
+      "--theme-workbench-paper": "oklch(0.214 0.018 248)",
+      "--theme-workbench-paper-warm": "oklch(0.252 0.022 241)",
+      "--theme-workbench-rail": "oklch(0.19 0.018 248)",
+      "--theme-workbench-panel": "oklch(0.245 0.018 248)",
+      "--theme-blueprint-canvas": "oklch(0.205 0.03 238)",
+      "--theme-blueprint-grid": "oklch(0.48 0.07 226)",
+      "--theme-blueprint-cable": "oklch(0.72 0.108 220)",
+      "--theme-node-surface": "oklch(0.292 0.018 246)",
+      "--theme-node-surface-strong": "oklch(0.345 0.021 244)",
+      "--theme-node-border": "oklch(0.49 0.048 232)",
+      "--theme-node-ink": "oklch(0.9 0.018 82)",
+      "--theme-node-muted": "oklch(0.72 0.024 84)",
+      "--theme-effect-line": "oklch(0.73 0.13 57)",
+      "--theme-success-leaf": "oklch(0.68 0.105 151)",
+      "--theme-warning-leaf": "oklch(0.78 0.115 83)",
+      "--theme-danger-leaf": "oklch(0.68 0.14 31)",
+      "--theme-workbench-shadow": "0 18px 42px oklch(0.05 0.015 248 / 0.46)"
+    }
+  },
+  "monacoTheme": {
+    "light": {
+      "base": "vs",
+      "inherit": true,
+      "rules": [
+        { "token": "heading", "foreground": "205B89", "fontStyle": "bold" },
+        { "token": "keyword", "foreground": "2E6F78" },
+        { "token": "string", "foreground": "9A542D" }
+      ],
+      "colors": {
+        "editor.background": "#faf6ec",
+        "editor.foreground": "#202322",
+        "editorLineNumber.foreground": "#9a927f",
+        "editorCursor.foreground": "#275f8a",
+        "editor.selectionBackground": "#d6e7f2"
+      }
+    },
+    "dark": {
+      "base": "vs-dark",
+      "inherit": true,
+      "rules": [
+        { "token": "heading", "foreground": "8FC7E6", "fontStyle": "bold" },
+        { "token": "keyword", "foreground": "89D3C7" },
+        { "token": "string", "foreground": "E5A36D" }
+      ],
+      "colors": {
+        "editor.background": "#202632",
+        "editor.foreground": "#ece8de",
+        "editorLineNumber.foreground": "#8f98a5",
+        "editorCursor.foreground": "#8fc7e6",
+        "editor.selectionBackground": "#31546a"
+      }
+    }
+  },
+  "layoutRecipe": {
+    "density": "comfortable",
+    "graphLab": {
+      "paletteWidth": 288,
+      "railWidth": 288,
+      "inspectorWidth": 372,
+      "sourceDock": "bottom",
+      "sourceDockHeight": 340,
+      "nodeCardStyle": "blueprint-card",
+      "cableStyle": "blueprint-cable",
+      "motionIntensity": "subtle"
+    }
+  },
+  "uxRecipe": {
+    "appShell": {
+      "layout": "editor-shell",
+      "padding": "0",
+      "gap": "0"
+    },
+    "home": {
+      "layout": "hero-grid",
+      "inset": "64px 0 26px",
+      "padding": "clamp(var(--space-4), 3vw, var(--space-8))",
+      "gap": "var(--space-5)",
+      "opacity": "1"
+    },
+    "themeCenter": {
+      "layout": "sidebar-catalog",
+      "width": "min(1180px, 100%)",
+      "height": "min(820px, calc(100vh - var(--space-12)))",
+      "padding": "var(--space-6)",
+      "gap": "var(--space-4)",
+      "opacity": "1",
+      "zIndex": "var(--z-modal)"
+    },
+    "graphLab": {
+      "layout": "three-pane-canvas",
+      "padding": "var(--space-4)",
+      "gap": "var(--space-3)"
+    },
+    "split": {
+      "layout": "balanced-editor-graph",
+      "gap": "var(--space-3)"
+    },
+    "toolbar": {
+      "height": "64px",
+      "padding": "0 var(--space-4)",
+      "gap": "var(--space-3)"
+    },
+    "panel": {
+      "radius": "var(--radius-lg)",
+      "shadow": "var(--theme-workbench-shadow)",
+      "opacity": "0.98"
+    },
+    "dock": {
+      "height": "340px",
+      "position": "bottom"
+    },
+    "node": {
+      "width": "320px",
+      "minHeight": "228px",
+      "padding": "var(--space-3)",
+      "radius": "10px",
+      "opacity": "1"
+    },
+    "edge": {
+      "width": "36px",
+      "opacity": "1"
+    },
+    "typography": {
+      "layout": "editorial",
+      "gap": "var(--space-2)"
+    }
+  },
+  "assets": {
+    "preview": "assets/preview.svg",
+    "workbenchTexture": "assets/workbench-texture.svg",
+    "nodeSurface": "assets/node-surface.svg"
+  },
+  "screenshots": ["assets/preview.svg"]
+}

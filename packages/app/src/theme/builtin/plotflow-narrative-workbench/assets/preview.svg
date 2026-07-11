@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-label="PlotFlow 叙事工作台主题预览">
+  <rect width="720" height="420" rx="24" fill="#f4ead6"/>
+  <rect x="24" y="24" width="160" height="372" rx="14" fill="#ebe0c8"/>
+  <rect x="536" y="24" width="160" height="372" rx="14" fill="#fffaf0"/>
+  <rect x="204" y="24" width="312" height="372" rx="14" fill="#e8f1f2"/>
+  <path d="M204 80H516M204 136H516M204 192H516M204 248H516M204 304H516M260 24V396M316 24V396M372 24V396M428 24V396" stroke="#7aa5b5" stroke-width="1" opacity=".38"/>
+  <rect x="258" y="102" width="150" height="82" rx="12" fill="#fffdf6" stroke="#2a6f9e" stroke-width="3"/>
+  <rect x="278" y="126" width="72" height="8" rx="4" fill="#1f2a2e"/>
+  <rect x="278" y="146" width="104" height="6" rx="3" fill="#8f897a"/>
+  <rect x="432" y="238" width="150" height="82" rx="12" fill="#fffdf6" stroke="#5b8b63" stroke-width="3"/>
+  <rect x="452" y="262" width="78" height="8" rx="4" fill="#1f2a2e"/>
+  <rect x="452" y="282" width="100" height="6" rx="3" fill="#8f897a"/>
+  <path d="M408 164C452 168 434 242 432 260" fill="none" stroke="#2a6f9e" stroke-width="4"/>
+  <circle cx="408" cy="164" r="7" fill="#2a6f9e"/>
+  <circle cx="432" cy="260" r="7" fill="#5b8b63"/>
+  <rect x="48" y="58" width="108" height="14" rx="7" fill="#1f2a2e"/>
+  <rect x="48" y="94" width="104" height="28" rx="8" fill="#fffaf0" stroke="#d7c9ad"/>
+  <rect x="48" y="134" width="104" height="28" rx="8" fill="#fffaf0" stroke="#d7c9ad"/>
+  <rect x="48" y="190" width="104" height="10" rx="5" fill="#8f897a"/>
+  <rect x="48" y="214" width="118" height="8" rx="4" fill="#b4aa94"/>
+  <rect x="560" y="58" width="82" height="14" rx="7" fill="#1f2a2e"/>
+  <rect x="560" y="96" width="104" height="92" rx="10" fill="#f3ead8" stroke="#d7c9ad"/>
+  <rect x="560" y="216" width="104" height="112" rx="10" fill="#f3ead8" stroke="#d7c9ad"/>
+</svg>

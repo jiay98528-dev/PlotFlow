@@ -1,91 +1,66 @@
-/**
- * ProblemPanel — 问题面板组件 (M3-16)
- *
- * @remarks
- * 展示所有诊断信息（错误/警告/建议），支持按严重级别过滤，
- * 可点击跳转到编辑器对应位置。
- *
- * 快捷键：Ctrl+Shift+M 打开/关闭面板
- *
- * 设计依据：
- * - spec/design-brief-editor-ux.md §3.5 问题面板布局
- * - TAD.md §2.2.2 EditorState / Diagnostic 接口
- * - CLAUDE.md §6.1 使用 CSS 变量驱动颜色
- *
- * @module components/panels/ProblemPanel
- */
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import type { Diagnostic, DiagnosticSeverity } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { useGraphStore } from '../../stores/graphStore';
+import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useAppText } from '../../i18n/appI18n';
+import { localizeDiagnostic } from '../../i18n/localizeDiagnostic';
 
-// ============================================================================
-// 类型定义
-// ============================================================================
-
-/** 严重级别过滤选项 */
 type SeverityFilter = 'all' | DiagnosticSeverity;
+type SeverityIcon = typeof AlertCircle;
+type ProblemPanelStyle = React.CSSProperties & { readonly '--theme-problem-panel-height'?: string };
 
-// ============================================================================
-// 常量
-// ============================================================================
-
-/** 过滤选项配置 */
-interface FilterOption {
-  readonly key: SeverityFilter;
-  /** 中文标签 */
-  readonly label: string;
-  /** 对应的 severity 值（'all' 时无） */
-  readonly severity?: DiagnosticSeverity;
-}
-
-const FILTER_OPTIONS: readonly FilterOption[] = [
-  { key: 'all', label: '全部' },
-  { key: 'error', label: '错误', severity: 'error' },
-  { key: 'warning', label: '警告', severity: 'warning' },
-  { key: 'info', label: '建议', severity: 'info' },
-] as const;
-
-/** 严重级别 → 图标映射 */
-const SEVERITY_ICON: Readonly<Record<DiagnosticSeverity, string>> = {
-  error: '🔴',
-  warning: '🟡',
-  info: '🔵',
+const SEVERITY_ICON: Readonly<Record<DiagnosticSeverity, SeverityIcon>> = {
+  error: AlertCircle,
+  warning: AlertTriangle,
+  info: Info,
 };
 
-/** 面板最小高度 (px) */
-const PANEL_MIN_HEIGHT = 100;
+const PANEL_MIN_HEIGHT = 120;
+const PANEL_DEFAULT_HEIGHT = 236;
 
-/** 面板默认高度 (px) */
-const PANEL_DEFAULT_HEIGHT = 200;
+function findChapterIdByLine(lineNumber: number): string | null {
+  const chapters = useStoryStore.getState().plotFlowData?.chapters ?? [];
+  let match: string | null = null;
+  for (const chapter of chapters) {
+    if (chapter.lineNumber <= lineNumber) {
+      match = chapter.id;
+    }
+  }
+  return match;
+}
 
-// ============================================================================
-// Component
-// ============================================================================
+function getSeverityLabel(severity: DiagnosticSeverity, text: ReturnType<typeof useAppText>): string {
+  if (severity === 'error') return text('problemPanel.severityError');
+  if (severity === 'warning') return text('problemPanel.severityWarning');
+  return text('problemPanel.severityInfo');
+}
 
 export function ProblemPanel(): React.ReactElement {
   const diagnostics = useEditorStore((s) => s.diagnostics);
   const editorInstance = useEditorStore((s) => s.editorInstance);
   const isProblemPanelOpen = useUIStore((s) => s.isProblemPanelOpen);
   const toggleProblemPanel = useUIStore((s) => s.toggleProblemPanel);
+  const language = useUIStore((s) => s.language);
+  const text = useAppText();
 
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [panelHeight, setPanelHeight] = useState(PANEL_DEFAULT_HEIGHT);
   const isResizing = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
-
-  // ========================================================================
-  // 计算过滤后的诊断列表 & 各类型计数
-  // ========================================================================
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
 
   const counts = useMemo(() => {
     let errors = 0;
     let warnings = 0;
     let infos = 0;
-    for (const d of diagnostics) {
-      if (d.severity === 'error') errors++;
-      else if (d.severity === 'warning') warnings++;
+    for (const diagnostic of diagnostics) {
+      if (diagnostic.severity === 'error') errors++;
+      else if (diagnostic.severity === 'warning') warnings++;
       else infos++;
     }
     return { errors, warnings, infos, total: diagnostics.length };
@@ -93,42 +68,58 @@ export function ProblemPanel(): React.ReactElement {
 
   const filteredDiagnostics = useMemo(() => {
     if (severityFilter === 'all') return diagnostics;
-    return diagnostics.filter((d) => d.severity === severityFilter);
+    return diagnostics.filter((diagnostic) => diagnostic.severity === severityFilter);
   }, [diagnostics, severityFilter]);
 
-  // ========================================================================
-  // 跳转到编辑器对应行
-  // ========================================================================
+  const filterOptions = useMemo(
+    () => [
+      { key: 'all' as const, label: text('problemPanel.all'), count: counts.total },
+      { key: 'error' as const, label: text('problemPanel.errors'), count: counts.errors },
+      { key: 'warning' as const, label: text('problemPanel.warnings'), count: counts.warnings },
+      { key: 'info' as const, label: text('problemPanel.infos'), count: counts.infos },
+    ],
+    [counts.errors, counts.infos, counts.total, counts.warnings, text],
+  );
 
   const handleJumpToLine = useCallback(
     (diagnostic: Diagnostic) => {
-      if (!editorInstance) return;
-
       const { startLine, startColumn } = diagnostic.range;
-      editorInstance.revealPositionInCenter({ lineNumber: startLine, column: startColumn });
-      editorInstance.setPosition({ lineNumber: startLine, column: startColumn });
-      editorInstance.focus();
+      const editor = useEditorStore.getState();
+      const story = useStoryStore.getState();
+      const graph = useGraphStore.getState();
+      const ui = useUIStore.getState();
+      const nodeId = diagnostic.relatedNodeId ?? story.getNodeByLine(startLine);
+      const node = nodeId ? story.getNodeByFullId(nodeId) : undefined;
+      const chapterId = node?.chapterId ?? findChapterIdByLine(startLine);
+
+      editor.setCursorPosition(startLine, startColumn);
+      if (chapterId) {
+        ui.setActiveChapterId(chapterId);
+      }
+      if (node) {
+        graph.selectNode(node.fullId);
+        editor.setActiveNodeId(node.fullId);
+        ui.setStatusMessage(text('problemPanel.jumpedToNode', { title: node.title }));
+      } else {
+        ui.setStatusMessage(text('problemPanel.jumpedToLine', { line: startLine }));
+      }
+
+      if (editorInstance) {
+        editorInstance.revealPositionInCenter({ lineNumber: startLine, column: startColumn });
+        editorInstance.setPosition({ lineNumber: startLine, column: startColumn });
+        if (ui.workspaceMode === 'split') {
+          editorInstance.focus();
+        }
+      }
     },
-    [editorInstance],
+    [editorInstance, text],
   );
 
-  // ========================================================================
-  // 切换过滤条件
-  // ========================================================================
-
-  const handleFilterChange = useCallback((filter: SeverityFilter) => {
-    setSeverityFilter(filter);
-  }, []);
-
-  // ========================================================================
-  // 键盘快捷键：Ctrl+Shift+M 打开/关闭面板
-  // ========================================================================
-
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyM') {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === 'KeyM') {
+        event.preventDefault();
+        event.stopPropagation();
         toggleProblemPanel();
       }
     };
@@ -139,25 +130,42 @@ export function ProblemPanel(): React.ReactElement {
     };
   }, [toggleProblemPanel]);
 
-  // ========================================================================
-  // 拖拽调整面板高度
-  // ========================================================================
+  useEffect(() => {
+    if (isProblemPanelOpen && !wasOpenRef.current) {
+      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      window.setTimeout(() => closeButtonRef.current?.focus({ preventScroll: true }), 0);
+    } else if (!isProblemPanelOpen && wasOpenRef.current) {
+      const opener = openerRef.current;
+      window.setTimeout(() => opener?.focus({ preventScroll: true }), 0);
+    }
+    wasOpenRef.current = isProblemPanelOpen;
+  }, [isProblemPanelOpen]);
+
+  useEffect(() => {
+    if (!isProblemPanelOpen) return undefined;
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !panelRef.current?.contains(document.activeElement)) return;
+      event.preventDefault();
+      toggleProblemPanel();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isProblemPanelOpen, toggleProblemPanel]);
 
   const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
+    (event: React.MouseEvent) => {
+      event.preventDefault();
       isResizing.current = true;
       document.body.style.cursor = 'row-resize';
       document.body.style.userSelect = 'none';
 
-      const startY = e.clientY;
+      const startY = event.clientY;
       const startHeight = panelHeight;
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
         if (!isResizing.current) return;
         const delta = startY - moveEvent.clientY;
-        const newHeight = Math.max(PANEL_MIN_HEIGHT, startHeight + delta);
-        setPanelHeight(newHeight);
+        setPanelHeight(Math.max(PANEL_MIN_HEIGHT, startHeight + delta));
       };
 
       const handleMouseUp = () => {
@@ -174,150 +182,128 @@ export function ProblemPanel(): React.ReactElement {
     [panelHeight],
   );
 
-  // 卸载时清理 resize 相关监听（安全兜底）
-  useEffect(() => {
-    return () => {
-      if (isResizing.current) {
-        isResizing.current = false;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-    };
+  const handleResizeKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 40 : 10;
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setPanelHeight((current) => Math.min(window.innerHeight - 120, current + step));
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setPanelHeight((current) => Math.max(PANEL_MIN_HEIGHT, current - step));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setPanelHeight(PANEL_MIN_HEIGHT);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setPanelHeight(Math.max(PANEL_MIN_HEIGHT, window.innerHeight - 120));
+    }
   }, []);
 
-  // ========================================================================
-  // 面板关闭时不渲染内容（保持键盘监听生效）
-  // ========================================================================
+  useEffect(() => () => {
+    if (isResizing.current) {
+      isResizing.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  }, []);
 
   return (
     <div
       ref={panelRef}
-      className="problem-panel"
-      style={{
-        ...panelContainerStyle,
-        height: isProblemPanelOpen ? panelHeight : 0,
-        borderTopWidth: isProblemPanelOpen ? 1 : 0,
-        overflow: isProblemPanelOpen ? 'hidden' : 'hidden',
-      }}
+      className={`problem-panel${isProblemPanelOpen ? ' is-open' : ''}`}
+      data-testid="problem-panel"
+      aria-hidden={!isProblemPanelOpen}
+      style={{ '--theme-problem-panel-height': `${panelHeight}px` } as ProblemPanelStyle}
     >
       {isProblemPanelOpen && (
         <>
-          {/* ================================================================
-          拖拽调整高度的把手
-          ================================================================ */}
           <div
             className="problem-panel__resize-handle"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label={text('problemPanel.resize')}
+            aria-valuemin={PANEL_MIN_HEIGHT}
+            aria-valuemax={Math.max(PANEL_MIN_HEIGHT, window.innerHeight - 120)}
+            aria-valuenow={panelHeight}
+            tabIndex={0}
             onMouseDown={handleResizeStart}
-            style={resizeHandleStyle}
+            onKeyDown={handleResizeKeyDown}
           />
-
-          {/* ================================================================
-          标题栏
-          ================================================================ */}
-          <div style={headerStyle}>
-            <span style={headerTitleStyle}>问题</span>
-            <span style={shortcutHintStyle}>Ctrl+Shift+M</span>
-            <div style={headerActionsStyle}>
-              <button
-                type="button"
-                onClick={toggleProblemPanel}
-                title="关闭问题面板"
-                style={closeButtonStyle}
-              >
-                ✕
-              </button>
+          <header className="problem-panel__header">
+            <div className="problem-panel__title">
+              <AlertCircle aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('problemPanel.title')}</span>
+              <small>{text('problemPanel.shortcut')}</small>
             </div>
-          </div>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="icon-button problem-panel__close"
+              onClick={toggleProblemPanel}
+              aria-label={text('problemPanel.close')}
+            >
+              <X aria-hidden="true" size={16} strokeWidth={2} />
+            </button>
+          </header>
 
-          {/* ================================================================
-          过滤栏
-          ================================================================ */}
-          <div style={filterBarStyle}>
-            {FILTER_OPTIONS.map((opt) => {
-              const count =
-                opt.key === 'all'
-                  ? counts.total
-                  : opt.key === 'error'
-                    ? counts.errors
-                    : opt.key === 'warning'
-                      ? counts.warnings
-                      : counts.infos;
-
-              const isActive = severityFilter === opt.key;
-
+          <div className="problem-panel__filters" role="toolbar" aria-label={text('problemPanel.filtersAria')}>
+            {filterOptions.map((option) => {
+              const isActive = severityFilter === option.key;
               return (
                 <button
-                  key={opt.key}
+                  key={option.key}
                   type="button"
-                  className={
-                    'problem-panel__filter-btn' +
-                    (isActive ? ' problem-panel__filter-btn--active' : '')
-                  }
-                  onClick={() => handleFilterChange(opt.key)}
-                  style={{
-                    ...filterBtnStyle,
-                    ...(isActive ? activeFilterBtnStyle : {}),
-                  }}
+                  className="problem-panel__filter-btn"
+                  data-filter={option.key}
+                  aria-pressed={isActive}
+                  onClick={() => setSeverityFilter(option.key)}
                 >
-                  {opt.label}&nbsp;{count}
+                  <span>{option.label}</span>
+                  <strong>{option.count}</strong>
                 </button>
               );
             })}
           </div>
 
-          {/* ================================================================
-          诊断列表
-          ================================================================ */}
-          <div style={listContainerStyle}>
+          <div className="problem-panel__list" role="list" aria-label={text('problemPanel.listAria')}>
             {filteredDiagnostics.length === 0 ? (
-              /* ---- 空状态 ---- */
-              <div style={emptyStyle}>
-                <span style={emptyIconStyle}>&#x2705;</span>
-                <span>未发现问题</span>
+              <div className="problem-panel__empty">
+                <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                <span>{text('problemPanel.empty')}</span>
               </div>
             ) : (
-              /* ---- 诊断条目 ---- */
               filteredDiagnostics.map((diagnostic) => {
-                const icon = SEVERITY_ICON[diagnostic.severity];
-                const location = `行 ${diagnostic.range.startLine}:${diagnostic.range.startColumn}`;
+                const Icon = SEVERITY_ICON[diagnostic.severity];
+                const localized = localizeDiagnostic(diagnostic, language);
+                const message = localized.message;
+                const location = text('problemPanel.location', {
+                  line: diagnostic.range.startLine,
+                  column: diagnostic.range.startColumn,
+                });
+                const severityLabel = getSeverityLabel(diagnostic.severity, text);
 
                 return (
-                  <div
-                    key={diagnostic.id}
-                    className="problem-panel__item"
-                    onClick={() => handleJumpToLine(diagnostic)}
-                    title={
-                      `跳转到行 ${diagnostic.range.startLine}` +
-                      (diagnostic.detail ? `\n${diagnostic.detail}` : '')
-                    }
-                    style={itemStyle}
-                  >
-                    {/* 严重级别图标 */}
-                    <span
-                      style={{
-                        ...severityIconStyle,
-                        color: `var(--color-diagnostic-${diagnostic.severity}, ${
-                          diagnostic.severity === 'error'
-                            ? '#E53935'
-                            : diagnostic.severity === 'warning'
-                              ? '#F9A825'
-                              : '#1E88E5'
-                        })`,
-                      }}
+                  <div key={diagnostic.id} className="problem-panel__list-item" role="listitem">
+                    <button
+                      type="button"
+                      className="problem-panel__item"
+                      data-severity={diagnostic.severity}
+                      data-testid={`problem-panel-item-${diagnostic.code}`}
+                      onClick={() => handleJumpToLine(diagnostic)}
+                      title={
+                        text('problemPanel.jump', { line: diagnostic.range.startLine }) +
+                        (localized.detail ? `\n${localized.detail}` : '')
+                      }
+                      aria-label={`${severityLabel} ${diagnostic.code}. ${message}. ${location}`}
                     >
-                      {icon}
-                    </span>
-
-                    {/* 诊断代码 */}
-                    <span style={codeBadgeStyle}>{diagnostic.code}</span>
-
-                    {/* 消息文本 */}
-                    <span style={messageStyle} title={diagnostic.message}>
-                      {diagnostic.message}
-                    </span>
-
-                    {/* 文件位置 */}
-                    <span style={locationStyle}>{location}</span>
+                      <span className="problem-panel__severity" data-severity={diagnostic.severity}>
+                        <Icon aria-hidden="true" size={14} strokeWidth={2.2} />
+                        <span className="visually-hidden">{severityLabel}</span>
+                      </span>
+                      <span className="problem-panel__code">{diagnostic.code}</span>
+                      <span className="problem-panel__message">{message}</span>
+                      <span className="problem-panel__location">{location}</span>
+                    </button>
                   </div>
                 );
               })
@@ -328,190 +314,3 @@ export function ProblemPanel(): React.ReactElement {
     </div>
   );
 }
-
-// ============================================================================
-// Styles
-// ============================================================================
-
-// -------- 面板容器 --------
-
-const panelContainerStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  minHeight: 0,
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  position: 'relative',
-  transition: 'height 0.15s ease',
-  flexShrink: 0,
-};
-
-// -------- 拖拽把手 --------
-
-const resizeHandleStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: -4,
-  left: 0,
-  right: 0,
-  height: 8,
-  cursor: 'row-resize',
-  zIndex: 10,
-};
-
-// -------- 标题栏 --------
-
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '6px 12px',
-  fontSize: '12px',
-  fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
-  flexShrink: 0,
-  userSelect: 'none',
-};
-
-const headerTitleStyle: React.CSSProperties = {
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-};
-
-const shortcutHintStyle: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  marginRight: 'auto',
-};
-
-const headerActionsStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 4,
-};
-
-const closeButtonStyle: React.CSSProperties = {
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer',
-  fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  padding: '2px 6px',
-  borderRadius: 4,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  lineHeight: 1,
-};
-
-// -------- 过滤栏 --------
-
-const filterBarStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 4,
-  padding: '6px 12px',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
-  flexShrink: 0,
-};
-
-const filterBtnStyle: React.CSSProperties = {
-  border: 'none',
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
-  cursor: 'pointer',
-  fontSize: '11px',
-  fontWeight: 500,
-  color: 'var(--color-text-secondary, #5A5A5A)',
-  padding: '2px 10px',
-  borderRadius: 4,
-  lineHeight: '22px',
-  transition: 'background 0.1s ease, color 0.1s ease',
-};
-
-const activeFilterBtnStyle: React.CSSProperties = {
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.10))',
-  color: 'var(--color-accent, #A0703A)',
-  fontWeight: 600,
-};
-
-// -------- 诊断列表 --------
-
-const listContainerStyle: React.CSSProperties = {
-  flex: 1,
-  overflowY: 'auto',
-  overflowX: 'hidden',
-  padding: '2px 0',
-};
-
-const itemStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '5px 12px',
-  fontSize: '12px',
-  lineHeight: 1.5,
-  cursor: 'pointer',
-  color: 'var(--color-text-primary, #333333)',
-  transition: 'background 0.08s ease',
-  userSelect: 'none',
-};
-
-const severityIconStyle: React.CSSProperties = {
-  flexShrink: 0,
-  fontSize: '12px',
-  lineHeight: 1,
-  width: 16,
-  textAlign: 'center',
-};
-
-const codeBadgeStyle: React.CSSProperties = {
-  flexShrink: 0,
-  fontSize: '10px',
-  lineHeight: '16px',
-  fontWeight: 600,
-  padding: '0 5px',
-  borderRadius: 3,
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  fontFamily: 'var(--font-editor, Consolas, monospace)',
-  minWidth: 34,
-  textAlign: 'center',
-};
-
-const messageStyle: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  color: 'var(--color-text-primary, #333333)',
-};
-
-const locationStyle: React.CSSProperties = {
-  flexShrink: 0,
-  fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  fontFamily: 'var(--font-editor, Consolas, monospace)',
-  whiteSpace: 'nowrap',
-  marginLeft: 'auto',
-};
-
-// -------- 空状态 --------
-
-const emptyStyle: React.CSSProperties = {
-  padding: '24px 16px',
-  fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  textAlign: 'center',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  lineHeight: 1.5,
-};
-
-const emptyIconStyle: React.CSSProperties = {
-  fontSize: '16px',
-};

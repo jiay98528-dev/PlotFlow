@@ -16,15 +16,17 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useStoryStore, useEditorStore, useUIStore } from '../../stores';
-import type {
-  ConditionNode,
-  ComparisonExpression,
-  Operand,
-  VariableDeclaration,
-  VariableType,
-  ComparisonOperator,
-  LogicalOperator,
+import { useStoryStore, useUIStore } from '../../stores';
+import { graphEditService } from '../../services/graphEditService';
+import { useAppText } from '../../i18n/appI18n';
+import {
+  type ConditionNode,
+  type ComparisonExpression,
+  type Operand,
+  type VariableDeclaration,
+  type VariableType,
+  type ComparisonOperator,
+  type LogicalOperator,
 } from '@plotflow/core';
 
 // ============================================================================
@@ -32,17 +34,21 @@ import type {
 // ============================================================================
 
 /** 单条条件行 */
-interface ConditionRow {
+export interface ConditionRow {
   readonly id: string;
+  leftOperandType: 'literal' | 'variable';
+  leftLiteralType: 'string' | 'number' | 'boolean';
   variableName: string;
   operator: ComparisonOperator;
+  rightOperandType: 'literal' | 'variable';
+  rightLiteralType: 'string' | 'number' | 'boolean';
   value: string;
 }
 
 /** 条件组（可嵌套） */
-interface ConditionGroup {
+export interface ConditionGroup {
   readonly id: string;
-  operator: 'AND' | 'OR';
+  operator: LogicalOperator;
   rows: ConditionRow[];
   groups: ConditionGroup[];
 }
@@ -58,8 +64,6 @@ export interface ConditionEditorProps {
   readonly optionIndex?: number;
   /** 关闭面板回调 */
   readonly onClose: () => void;
-  /** 初始条件 AST（从解析器获取，用于初始化面板） */
-  readonly initialCondition?: ConditionNode | null;
 }
 
 // ============================================================================
@@ -76,16 +80,6 @@ const VARIABLE_TYPE_ICONS: Readonly<Record<VariableType, string>> = {
   object: '{}',
 };
 
-/** 变量类型 → 中文标签 */
-const VARIABLE_TYPE_LABELS: Readonly<Record<VariableType, string>> = {
-  int: '整数',
-  float: '浮点',
-  bool: '布尔',
-  string: '字符串',
-  enum: '枚举',
-  object: '对象',
-};
-
 /** 比较运算符 → 中文标签 */
 const OPERATOR_LABELS: Readonly<Record<ComparisonOperator, string>> = {
   '==': '＝',
@@ -97,9 +91,10 @@ const OPERATOR_LABELS: Readonly<Record<ComparisonOperator, string>> = {
 };
 
 /** 逻辑运算符颜色映射 */
-const LOGIC_GROUP_COLORS: Readonly<Record<'AND' | 'OR', string>> = {
-  AND: 'var(--color-syntax-heading, #1A6FB5)',
-  OR: 'var(--color-syntax-condition, #C5662A)',
+const LOGIC_GROUP_COLORS: Readonly<Record<LogicalOperator, string>> = {
+  AND: 'var(--color-syntax-heading)',
+  OR: 'var(--color-syntax-condition)',
+  NOT: 'var(--color-status-warning)',
 };
 
 /** 最大嵌套深度（不含根组） */
@@ -148,8 +143,50 @@ function findVariableType(
   variables: readonly VariableDeclaration[],
 ): VariableType | null {
   if (!name) return null;
-  const found = variables.find((v) => v.name === name);
-  return found?.type ?? null;
+  const segments = name.split('.');
+  let current = variables.find((variable) => variable.name === segments[0]);
+
+  for (const segment of segments.slice(1)) {
+    current = current?.fields?.find((field) => field.name === segment);
+  }
+
+  return current?.type ?? null;
+}
+
+function findVariableDeclaration(
+  name: string,
+  variables: readonly VariableDeclaration[],
+): VariableDeclaration | null {
+  const segments = name.split('.');
+  let current = variables.find((variable) => variable.name === segments[0]);
+
+  for (const segment of segments.slice(1)) {
+    current = current?.fields?.find((field) => field.name === segment);
+  }
+
+  return current ?? null;
+}
+
+interface VariableOption {
+  readonly name: string;
+  readonly declaration: VariableDeclaration;
+}
+
+/** 将 object 字段展开为条件表达式可引用的点路径。 */
+function flattenVariableOptions(
+  variables: readonly VariableDeclaration[],
+  prefix = '',
+): VariableOption[] {
+  return variables.flatMap((variable) => {
+    const name = prefix ? `${prefix}.${variable.name}` : variable.name;
+    const current = variable.type === 'object'
+      ? []
+      : [{ name, declaration: variable }];
+    const children = variable.fields
+      ? flattenVariableOptions(variable.fields, name)
+      : [];
+    return [...current, ...children];
+  });
 }
 
 // ============================================================================
@@ -159,30 +196,26 @@ function findVariableType(
 /**
  * 将 ConditionRow 转换为 Operand。
  */
-function rowToOperand(row: ConditionRow): Operand {
-  return {
-    operandType: 'variable',
-    variableName: row.variableName,
-  };
-}
-
-/**
- * 将 ConditionRow 的字面值解析为 Operation 的右操作数。
- */
-function parseRowValue(row: ConditionRow, varType: VariableType | null): Operand {
-  const raw = row.value;
-  if (varType === 'bool') {
+function parseOperandDraft(
+  operandType: 'literal' | 'variable',
+  raw: string,
+  literalType: 'string' | 'number' | 'boolean',
+  contextualType: VariableType | null,
+): Operand {
+  if (operandType === 'variable') {
+    return { operandType: 'variable', variableName: raw };
+  }
+  if (contextualType === 'bool' || literalType === 'boolean') {
     return { operandType: 'literal', literalValue: raw === 'true' };
   }
-  if (varType === 'int') {
+  if (contextualType === 'int') {
     const n = parseInt(raw, 10);
     return { operandType: 'literal', literalValue: Number.isNaN(n) ? 0 : n };
   }
-  if (varType === 'float') {
+  if (contextualType === 'float' || literalType === 'number') {
     const n = parseFloat(raw);
     return { operandType: 'literal', literalValue: Number.isNaN(n) ? 0.0 : n };
   }
-  // string / enum / unknown → 字符串字面量
   return { operandType: 'literal', literalValue: raw };
 }
 
@@ -193,12 +226,27 @@ function rowToComparison(
   row: ConditionRow,
   variables: readonly VariableDeclaration[],
 ): ComparisonExpression {
-  const varType = findVariableType(row.variableName, variables);
+  const leftVariableType = row.leftOperandType === 'variable'
+    ? findVariableType(row.variableName, variables)
+    : null;
+  const rightVariableType = row.rightOperandType === 'variable'
+    ? findVariableType(row.value, variables)
+    : null;
   return {
     type: 'comparison',
-    left: rowToOperand(row),
+    left: parseOperandDraft(
+      row.leftOperandType,
+      row.variableName,
+      row.leftLiteralType,
+      rightVariableType,
+    ),
     operator: row.operator,
-    right: parseRowValue(row, varType),
+    right: parseOperandDraft(
+      row.rightOperandType,
+      row.value,
+      row.rightLiteralType,
+      leftVariableType,
+    ),
   };
 }
 
@@ -215,7 +263,7 @@ export function builderToConditionNode(
 
   // 每一行是一个比较表达式
   for (const row of group.rows) {
-    if (row.variableName && row.value) {
+    if (row.variableName.length > 0 && row.value.length > 0) {
       allNodes.push(rowToComparison(row, variables));
     }
   }
@@ -229,6 +277,22 @@ export function builderToConditionNode(
   }
 
   if (allNodes.length === 0) return null;
+
+  if (group.operator === 'NOT') {
+    const operand = allNodes.length === 1
+      ? allNodes[0]!
+      : {
+          type: 'logical' as const,
+          operator: 'AND' as const,
+          operands: allNodes,
+        };
+    return {
+      type: 'logical',
+      operator: 'NOT',
+      operands: [operand],
+    };
+  }
+
   if (allNodes.length === 1) return allNodes[0]!;
 
   return {
@@ -242,7 +306,7 @@ export function builderToConditionNode(
  * 将 ConditionNode AST 转换为 Builder ConditionGroup。
  * 深度限制：最多递归 MAX_NESTING_DEPTH 层。
  */
-function conditionNodeToBuilder(
+export function conditionNodeToBuilder(
   node: ConditionNode,
   depth: number = 0,
 ): ConditionGroup {
@@ -264,27 +328,7 @@ function conditionNodeToBuilder(
   if (node.type === 'logical') {
     const logicalNode = node;
 
-    // NOT 运算符：将操作数作为单个条件处理
-    if (logicalNode.operator === 'NOT') {
-      group.operator = 'AND';
-      for (const operand of logicalNode.operands) {
-        if (operand.type === 'comparison') {
-          const row = comparisonToRow(operand);
-          if (row) {
-            // 对 NOT 的简单处理：翻转运算符
-            row.operator = negateOperator(row.operator);
-            group.rows.push(row);
-          }
-        } else {
-          // 嵌套的逻辑表达式在 NOT 中，递归处理
-          const subGroup = conditionNodeToBuilder(operand, depth);
-          mergeGroup(group, subGroup);
-        }
-      }
-      return group;
-    }
-
-    // AND / OR
+    // AND / OR / NOT。NOT 保留为独立组，不再通过反转比较符进行有损展开。
     group.operator = logicalNode.operator;
 
     for (const operand of logicalNode.operands) {
@@ -297,9 +341,9 @@ function conditionNodeToBuilder(
         const subGroup = conditionNodeToBuilder(operand, depth + 1);
         group.groups.push(subGroup);
       } else {
-        // 深度超限，摊平为行
-        const flattened = flattenNodeToRows(operand);
-        group.rows.push(...flattened);
+        // 合法 .mdstory 最多三层。若收到更深的外部 AST，仍保留结构，
+        // 但 UI 不再允许继续新增嵌套层级。
+        group.groups.push(conditionNodeToBuilder(operand, depth + 1));
       }
     }
   }
@@ -310,211 +354,101 @@ function conditionNodeToBuilder(
 /**
  * 将 ComparisonExpression 转换为 ConditionRow。
  */
-function comparisonToRow(node: ComparisonExpression): ConditionRow | null {
-  if (node.left.operandType !== 'variable' || !node.left.variableName) {
-    return null;
+function operandToDraft(operand: Operand): {
+  readonly value: string;
+  readonly literalType: 'string' | 'number' | 'boolean';
+} {
+  if (operand.operandType === 'variable') {
+    return { value: operand.variableName ?? '', literalType: 'string' };
   }
-
-  let valueStr: string;
-  if (node.right.operandType === 'literal') {
-    const val = node.right.literalValue;
-    if (typeof val === 'boolean') {
-      valueStr = val ? 'true' : 'false';
-    } else if (typeof val === 'number') {
-      valueStr = String(val);
-    } else {
-      valueStr = val != null ? String(val) : '';
-    }
-  } else {
-    valueStr = '';
+  const val = operand.literalValue;
+  if (typeof val === 'boolean') {
+    return { value: val ? 'true' : 'false', literalType: 'boolean' };
   }
+  if (typeof val === 'number') {
+    return { value: String(val), literalType: 'number' };
+  }
+  return { value: val != null ? String(val) : '', literalType: 'string' };
+}
 
+function comparisonToRow(node: ComparisonExpression): ConditionRow {
+  const left = operandToDraft(node.left);
+  const right = operandToDraft(node.right);
   return {
     id: nextId(),
-    variableName: node.left.variableName,
+    leftOperandType: node.left.operandType,
+    leftLiteralType: left.literalType,
+    variableName: left.value,
     operator: node.operator,
-    value: valueStr,
+    rightOperandType: node.right.operandType,
+    rightLiteralType: right.literalType,
+    value: right.value,
   };
 }
 
-/**
- * 翻转比较运算符（用于 NOT 展开）。
- */
-function negateOperator(op: ComparisonOperator): ComparisonOperator {
-  switch (op) {
-    case '==': return '!=';
-    case '!=': return '==';
-    case '>': return '<=';
-    case '<': return '>=';
-    case '>=': return '<';
-    case '<=': return '>';
-    default: return '!=';
-  }
+function createEmptyConditionRow(): ConditionRow {
+  return {
+    id: nextId(),
+    leftOperandType: 'variable',
+    leftLiteralType: 'string',
+    variableName: '',
+    operator: '==',
+    rightOperandType: 'literal',
+    rightLiteralType: 'string',
+    value: '',
+  };
 }
 
-/**
- * 将 AST 节点摊平为条件行列表（深度超限时用）。
- */
-function flattenNodeToRows(node: ConditionNode): ConditionRow[] {
-  if (node.type === 'comparison') {
-    const row = comparisonToRow(node);
-    return row ? [row] : [];
-  }
-  const rows: ConditionRow[] = [];
-  for (const operand of node.operands) {
-    rows.push(...flattenNodeToRows(operand));
-  }
-  return rows;
-}
-
-/**
- * 将 source group 的内容合并到 target group。
- */
-function mergeGroup(target: ConditionGroup, source: ConditionGroup): void {
-  target.rows.push(...source.rows);
-  target.groups.push(...source.groups);
+function createEmptyConditionGroup(): ConditionGroup {
+  return {
+    id: nextId(),
+    operator: 'AND',
+    rows: [createEmptyConditionRow()],
+    groups: [],
+  };
 }
 
 // ============================================================================
 // 辅助函数：表达式预览字符串生成
 // ============================================================================
 
-/**
- * 将 ConditionRow 转换为表达式片段字符串。
- */
-function rowToExpression(row: ConditionRow): string {
-  const varPart = row.variableName ? `$${row.variableName}` : '?';
-  const opPart = row.operator || '?';
-  const valPart = row.value || '?';
-  return `${varPart}${opPart}${valPart}`;
+function serializeLiteral(value: Operand['literalValue']): string {
+  if (typeof value === 'string') {
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return `'${JSON.stringify(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
+function serializeOperand(operand: Operand): string {
+  if (operand.operandType === 'variable') {
+    return `$${operand.variableName ?? ''}`;
+  }
+  return serializeLiteral(operand.literalValue);
 }
 
 /**
- * 递归生成条件组的表达式预览文本。
- * 示例: ($技能>=5) AND ($道具==true)
+ * 将条件 AST 序列化为可写回 `.mdstory` 的表达式。
+ *
+ * 字符串与 enum 统一使用单引号并转义，变量引用保留 `$` 前缀；
+ * 逻辑节点始终显式加括号，从而保证优先级可逆。
  */
-function builderToExpression(group: ConditionGroup): string {
-  const parts: string[] = [];
-
-  for (const row of group.rows) {
-    if (row.variableName && row.operator) {
-      parts.push(`(${rowToExpression(row)})`);
-    }
+export function serializeConditionExpression(node: ConditionNode | null): string {
+  if (!node) return '';
+  if (node.type === 'comparison') {
+    return `${serializeOperand(node.left)} ${node.operator} ${serializeOperand(node.right)}`;
   }
 
-  for (const subGroup of group.groups) {
-    const subExpr = builderToExpression(subGroup);
-    if (subExpr) {
-      parts.push(`(${subExpr})`);
-    }
+  if (node.operator === 'NOT') {
+    const operand = node.operands[0];
+    return operand ? `NOT (${serializeConditionExpression(operand)})` : '';
   }
 
-  if (parts.length === 0) return '';
-  if (parts.length === 1) return parts[0]!;
-  return parts.join(` ${group.operator} `);
-}
-
-// ============================================================================
-// 辅助函数：编辑器文本同步
-// ============================================================================
-
-/**
- * 在编辑器文本中查找选项行的索引（0-based）。
- */
-function findOptionLineIndex(
-  lines: string[],
-  nodeTitle: string,
-  optionDescription: string,
-): number {
-  let inTargetNode = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-
-    // 检测节点标题
-    if (new RegExp(`^##\\s+节点：\\s*${escapeRegex(nodeTitle)}\\s*$`).test(line)) {
-      inTargetNode = true;
-      continue;
-    }
-
-    // 离开节点
-    if (inTargetNode && /^##\s+节点：/.test(line)) {
-      inTargetNode = false;
-      continue;
-    }
-
-    // 在目标节点内查找选项行
-    if (inTargetNode && line.includes(`[选项]`) && line.includes(optionDescription)) {
-      return i;
-    }
-  }
-
-  return -1;
-}
-
-/**
- * 在编辑器文本中查找条件子行的索引（从 optionLineIndex 之后开始扫描）。
- * 返回 -1 表示不存在。
- */
-function findConditionSubLineIndex(
-  lines: string[],
-  optionLineIndex: number,
-): number {
-  for (let i = optionLineIndex + 1; i < lines.length; i++) {
-    const line = lines[i]!;
-
-    // 遇到下一个 [选项] 或节点标题则停止
-    if (/^\[选项\]/.test(line) || /^##\s+节点：/.test(line) || /^#\s+/.test(line)) {
-      break;
-    }
-
-    if (/^\s+条件:/.test(line)) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-/**
- * 更新编辑器文本中的条件子行。
- */
-function updateEditorConditionText(
-  content: string,
-  nodeTitle: string,
-  optionDescription: string,
-  newExpression: string,
-): string {
-  const lines = content.split('\n');
-  const optionLineIdx = findOptionLineIndex(lines, nodeTitle, optionDescription);
-
-  if (optionLineIdx === -1) return content;
-
-  const condLineIdx = findConditionSubLineIndex(lines, optionLineIdx);
-
-  if (newExpression) {
-    const newLine = `  条件: ${newExpression}`;
-    if (condLineIdx !== -1) {
-      // 替换现有条件行
-      lines[condLineIdx] = newLine;
-    } else {
-      // 在选项行之后插入
-      lines.splice(optionLineIdx + 1, 0, newLine);
-    }
-  } else {
-    // 空表达式 → 删除条件行
-    if (condLineIdx !== -1) {
-      lines.splice(condLineIdx, 1);
-    }
-  }
-
-  return lines.join('\n');
-}
-
-/**
- * 转义正则表达式特殊字符。
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return node.operands
+    .map((operand) => `(${serializeConditionExpression(operand)})`)
+    .join(` ${node.operator} `);
 }
 
 // ============================================================================
@@ -525,17 +459,21 @@ interface VariableDropdownProps {
   readonly variables: readonly VariableDeclaration[];
   readonly selectedName: string;
   readonly onSelect: (name: string) => void;
+  readonly ariaLabel: string;
 }
 
 function VariableDropdown({
   variables,
   selectedName,
   onSelect,
+  ariaLabel,
 }: VariableDropdownProps): React.ReactElement {
+  const text = useAppText();
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const options = useMemo(() => flattenVariableOptions(variables), [variables]);
 
   // 点击外部关闭
   useEffect(() => {
@@ -551,22 +489,23 @@ function VariableDropdown({
   }, [isOpen]);
 
   const filtered = useMemo(() => {
-    if (!searchText) return variables;
+    if (!searchText) return options;
     const lower = searchText.toLowerCase();
-    return variables.filter(
-      (v) =>
-        v.name.toLowerCase().includes(lower) ||
-        VARIABLE_TYPE_LABELS[v.type].includes(searchText),
+    return options.filter(
+      (option) =>
+        option.name.toLowerCase().includes(lower) ||
+        text(`conditionEditor.variableType.${option.declaration.type}`).includes(searchText),
     );
-  }, [variables, searchText]);
+  }, [options, searchText, text]);
 
-  const selectedVar = variables.find((v) => v.name === selectedName);
-  const selectedIcon = selectedVar ? VARIABLE_TYPE_ICONS[selectedVar.type] : '';
+  const selectedVar = options.find((option) => option.name === selectedName);
+  const selectedIcon = selectedVar ? VARIABLE_TYPE_ICONS[selectedVar.declaration.type] : '';
 
   return (
     <div ref={dropdownRef} style={dropdownContainerStyle}>
       <button
         type="button"
+        aria-label={ariaLabel}
         style={dropdownButtonStyle}
         onClick={() => {
           setIsOpen(!isOpen);
@@ -582,11 +521,11 @@ function VariableDropdown({
               {selectedName}
             </span>
             <span style={typeLabelStyle}>
-              {VARIABLE_TYPE_LABELS[selectedVar.type]}
+              {text(`conditionEditor.variableType.${selectedVar.declaration.type}`)}
             </span>
           </>
         ) : (
-          <span style={placeholderStyle}>选择变量...</span>
+          <span style={placeholderStyle}>{text('conditionEditor.selectVariable')}</span>
         )}
         <span style={chevronStyle}>{isOpen ? '▲' : '▼'}</span>
       </button>
@@ -600,7 +539,8 @@ function VariableDropdown({
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="搜索变量..."
+              placeholder={text('conditionEditor.searchVariable')}
+              aria-label={text('conditionEditor.searchVariable')}
               style={searchInputStyle}
             />
           </div>
@@ -608,27 +548,27 @@ function VariableDropdown({
           {/* 变量列表 */}
           <div style={dropdownListStyle}>
             {filtered.length === 0 ? (
-              <div style={emptyOptionStyle}>无匹配变量</div>
+              <div style={emptyOptionStyle}>{text('conditionEditor.noMatchingVariable')}</div>
             ) : (
-              filtered.map((v) => (
+              filtered.map((option) => (
                 <button
-                  key={v.name}
+                  key={option.name}
                   type="button"
                   style={{
                     ...dropdownItemStyle,
-                    ...(v.name === selectedName ? dropdownItemActiveStyle : {}),
+                    ...(option.name === selectedName ? dropdownItemActiveStyle : {}),
                   }}
                   onClick={() => {
-                    onSelect(v.name);
+                    onSelect(option.name);
                     setIsOpen(false);
                     setSearchText('');
                   }}
                 >
-                  <span style={typeIconStyle}>{VARIABLE_TYPE_ICONS[v.type]}</span>
+                  <span style={typeIconStyle}>{VARIABLE_TYPE_ICONS[option.declaration.type]}</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {v.name}
+                    {option.name}
                   </span>
-                  <span style={typeLabelStyle}>{VARIABLE_TYPE_LABELS[v.type]}</span>
+                  <span style={typeLabelStyle}>{text(`conditionEditor.variableType.${option.declaration.type}`)}</span>
                 </button>
               ))
             )}
@@ -637,7 +577,7 @@ function VariableDropdown({
           {/* 提示：无变量时 */}
           {variables.length === 0 && (
             <div style={noVarsHintStyle}>
-              请先在 Frontmatter 中声明变量
+              {text('conditionEditor.declareVariableFirst')}
             </div>
           )}
         </div>
@@ -654,13 +594,16 @@ interface OperatorDropdownProps {
   readonly operators: readonly ComparisonOperator[];
   readonly selected: ComparisonOperator;
   readonly onSelect: (op: ComparisonOperator) => void;
+  readonly ariaLabel: string;
 }
 
 function OperatorDropdown({
   operators,
   selected,
   onSelect,
+  ariaLabel,
 }: OperatorDropdownProps): React.ReactElement {
+  const text = useAppText();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -677,8 +620,8 @@ function OperatorDropdown({
 
   if (operators.length === 0) {
     return (
-      <div style={{ ...dropdownButtonStyle, color: 'var(--color-text-muted, #8A8A8A)', cursor: 'not-allowed' }}>
-        不可比较
+      <div style={{ ...dropdownButtonStyle, color: 'var(--color-text-muted)', cursor: 'not-allowed' }}>
+        {text('conditionEditor.notComparable')}
       </div>
     );
   }
@@ -687,6 +630,7 @@ function OperatorDropdown({
     <div ref={dropdownRef} style={{ ...dropdownContainerStyle, minWidth: 56 }}>
       <button
         type="button"
+        aria-label={ariaLabel}
         style={dropdownButtonStyle}
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -712,7 +656,7 @@ function OperatorDropdown({
               }}
             >
               <span style={{ fontWeight: 600 }}>{OPERATOR_LABELS[op]}</span>
-              <span style={{ marginLeft: 8, fontSize: '10px', color: 'var(--color-text-muted, #8A8A8A)' }}>
+              <span style={{ marginLeft: 8, fontSize: '10px', color: 'var(--color-text-muted)' }}>
                 {op}
               </span>
             </button>
@@ -732,6 +676,7 @@ interface ValueInputProps {
   readonly enumValues: readonly string[] | undefined;
   readonly value: string;
   readonly onChange: (value: string) => void;
+  readonly ariaLabel: string;
 }
 
 function ValueInput({
@@ -739,11 +684,14 @@ function ValueInput({
   enumValues,
   value,
   onChange,
+  ariaLabel,
 }: ValueInputProps): React.ReactElement {
+  const text = useAppText();
   // bool → true/false 下拉
   if (variableType === 'bool') {
     return (
       <select
+        aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={selectStyle}
@@ -759,6 +707,7 @@ function ValueInput({
   if (variableType === 'enum' && enumValues && enumValues.length > 0) {
     return (
       <select
+        aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={selectStyle}
@@ -777,6 +726,7 @@ function ValueInput({
   if (variableType === 'int') {
     return (
       <input
+        aria-label={ariaLabel}
         type="number"
         step={1}
         value={value}
@@ -791,6 +741,7 @@ function ValueInput({
   if (variableType === 'float') {
     return (
       <input
+        aria-label={ariaLabel}
         type="number"
         step={0.1}
         value={value}
@@ -804,17 +755,18 @@ function ValueInput({
   // object → 不可编辑
   if (variableType === 'object') {
     return (
-      <div style={{ ...disabledInputStyle }}>不可比较</div>
+      <div style={{ ...disabledInputStyle }}>{text('conditionEditor.notComparable')}</div>
     );
   }
 
   // string / 未知 → 文本输入
   return (
     <input
+      aria-label={ariaLabel}
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder="值..."
+      placeholder={text('conditionEditor.valuePlaceholder')}
       style={textInputStyle}
     />
   );
@@ -839,7 +791,14 @@ function ConditionRowView({
   onRemove,
   canRemove,
 }: ConditionRowViewProps): React.ReactElement {
-  const variableType = findVariableType(row.variableName, variables);
+  const text = useAppText();
+  const leftVariable = row.leftOperandType === 'variable'
+    ? findVariableDeclaration(row.variableName, variables)
+    : null;
+  const rightVariable = row.rightOperandType === 'variable'
+    ? findVariableDeclaration(row.value, variables)
+    : null;
+  const variableType = leftVariable?.type ?? rightVariable?.type ?? null;
   const availableOps = useMemo(
     () => getOperatorsForType(variableType),
     [variableType],
@@ -863,36 +822,135 @@ function ConditionRowView({
     }
   }, [effectiveOp, row.operator, row, onUpdate]);
 
-  const selectedVar = variables.find((v) => v.name === row.variableName);
-  const enumValues = selectedVar?.enumValues;
+  const leftLiteralContext = rightVariable;
+  const rightLiteralContext = leftVariable;
+  const literalInputType = (
+    literalType: ConditionRow['leftLiteralType'],
+    context: VariableDeclaration | null,
+  ): VariableType => {
+    if (context) return context.type;
+    if (literalType === 'boolean') return 'bool';
+    if (literalType === 'number') return 'float';
+    return 'string';
+  };
 
   return (
     <div style={conditionRowStyle}>
       {/* 拖拽把手（装饰） */}
       <span style={dragHandleStyle}>&#x2630;</span>
 
-      {/* 变量下拉 */}
-      <VariableDropdown
-        variables={variables}
-        selectedName={row.variableName}
-        onSelect={(name) => onUpdate({ ...row, variableName: name, value: '' })}
-      />
+      {/* 左操作数：变量或类型化字面值 */}
+      <div style={rightOperandStyle}>
+        <select
+          aria-label={text('conditionEditor.leftOperandType')}
+          value={row.leftOperandType}
+          onChange={(event) => onUpdate({
+            ...row,
+            leftOperandType: event.target.value as ConditionRow['leftOperandType'],
+            variableName: '',
+          })}
+          style={operandTypeSelectStyle}
+        >
+          <option value="variable">{text('conditionEditor.variable')}</option>
+          <option value="literal">{text('conditionEditor.value')}</option>
+        </select>
+        {row.leftOperandType === 'variable' ? (
+          <VariableDropdown
+            variables={variables}
+            selectedName={row.variableName}
+            onSelect={(name) => onUpdate({ ...row, variableName: name })}
+            ariaLabel={text('conditionEditor.leftVariable')}
+          />
+        ) : (
+          <>
+            {!leftLiteralContext && (
+              <select
+                aria-label={text('conditionEditor.leftLiteralType')}
+                value={row.leftLiteralType}
+                onChange={(event) => onUpdate({
+                  ...row,
+                  leftLiteralType: event.target.value as ConditionRow['leftLiteralType'],
+                  variableName: '',
+                })}
+                style={operandTypeSelectStyle}
+              >
+                <option value="string">{text('conditionEditor.text')}</option>
+                <option value="number">{text('conditionEditor.number')}</option>
+                <option value="boolean">{text('conditionEditor.boolean')}</option>
+              </select>
+            )}
+            <div style={{ flex: 1, minWidth: 80 }}>
+              <ValueInput
+                variableType={literalInputType(row.leftLiteralType, leftLiteralContext)}
+                enumValues={leftLiteralContext?.enumValues}
+                value={row.variableName}
+                onChange={(value) => onUpdate({ ...row, variableName: value })}
+                ariaLabel={text('conditionEditor.leftValue')}
+              />
+            </div>
+          </>
+        )}
+      </div>
 
       {/* 运算符下拉 */}
       <OperatorDropdown
         operators={availableOps}
         selected={effectiveOp}
         onSelect={(op) => onUpdate({ ...row, operator: op })}
+        ariaLabel={text('conditionEditor.comparisonOperator')}
       />
 
-      {/* 值输入 */}
-      <div style={{ flex: 1, minWidth: 80 }}>
-        <ValueInput
-          variableType={variableType}
-          enumValues={enumValues}
-          value={row.value}
-          onChange={(val) => onUpdate({ ...row, value: val })}
-        />
+      {/* 右操作数：类型化字面值或另一个变量 */}
+      <div style={rightOperandStyle}>
+        <select
+          aria-label={text('conditionEditor.rightOperandType')}
+          value={row.rightOperandType}
+          onChange={(event) => onUpdate({
+            ...row,
+            rightOperandType: event.target.value as ConditionRow['rightOperandType'],
+            value: '',
+          })}
+          style={operandTypeSelectStyle}
+        >
+          <option value="literal">{text('conditionEditor.value')}</option>
+          <option value="variable">{text('conditionEditor.variable')}</option>
+        </select>
+        {row.rightOperandType === 'variable' ? (
+          <VariableDropdown
+            variables={variables}
+            selectedName={row.value}
+            onSelect={(name) => onUpdate({ ...row, value: name })}
+            ariaLabel={text('conditionEditor.rightVariable')}
+          />
+        ) : (
+          <>
+            {!rightLiteralContext && (
+              <select
+                aria-label={text('conditionEditor.rightLiteralType')}
+                value={row.rightLiteralType}
+                onChange={(event) => onUpdate({
+                  ...row,
+                  rightLiteralType: event.target.value as ConditionRow['rightLiteralType'],
+                  value: '',
+                })}
+                style={operandTypeSelectStyle}
+              >
+                <option value="string">{text('conditionEditor.text')}</option>
+                <option value="number">{text('conditionEditor.number')}</option>
+                <option value="boolean">{text('conditionEditor.boolean')}</option>
+              </select>
+            )}
+            <div style={{ flex: 1, minWidth: 80 }}>
+              <ValueInput
+                variableType={literalInputType(row.rightLiteralType, rightLiteralContext)}
+                enumValues={rightLiteralContext?.enumValues}
+                value={row.value}
+                onChange={(val) => onUpdate({ ...row, value: val })}
+                ariaLabel={text('conditionEditor.rightValue')}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* 删除按钮 */}
@@ -901,7 +959,7 @@ function ConditionRowView({
           type="button"
           style={removeRowButtonStyle}
           onClick={onRemove}
-          title="删除条件"
+          title={text('conditionEditor.deleteCondition')}
         >
           &#x2715;
         </button>
@@ -929,6 +987,7 @@ function ConditionGroupView({
   onUpdate,
   onRemove,
 }: ConditionGroupViewProps): React.ReactElement {
+  const text = useAppText();
   const borderColor = LOGIC_GROUP_COLORS[group.operator];
 
   const handleRowUpdate = useCallback(
@@ -949,12 +1008,7 @@ function ConditionGroupView({
   );
 
   const handleAddRow = useCallback(() => {
-    const newRow: ConditionRow = {
-      id: nextId(),
-      variableName: '',
-      operator: '==',
-      value: '',
-    };
+    const newRow = createEmptyConditionRow();
     onUpdate({ ...group, rows: [...group.rows, newRow] });
   }, [group, onUpdate]);
 
@@ -980,7 +1034,7 @@ function ConditionGroupView({
     const newGroup: ConditionGroup = {
       id: nextId(),
       operator: 'AND',
-      rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
+      rows: [createEmptyConditionRow()],
       groups: [],
     };
     onUpdate({ ...group, groups: [...group.groups, newGroup] });
@@ -991,7 +1045,7 @@ function ConditionGroupView({
     const newGroup: ConditionGroup = {
       id: nextId(),
       operator: 'OR',
-      rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
+      rows: [createEmptyConditionRow()],
       groups: [],
     };
     onUpdate({ ...group, groups: [...group.groups, newGroup] });
@@ -1009,16 +1063,17 @@ function ConditionGroupView({
       {/* 组头 */}
       <div style={groupHeaderStyle}>
         {/* AND/OR 切换 */}
-        <div style={operatorToggleStyle}>
+        <div style={operatorToggleStyle} role="group" aria-label={text('conditionEditor.groupOperator')}>
           <button
             type="button"
             style={{
               ...operatorToggleBtnStyle,
               ...(group.operator === 'AND'
-                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.AND, color: 'var(--color-text-on-accent, #FFFFFF)' }
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.AND, color: 'var(--color-text-on-accent)' }
                 : {}),
             }}
             onClick={() => onUpdate({ ...group, operator: 'AND' })}
+            aria-pressed={group.operator === 'AND'}
           >
             AND
           </button>
@@ -1027,12 +1082,27 @@ function ConditionGroupView({
             style={{
               ...operatorToggleBtnStyle,
               ...(group.operator === 'OR'
-                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.OR, color: 'var(--color-text-on-accent, #FFFFFF)' }
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.OR, color: 'var(--color-text-on-accent)' }
                 : {}),
             }}
             onClick={() => onUpdate({ ...group, operator: 'OR' })}
+            aria-pressed={group.operator === 'OR'}
           >
             OR
+          </button>
+          <button
+            type="button"
+            style={{
+              ...operatorToggleBtnStyle,
+              ...(group.operator === 'NOT'
+                ? { ...operatorToggleActiveStyle, background: LOGIC_GROUP_COLORS.NOT, color: 'var(--color-text-on-accent)' }
+                : {}),
+            }}
+            onClick={() => onUpdate({ ...group, operator: 'NOT' })}
+            aria-pressed={group.operator === 'NOT'}
+            title={text('conditionEditor.negateGroup')}
+          >
+            NOT
           </button>
         </div>
 
@@ -1042,7 +1112,7 @@ function ConditionGroupView({
             type="button"
             style={removeGroupButtonStyle}
             onClick={onRemove}
-            title="删除条件组"
+            title={text('conditionEditor.deleteGroup')}
           >
             &#x2715;
           </button>
@@ -1078,7 +1148,7 @@ function ConditionGroupView({
       {/* 操作按钮 */}
       <div style={groupActionsStyle}>
         <button type="button" style={addRowButtonStyle} onClick={handleAddRow}>
-          + 添加条件
+          {text('conditionEditor.addCondition')}
         </button>
         {canNest && (
           <>
@@ -1087,23 +1157,122 @@ function ConditionGroupView({
               style={{ ...addGroupButtonStyle, color: LOGIC_GROUP_COLORS.AND }}
               onClick={handleAddAndGroup}
             >
-              + AND 组
+              {text('conditionEditor.addAndGroup')}
             </button>
             <button
               type="button"
               style={{ ...addGroupButtonStyle, color: LOGIC_GROUP_COLORS.OR }}
               onClick={handleAddOrGroup}
             >
-              + OR 组
+              {text('conditionEditor.addOrGroup')}
             </button>
           </>
         )}
         {!canNest && (
           <span style={maxDepthHintStyle}>
-            已达最大嵌套深度 ({MAX_NESTING_DEPTH} 层)
+            {text('conditionEditor.maxDepth', { depth: MAX_NESTING_DEPTH })}
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// 共享组件：可嵌入任意 Inspector 的条件树编辑器
+// ============================================================================
+
+export interface ConditionTreeEditorProps {
+  readonly value: ConditionNode | null;
+  readonly variables: readonly VariableDeclaration[];
+  readonly onChange: (value: ConditionNode | null) => void;
+  readonly compact?: boolean;
+  readonly allowClear?: boolean;
+  readonly testId?: string;
+}
+
+/**
+ * 受控的条件树编辑器。
+ *
+ * 内部保留未填写完整的 Builder 草稿；只有可序列化为合法 AST 的部分才通过
+ * `onChange` 发给上层。这让 Inspector 可以即时提交，同时不会在用户选择变量
+ * 和输入值之间丢失半成品。
+ */
+export function ConditionTreeEditor({
+  value,
+  variables,
+  onChange,
+  compact = false,
+  allowClear = true,
+  testId = 'condition-tree-editor',
+}: ConditionTreeEditorProps): React.ReactElement {
+  const text = useAppText();
+  const [rootGroup, setRootGroup] = useState<ConditionGroup>(() => (
+    value ? conditionNodeToBuilder(value) : createEmptyConditionGroup()
+  ));
+  const lastEmittedSignatureRef = useRef<string | null>(null);
+  const externalSignature = useMemo(() => serializeConditionExpression(value), [value]);
+
+  useEffect(() => {
+    if (lastEmittedSignatureRef.current === externalSignature) {
+      lastEmittedSignatureRef.current = null;
+      return;
+    }
+    setRootGroup(value ? conditionNodeToBuilder(value) : createEmptyConditionGroup());
+  }, [externalSignature, value]);
+
+  const handleUpdate = useCallback((nextGroup: ConditionGroup) => {
+    setRootGroup(nextGroup);
+    const nextValue = builderToConditionNode(nextGroup, variables);
+    // 半成品不是“清除条件”。只有明确点击清除时才向上层发送 null，
+    // 避免 Inspector 在用户切换变量、尚未输入值的瞬间删除现有条件。
+    if (!nextValue) return;
+    lastEmittedSignatureRef.current = serializeConditionExpression(nextValue);
+    onChange(nextValue);
+  }, [onChange, variables]);
+
+  const handleClear = useCallback(() => {
+    setRootGroup(createEmptyConditionGroup());
+    lastEmittedSignatureRef.current = '';
+    onChange(null);
+  }, [onChange]);
+
+  return (
+    <div
+      data-testid={testId}
+      style={{
+        ...conditionTreeStyle,
+        ...(compact ? conditionTreeCompactStyle : {}),
+      }}
+    >
+      {variables.length === 0 ? (
+        <div style={emptyVarsStyle} role="status">
+          <span aria-hidden="true" style={{ fontSize: '24px', marginBottom: '8px' }}>&#x1F4CB;</span>
+          <span>{text('conditionEditor.noVariables')}</span>
+          <span style={emptyVarsHintStyle}>
+            {text('conditionEditor.noVariablesHint')}
+          </span>
+        </div>
+      ) : (
+        <>
+          <ConditionGroupView
+            group={rootGroup}
+            variables={variables}
+            depth={0}
+            onUpdate={handleUpdate}
+          />
+          {allowClear && (
+            <button
+              type="button"
+              onClick={handleClear}
+              style={clearConditionButtonStyle}
+              disabled={!builderToConditionNode(rootGroup, variables)}
+            >
+              {text('conditionEditor.clear')}
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -1116,20 +1285,42 @@ export function ConditionEditor({
   nodeId,
   optionIndex,
   onClose,
-  initialCondition,
 }: ConditionEditorProps): React.ReactElement | null {
+  const text = useAppText();
   // ==========================================================================
   // Store 订阅
   // ==========================================================================
 
   const plotFlowData = useStoryStore((s) => s.plotFlowData);
-  const editorContent = useEditorStore((s) => s.content);
-  const setEditorContent = useEditorStore((s) => s.setContent);
   const isOpen = useUIStore((s) => s.isConditionEditorOpen);
+  const setStatusMessage = useUIStore((s) => s.setStatusMessage);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  const selectedNode = useMemo(() => {
+    if (nodeId === undefined || optionIndex === undefined || !plotFlowData) {
+      return null;
+    }
+
+    for (const chapter of plotFlowData.chapters) {
+      for (const node of chapter.nodes) {
+        if (node.fullId === nodeId) return node;
+      }
+    }
+    return null;
+  }, [nodeId, optionIndex, plotFlowData]);
 
   const variables = useMemo<readonly VariableDeclaration[]>(
-    () => plotFlowData?.variables ?? [],
-    [plotFlowData],
+    () => (plotFlowData?.variables ?? []).filter((variable) => (
+      variable.scope !== 'chapter' || variable.chapterId === selectedNode?.chapterId
+    )),
+    [plotFlowData, selectedNode?.chapterId],
+  );
+
+  const selectedOption = useMemo(
+    () => selectedNode?.options[optionIndex ?? -1] ?? null,
+    [optionIndex, selectedNode],
   );
 
   // ==========================================================================
@@ -1138,78 +1329,38 @@ export function ConditionEditor({
 
   /** 当 nodeId + optionIndex 提供时，从 AST 查找已有条件 */
   const resolvedCondition = useMemo<ConditionNode | null>(() => {
-    if (nodeId === undefined || optionIndex === undefined || !plotFlowData) {
-      return null;
-    }
-    for (const chapter of plotFlowData.chapters) {
-      for (const node of chapter.nodes) {
-        if (node.fullId === nodeId) {
-          const option = node.options[optionIndex];
-          return option?.condition ?? null;
-        }
-      }
-    }
-    return null;
-  }, [nodeId, optionIndex, plotFlowData]);
+    return selectedOption?.condition ?? null;
+  }, [selectedOption]);
 
   // ==========================================================================
-  // Builder 内部状态
+  // 可提交的条件草稿
   // ==========================================================================
 
-  const [rootGroup, setRootGroup] = useState<ConditionGroup>(() => {
-    const seed = initialCondition ?? resolvedCondition;
-    if (seed) {
-      return conditionNodeToBuilder(seed, 0);
-    }
-    return {
-      id: nextId(),
-      operator: 'AND',
-      rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
-      groups: [],
-    };
-  });
+  const [draftCondition, setDraftCondition] = useState<ConditionNode | null>(resolvedCondition);
 
-  // 当 initialCondition prop 变化时重新初始化（editor text → panel 同步）
-  const prevConditionRef = useRef(initialCondition);
   useEffect(() => {
-    // 仅当 initialCondition 引用变化且面板打开时更新
-    if (initialCondition !== prevConditionRef.current && isOpen) {
-      prevConditionRef.current = initialCondition;
-      if (initialCondition) {
-        setRootGroup(conditionNodeToBuilder(initialCondition, 0));
-      } else {
-        setRootGroup({
-          id: nextId(),
-          operator: 'AND',
-          rows: [{ id: nextId(), variableName: '', operator: '==', value: '' }],
-          groups: [],
-        });
-      }
+    if (!isOpen) return;
+
+    if (resolvedCondition) {
+      setDraftCondition(resolvedCondition);
+      return;
     }
-  }, [initialCondition, isOpen]);
+
+    setDraftCondition(null);
+  }, [isOpen, resolvedCondition, nodeId, optionIndex]);
+
+  // initialCondition 的动态监听已在 V0.2 重构中移除（改用 resolvedCondition 一次初始化）
 
   // ==========================================================================
   // 表达式预览 (M3-06)
   // ==========================================================================
 
   const previewExpression = useMemo(
-    () => builderToExpression(rootGroup),
-    [rootGroup],
+    () => serializeConditionExpression(draftCondition),
+    [draftCondition],
   );
 
-  const hasValidCondition = useMemo(() => {
-    // 检查是否至少有一行填写完整
-    const checkGroup = (g: ConditionGroup): boolean => {
-      for (const row of g.rows) {
-        if (row.variableName && row.operator && row.value) return true;
-      }
-      for (const sg of g.groups) {
-        if (checkGroup(sg)) return true;
-      }
-      return false;
-    };
-    return checkGroup(rootGroup);
-  }, [rootGroup]);
+  const hasValidCondition = draftCondition !== null;
 
   // ==========================================================================
   // 操作处理
@@ -1217,50 +1368,28 @@ export function ConditionEditor({
 
   const handleApply = useCallback(() => {
     // 生成条件表达式字符串用于文本同步
-    const expression = hasValidCondition ? builderToExpression(rootGroup) : '';
+    const expression = hasValidCondition
+      ? serializeConditionExpression(draftCondition)
+      : '';
 
-    // M3-07: 面板 → 编辑器文本同步
-    if (nodeId && optionIndex !== undefined && plotFlowData) {
-      // 查找目标节点和选项
-      let targetNodeTitle = '';
-      let targetOptionDesc = '';
-
-      for (const chapter of plotFlowData.chapters) {
-        const node = chapter.nodes.find((n) => n.fullId === nodeId || n.id === nodeId);
-        if (node) {
-          targetNodeTitle = node.title;
-          const option = node.options[optionIndex];
-          if (option) {
-            targetOptionDesc = option.description;
-          }
-          break;
-        }
-      }
-
-      if (targetNodeTitle && targetOptionDesc) {
-        const newContent = updateEditorConditionText(
-          editorContent,
-          targetNodeTitle,
-          targetOptionDesc,
-          expression,
-        );
-        if (newContent !== editorContent) {
-          setEditorContent(newContent);
-        }
+    if (selectedOption) {
+      const committed = graphEditService.updateOption(selectedOption, {
+        conditionRaw: expression || null,
+      });
+      if (!committed) {
+        setStatusMessage(text('conditionEditor.draftBlocked'));
+        return;
       }
     }
 
     onClose();
   }, [
-    rootGroup,
-    variables,
+    draftCondition,
     hasValidCondition,
-    nodeId,
-    optionIndex,
-    plotFlowData,
-    editorContent,
-    setEditorContent,
+    selectedOption,
     onClose,
+    setStatusMessage,
+    text,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -1276,17 +1405,48 @@ export function ConditionEditor({
     [onClose],
   );
 
-  // ESC 关闭
+  // 对话框键盘语义、焦点陷阱与关闭后焦点恢复。
   useEffect(() => {
     if (!isOpen) return;
+    openerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const focusTimer = window.setTimeout(() => {
+      (closeButtonRef.current ?? dialogRef.current)?.focus();
+    }, 0);
+
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((element) => !element.hasAttribute('hidden'));
+      if (focusable.length === 0) {
+        e.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
     document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKey);
+      const opener = openerRef.current;
+      if (opener?.isConnected) window.setTimeout(() => opener.focus(), 0);
+    };
   }, [isOpen, onClose]);
 
   // ==========================================================================
@@ -1302,26 +1462,35 @@ export function ConditionEditor({
   return (
     <>
       {/* 半透明遮罩层 (M3-01) */}
-      <div style={backdropStyle} onClick={handleBackdropClick} />
+      <div style={backdropStyle} onClick={handleBackdropClick} aria-hidden="true" />
 
       {/* 弹出面板 */}
-      <div style={panelStyle}>
+      <div
+        ref={dialogRef}
+        style={panelStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="condition-editor-title"
+        tabIndex={-1}
+      >
         {/* ================================================================
         标题栏 (M3-01)
         ================================================================ */}
         <div style={headerStyle}>
-          <h2 style={titleStyle}>条件编辑器</h2>
+          <h2 id="condition-editor-title" style={titleStyle}>{text('conditionEditor.title')}</h2>
           <div style={headerActionsStyle}>
             {nodeId && optionIndex !== undefined && (
               <span style={contextBadgeStyle}>
-                {nodeId} / 选项 {optionIndex + 1}
+                {text('conditionEditor.optionContext', { nodeId, index: optionIndex + 1 })}
               </span>
             )}
             <button
+              ref={closeButtonRef}
               type="button"
               style={closeButtonStyle}
               onClick={handleCancel}
-              title="关闭 (Esc)"
+              title={text('conditionEditor.closeShortcut')}
+              aria-label={text('conditionEditor.close')}
             >
               &#x2715;
             </button>
@@ -1332,33 +1501,23 @@ export function ConditionEditor({
         条件构建区
         ================================================================ */}
         <div style={bodyStyle}>
-          {variables.length === 0 ? (
-            /* ---- 无变量时显示提示 ---- */
-            <div style={emptyVarsStyle}>
-              <span style={{ fontSize: '24px', marginBottom: '8px' }}>&#x1F4CB;</span>
-              <span>尚未在 Frontmatter 中声明变量</span>
-              <span style={emptyVarsHintStyle}>
-                请在文件的 YAML Frontmatter 中添加 vars: 块来声明变量
-              </span>
-            </div>
-          ) : (
-            <ConditionGroupView
-              group={rootGroup}
-              variables={variables}
-              depth={0}
-              onUpdate={setRootGroup}
-            />
-          )}
+          <ConditionTreeEditor
+            value={draftCondition}
+            variables={variables}
+            onChange={setDraftCondition}
+            allowClear={false}
+            testId="condition-editor-tree"
+          />
         </div>
 
         {/* ================================================================
         表达式预览 (M3-06)
         ================================================================ */}
         <div style={previewStyle}>
-          <span style={previewLabelStyle}>预览:</span>
+          <span style={previewLabelStyle}>{text('conditionEditor.preview')}</span>
           <code style={previewCodeStyle}>
             {previewExpression || (
-              <span style={previewPlaceholderStyle}>在下方构建条件...</span>
+              <span style={previewPlaceholderStyle}>{text('conditionEditor.previewPlaceholder')}</span>
             )}
           </code>
         </div>
@@ -1372,7 +1531,7 @@ export function ConditionEditor({
             style={cancelButtonStyle}
             onClick={handleCancel}
           >
-            取消
+            {text('common.cancel')}
           </button>
           <button
             type="button"
@@ -1381,9 +1540,9 @@ export function ConditionEditor({
               ...(!hasValidCondition ? applyButtonDisabledStyle : {}),
             }}
             onClick={handleApply}
-            disabled={!hasValidCondition && !initialCondition}
+            disabled={!hasValidCondition}
           >
-            应用
+            {text('conditionEditor.apply')}
           </button>
         </div>
       </div>
@@ -1416,11 +1575,12 @@ export function ConditionTrigger({
   hasCondition = false,
   style,
 }: ConditionTriggerProps): React.ReactElement {
+  const text = useAppText();
   return (
     <button
       type="button"
       onClick={onClick}
-      title={hasCondition ? '编辑条件' : '添加条件'}
+      title={text(hasCondition ? 'conditionEditor.editCondition' : 'conditionEditor.addConditionTitle')}
       style={{
         ...triggerButtonStyle,
         ...(hasCondition ? triggerActiveStyle : {}),
@@ -1430,7 +1590,7 @@ export function ConditionTrigger({
       <span style={{ fontSize: '13px', lineHeight: 1 }}>
         {hasCondition ? '🔧' : '🔧'}
       </span>
-      <span style={triggerLabelStyle}>条件</span>
+      <span style={triggerLabelStyle}>{text('conditionEditor.condition')}</span>
     </button>
   );
 }
@@ -1444,8 +1604,8 @@ export function ConditionTrigger({
 const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  zIndex: 'var(--z-modal, 1000)',
-  background: 'rgba(0, 0, 0, 0.35)',
+  zIndex: 'var(--z-modal)',
+  background: 'var(--color-overlay-modal)',
 };
 
 // -------- Panel --------
@@ -1455,16 +1615,16 @@ const panelStyle: React.CSSProperties = {
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
-  zIndex: 'calc(var(--z-modal, 1000) + 1)',
+  zIndex: 'calc(var(--z-modal) + 1)',
   width: '640px',
   maxWidth: 'calc(100vw - 48px)',
   maxHeight: 'calc(100vh - 80px)',
   display: 'flex',
   flexDirection: 'column',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 8px)',
-  boxShadow: 'var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.16))',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  boxShadow: 'var(--shadow-xl)',
+  border: '1px solid var(--color-border-default)',
   overflow: 'hidden',
 };
 
@@ -1475,8 +1635,8 @@ const headerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: 'var(--space-3, 12px) var(--space-4, 16px)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-secondary)',
+  borderBottom: '1px solid var(--color-border-default)',
   flexShrink: 0,
   userSelect: 'none',
 };
@@ -1485,7 +1645,7 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 'var(--text-sm, 14px)',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
 };
 
 const headerActionsStyle: React.CSSProperties = {
@@ -1498,8 +1658,8 @@ const contextBadgeStyle: React.CSSProperties = {
   fontSize: '11px',
   padding: '1px 8px',
   borderRadius: 'var(--radius-full, 9999px)',
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
 };
 
@@ -1508,7 +1668,7 @@ const closeButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '14px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
   display: 'flex',
@@ -1534,14 +1694,14 @@ const emptyVarsStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '32px 16px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontSize: 'var(--text-sm, 14px)',
   gap: '4px',
 };
 
 const emptyVarsHintStyle: React.CSSProperties = {
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginTop: '4px',
 };
 
@@ -1559,8 +1719,8 @@ const groupHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '6px 10px',
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-tertiary)',
+  borderBottom: '1px solid var(--color-border-default)',
 };
 
 const groupBodyStyle: React.CSSProperties = {
@@ -1582,7 +1742,7 @@ const operatorToggleStyle: React.CSSProperties = {
   gap: 0,
   borderRadius: 'var(--radius-sm, 2px)',
   overflow: 'hidden',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  border: '1px solid var(--color-border-default)',
 };
 
 const operatorToggleBtnStyle: React.CSSProperties = {
@@ -1592,13 +1752,13 @@ const operatorToggleBtnStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-secondary)',
   transition: 'background 0.1s ease, color 0.1s ease',
 };
 
 const operatorToggleActiveStyle: React.CSSProperties = {
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
 };
 
 const removeGroupButtonStyle: React.CSSProperties = {
@@ -1606,7 +1766,7 @@ const removeGroupButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
   lineHeight: 1,
@@ -1617,13 +1777,54 @@ const removeGroupButtonStyle: React.CSSProperties = {
 const conditionRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: 'var(--space-2, 8px)',
   marginBottom: 'var(--space-2, 8px)',
 };
 
+const rightOperandStyle: React.CSSProperties = {
+  flex: '1 1 180px',
+  minWidth: 150,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-1, 4px)',
+};
+
+const operandTypeSelectStyle: React.CSSProperties = {
+  width: 54,
+  flexShrink: 0,
+  height: '28px',
+  padding: '4px 2px',
+  borderRadius: 'var(--radius-sm, 2px)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
+  fontSize: '11px',
+  fontFamily: 'var(--font-ui, system-ui, sans-serif)',
+};
+
+const conditionTreeStyle: React.CSSProperties = {
+  width: '100%',
+  minWidth: 0,
+};
+
+const conditionTreeCompactStyle: React.CSSProperties = {
+  fontSize: '11px',
+};
+
+const clearConditionButtonStyle: React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--color-text-muted)',
+  cursor: 'pointer',
+  padding: '4px 2px',
+  fontSize: '11px',
+  fontFamily: 'var(--font-ui, system-ui, sans-serif)',
+};
+
 const dragHandleStyle: React.CSSProperties = {
   flexShrink: 0,
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   cursor: 'grab',
   fontSize: '12px',
   padding: '2px',
@@ -1636,7 +1837,7 @@ const removeRowButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 4px',
   borderRadius: 'var(--radius-sm, 2px)',
   lineHeight: 1,
@@ -1657,9 +1858,9 @@ const dropdownButtonStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   cursor: 'pointer',
@@ -1675,11 +1876,11 @@ const dropdownMenuStyle: React.CSSProperties = {
   minWidth: '100%',
   maxHeight: '220px',
   overflowY: 'auto',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-primary)',
+  border: '1px solid var(--color-border-default)',
   borderRadius: 'var(--radius-md, 4px)',
-  boxShadow: 'var(--shadow-md, 0 2px 8px rgba(0,0,0,0.10))',
-  zIndex: 10,
+  boxShadow: 'var(--shadow-md)',
+  zIndex: 'var(--z-dropdown)',
 };
 
 const dropdownListStyle: React.CSSProperties = {
@@ -1695,7 +1896,7 @@ const dropdownItemStyle: React.CSSProperties = {
   padding: '5px 10px',
   border: 'none',
   background: 'transparent',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   cursor: 'pointer',
@@ -1704,25 +1905,25 @@ const dropdownItemStyle: React.CSSProperties = {
 };
 
 const dropdownItemActiveStyle: React.CSSProperties = {
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
+  background: 'var(--color-accent-subtle)',
 };
 
 const emptyOptionStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
 };
 
 const chevronStyle: React.CSSProperties = {
   fontSize: '8px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginLeft: 'auto',
   lineHeight: 1,
 };
 
 const placeholderStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   flex: 1,
 };
 
@@ -1736,39 +1937,39 @@ const typeIconStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
   fontFamily: 'var(--font-editor, Consolas, monospace)',
-  color: 'var(--color-accent, #A0703A)',
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
+  color: 'var(--color-accent)',
+  background: 'var(--color-accent-subtle)',
   borderRadius: 'var(--radius-sm, 2px)',
 };
 
 const typeLabelStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   flexShrink: 0,
 };
 
 const noVarsHintStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
+  borderTop: '1px solid var(--color-border-default)',
 };
 
 // -------- Search --------
 
 const searchContainerStyle: React.CSSProperties = {
   padding: '6px 8px',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  borderBottom: '1px solid var(--color-border-default)',
 };
 
 const searchInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   outline: 'none',
@@ -1781,9 +1982,9 @@ const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
   outline: 'none',
@@ -1796,9 +1997,9 @@ const numberInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
-  color: 'var(--color-text-primary, #333333)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
   outline: 'none',
@@ -1815,9 +2016,9 @@ const disabledInputStyle: React.CSSProperties = {
   width: '100%',
   padding: '4px 8px',
   borderRadius: 'var(--radius-sm, 2px)',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   height: '28px',
@@ -1829,13 +2030,13 @@ const disabledInputStyle: React.CSSProperties = {
 // -------- Add Buttons --------
 
 const addRowButtonStyle: React.CSSProperties = {
-  border: '1px dashed var(--color-border-default, #E0E0E0)',
+  border: '1px dashed var(--color-border-default)',
   background: 'transparent',
   cursor: 'pointer',
   padding: '3px 10px',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   borderRadius: 'var(--radius-sm, 2px)',
   lineHeight: '18px',
 };
@@ -1854,7 +2055,7 @@ const addGroupButtonStyle: React.CSSProperties = {
 
 const maxDepthHintStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
 };
 
@@ -1862,8 +2063,8 @@ const maxDepthHintStyle: React.CSSProperties = {
 
 const previewStyle: React.CSSProperties = {
   padding: 'var(--space-3, 12px) var(--space-4, 16px)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
   display: 'flex',
   alignItems: 'flex-start',
   gap: 'var(--space-2, 8px)',
@@ -1873,7 +2074,7 @@ const previewStyle: React.CSSProperties = {
 const previewLabelStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   flexShrink: 0,
   lineHeight: '20px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
@@ -1883,13 +2084,13 @@ const previewCodeStyle: React.CSSProperties = {
   flex: 1,
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
-  color: 'var(--color-syntax-condition, #C5662A)',
+  color: 'var(--color-syntax-condition)',
   wordBreak: 'break-all',
   lineHeight: '20px',
 };
 
 const previewPlaceholderStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   fontStyle: 'italic',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
 };
@@ -1901,40 +2102,40 @@ const footerStyle: React.CSSProperties = {
   justifyContent: 'flex-end',
   gap: 'var(--space-2, 8px)',
   padding: 'var(--space-3, 12px) var(--space-4, 16px)',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
   flexShrink: 0,
 };
 
 const cancelButtonStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   padding: '6px 16px',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   fontWeight: 500,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   borderRadius: 'var(--radius-md, 4px)',
   lineHeight: '18px',
 };
 
 const applyButtonStyle: React.CSSProperties = {
   border: 'none',
-  background: 'var(--color-accent, #A0703A)',
+  background: 'var(--color-accent)',
   cursor: 'pointer',
   padding: '6px 20px',
   fontSize: '12px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
   fontWeight: 600,
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
   borderRadius: 'var(--radius-md, 4px)',
   lineHeight: '18px',
 };
 
 const applyButtonDisabledStyle: React.CSSProperties = {
-  background: 'var(--color-bg-tertiary, #EDEDEF)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   cursor: 'not-allowed',
 };
 
@@ -1944,23 +2145,23 @@ const triggerButtonStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '3px',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   padding: '1px 6px',
   borderRadius: 'var(--radius-sm, 2px)',
   fontSize: '11px',
   fontFamily: 'var(--font-ui, system-ui, sans-serif)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   lineHeight: '18px',
   transition: 'background 0.1s ease, color 0.1s ease, border-color 0.1s ease',
   userSelect: 'none',
 };
 
 const triggerActiveStyle: React.CSSProperties = {
-  color: 'var(--color-syntax-condition, #C5662A)',
-  borderColor: 'var(--color-syntax-condition, #C5662A)',
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
+  color: 'var(--color-syntax-condition)',
+  borderColor: 'var(--color-syntax-condition)',
+  background: 'var(--color-accent-subtle)',
 };
 
 const triggerLabelStyle: React.CSSProperties = {

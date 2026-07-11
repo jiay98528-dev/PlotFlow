@@ -25,9 +25,11 @@ import type { Node, Edge } from '@xyflow/react';
 
 /** 节点尺寸（宽 x 高，像素） */
 export const NODE_DIMENSIONS = {
-  width: 220,
-  height: 120,
+  width: 320,
+  height: 228,
 } as const;
+
+export const LARGE_GRAPH_LAYOUT_THRESHOLD = 150;
 
 /** Dagre 图布局配置 */
 const LAYOUT_CONFIG: dagreGraphLabel = {
@@ -81,57 +83,95 @@ export function layoutNodes<TData extends Record<string, unknown> = Record<strin
   nodes: Node<TData>[],
   edges: Edge[],
 ): { nodes: Node<TData>[]; edges: Edge[] } {
-  // 空图直接返回
   if (nodes.length === 0) {
     return { nodes: [], edges };
   }
 
-  // --- 步骤 1-2: 创建图并设置布局配置 ---
+  const positions = layoutNodePositions(nodes.map((node) => node.id), edges);
+  const layoutedNodes = nodes.map((node) => {
+    const position = positions[node.id];
+    return position ? { ...node, position } : node;
+  });
+
+  return { nodes: positionOrphanNodes(layoutedNodes, edges), edges };
+}
+
+export function layoutNodePositions(
+  nodeIds: readonly string[],
+  edges: readonly Pick<Edge, 'source' | 'target'>[],
+): Record<string, { x: number; y: number }> {
+  if (nodeIds.length === 0) return {};
+
   const g = new graphlib.Graph({ directed: true, multigraph: false });
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph(LAYOUT_CONFIG);
 
-  // --- 步骤 3: 注册节点 ---
-  for (const node of nodes) {
-    g.setNode(node.id, {
+  for (const nodeId of nodeIds) {
+    g.setNode(nodeId, {
       width: NODE_DIMENSIONS.width,
       height: NODE_DIMENSIONS.height,
     });
   }
 
-  // --- 步骤 4: 注册边 ---
-  const connectedIds = new Set<string>();
   for (const edge of edges) {
     if (g.hasNode(edge.source) && g.hasNode(edge.target)) {
       g.setEdge(edge.source, edge.target);
-      connectedIds.add(edge.source);
-      connectedIds.add(edge.target);
     }
   }
 
-  // --- 步骤 5: 执行 Dagre 布局 ---
   dagreLayout(g);
 
-  // --- 步骤 6: 提取计算位置 ---
-  const layoutedNodes: Node<TData>[] = nodes.map((node) => {
-    const dagreNode = g.node(node.id);
+  const positions: Record<string, { x: number; y: number }> = {};
+  for (const nodeId of nodeIds) {
+    const dagreNode = g.node(nodeId);
     if (dagreNode && typeof dagreNode.x === 'number' && typeof dagreNode.y === 'number') {
-      return {
-        ...node,
-        position: {
-          x: dagreNode.x - NODE_DIMENSIONS.width / 2,
-          y: dagreNode.y - NODE_DIMENSIONS.height / 2,
-        },
+      positions[nodeId] = {
+        x: dagreNode.x - NODE_DIMENSIONS.width / 2,
+        y: dagreNode.y - NODE_DIMENSIONS.height / 2,
       };
     }
-    // 节点未参与布局（可能是孤立节点，Dagre 没有计算其位置）
-    return node;
-  });
+  }
 
-  // --- 步骤 7: 孤立节点处理（放到主图右侧） ---
+  return positions;
+}
+
+export function applyFastGridLayout<TData extends Record<string, unknown> = Record<string, unknown>>(
+  nodes: Node<TData>[],
+): Node<TData>[] {
+  const positions = createFastGridPositions(nodes.map((node) => node.id));
+  return nodes.map((node) => ({
+    ...node,
+    position: positions[node.id] ?? node.position,
+  }));
+}
+
+export function createFastGridPositions(
+  nodeIds: readonly string[],
+): Record<string, { x: number; y: number }> {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(nodeIds.length)));
+  const gapX = NODE_DIMENSIONS.width + 80;
+  const gapY = NODE_DIMENSIONS.height + 80;
+  return Object.fromEntries(nodeIds.map((nodeId, index) => [
+    nodeId,
+    {
+      x: (index % columns) * gapX,
+      y: Math.floor(index / columns) * gapY,
+    },
+  ]));
+}
+
+function positionOrphanNodes<TData extends Record<string, unknown> = Record<string, unknown>>(
+  layoutedNodes: Node<TData>[],
+  edges: readonly Pick<Edge, 'source' | 'target'>[],
+): Node<TData>[] {
+  const connectedIds = new Set<string>();
+  for (const edge of edges) {
+    connectedIds.add(edge.source);
+    connectedIds.add(edge.target);
+  }
+
   const orphanNodes = layoutedNodes.filter((n) => !connectedIds.has(n.id));
   if (orphanNodes.length > 0) {
-    // 计算主图最右侧位置作为孤立区域起点
     const maxX = layoutedNodes.reduce(
       (max, n) => Math.max(max, n.position.x + NODE_DIMENSIONS.width),
       0,
@@ -147,7 +187,7 @@ export function layoutNodes<TData extends Record<string, unknown> = Record<strin
     }
   }
 
-  return { nodes: layoutedNodes, edges };
+  return layoutedNodes;
 }
 
 // ============================================================================

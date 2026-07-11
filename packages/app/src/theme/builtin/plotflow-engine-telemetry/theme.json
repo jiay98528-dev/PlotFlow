@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "id": "plotflow-engine-telemetry",
+  "name": {
+    "zh-CN": "引擎遥测台",
+    "en-US": "Engine Telemetry",
+    "default": "Engine Telemetry"
+  },
+  "tagline": {
+    "zh-CN": "Source Spine + Topology Canvas + Inspector Rack",
+    "en-US": "Source Spine + Topology Canvas + Inspector Rack"
+  },
+  "version": "1.0.0",
+  "plotflowVersion": ">=0.1.0",
+  "author": "PlotFlow Team",
+  "license": "Bundled",
+  "defaultMode": "dark",
+  "description": "PlotFlow 官方内置主题。以石墨暗面、青绿信号线、琥珀状态光和红色错误提示构成游戏引擎遥测台，让画布成为主工作区，同时保持 .mdstory 源码持续可见。",
+  "capabilities": ["tokens", "visual", "layout", "monaco"],
+  "tokens": {
+    "shared": {
+      "--theme-workbench-paper-grain": "linear-gradient(135deg, var(--theme-workbench-paper), var(--theme-workbench-paper-warm))",
+      "--theme-graph-lab-paper": "var(--theme-workbench-paper)",
+      "--theme-graph-lab-surface": "var(--theme-workbench-panel)",
+      "--theme-panel-surface": "color-mix(in oklch, var(--theme-workbench-panel), transparent 6%)",
+      "--theme-grid-size": "32px",
+      "--theme-card-radius": "var(--radius-md)",
+      "--theme-graph-node-radius": "8px",
+      "--theme-graph-canvas-grid-opacity": "0.72",
+      "--theme-graph-cable-default": "var(--theme-signal-line)",
+      "--theme-graph-cable-conditional": "var(--theme-status-amber)",
+      "--theme-graph-port": "var(--theme-signal-line)",
+      "--theme-port-fill": "var(--theme-signal-line)",
+      "--theme-source-dock-height": "300px",
+      "--theme-workbench-shadow": "var(--theme-console-shadow)"
+    },
+    "light": {
+      "--theme-workbench-paper": "oklch(0.91 0.012 236)",
+      "--theme-workbench-paper-warm": "oklch(0.87 0.014 228)",
+      "--theme-workbench-rail": "oklch(0.84 0.014 234)",
+      "--theme-workbench-panel": "oklch(0.95 0.009 236)",
+      "--theme-blueprint-canvas": "oklch(0.9 0.018 228)",
+      "--theme-blueprint-grid": "oklch(0.62 0.055 204)",
+      "--theme-blueprint-cable": "oklch(0.47 0.1 194)",
+      "--theme-node-surface": "oklch(0.96 0.009 236)",
+      "--theme-node-surface-strong": "oklch(0.89 0.016 236)",
+      "--theme-node-border": "oklch(0.63 0.05 205)",
+      "--theme-node-ink": "oklch(0.22 0.02 236)",
+      "--theme-node-muted": "oklch(0.46 0.025 236)",
+      "--theme-signal-line": "oklch(0.56 0.12 186)",
+      "--theme-status-amber": "oklch(0.7 0.145 75)",
+      "--theme-danger-signal": "oklch(0.57 0.16 31)",
+      "--theme-success-leaf": "oklch(0.57 0.12 154)",
+      "--theme-warning-leaf": "var(--theme-status-amber)",
+      "--theme-danger-leaf": "var(--theme-danger-signal)",
+      "--theme-console-shadow": "0 18px 42px oklch(0.26 0.03 238 / 0.22)"
+    },
+    "dark": {
+      "--theme-workbench-paper": "oklch(0.172 0.018 244)",
+      "--theme-workbench-paper-warm": "oklch(0.205 0.019 238)",
+      "--theme-workbench-rail": "oklch(0.142 0.016 244)",
+      "--theme-workbench-panel": "oklch(0.214 0.018 242)",
+      "--theme-blueprint-canvas": "oklch(0.155 0.021 242)",
+      "--theme-blueprint-grid": "oklch(0.34 0.035 210)",
+      "--theme-blueprint-cable": "oklch(0.72 0.095 188)",
+      "--theme-node-surface": "oklch(0.226 0.016 242)",
+      "--theme-node-surface-strong": "oklch(0.275 0.018 239)",
+      "--theme-node-border": "oklch(0.39 0.034 205)",
+      "--theme-node-ink": "oklch(0.89 0.014 96)",
+      "--theme-node-muted": "oklch(0.68 0.026 219)",
+      "--theme-signal-line": "oklch(0.72 0.095 188)",
+      "--theme-status-amber": "oklch(0.74 0.105 77)",
+      "--theme-danger-signal": "oklch(0.66 0.13 32)",
+      "--theme-success-leaf": "oklch(0.66 0.09 154)",
+      "--theme-warning-leaf": "var(--theme-status-amber)",
+      "--theme-danger-leaf": "var(--theme-danger-signal)",
+      "--theme-console-shadow": "0 16px 38px oklch(0.06 0.012 244 / 0.5)"
+    }
+  },
+  "monacoTheme": {
+    "light": {
+      "base": "vs",
+      "inherit": true,
+      "rules": [
+        { "token": "heading", "foreground": "295C66", "fontStyle": "bold" },
+        { "token": "keyword", "foreground": "1C7C75" },
+        { "token": "string", "foreground": "935B14" }
+      ],
+      "colors": {
+        "editor.background": "#e8ebee",
+        "editor.foreground": "#202528",
+        "editorLineNumber.foreground": "#758189",
+        "editorCursor.foreground": "#177e77",
+        "editor.selectionBackground": "#bddeda"
+      }
+    },
+    "dark": {
+      "base": "vs-dark",
+      "inherit": true,
+      "rules": [
+        { "token": "heading", "foreground": "7DE2D1", "fontStyle": "bold" },
+        { "token": "keyword", "foreground": "B7E07F" },
+        { "token": "string", "foreground": "F3B65C" }
+      ],
+      "colors": {
+        "editor.background": "#111a20",
+        "editor.foreground": "#e7eee9",
+        "editorLineNumber.foreground": "#71808a",
+        "editorCursor.foreground": "#7de2d1",
+        "editor.selectionBackground": "#234e57"
+      }
+    }
+  },
+  "layoutRecipe": {
+    "density": "compact",
+    "graphLab": {
+      "paletteWidth": 292,
+      "railWidth": 292,
+      "inspectorWidth": 360,
+      "sourceDock": "bottom",
+      "sourceDockHeight": 300,
+      "nodeCardStyle": "engine-telemetry-module",
+      "cableStyle": "signal-route",
+      "motionIntensity": "subtle"
+    }
+  },
+  "uxRecipe": {
+    "appShell": {
+      "layout": "engine-console",
+      "padding": "0",
+      "gap": "0"
+    },
+    "home": {
+      "layout": "telemetry-console",
+      "inset": "48px 0 24px",
+      "padding": "clamp(var(--space-4), 2.4vw, var(--space-7))",
+      "gap": "var(--space-5)",
+      "opacity": "1"
+    },
+    "themeCenter": {
+      "layout": "telemetry-catalog",
+      "width": "min(1180px, 100%)",
+      "height": "min(820px, calc(100vh - var(--space-12)))",
+      "padding": "var(--space-5)",
+      "gap": "var(--space-4)",
+      "opacity": "1",
+      "zIndex": "var(--z-modal)"
+    },
+    "graphLab": {
+      "layout": "source-spine-topology-inspector",
+      "padding": "var(--space-3)",
+      "gap": "var(--space-2)"
+    },
+    "split": {
+      "layout": "source-spine-topology",
+      "gap": "var(--space-2)"
+    },
+    "toolbar": {
+      "height": "56px",
+      "padding": "0 var(--space-3)",
+      "gap": "var(--space-2)"
+    },
+    "panel": {
+      "radius": "var(--radius-md)",
+      "shadow": "var(--theme-console-shadow)",
+      "opacity": "0.98"
+    },
+    "dock": {
+      "height": "300px",
+      "position": "right"
+    },
+    "node": {
+      "width": "320px",
+      "minHeight": "228px",
+      "padding": "var(--space-3)",
+      "radius": "10px",
+      "opacity": "1"
+    },
+    "edge": {
+      "width": "40px",
+      "opacity": "1"
+    },
+    "typography": {
+      "layout": "instrument-panel",
+      "gap": "var(--space-2)"
+    }
+  },
+  "entryRecipe": {
+    "graphLabDefaultEntry": "canvasFirst",
+    "sourceDockDefault": "collapsed",
+    "primaryActionLabel": {
+      "zh-CN": "进入遥测台",
+      "en-US": "Open Console"
+    }
+  },
+  "interactionRecipe": {
+    "density": "dense",
+    "realtimeWirePreview": true,
+    "highlightConnectTargets": true,
+    "prominentPorts": true
+  },
+  "motionRecipe": {
+    "intensity": "subtle",
+    "nodeHoverLift": true,
+    "cableGlow": true,
+    "backgroundDrift": false
+  },
+  "storeMeta": {
+    "availability": "bundled",
+    "priceLabel": "已随 PlotFlow 内置",
+    "storeUrl": "https://plotflow.app/themes/plotflow-engine-telemetry"
+  },
+  "assets": {
+    "preview": "assets/preview.svg"
+  },
+  "screenshots": ["assets/preview.svg"]
+}

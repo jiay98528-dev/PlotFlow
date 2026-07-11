@@ -19,6 +19,16 @@
 import type { PlotFlowData, VariableDeclaration, ConditionNode, VariableType } from '../types/ast.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
+import { buildStoryAdjacency } from './adjacency.js';
+import { createFullId } from '../fullId.js';
+
+interface DeclaredVariableInfo {
+  readonly type: VariableType;
+  readonly lineNumber: number;
+  readonly enumValues?: string[];
+  readonly scope: 'global' | 'chapter';
+  readonly chapterId?: string;
+}
 
 // ============================================================================
 // 局部工具：收集所有已声明的变量名（含嵌套字段的 dotted path）
@@ -31,17 +41,23 @@ import { createDiagnostic, rangeAtLine } from './helpers.js';
 function collectDeclaredVariables(
   variables: VariableDeclaration[],
   parentPath: string,
-  map: Map<string, { type: VariableType; lineNumber: number; enumValues?: string[] }>,
+  map: Map<string, DeclaredVariableInfo>,
+  inheritedScope: 'global' | 'chapter' = 'global',
+  inheritedChapterId?: string,
 ): void {
   for (const v of variables) {
     const fullName = parentPath ? `${parentPath}.${v.name}` : v.name;
+    const scope = parentPath ? inheritedScope : (v.scope ?? 'global');
+    const chapterId = parentPath ? inheritedChapterId : v.chapterId;
     map.set(fullName, {
       type: v.type,
       lineNumber: v.lineNumber,
       enumValues: v.enumValues,
+      scope,
+      chapterId,
     });
     if (v.type === 'object' && v.fields) {
-      collectDeclaredVariables(v.fields, fullName, map);
+      collectDeclaredVariables(v.fields, fullName, map, scope, chapterId);
     }
   }
 }
@@ -49,8 +65,8 @@ function collectDeclaredVariables(
 /**
  * 构建声明的变量全路径名集合。
  */
-function buildDeclaredVarMap(data: PlotFlowData): Map<string, { type: VariableType; lineNumber: number; enumValues?: string[] }> {
-  const map = new Map<string, { type: VariableType; lineNumber: number; enumValues?: string[] }>();
+function buildDeclaredVarMap(data: PlotFlowData): Map<string, DeclaredVariableInfo> {
+  const map = new Map<string, DeclaredVariableInfo>();
   collectDeclaredVariables(data.variables, '', map);
   return map;
 }
@@ -90,12 +106,16 @@ function collectConditionVarNames(condition: ConditionNode, collected: Set<strin
 export function checkUndefinedTargetNode(data: PlotFlowData): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
-  // 收集所有节点的 ID 和 fullId
-  const allNodeIds = new Set<string>();
+  // 收集完整 ID，以及短 ID 到完整 ID 的映射。短 ID 不能直接视为全局有效：
+  // 不同章节允许存在同名节点，未解析的短 ID 可能是歧义引用。
+  const allNodeFullIds = new Set<string>();
+  const nodeIdToFullIds = new Map<string, string[]>();
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
-      allNodeIds.add(node.fullId);
-      allNodeIds.add(node.id);
+      allNodeFullIds.add(node.fullId);
+      const matches = nodeIdToFullIds.get(node.id) ?? [];
+      matches.push(node.fullId);
+      nodeIdToFullIds.set(node.id, matches);
     }
   }
 
@@ -107,7 +127,7 @@ export function checkUndefinedTargetNode(data: PlotFlowData): Diagnostic[] {
 
         // 如果 targetFullId 已填充，优先用它检查
         if (option.targetFullId !== null) {
-          if (!allNodeIds.has(option.targetFullId)) {
+          if (!allNodeFullIds.has(option.targetFullId)) {
             diagnostics.push(
               createDiagnostic(
                 'E001',
@@ -120,13 +140,54 @@ export function checkUndefinedTargetNode(data: PlotFlowData): Diagnostic[] {
           continue;
         }
 
-        // targetFullId 为空时，先用 targetNodeId 检查
-        if (!allNodeIds.has(option.targetNodeId)) {
+        const explicitTargetFullId = option.targetChapterId
+          ? createFullId(option.targetChapterId, option.targetNodeId)
+          : null;
+        const sameChapterTargetFullId = createFullId(node.chapterId, option.targetNodeId);
+        const globalMatches = nodeIdToFullIds.get(option.targetNodeId) ?? [];
+        const isResolvable = explicitTargetFullId
+          ? allNodeFullIds.has(explicitTargetFullId)
+          : allNodeFullIds.has(sameChapterTargetFullId) || globalMatches.length === 1;
+
+        if (!isResolvable) {
+          const targetLabel = explicitTargetFullId ?? option.targetNodeId;
+          const reason = !explicitTargetFullId && globalMatches.length > 1
+            ? `（存在 ${globalMatches.length} 个同名节点，请显式指定章节）`
+            : '';
           diagnostics.push(
             createDiagnostic(
               'E001',
               rangeAtLine(option.lineNumber),
-              `选项 "${option.description}" 的目标节点 "${option.targetNodeId}" 在故事中不存在`,
+              `选项 "${option.description}" 的目标节点 "${targetLabel}" 无法解析${reason}`,
+              node.fullId,
+            ),
+          );
+        }
+      }
+
+      const nextTarget = node.nextTarget;
+      if (nextTarget?.targetNodeId) {
+        const expectedTargetId = createFullId(
+          nextTarget.targetChapterId ?? node.chapterId,
+          nextTarget.targetNodeId,
+        );
+        if (nextTarget.targetFullId !== null) {
+          if (!allNodeFullIds.has(nextTarget.targetFullId)) {
+            diagnostics.push(
+              createDiagnostic(
+                'E001',
+                rangeAtLine(nextTarget.lineNumber),
+                `Next target "${nextTarget.targetFullId}" does not exist in story`,
+                node.fullId,
+              ),
+            );
+          }
+        } else if (!allNodeFullIds.has(expectedTargetId)) {
+          diagnostics.push(
+            createDiagnostic(
+              'E001',
+              rangeAtLine(nextTarget.lineNumber),
+              `Next target "${nextTarget.raw}" does not exist in story`,
               node.fullId,
             ),
           );
@@ -169,6 +230,9 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
           referencedVars.add(effect.variableName);
         }
       }
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        referencedVars.add(effect.variableName);
+      }
     }
   }
 
@@ -195,6 +259,12 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
               }
             }
           }
+          for (const effect of node.nextTarget?.sideEffects ?? []) {
+            if (effect.variableName === varName) {
+              refLine = effect.lineNumber;
+              break outer;
+            }
+          }
         }
       }
 
@@ -206,6 +276,47 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
           undefined,
         ),
       );
+    }
+  }
+
+  // Chapter-scoped variables remain alive for the play session, but are only
+  // visible from nodes in their declared chapter. Report inaccessible uses as
+  // E002 so the existing export error gate blocks invalid runtime semantics.
+  const checkAccess = (
+    varName: string,
+    chapterId: string,
+    lineNumber: number,
+    relatedNodeId: string,
+  ): void => {
+    const declaration = declaredVars.get(varName);
+    if (
+      !declaration
+      || declaration.scope !== 'chapter'
+      || declaration.chapterId === chapterId
+    ) return;
+    diagnostics.push(createDiagnostic(
+      'E002',
+      rangeAtLine(lineNumber),
+      `章节变量 "${varName}" 仅可在章节 "${declaration.chapterId ?? ''}" 中访问`,
+      relatedNodeId,
+    ));
+  };
+
+  for (const chapter of data.chapters) {
+    for (const node of chapter.nodes) {
+      for (const option of node.options) {
+        if (option.condition) {
+          const names = new Set<string>();
+          collectConditionVarNames(option.condition, names);
+          names.forEach((name) => checkAccess(name, node.chapterId, option.lineNumber, node.fullId));
+        }
+        for (const effect of option.sideEffects) {
+          checkAccess(effect.variableName, node.chapterId, effect.lineNumber, node.fullId);
+        }
+      }
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        checkAccess(effect.variableName, node.chapterId, effect.lineNumber, node.fullId);
+      }
     }
   }
 
@@ -272,6 +383,22 @@ export function checkInvalidEnumValue(data: PlotFlowData): Diagnostic[] {
           }
         }
       }
+
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        const varInfo = declaredVars.get(effect.variableName);
+        if (varInfo && varInfo.type === 'enum' && varInfo.enumValues) {
+          if (typeof effect.value === 'string' && !varInfo.enumValues.includes(effect.value)) {
+            diagnostics.push(
+              createDiagnostic(
+                'E003',
+                rangeAtLine(effect.lineNumber),
+                `Enum variable "${effect.variableName}" value "${effect.value}" is not allowed`,
+                node.fullId,
+              ),
+            );
+          }
+        }
+      }
     }
   }
 
@@ -283,7 +410,7 @@ export function checkInvalidEnumValue(data: PlotFlowData): Diagnostic[] {
  */
 function checkConditionEnumValues(
   condition: ConditionNode,
-  declaredVars: Map<string, { type: VariableType; lineNumber: number; enumValues?: string[] }>,
+  declaredVars: Map<string, DeclaredVariableInfo>,
   diagnostics: Diagnostic[],
 ): void {
   if (condition.type === 'comparison') {
@@ -409,6 +536,22 @@ export function checkTypeMismatch(data: PlotFlowData): Diagnostic[] {
           }
         }
       }
+
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        const varInfo = declaredVars.get(effect.variableName);
+        if (!varInfo) continue;
+
+        if (!isTypeCompatible(varInfo.type, effect.value)) {
+          diagnostics.push(
+            createDiagnostic(
+              'E004',
+              rangeAtLine(effect.lineNumber),
+              `Variable "${effect.variableName}" type is ${varInfo.type}, but effect value type is ${typeof effect.value}`,
+              node.fullId,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -420,7 +563,7 @@ export function checkTypeMismatch(data: PlotFlowData): Diagnostic[] {
  */
 function checkConditionTypeMatch(
   condition: ConditionNode,
-  declaredVars: Map<string, { type: VariableType; lineNumber: number; enumValues?: string[] }>,
+  declaredVars: Map<string, DeclaredVariableInfo>,
   diagnostics: Diagnostic[],
 ): void {
   if (condition.type === 'comparison') {
@@ -586,7 +729,7 @@ export function checkE006(data: PlotFlowData): Diagnostic[] {
 /**
  * E007: 检查所有节点的 fullId 是否有重复。
  *
- * fullId 由 "章节ID-节点ID" 组成（匿名章节直接用节点 ID 作为 fullId）。
+ * fullId 由编码后的 "章节ID/节点ID" 组成（匿名章节直接用编码后的节点 ID）。
  * 同一 fullId 多次出现表示节点定义重复。
  *
  * @param data - 解析后的 PlotFlowData AST
@@ -743,6 +886,7 @@ import {
   checkDuplicateOptionDescriptions,
   checkEmptyBodyNodes,
   checkFormatIrregularities,
+  checkClosedCycles,
 } from './warnings.js';
 
 import {
@@ -795,6 +939,7 @@ export function validate(data: PlotFlowData): ValidationResult {
     ...checkDuplicateOptionDescriptions(data),
     ...checkEmptyBodyNodes(data),
     ...checkFormatIrregularities(data),
+    ...checkClosedCycles(data),
     // 建议 I001-I003（3 条规则）
     ...checkPotentialSoftlock(data),
     ...checkShortBody(data),
@@ -814,18 +959,6 @@ export function validate(data: PlotFlowData): ValidationResult {
 // ============================================================================
 
 /**
- * 可变的节点诊断（内部使用，绕过 readonly）。
- * 解析器创建节点时用 place-holder 值初始化 diagnostics，
- * 验证器在此 fill in 实际的 isOrphan / isDeadEnd / diagnosticIds。
- */
-interface MutableNodeDiagnostics {
-  isRoot: boolean;
-  isOrphan: boolean;
-  isDeadEnd: boolean;
-  diagnosticIds: string[];
-}
-
-/**
  * 根据验证结果更新每个 StoryNode 的 diagnostics 元数据。
  *
  * 更新内容：
@@ -836,17 +969,7 @@ interface MutableNodeDiagnostics {
  */
 function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[]): void {
   // 1. 收集所有选项的目标节点 ID（fullId）
-  const allTargetIds = new Set<string>();
-  for (const chapter of data.chapters) {
-    for (const node of chapter.nodes) {
-      for (const option of node.options) {
-        if (option.targetFullId !== null) {
-          allTargetIds.add(option.targetFullId);
-        }
-      }
-    }
-  }
-
+  const adjacency = buildStoryAdjacency(data);
   // 2. 按 relatedNodeId 分组诊断 ID
   const diagByNode = new Map<string, string[]>();
   for (const d of allDiagnostics) {
@@ -864,8 +987,8 @@ function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[])
   let foundRoot = false;
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
-      const nd = node.diagnostics as unknown as MutableNodeDiagnostics;
-      const hasEntry = allTargetIds.has(node.fullId);
+      const nd = node.diagnostics;
+      const hasEntry = adjacency.incomingByTargetFullId.has(node.fullId);
 
       // isRoot: 第一个没有入口的节点标记为根节点
       if (!foundRoot && !hasEntry) {
@@ -879,7 +1002,7 @@ function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[])
       nd.isOrphan = !nd.isRoot && !hasEntry;
 
       // isDeadEnd: 无出口选项
-      nd.isDeadEnd = node.options.length === 0;
+      nd.isDeadEnd = !adjacency.outgoingBySourceFullId.has(node.fullId);
 
       // 追加关联的诊断 ID（保留解析器已写入的 ID）
       const relatedIds = diagByNode.get(node.fullId);

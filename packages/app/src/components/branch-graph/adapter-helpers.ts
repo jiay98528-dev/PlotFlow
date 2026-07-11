@@ -29,6 +29,13 @@ import type { StoryNode } from '@plotflow/core';
  */
 export type NodeStatus = 'normal' | 'orphan' | 'deadend' | 'error';
 
+export const STATUS_TO_CLASS_MAP: Readonly<Record<NodeStatus, string>> = {
+  normal: 'node-status-normal',
+  orphan: 'node-status-orphan',
+  deadend: 'node-status-deadend',
+  error: 'node-status-error',
+};
+
 // ============================================================================
 // 核心判定函数
 // ============================================================================
@@ -77,4 +84,46 @@ export function getNodeStatus(node: StoryNode): NodeStatus {
 
   // 4. 正常节点（含根节点）
   return 'normal';
+}
+
+// ============================================================================
+// 文本操作工具（GraphCanvas + GraphContextMenu 共享）
+// ============================================================================
+
+/**
+ * 在选项行中查找最后一个跳转目标引用的位置。
+ *
+ * 使用 lastIndexOf 避免选项描述文本本身包含 "->" 时的误匹配。
+ *
+ * @param line - 选项行文本
+ * @returns "-> 节点：" 或 "-> 节点:" 的起始索引，未找到返回 -1
+ */
+export function findTargetArrowIndex(line: string): number {
+  let idx = line.lastIndexOf('-> 节点：');
+  if (idx < 0) idx = line.lastIndexOf('-> 节点:');
+  return idx;
+}
+
+/**
+ * 补齐选项行末尾的未闭合括号，防止追加 `-> 节点：` 后产生语法冗余。
+ *
+ * 分别统计 [] 和 () 的开启/闭合数量，在行尾补齐缺失的闭合括号。
+ *
+ * @param line - 选项行文本
+ * @returns 补齐闭合括号后的行文本
+ */
+export function closeUnclosedBrackets(line: string): string {
+  let opens = 0, closes = 0, parenOpens = 0, parenCloses = 0;
+  for (let i = 0; i < line.length; i++) {
+    switch (line[i]) {
+      case '[': opens++; break;
+      case ']': closes++; break;
+      case '(': parenOpens++; break;
+      case ')': parenCloses++; break;
+    }
+  }
+  let result = line.trimEnd();
+  for (let i = closes; i < opens; i++) result += ']';
+  for (let i = parenCloses; i < parenOpens; i++) result += ')';
+  return result;
 }

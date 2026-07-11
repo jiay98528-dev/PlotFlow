@@ -14,12 +14,15 @@
  * @module components/branch-graph/StoryNodeCard
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { StoryFlowNodeData } from './adapter';
+import { NodeRoutePreview } from './NodeRoutePreview';
+import { buildNodeRouteSummaries } from './nodeRouteSummary';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useGraphStore } from '../../stores/graphStore';
+import { useAppText } from '../../i18n/appI18n';
 import '../../styles/branch-graph.css';
 
 // ============================================================================
@@ -68,15 +71,6 @@ const STATUS_CLASS_MAP: Record<StoryFlowNodeData['status'], string> = {
   root: 'node-status-root',
 };
 
-/** 节点状态 → 显示标签映射 */
-const STATUS_LABEL_MAP: Record<StoryFlowNodeData['status'], string> = {
-  normal: '',
-  orphan: '孤立',
-  deadend: '死胡同',
-  error: '错误',
-  root: '起点',
-};
-
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -109,11 +103,12 @@ export interface StoryNodeCardProps extends NodeProps<Node<StoryFlowNodeData>> {
  */
 export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) => {
   // --- 数据提取 ---
+  const text = useAppText();
   const statusClass = STATUS_CLASS_MAP[data.status] ?? 'node-status-normal';
-  const statusLabel = STATUS_LABEL_MAP[data.status] ?? '';
+  const statusLabel = data.status === 'normal' ? '' : text(`themeNode.status.${data.status}`);
 
   // 标题截断到 30 字符
-  const title = truncate(data.title || '未命名节点', 30);
+  const title = truncate(data.title || text('themeNode.untitled'), 30);
 
   // 正文：剥离 Markdown → 截断到 30 字符
   const bodyPlain = stripMarkdown(data.body);
@@ -135,7 +130,18 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
   // Store access for rename
   const editorInstance = useEditorStore((s) => s.editorInstance);
   const getNodeByFullId = useStoryStore((s) => s.getNodeByFullId);
+  const storyNode = useStoryStore((s) => s.getNodeByFullId(data.fullId));
+  const plotFlowData = useStoryStore((s) => s.plotFlowData);
   const setRenamingNodeId = useGraphStore((s) => s.setRenamingNodeId);
+  const allNodes = useMemo(
+    () => plotFlowData?.chapters.flatMap((chapter) => chapter.nodes) ?? [],
+    [plotFlowData],
+  );
+  const routeSummaries = useMemo(
+    () => buildNodeRouteSummaries(storyNode, allNodes, text),
+    [allNodes, storyNode, text],
+  );
+  const hasDefaultRoute = routeSummaries.length === 1 && routeSummaries[0]?.sourceHandleId === 'next';
 
   /** 确认重命名：通过 Monaco Editor API 替换标题行 */
   const confirmRename = useCallback(() => {
@@ -263,6 +269,7 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
   const classes = [
     'story-node-card',
     statusClass,
+    hasDefaultRoute ? 'story-node-card--default-route' : '',
     selected ? 'node-status-selected' : '',
     isEditing ? 'node-status-editing' : '',
   ]
@@ -308,38 +315,73 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
         </div>
       )}
 
+      <NodeRoutePreview
+        summaries={routeSummaries}
+        variant="default"
+        renderLeadingHandle={(summary) => {
+          if (!hasDefaultRoute || summary.sourceHandleId !== 'next') {
+            return null;
+          }
+
+          return (
+            <Handle
+              type="target"
+              position={Position.Left}
+              className="story-node-handle story-node-handle-target story-node-handle-target--inline nodrag nopan"
+            />
+          );
+        }}
+        renderHandle={(summary) => {
+          if (!summary.sourceHandleId) {
+            return null;
+          }
+
+          const isDefaultNextRoute = summary.sourceHandleId === 'next';
+          const optionIndex = isDefaultNextRoute ? -1 : summary.optionIndex;
+          if (optionIndex === null) {
+            return null;
+          }
+
+          return (
+            <div
+              className={[
+                'story-node-connect-handle',
+                isDefaultNextRoute ? 'story-node-connect-handle--next' : 'story-node-connect-handle--option',
+                'nodrag',
+                'nopan',
+              ].join(' ')}
+              data-source-full-id={data.fullId}
+              data-option-index={optionIndex}
+              data-testid={isDefaultNextRoute ? 'story-node-default-next-handle' : `story-node-option-handle-${optionIndex}`}
+              title={summary.ariaLabel}
+            >
+              <Handle
+                id={summary.sourceHandleId}
+                type="source"
+                position={Position.Right}
+                className="story-node-connect-port nodrag nopan"
+              />
+            </div>
+          );
+        }}
+      />
+
       {/* 空内容占位 */}
-      {!hasPreview && !data.optionCount && (
+      {!hasPreview && !data.optionCount && routeSummaries.length === 0 && (
         <div className="story-node-empty-hint">
-          （空节点 — 暂无内容）
+          {text('themeNode.emptyLegacyNode')}
         </div>
       )}
 
       {/* React Flow 连线端口 — 目标端口（顶部，接收连线） */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="story-node-handle story-node-handle-target"
-      />
-
-      {/* React Flow 连线端口 — 每个选项一个源端口（底部，可拖拽修改跳转目标） */}
-      {data.optionCount > 0 && (
-        <div className="story-node-connectors">
-          {Array.from({ length: data.optionCount }, (_, i) => (
-            <Handle
-              key={`option-${i}`}
-              id={`option-${i}`}
-              type="source"
-              position={Position.Bottom}
-              className="story-node-connect-handle"
-              style={{
-                left: `${((i + 1) / (data.optionCount + 1)) * 100}%`,
-              }}
-              title={`选项 ${i + 1}: 拖拽到目标节点以修改跳转目标`}
-            />
-          ))}
-        </div>
+      {!hasDefaultRoute && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="story-node-handle story-node-handle-target story-node-handle-target--side nodrag nopan"
+        />
       )}
+
     </div>
   );
 };

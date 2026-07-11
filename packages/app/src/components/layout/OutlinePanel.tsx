@@ -15,6 +15,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useStoryStore } from '../../stores/storyStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useAppText } from '../../i18n/appI18n';
 
 // ============================================================================
 // 常量
@@ -51,6 +52,7 @@ export interface OutlinePanelProps {
 export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactElement {
   const plotFlowData = useStoryStore((s) => s.plotFlowData);
   const activeNodeId = useEditorStore((s) => s.activeNodeId);
+  const text = useAppText();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
@@ -124,11 +126,11 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
         className="outline-panel outline-panel--collapsed"
         style={collapsedPanelStyle}
       >
-        <span style={collapsedTitleStyle}>大纲</span>
+        <span style={collapsedTitleStyle}>{text('outline.title')}</span>
         <button
           type="button"
           onClick={handleToggleCollapse}
-          title="展开大纲面板"
+          title={text('outline.expand')}
           style={collapseButtonStyle}
         >
           ▶
@@ -153,11 +155,11 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
     >
       {/* ---- 标题栏 ---- */}
       <div style={headerStyle}>
-        <span style={headerTitleStyle}>大纲</span>
+        <span style={headerTitleStyle}>{text('outline.title')}</span>
         <button
           type="button"
           onClick={handleToggleCollapse}
-          title="折叠大纲面板"
+          title={text('outline.collapse')}
           style={collapseButtonStyle}
         >
           ◀
@@ -196,7 +198,7 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
                         (isActive ? ' outline-node--active' : '')
                       }
                       onClick={() => handleNodeClick(node.fullId, node.lineNumber)}
-                      title={`${node.title} (行 ${node.lineNumber})`}
+                      title={text('outline.nodeLocation', { title: node.title, line: node.lineNumber })}
                       style={{
                         ...nodeStyle,
                         ...(isActive ? activeNodeStyle : {}),
@@ -206,7 +208,7 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
                       {node.options.length > 0 && (
                         <span
                           style={badgeStyle}
-                          title={`${node.options.length} 个选项`}
+                          title={text('outline.optionCount', { count: node.options.length })}
                         >
                           {node.options.length}
                         </span>
@@ -221,7 +223,7 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
           /* ---- 空状态 ---- */
           <div style={emptyStyle}>
             <span style={emptyIconStyle}>📄</span>
-            <span>打开 .mdstory 文件以查看大纲</span>
+            <span>{text('outline.empty')}</span>
           </div>
         )}
       </div>
@@ -247,8 +249,8 @@ const panelStyle: React.CSSProperties = {
   flexDirection: 'column',
   height: '100%',
   position: 'relative',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderRight: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-secondary)',
+  borderRight: '1px solid var(--color-border-default)',
   minWidth: PANEL_MIN_WIDTH,
   overflow: 'hidden',
 };
@@ -262,14 +264,14 @@ const collapsedPanelStyle: React.CSSProperties = {
   minWidth: PANEL_COLLAPSED_WIDTH,
   height: '100%',
   padding: '8px 0',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderRight: '1px solid var(--color-border-default, #E0E0E0)',
+  background: 'var(--color-bg-secondary)',
+  borderRight: '1px solid var(--color-border-default)',
 };
 
 const collapsedTitleStyle: React.CSSProperties = {
   writingMode: 'vertical-rl',
   fontSize: '11px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   letterSpacing: 2,
   userSelect: 'none',
 };
@@ -284,8 +286,8 @@ const headerStyle: React.CSSProperties = {
   fontSize: '12px',
   fontWeight: 600,
   textTransform: 'uppercase',
-  color: 'var(--color-text-muted, #8A8A8A)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-muted)',
+  borderBottom: '1px solid var(--color-border-default)',
   flexShrink: 0,
 };
 
@@ -298,7 +300,7 @@ const collapseButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 4px',
   borderRadius: 4,
   display: 'flex',
@@ -324,7 +326,7 @@ const chapterStyle: React.CSSProperties = {
   padding: '6px 12px 2px',
   fontSize: '11px',
   fontWeight: 600,
-  color: 'var(--color-text-secondary, #5A5A5A)',
+  color: 'var(--color-text-secondary)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   userSelect: 'none',
@@ -340,14 +342,14 @@ const nodeStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   borderRadius: 0,
   transition: 'background 0.1s ease',
 };
 
 const activeNodeStyle: React.CSSProperties = {
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.08))',
-  borderLeft: '2px solid var(--color-accent, #A0703A)',
+  background: 'var(--color-accent-subtle)',
+  borderLeft: '2px solid var(--color-accent)',
   paddingLeft: 18, // 20 - 2 (borderLeft 占位)
 };
 
@@ -364,8 +366,8 @@ const badgeStyle: React.CSSProperties = {
   lineHeight: '16px',
   padding: '0 6px',
   borderRadius: 8,
-  background: 'var(--color-bg-tertiary, #E8E8EA)',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  background: 'var(--color-bg-tertiary)',
+  color: 'var(--color-text-muted)',
   flexShrink: 0,
   marginLeft: 8,
   fontWeight: 500,
@@ -382,7 +384,7 @@ const resizeHandleStyle: React.CSSProperties = {
   width: 5,
   height: '100%',
   cursor: 'col-resize',
-  zIndex: 10,
+  zIndex: 'var(--z-panel)',
 };
 
 // -------- 空状态 --------
@@ -390,7 +392,7 @@ const resizeHandleStyle: React.CSSProperties = {
 const emptyStyle: React.CSSProperties = {
   padding: '24px 16px',
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textAlign: 'center',
   display: 'flex',
   flexDirection: 'column',

@@ -86,7 +86,7 @@ export function exportJSON(data: PlotFlowData): ParseResult<string> {
  */
 function serializeStory(data: PlotFlowData): Record<string, unknown> {
   return {
-    $schema: 'https://plotflow.dev/schema/0.1/story.json',
+    $schema: 'https://plotflow.dev/schema/0.2/story.json',
     meta: serializeMeta(data.meta),
     variables: serializeVariables(data.variables),
     chapters: data.chapters.map(serializeChapter),
@@ -125,9 +125,9 @@ function serializeMeta(meta: StoryMeta): Record<string, unknown> {
  * 统一引擎值：将内部 'generic' 映射为 Schema 定义的 'none'。
  */
 function normalizeEngine(engine?: string): string {
-  if (!engine) return 'none';
-  if (engine === 'generic') return 'none';
-  return engine;
+  if (!engine || engine === 'generic') return 'none';
+  if (engine === 'godot' || engine === 'unity' || engine === 'unreal') return engine;
+  return 'none';
 }
 
 // ============================================================================
@@ -154,18 +154,18 @@ function serializeVariables(variables: readonly VariableDeclaration[]): Record<s
  * 类型规则：
  * - int/float/bool/string: 输出 type + default
  * - enum: 输出 type + values + default
- * - object: 输出 type + fields（无 default，Schema 不允许）
- * - 所有类型均不输出 description（Schema 的 additionalProperties: false 禁止）
+ * - object: 输出 type + fields + 完整对象 default
+ * - scope / description 在声明时存在则原样保留
  */
 function serializeVariableDef(v: VariableDeclaration): Record<string, unknown> {
   const result: Record<string, unknown> = {
     type: v.type,
   };
 
-  // default 值：所有类型除 object 外都支持 default 字段
-  if (v.type !== 'object') {
-    result['default'] = v.defaultValue;
-  }
+  result['default'] = v.defaultValue;
+  if (v.scope) result['scope'] = v.scope;
+  if (v.chapterId !== undefined) result['chapter'] = v.chapterId;
+  if (v.description !== undefined) result['description'] = v.description;
 
   // enum 类型的合法值列表
   if (v.type === 'enum' && v.enumValues && v.enumValues.length > 0) {
@@ -173,9 +173,9 @@ function serializeVariableDef(v: VariableDeclaration): Record<string, unknown> {
   }
 
   // object 类型的子字段（递归）
-  if (v.type === 'object' && v.fields && v.fields.length > 0) {
+  if (v.type === 'object') {
     const fields: Record<string, unknown> = {};
-    for (const field of v.fields) {
+    for (const field of v.fields ?? []) {
       fields[field.name] = serializeVariableDef(field);
     }
     result['fields'] = fields;
@@ -209,7 +209,7 @@ function serializeChapter(chapter: Chapter): Record<string, unknown> {
  *
  * 映射说明：
  * - body: AST 中为单字符串 → Schema 中为段落数组（按双换行分割）
- * - position: AST 中不存在 → Schema 要求，默认 { x: 0, y: 0 }
+ * - position: 使用 AST 中的 Graph Lab 布局坐标；缺失时默认 { x: 0, y: 0 }
  * - diagnostics.isRoot/isOrphan/isDeadEnd → 直接映射
  */
 function serializeNode(node: StoryNode, _index: number): Record<string, unknown> {
@@ -219,8 +219,8 @@ function serializeNode(node: StoryNode, _index: number): Record<string, unknown>
     fullId: node.fullId,
     title: node.title,
     body: splitBodyToParagraphs(node.body),
-    options: node.options.map((opt, i) => serializeOption(opt, i)),
-    position: { x: 0, y: 0 },
+    options: serializeNodeOptions(node),
+    position: node.position ?? { x: 0, y: 0 },
     isRoot: node.diagnostics.isRoot,
     isOrphan: node.diagnostics.isOrphan,
     isDeadEnd: node.diagnostics.isDeadEnd,
@@ -273,11 +273,28 @@ function splitBodyToParagraphs(body: string): string[] {
  * - condition + conditionRaw → conditions（含 expression + ast）
  * - targetNodeId/targetFullId 为 null 时输出空字符串（防御性）
  */
+function serializeNodeOptions(node: StoryNode): Array<Record<string, unknown>> {
+  const options = node.options.map((opt, i) => serializeOption(opt, i));
+  if (node.nextTarget?.targetNodeId || node.nextTarget?.targetFullId) {
+    options.push({
+      index: options.length,
+      text: '\u4e0b\u4e00\u6b65',
+      targetNodeId: node.nextTarget.targetNodeId ?? null,
+      targetChapterId: node.nextTarget.targetChapterId ?? null,
+      targetFullId: node.nextTarget.targetFullId ?? null,
+      conditions: null,
+      sideEffects: node.nextTarget.sideEffects.map(serializeSideEffect),
+    });
+  }
+  return options;
+}
+
 function serializeOption(opt: Option, index: number): Record<string, unknown> {
   return {
     index,
     text: opt.description,
     targetNodeId: opt.targetNodeId ?? null,
+    targetChapterId: opt.targetChapterId ?? null,
     targetFullId: opt.targetFullId ?? null,
     conditions: serializeCondition(opt.condition, opt.conditionRaw),
     sideEffects: opt.sideEffects.map(serializeSideEffect),
@@ -327,40 +344,23 @@ function convertConditionNode(node: ConditionNode): Record<string, unknown> {
 /**
  * 将内部 ComparisonExpression 转换为 Schema Comparison 节点。
  *
- * 映射规则：
- * - left operand (variable) → variable 字段
- * - operator → operator 字段
- * - right operand (literal) → value 字段
+ * Schema 0.2 将左右操作数都显式序列化，避免把 `5 < $金币`
+ * 或变量对变量比较压扁为 0.1 的 variable/value 形状。
  */
 function convertComparison(expr: ComparisonExpression): Record<string, unknown> {
   return {
     type: 'comparison',
-    variable: extractVariableName(expr.left),
+    left: convertOperand(expr.left),
     operator: expr.operator,
-    value: extractLiteralValue(expr.right),
+    right: convertOperand(expr.right),
   };
 }
 
-/**
- * 从操作数中提取变量名。
- */
-function extractVariableName(operand: Operand): string {
+function convertOperand(operand: Operand): Record<string, unknown> {
   if (operand.operandType === 'variable' && operand.variableName) {
-    return operand.variableName;
+    return { type: 'variable', name: operand.variableName };
   }
-  // 防御：如果左操作数不是变量（异常情况），返回字符串化字面量
-  return String(operand.literalValue ?? '');
-}
-
-/**
- * 从操作数中提取字面量值。
- */
-function extractLiteralValue(operand: Operand): unknown {
-  if (operand.operandType === 'literal') {
-    return operand.literalValue;
-  }
-  // 防御：如果右操作数不是字面量（异常情况），返回变量名
-  return operand.variableName ?? '';
+  return { type: 'literal', value: operand.literalValue ?? '' };
 }
 
 /**

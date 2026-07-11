@@ -1,0 +1,15 @@
+---
+plotflow: "0.1"
+title: "Untitled Story"
+author: "PlotFlow Writer"
+engine: "generic"
+vars:
+  score_r42: int
+---
+
+# 第一章
+
+
+## 节点：R59节点
+
+在这里写下剧情正文。

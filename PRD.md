@@ -4,6 +4,8 @@
 **日期**：2026年6月10日  
 **状态**：需求确认完成，待开发
 
+> **V0.3 合同补充（2026-07-11）**：ADR-013 将 canonical FullID 定义为编码组件加单一斜杠的 opaque key，并将当前 JSON 写出合同提升为 Schema 0.2；`.mdstory` 的系统管理 `plotflow` 仍为 0.1。源文件、Inspector 与内部 AST 的 engine 枚举为 `generic | godot | unity | unreal`，JSON 0.2 输出枚举为 `none | godot | unity | unreal`，导出器执行 `generic → none`。P1 源码与严格 unpacked Graph-first/Ajv 旅程已通过；installed、人工巡检、真实引擎工具链 smoke 与签名门禁仍待完成，不得宣称 release-candidate-passed 或公共正式发行。
+
 ---
 
 ## 目录
@@ -30,14 +32,14 @@
 
 ### 1.1 产品定位
 
-PlotFlow 是一个面向独立游戏开发者的**叙事分支管理工具**，以 Markdown 方言为语法基础，以可视化分支图为辅助，以多格式导出为目标。产品的核心价值是成为**文案策划、叙事设计师、程序开发三者之间的工作流桥梁**。
+PlotFlow 是一个面向独立游戏开发者的**叙事分支管理工具**，以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并在顶栏并列保留 Split 完整源码投影，以多格式导出为目标。产品的核心价值是成为**文案策划、叙事设计师、程序开发三者之间的工作流桥梁**。
 
 ### 1.2 核心差异化
 
 | 维度 | PlotFlow | 竞品 |
 |------|----------|------|
 | 学习成本 | Markdown 方言，零代码 | Ink 需学脚本语言，Articy 需培训 |
-| 可视化 | 实时可编辑分支图 | Twine 可视化但不可编辑连线 |
+| 可视化 | Graph Lab 默认图优先工作区 + Split 实时分支图源码投影 | Twine 可视化但不可编辑连线 |
 | 程序集成 | 干净 JSON 导出 + 引擎插件 | Twine 格式封闭，Ink 仅 Unity |
 | 隐私 | 离线优先，本地运行 | 部分竞品需联网 |
 | 价格 | $29 买断 | Articy €499/年起 |
@@ -92,7 +94,8 @@ PlotFlow V0.1
 │   ├── F3.1.2 分支图实时渲染（React Flow 自上而下树状布局）
 │   ├── F3.1.3 图形化条件编辑器（Airtable 风格内联面板）
 │   ├── F3.1.4 图形化选项辅助工具（右键菜单/工具栏插入）
-│   └── F3.1.5 实时语法错误标记（波浪线+侧边标记）
+│   ├── F3.1.5 实时语法错误标记（波浪线+侧边标记）
+│   └── F3.1.6 Graph Lab（流程图优先 GUI 操作）
 ├── 智能辅助
 │   ├── F3.2.1 四维幽灵字符补全（节点标题/选项句式/正文/变量名）
 │   ├── F3.2.2 本地语料学习（用户风格自适应）
@@ -166,6 +169,23 @@ PlotFlow V0.1
 | **建议标记** | 蓝色下划线 + 左侧蓝色标记点 |
 | **悬停提示** | 鼠标悬停在标记上显示错误说明 tooltip |
 | **分支图联动** | 孤立节点在分支图中黄色高亮，死胡同灰色高亮 |
+
+#### F3.1.6 Graph Lab（图优先正式入口）
+
+| 属性 | 规格 |
+|------|------|
+| **定位** | 主要且默认的流程图优先工作区，支持“完全 GUI 操控”覆盖核心写作闭环 |
+| **入口** | 首次启动、新建、打开、命令行打开和 Continue editing 默认进入；顶部与 Split 并列的模式按钮及快捷键允许随时切换 |
+| **画布** | React Flow 全屏画布，左侧节点 palette，右侧 Inspector，底部 ProblemPanel 联动 |
+| **节点编辑** | GUI 创建/删除节点；Inspector 编辑章节、标题、正文摘要；拖拽节点实时移动，松手写入 `.mdstory` 布局块 |
+| **选项编辑** | GUI 创建/删除/排序选项；拖线连接已有节点、拖到空白处创建目标节点、拖到空白处断开既有连接 |
+| **流程出口** | 无选项节点显示默认节点级连线口，拖线写入 `下一步: 节点：目标`；一旦存在普通选项，默认连线口隐藏 |
+| **变量编辑** | `vars:` 是当前单文件全局变量源；Graph Lab Inspector 必须能查看、新增、删除变量，并在条件/效果编辑器中以下拉方式引用 |
+| **条件/效果** | 条件编辑器嵌入 Inspector，效果编辑器以同样的字段化方式呈现；条件和效果均从已声明变量列表中选择变量并写回源码 |
+| **章节工作区** | 顶部必须显示章节标签栏；每个章节拥有独立图表上下文和 Source Drawer 源码切片，新增章节后立即出现可见标签 |
+| **源文本** | Source Drawer 可折叠显示当前章节 `.mdstory` 源文本切片；基础文本编辑模式保留全文件视图；所有 GUI 操作必须序列化回同一个 `.mdstory` |
+| **可见性门禁** | Graph Lab E2E 必须用截图验证章节标签栏和新增章节标签可见，避免仅通过 DOM 存在误判 UI 已呈现 |
+| **工作区关系** | Graph Lab 是主要且默认工作区；Split 顶栏并列保留，作为辅助与高级的完整 `.mdstory` 源码投影 |
 
 #### F3.2.1 四维幽灵字符补全
 
@@ -257,9 +277,13 @@ PlotFlow V0.1
 
 | 属性 | 规格 |
 |------|------|
-| **暗色主题** | 深色背景+绿色系语法高亮（游戏开发 IDE 风格），默认 |
-| **亮色主题** | 浅色背景+墨色文字（写作模式），适合长时间文案工作 |
-| **切换** | 工具栏按钮或 `Ctrl+Shift+T`，即时切换无闪烁 |
+| **默认官方主题** | `plotflow-narrative-workbench`（叙事工作台 / Narrative Workbench），暖纸工作台 + 蓝图线缆 |
+| **第二官方主题** | `plotflow-blueprint-nightwatch`（夜航蓝图 / Blueprint Nightwatch），低光编辑室 + 发光线缆 |
+| **暗色/亮色模式** | 继续保留基础明暗切换；官方主题决定节点、线缆、端口、面板、Monaco 配色和动效 |
+| **切换** | 顶部“主题”入口打开官方主题中心；主题启用即时生效，不修改 `.mdstory` |
+| **主题架构** | 官方主题采用编译内置模块热插拔，包含 manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta 与 React slots |
+| **产品边界** | 当前只发行官方主题；社区主题、本地 `.pf-theme.zip` 导入和远程下载暂不开放 |
+| **市场路径** | 首版只提供“购买更多官方主题”外部官网/商店跳转；后续再做授权、下载、主题市场 |
 
 #### F3.5.2 国际化
 
@@ -321,16 +345,41 @@ PlotFlow V0.1
 plotflow: "0.1"
 title: "暗夜森林"
 author: "文案名"
-engine: "godot"           # 可选: godot | unity | unreal | none
+engine: "godot"           # 可选: generic | godot | unity | unreal
+layout:                   # 可选：Graph Lab / 分支图手动布局
+  graph:
+    version: 1
+    nodes:
+      - id: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3"
+        x: 120
+        y: 80
 vars:
   好感度: int
   金币: int
   职业: enum[战士, 法师, 盗贼]
+  警戒值:
+    type: int
+    default: 0
+    scope: chapter
+    chapter: 第一章
   装备: object{武器: enum[剑, 弓, 杖], 护甲: int, 饰品: object{名称: string, 效果: string}}
   钥匙: bool
   日志: string
 ---
 ```
+
+#### Graph Layout 块（可选）
+
+`layout.graph.nodes` 是 `.mdstory` Frontmatter 中的可选布局投影，用于保存 Graph Lab 或分支图中的手动节点坐标。它不改变剧情语义，不影响运行时分支逻辑；缺失时编辑器继续用 Dagre 自动布局。
+
+| 字段 | 规格 |
+|------|------|
+| `layout.graph.version` | 当前固定为 `1`，用于未来布局格式迁移 |
+| `layout.graph.nodes[].id` | canonical opaque FullID：`encodeURIComponent(chapterId) + "/" + encodeURIComponent(nodeId)` |
+| `layout.graph.nodes[].x/y` | React Flow 画布坐标，允许整数或浮点数 |
+| 写入时机 | 用户拖拽节点松手、GUI 创建节点并带落点、节点重命名/删除时同步迁移或清理 |
+
+`layout.graph.version` 继续为 `1`。读取历史 `chapter-node` ID 时不得拆分字符串猜测；必须枚举当前 AST 节点计算 legacy aliases，仅唯一命中时迁移坐标，碰撞时忽略该坐标并报告歧义。打开文件不静默改写，下一次真实保存或布局事务才写回 canonical ID。
 
 #### 类型系统规格
 
@@ -348,6 +397,8 @@ vars:
 - `object` 的字段类型可以是 `int`, `float`, `bool`, `string`, `enum` 或另一个 `object`
 - 最大嵌套深度：**3层**（外层 object → 内层 object → 最内层 object）
 - 超过3层的嵌套在解析时报错
+- `scope` / `chapter` 只允许在顶层变量声明；`scope: chapter` 必须选择真实 `chapter`，global 或省略 scope 时禁止 `chapter`
+- object fields 继承顶层变量作用域；chapter-scoped 值随故事会话持久化，但只在归属章节可见
 
 ### 4.2 章节与节点定义
 
@@ -398,6 +449,26 @@ vars:
 | O4 | 一个选项可以同时有条件和效果，也可以只有其一 | - |
 | O5 | 无条件子行的选项 = 默认选项，始终可用 | - |
 | O6 | 同一节点下所有选项的描述文本不能完全相同 | 🟡 警告 |
+
+### 4.3.1 流程出口语法（`下一步`）
+
+`下一步` 是节点级默认流程出口，用于“没有显式选项也要进入下一个节点”的流程性节点。它不是普通 `[选项]` 的伪装，必须作为节点属性解析、验证和写回。
+
+```markdown
+## 节点：开场旁白
+
+远处传来钟声。
+
+下一步: 节点：村口
+  效果: (时间+1)
+```
+
+| 规则编号 | 规则内容 | 违反处理 |
+|----------|---------|---------|
+| F1 | `下一步:` / `下一步：` 后必须是合法节点引用，格式同普通选项目标 | 🔴 错误 |
+| F2 | 紧邻缩进的 `效果:` 行归属于该流程出口 | - |
+| F3 | 一个节点存在任意 `[选项]` 时，Graph Lab 关闭默认流程连线口，以普通选项作为显式出口 | - |
+| F4 | JSON 导出在 schema 升级前将 `下一步` 投影为文本为 `下一步` 的无条件合成 option，保持运行时兼容 | - |
 
 ### 4.4 变量操作语法（效果）
 
@@ -527,6 +598,11 @@ vars:
 
 ### 5.2 面板说明
 
+| 工作区模式 | 定位 | 主编辑面 | 辅助面 |
+|------|------|------|------|
+| Graph Lab（默认） | 主要图优先创作工作区 | React Flow 全屏流程图 | 节点 palette、Inspector、Source Drawer、问题面板 |
+| Split | 辅助与高级源码投影 | Monaco `.mdstory` 完整源文本 | 大纲、分支图、条件弹窗、问题面板 |
+
 | 面板 | 位置 | 宽度 | 可调整 | 可隐藏 |
 |------|------|------|--------|--------|
 | 大纲视图 | 最左侧 | 200px 默认 | ✅ 拖拽边缘 | ✅ 菜单切换 |
@@ -617,7 +693,7 @@ vars:
 | **布局算法** | Dagre（自上而下层级布局） |
 | **节点组件** | 自定义 React 组件，显示：节点标题 + 前30字摘要 + 选项数量徽章 |
 | **连线组件** | 自定义 Edge 组件，条件连线虚线橙色，无条件连线实线青色 |
-| **编辑交互** | 拖拽连线端点修改跳转目标（同步到 Markdown 文本），拖拽节点调整布局位置（不改变文本结构） |
+| **编辑交互** | 拖拽连线端点修改跳转目标（同步到 Markdown 文本），拖拽节点调整布局位置并写入 `.mdstory` 的 `layout.graph.nodes` |
 
 ### 6.2 节点卡片设计
 
@@ -653,8 +729,10 @@ vars:
 | **单击节点** | 编辑器自动滚动到对应 `## 节点：` 位置，节点高亮 |
 | **双击节点** | 编辑器滚动 + 进入重命名模式（修改节点标题） |
 | **拖拽连线端点** | 将连线从当前目标拖到另一个节点 = 修改选项的跳转目标，文本自动更新 |
+| **拖线到空白处** | 打开动作菜单：创建普通节点并连接、创建结局节点并连接、搜索已有节点并连接、取消 |
+| **拖既有线缆到空白处** | 打开动作菜单：断开此选项、创建节点并重连、搜索已有节点并重连、取消 |
 | **右键节点** | 弹出菜单：跳转到节点 / 重命名 / 添加选项 / 删除节点 |
-| **右键空白** | 弹出菜单：添加新节点 / 重新布局 / 导出分支图为 PNG |
+| **右键空白** | 弹出菜单：添加新节点 / 重新布局 / 切换到 Graph Lab |
 | **Ctrl+点击节点** | 多选节点（用于批量操作） |
 | **滚轮** | 缩放 |
 | **中键拖拽** | 平移画布 |
@@ -777,7 +855,7 @@ vars:
 
 ```json
 {
-  "$schema": "https://plotflow.dev/schema/0.1/story.json",
+  "$schema": "https://plotflow.dev/schema/0.2/story.json",
   "meta": {
     "plotflow": "0.1",
     "title": "暗夜森林",
@@ -819,7 +897,7 @@ vars:
         {
           "id": "森林入口",
           "chapterId": "第一章",
-          "fullId": "第一章/森林入口",
+          "fullId": "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3",
           "title": "森林入口",
           "body": [
             "你站在幽暗森林的边缘，两条小径延伸向前。",
@@ -830,7 +908,8 @@ vars:
               "index": 0,
               "text": "走向左边的狼嚎声",
               "targetNodeId": "狼穴",
-              "targetFullId": "第一章/狼穴",
+              "targetChapterId": null,
+              "targetFullId": "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E7%8B%BC%E7%A9%B4",
               "conditions": null,
               "sideEffects": [
                 { "variable": "好感度", "operation": "add", "value": 1 }
@@ -840,7 +919,8 @@ vars:
               "index": 1,
               "text": "探索右边的古井",
               "targetNodeId": "古井",
-              "targetFullId": "第一章/古井",
+              "targetChapterId": null,
+              "targetFullId": "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E5%8F%A4%E4%BA%95",
               "conditions": null,
               "sideEffects": []
             },
@@ -848,22 +928,23 @@ vars:
               "index": 2,
               "text": "投喂食物",
               "targetNodeId": "驯服狼",
-              "targetFullId": "第一章/驯服狼",
+              "targetChapterId": null,
+              "targetFullId": "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E9%A9%AF%E6%9C%8D%E7%8B%BC",
               "conditions": {
                 "expression": "($金币>=10) AND ($武器!='无')",
                 "ast": {
                   "type": "logical_and",
                   "left": {
                     "type": "comparison",
-                    "variable": "金币",
+                    "left": { "type": "variable", "name": "金币" },
                     "operator": ">=",
-                    "value": 10
+                    "right": { "type": "literal", "value": 10 }
                   },
                   "right": {
                     "type": "comparison",
-                    "variable": "武器",
+                    "left": { "type": "variable", "name": "武器" },
                     "operator": "!=",
-                    "value": "无"
+                    "right": { "type": "literal", "value": "无" }
                   }
                 }
               },
@@ -891,18 +972,26 @@ vars:
 | `meta.plotflow` | string | ✅ | PlotFlow 版本号 |
 | `meta.title` | string | ✅ | 故事标题 |
 | `meta.author` | string | ❌ | 作者名 |
-| `meta.engine` | string | ❌ | 目标引擎：`godot`/`unity`/`unreal`/`none` |
+| `meta.engine` | string | ✅ | JSON 输出目标：`godot`/`unity`/`unreal`/`none`；源/内部 `generic` 映射为 `none` |
 | `variables.<name>.type` | string | ✅ | `int`/`float`/`bool`/`string`/`enum`/`object` |
-| `variables.<name>.scope` | string | ✅ | `global`/`chapter` |
+| `variables.<name>.scope` | string | ❌ | 仅顶层：`global`/`chapter`；省略视为 global |
+| `variables.<name>.chapter` | string | 条件必需 | 仅 `scope=chapter` 时必需，必须引用真实章节 |
+| `variables.<name>.fields` | object | object 必需 | object 始终输出；无字段时也必须是 `{}`，嵌套字段继承顶层 scope/chapter |
 | `chapters[].nodes[].id` | string | ✅ | 节点 ID（不含章节前缀） |
-| `chapters[].nodes[].fullId` | string | ✅ | 全局唯一 ID（`章节/节点`） |
+| `chapters[].nodes[].fullId` | string | ✅ | encoded-slash canonical opaque FullID；禁止自行拆分 |
 | `chapters[].nodes[].body` | string[] | ✅ | 描述文本数组（按段落） |
+| `chapters[].nodes[].options[].targetNodeId` | string\|null | ✅ | 无目标时为 null |
+| `chapters[].nodes[].options[].targetChapterId` | string\|null | ✅ | 显式章节；同章未限定时为 null |
+| `chapters[].nodes[].options[].targetFullId` | string\|null | ✅ | canonical opaque FullID；无目标时为 null |
 | `chapters[].nodes[].options[].conditions` | object\|null | ❌ | 条件表达式（含 AST） |
+| `chapters[].nodes[].options[].conditions.ast` Comparison | object | 条件存在时 | 0.2 使用 `left` / `right` typed operands：`variable{name}` 或 `literal{value}` |
 | `chapters[].nodes[].options[].sideEffects` | array | ❌ | 变量副作用列表 |
 | `chapters[].nodes[].options[].sideEffects[].operation` | string | ✅ | `set`/`add`/`subtract`/`append` |
 | `chapters[].nodes[].isRoot` | bool | ✅ | 是否为故事起始节点 |
 | `chapters[].nodes[].isOrphan` | bool | ✅ | 是否为孤立节点（诊断信息） |
 | `chapters[].nodes[].isDeadEnd` | bool | ✅ | 是否为死胡同（诊断信息） |
+
+Schema 0.2 的机器合同位于 `packages/core/schema/0.2/story.json` 并镜像到官网。0.1 仅保留旧导出物读取兼容；其中 Comparison 的 `variable/value` 形状由引擎读取器兼容，但重新导出必须规范化为 0.2 的 typed `left/right`。`meta.plotflow` 仍为 `.mdstory` 语法版本 `0.1`，不由 Inspector 编辑。Inspector 的 engine 选择为 `generic | godot | unity | unreal`，不展示 JSON 专用的 `none`。
 
 ### 8.4 Godot 插件规格（V0.1 完整实现）
 
@@ -1009,6 +1098,7 @@ selected.apply_effects(vars)  # 自动处理变量修改
 | W004 | 重复选项描述 | 同一节点下两个选项的文本完全相同 | 选项行 |
 | W005 | 空描述节点 | 节点 body 文本为空或仅空白字符 | 节点标题处 |
 | W006 | 格式不规范 | 章节/节点标题格式不符合约定 | 标题行 |
+| W007 | 可能无限循环 | 选项边和 `下一步` 边形成无外部出口的强连通闭环 | 闭环节点标题处 |
 
 #### 🔵 建议（Info）— 最佳实践提醒
 
@@ -1045,7 +1135,7 @@ selected.apply_effects(vars)  # 自动处理变量修改
 
 | 层级 | 技术 | 选型理由 |
 |------|------|---------|
-| **桌面框架** | Electron 28+ | 10年生态成熟，复用现有编辑器资产，与 React Flow 完全兼容 |
+| **桌面框架** | Electron 42+ | 当前受支持稳定主版本线，复用现有编辑器资产，与 React Flow 完全兼容 |
 | **前端框架** | React 18+ + TypeScript 5+ | React Flow 原生 React 组件，TypeScript 保证类型安全 |
 | **状态管理** | Zustand | 轻量，适合编辑器场景的细粒度状态 |
 | **UI 组件库** | 自研组件 + Radix UI（无障碍） | 保持编辑器个性，Radix 提供菜单/对话框等无样式原语 |
@@ -1371,7 +1461,7 @@ PlotFlow/
 | 导出 | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
 | 插件 | Godot 编辑器插件+运行时库完整实现 |
 | 项目 | 独立单文件模式 + 4个模板 |
-| UI | 暗色/亮色主题 + 中英双语 + 自动保存 |
+| UI | 官方深度主题中心（叙事工作台 / 夜航蓝图）+ 暗色/亮色模式 + 中英双语 + 自动保存 |
 
 ### V0.2 — 增强（目标：2026年9月）
 
@@ -1416,6 +1506,10 @@ PlotFlow/
 | D013 | 2026-06-10 | UI 界面中英双语 | 面向英文市场（Itch.io/Unity Store）和中文开发者双覆盖 |
 | D014 | 2026-06-10 | 翻译格式仅 TXT（非 Word/PDF） | Word/PDF 并非程序员或翻译工具的主要需求，优先做 JSON+HTML |
 | D015 | 2026-06-10 | 预留方案 B（多文件项目目录）扩展为轻量级视觉小说引擎 | 基于 .mdstory 格式可直接开发 galgame/互动小说运行时 |
+| D016 | 2026-06-23 | Graph-first Dual Projection | `.mdstory` 是磁盘真相源，split 源文本编辑与 Graph Lab GUI 编辑是同一故事数据的双投影；其中“实验入口/不替代 Split 默认”条款已由 D018 覆盖 |
+| D017 | 2026-06-25 | 官方主题采用编译内置模块热插拔 | 当前只发行官方主题，社区主题与本地导入暂不开放；首版购买入口跳转官网，后续再做主题市场与授权 |
+| D018 | 2026-07-10 | Graph Lab 作为主要且默认工作区 | 首次启动、新建、打开与继续编辑默认进入 Graph Lab；Split 顶栏并列保留为完整源码投影；详见 ADR-012 |
+| D019 | 2026-07-11 | encoded-slash canonical FullID 与 JSON Schema 0.2 | FullID 为 opaque key；旧 layout 仅唯一匹配迁移；章节变量显式归属；详见 ADR-013 |
 
 ### 15.2 待决事项（V0.2+ 讨论）
 
@@ -1429,4 +1523,4 @@ PlotFlow/
 
 ---
 
-*文档结束。共计 15 个章节，50+ 条功能规格，15 条关键决策记录。*
+*文档结束。共计 15 个章节，50+ 条功能规格，19 条关键决策记录。*

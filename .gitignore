@@ -8,6 +8,10 @@ release/
 test-results/
 .tmp/
 
+# Local manual QA artifacts
+manual-gui-audit*.mdstory
+manual-gui-audit*.json
+
 # OS files
 .DS_Store
 Thumbs.db

@@ -1,0 +1,444 @@
+{
+  "meta": {
+    "audit_date": "2026-06-19",
+    "baseline": "V0.2",
+    "baseline_commit": "71f63cd",
+    "scope": "全量代码 (46 files changed, +1350/-488)",
+    "auditor": "Pass 1 综合报告撰写员 (V4Pro)",
+    "method": "完整重新审计 (T5.1/T5.2/T5.3 前序输出未持久化)",
+    "total_findings": 16,
+    "severity_distribution": {
+      "CRITICAL": 2,
+      "HIGH": 8,
+      "MEDIUM": 6,
+      "LOW": 0
+    }
+  },
+
+  "execution": {
+    "waves": 4,
+    "tasks": 16,
+    "duration_seconds": 120,
+    "parallel_execution": true,
+    "tasks_detail": [
+      {"wave": 1, "id": "T1.1", "name": "TypeScript 编译检查", "tool": "tsc --noEmit", "status": "PASS", "result": "0 errors"},
+      {"wave": 1, "id": "T1.2", "name": "ESLint 静态分析", "tool": "eslint", "status": "PASS", "result": "0 errors, 38 warnings"},
+      {"wave": 1, "id": "T1.3", "name": "Vitest 全量单元测试", "tool": "vitest run", "status": "PASS", "result": "36 files, 1204 tests, 0 failures"},
+      {"wave": 1, "id": "T1.4", "name": "占位代码扫描", "tool": "grep 待 M[0-9]", "status": "PASS", "result": "0 matches"},
+      {"wave": 2, "id": "T2.1", "name": "裸 hex 色值扫描 (app)", "tool": "grep", "status": "WARN", "result": "1 violation"},
+      {"wave": 2, "id": "T2.2", "name": "裸 hex 色值扫描 (core)", "tool": "grep", "status": "PASS", "result": "HTML exporter inline only"},
+      {"wave": 2, "id": "T2.3", "name": "入口可达性检查", "tool": "manual trace", "status": "PASS", "result": "14/14 reachable"},
+      {"wave": 2, "id": "T2.4", "name": "Progress.md 校验", "tool": "manual comparison", "status": "FAIL", "result": "3 inconsistencies"},
+      {"wave": 3, "id": "T3.1", "name": "Electron 安全配置", "tool": "grep", "status": "PASS", "result": "nodeIntegration:false, contextIsolation:true, sandbox:true"},
+      {"wave": 3, "id": "T3.2", "name": "IPC 通道安全", "tool": "grep", "status": "PASS", "result": "6 channels, all handle/invoke"},
+      {"wave": 3, "id": "T3.3", "name": "Preload 暴露面", "tool": "code review", "status": "PASS", "result": "single plotflow namespace"},
+      {"wave": 3, "id": "T3.4", "name": "CSP 策略", "tool": "code review", "status": "WARN", "result": "missing connect-src"},
+      {"wave": 4, "id": "T4.1", "name": "E2E 配置验证", "tool": "config review", "status": "FAIL", "result": "testMatch excludes 4/5 files"},
+      {"wave": 4, "id": "T4.2", "name": "构建配置审计", "tool": "config review", "status": "WARN", "result": "npm shamefully-hoist deprecated"},
+      {"wave": 4, "id": "T4.3", "name": "mainProcessUtils 审计", "tool": "code review + test", "status": "PASS", "result": "safe, 3/3 tests"},
+      {"wave": 4, "id": "T4.4", "name": "跨模块边界审计", "tool": "import trace", "status": "WARN", "result": "1 cross-boundary import"}
+    ]
+  },
+
+  "quality_gates": {
+    "L1_tsc": {"status": "PASS", "errors": 0},
+    "L1_eslint": {"status": "PASS", "errors": 0, "warnings": 38},
+    "L2_vitest": {"status": "PASS", "files": 36, "tests": 1204, "failed": 0, "duration_s": 3.53},
+    "L3_placeholder": {"status": "PASS", "matches": 0},
+    "L3_reachability": {"status": "PASS", "reachable": 14, "total": 14},
+    "L3_progress_consistency": {"status": "FAIL", "inconsistencies": 3},
+    "L4_manual_review": {"status": "SKIPPED", "planned": "Pass 2"}
+  },
+
+  "findings": [
+    {
+      "id": "C1",
+      "severity": "CRITICAL",
+      "category": "配置错误 (Config)",
+      "title": "Playwright testMatch 排除 4/5 E2E 测试文件",
+      "file": "packages/app/e2e/playwright.config.ts",
+      "line": 16,
+      "status": "未修复",
+      "detail": "配置 testMatch: '*.e2e.ts' 仅匹配 condition-editor.e2e.ts。4 个 .spec.ts 文件 (1829 行) 被静默排除: branch-graph.spec.ts, export.e2e.spec.ts, parser-validator-e2e.spec.ts, theme-language.spec.ts",
+      "fix": "将 testMatch 改为 '**/*.{spec,e2e}.ts' 或统一文件扩展名",
+      "effort_minutes": 1,
+      "priority": "P0",
+      "contradiction": null,
+      "consistency_check": "级别恰当 — 阻断性缺陷, E2E 防线失效"
+    },
+    {
+      "id": "C2",
+      "severity": "CRITICAL",
+      "category": "数据不一致 (Data)",
+      "title": "Progress.md M3/M5 多处计数矛盾",
+      "file": "spec/progress.md",
+      "line": "15,17,128-163,234-258,328-330",
+      "status": "未修复",
+      "detail": "M3 overview 17/18 vs detail 18/18; M5 overview 5 ⏭️ vs detail 7 ⏭️ vs blocking 12; 总完成数应为 112 非 111",
+      "fix": "逐项核对并修正 overview 表、detail 表、blocking 区域, 统一计数",
+      "effort_minutes": 5,
+      "priority": "P0",
+      "contradiction": "M3 overview↔detail矛盾; M5 overview↔detail↔blocking三处矛盾",
+      "consistency_check": "级别恰当 — 影响外部进度报告可信度"
+    },
+    {
+      "id": "H1",
+      "severity": "HIGH",
+      "category": "代码规范 (Style)",
+      "title": "GraphCanvas.tsx 裸 hex 色值违反 Design Token 约束",
+      "file": "packages/app/src/components/branch-graph/GraphCanvas.tsx",
+      "line": 874,
+      "status": "未修复",
+      "detail": "color: '#FFFFFF' 未使用 var(--color-*) CSS 变量, 违反 CLAUDE.md §6.1",
+      "fix": "替换为 var(--color-text-on-primary, #FFFFFF) 或等价的 Design Token",
+      "effort_minutes": 1,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "H2",
+      "severity": "HIGH",
+      "category": "数据不一致 (Data)",
+      "title": "Progress.md 阻塞区域引用过时目标版本 V0.2",
+      "file": "spec/progress.md",
+      "line": "328-330",
+      "status": "未修复",
+      "detail": "blocking 区域 M4/M5/M7 均写 '延后至 V0.2', 当前已是 V0.2 后, 应改为 V0.3",
+      "fix": "批量替换 '延后至 V0.2' → '延后至 V0.3'",
+      "effort_minutes": 2,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "H3",
+      "severity": "HIGH",
+      "category": "文档维护 (Docs)",
+      "title": "M3-16/M3-18 表格行格式损坏",
+      "file": "spec/progress.md",
+      "line": "161,163",
+      "status": "未修复",
+      "detail": "两行缺少任务名称列 (| M3-16 | ✅ | ... 跳过了任务名), 造成 overview 计数偏差的根因之一",
+      "fix": "补全任务名称: M3-16 应为 'ProblemPanel 挂载', M3-18 应为 '节点状态着色读取诊断'",
+      "effort_minutes": 2,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别从 MEDIUM 升级至 HIGH — 是 overview 计数错误的直接根因"
+    },
+    {
+      "id": "H4",
+      "severity": "HIGH",
+      "category": "数据不一致 (Data)",
+      "title": "M5 blocking 区域数据严重过时",
+      "file": "spec/progress.md",
+      "line": 329,
+      "status": "未修复",
+      "detail": "声称 12 项阻塞, 实际 detail 中仅 7 项 ⏭️; 声称 'GhostText UI 延后至 V0.2' 但 M5-08~13 已标记 ✅",
+      "fix": "修正 M5 blocking 计数为 7, 移除 GhostText UI 相关错误描述",
+      "effort_minutes": 3,
+      "priority": "P1",
+      "contradiction": "M5 blocking↔detail 状态矛盾",
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "H5",
+      "severity": "HIGH",
+      "category": "数据不一致 (Data)",
+      "title": "Progress.md M6 验证记录测试数据过时",
+      "file": "spec/progress.md",
+      "line": 293,
+      "status": "未修复",
+      "detail": "记录 '25 files / 746 tests', 实测 36 files / 1204 tests",
+      "fix": "更新为当前实测数据: 36 files, 1204 tests",
+      "effort_minutes": 2,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "H6",
+      "severity": "HIGH",
+      "category": "配置错误 (Config)",
+      "title": "E2E 文件扩展名不一致",
+      "file": "packages/app/e2e/",
+      "line": null,
+      "status": "未修复",
+      "detail": "4 个文件用 .spec.ts, 1 个用 .e2e.ts, 与 playwright.config.ts testMatch 不匹配",
+      "fix": "统一为 .spec.ts 并更新 testMatch 为 '**/*.spec.ts', 或统一为 .e2e.ts",
+      "effort_minutes": 3,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别从 MEDIUM 升级至 HIGH — 与 C1 直接关联, 是 testMatch 问题的另一半"
+    },
+    {
+      "id": "H7",
+      "severity": "HIGH",
+      "category": "架构卫生 (Arch)",
+      "title": "测试文件跨越 monorepo 边界导入",
+      "file": "packages/app/src/__tests__/mainProcessUtils.test.ts",
+      "line": 7,
+      "status": "未修复",
+      "detail": "import from '../../src-electron/mainProcessUtils' — 测试文件位于 src/__tests__/ 但导入 src-electron/ 模块, 跨越 monorepo 包边界",
+      "fix": "将 mainProcessUtils.test.ts 移至 packages/app/src-electron/__tests__/",
+      "effort_minutes": 5,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "H8",
+      "severity": "HIGH",
+      "category": "配置错误 (Config)",
+      "title": "npm shamefully-hoist 配置已废弃",
+      "file": ".npmrc",
+      "line": null,
+      "status": "未修复",
+      "detail": "npm warn: 'shamefully-hoist' will stop working in next major version",
+      "fix": "迁移至 pnpm 原生 hoist 配置或评估是否可移除",
+      "effort_minutes": 5,
+      "priority": "P1",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "category": "安全加固 (Security)",
+      "title": "CSP 缺少 connect-src 指令",
+      "file": "packages/app/index.html",
+      "line": 6,
+      "status": "未修复",
+      "detail": "若未来添加 fetch/WebSocket 请求, 将被 default-src 'self' 阻塞。当前无实际影响",
+      "fix": "添加 connect-src 'self'",
+      "effort_minutes": 1,
+      "priority": "P2",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "M2",
+      "severity": "MEDIUM",
+      "category": "安全加固 (Security)",
+      "title": "CSP 通过 meta 标签而非 HTTP 响应头传递",
+      "file": "packages/app/index.html",
+      "line": 6,
+      "status": "已知限制",
+      "detail": "meta 标签 CSP 弱于 HTTP 响应头 (如 report-uri 在 meta 中无效)。Electron 应用场景下影响有限",
+      "fix": "接受为已知限制, 或通过 main.ts session.defaultSession.webRequest 设置响应头",
+      "effort_minutes": 10,
+      "priority": "P2",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "M3",
+      "severity": "MEDIUM",
+      "category": "文档维护 (Docs)",
+      "title": "M0-07 标记 ❌ 但 E2E 文件实际存在",
+      "file": "spec/progress.md",
+      "line": 50,
+      "status": "未修复",
+      "detail": "progress.md M0-07 标记为 ❌ (V0.1.1 移除), 但 e2e/ 目录有 5 个测试文件",
+      "fix": "更新 M0-07 状态以反映实际存在 E2E 测试, 或清理 e2e 目录",
+      "effort_minutes": 3,
+      "priority": "P2",
+      "contradiction": "M0-07状态↔实际文件存在矛盾",
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "M4",
+      "severity": "MEDIUM",
+      "category": "代码规范 (Style)",
+      "title": "38 个 ESLint no-console 警告",
+      "file": "多个测试文件 + main.ts",
+      "line": null,
+      "status": "可接受",
+      "detail": "全部在测试文件和 main.ts 中, 属合理使用。产生噪音但不影响功能",
+      "fix": "在测试文件头部添加 /* eslint-disable no-console */ 或在 .eslintrc 中为 test 文件关闭此规则",
+      "effort_minutes": 5,
+      "priority": "P3",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "M5",
+      "severity": "MEDIUM",
+      "category": "工程债务 (TechDebt)",
+      "title": "IPC 通道名称无类型安全枚举",
+      "file": "packages/app/src-electron/main.ts, preload.ts",
+      "line": null,
+      "status": "未修复",
+      "detail": "通道名称如 'file:save', 'dialog:confirm' 使用字符串字面量, 拼写错误运行时才能发现",
+      "fix": "创建 IpcChannel 枚举类型并在 main.ts 和 preload.ts 中共享引用",
+      "effort_minutes": 10,
+      "priority": "P2",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    },
+    {
+      "id": "M6",
+      "severity": "MEDIUM",
+      "category": "工程债务 (TechDebt)",
+      "title": "E2E 测试未接入 CI 流水线",
+      "file": ".github/workflows/",
+      "line": null,
+      "status": "未修复",
+      "detail": "M0-07 移除后 E2E 无 CI 集成。5 个 E2E 文件需要 build + Electron 环境运行",
+      "fix": "决定是否在 CI 中加入 E2E (需要 headless Electron), 或在文档中明确 E2E 为本地手动执行",
+      "effort_minutes": 30,
+      "priority": "P2",
+      "contradiction": null,
+      "consistency_check": "级别恰当"
+    }
+  ],
+
+  "e2e_assessment": {
+    "config_match": "FAIL",
+    "config_detail": "testMatch: '*.e2e.ts' 仅匹配 1/5 文件",
+    "type_safety": "PASS",
+    "type_detail": "E2E 文件通过 TS 编译, 配置类型正确",
+    "actual_execution": "未执行 (需先 build 应用)",
+    "files": [
+      {"name": "condition-editor.e2e.ts", "lines": 469, "matched_by_config": true},
+      {"name": "branch-graph.spec.ts", "lines": 559, "matched_by_config": false},
+      {"name": "export.e2e.spec.ts", "lines": 469, "matched_by_config": false},
+      {"name": "parser-validator-e2e.spec.ts", "lines": 398, "matched_by_config": false},
+      {"name": "theme-language.spec.ts", "lines": 403, "matched_by_config": false}
+    ],
+    "total_lines": 2298,
+    "dead_code_lines": 1829
+  },
+
+  "security_chain": {
+    "nodeIntegration": false,
+    "contextIsolation": true,
+    "sandbox": true,
+    "contextBridge_single_namespace": true,
+    "ipc_protocol": "handle/invoke (6 channels)",
+    "csp_script_src": "'self'",
+    "csp_object_src": "'none'",
+    "no_remote_module": true,
+    "webSecurity_enabled": true,
+    "overall": "完整, 无缺口"
+  },
+
+  "mainProcessUtils_assessment": {
+    "file": "packages/app/src-electron/mainProcessUtils.ts",
+    "lines": 42,
+    "logic_correctness": "PASS",
+    "test_coverage": "3/3 tests PASS",
+    "callers": ["main.ts"],
+    "exposure_risk": "NONE (未通过 preload 暴露)",
+    "overall": "安全"
+  },
+
+  "new_risks": {
+    "mainProcessUtils": "无新增风险 — 逻辑正确, 测试覆盖充分",
+    "security_chain": "完整, 无缺口",
+    "performance": "1204 测试 3.53s, 解析器 0.2ms — 优秀",
+    "type_safety": "IPC 通道缺类型枚举 (MEDIUM), 测试越界导入 (HIGH)"
+  },
+
+  "contradictions": [
+    {
+      "id": "X1",
+      "severity": "CRITICAL",
+      "description": "Progress.md M3 overview (17/18) 与 detail (18/18) 矛盾",
+      "location": "spec/progress.md:L15 vs L128-L163"
+    },
+    {
+      "id": "X2",
+      "severity": "CRITICAL",
+      "description": "Progress.md M5 overview (5 ⏭️) 与 detail (7 ⏭️) 与 blocking (12) 三处矛盾",
+      "location": "spec/progress.md:L17 vs L234-L258 vs L329"
+    },
+    {
+      "id": "X3",
+      "severity": "HIGH",
+      "description": "M5 blocking 描述 'GhostText UI 延后至 V0.2' 与 M5-08~13 ✅ 状态矛盾",
+      "location": "spec/progress.md:L329 vs L248-L253"
+    },
+    {
+      "id": "X4",
+      "severity": "HIGH",
+      "description": "Blocking 区域引用目标 V0.2, 当前已是 post-V0.2",
+      "location": "spec/progress.md:L328-L330"
+    },
+    {
+      "id": "X5",
+      "severity": "MEDIUM",
+      "description": "M0-07 标记 ❌ 但 e2e/ 目录有 5 个测试文件",
+      "location": "spec/progress.md:L50 vs packages/app/e2e/"
+    },
+    {
+      "id": "X6",
+      "severity": "MEDIUM",
+      "description": "4 个 E2E 文件扩展名 .spec.ts 与 playwright.config.ts testMatch *.e2e.ts 不匹配",
+      "location": "packages/app/e2e/*.spec.ts vs playwright.config.ts:16"
+    }
+  ],
+
+  "severity_adjustments": [
+    {
+      "finding": "H3 (M3-16/M3-18 格式损坏)",
+      "original": "MEDIUM",
+      "corrected": "HIGH",
+      "reason": "是 overview 计数错误的直接根因"
+    },
+    {
+      "finding": "H6 (E2E 命名不一致)",
+      "original": "MEDIUM",
+      "corrected": "HIGH",
+      "reason": "与 C1 直接关联, 是 testMatch 问题的另一半"
+    }
+  ],
+
+  "test_baseline": {
+    "V0_2_progress_md": {"files": 25, "tests": 746},
+    "V0_2_actual": {"files": null, "tests": 1090},
+    "Pass_1_measured": {"files": 36, "tests": 1204, "duration_s": 3.53, "failed": 0},
+    "delta_vs_progress_md": {"files": "+11", "tests": "+458"},
+    "delta_vs_V0_2": {"tests": "+114"}
+  },
+
+  "overall_grade": {
+    "code_quality": "A",
+    "security": "A",
+    "test_coverage": "B+",
+    "documentation_accuracy": "C",
+    "architecture_hygiene": "B+",
+    "style_compliance": "B+",
+    "weighted_score": 82,
+    "letter_grade": "B+"
+  },
+
+  "pass2_recommendations": {
+    "p0_fixes": [
+      {"id": "C1", "action": "修正 playwright.config.ts testMatch", "effort_min": 1},
+      {"id": "C2", "action": "修正 progress.md M3/M5 数据矛盾", "effort_min": 5}
+    ],
+    "p1_fixes": [
+      {"id": "H1", "action": "替换裸 hex 为 Design Token", "effort_min": 1},
+      {"id": "H2", "action": "更新 blocking 区域 V0.2→V0.3", "effort_min": 2},
+      {"id": "H3", "action": "修复 M3-16/M3-18 表格行", "effort_min": 2},
+      {"id": "H4", "action": "修正 M5 blocking 数据", "effort_min": 3},
+      {"id": "H5", "action": "更新 M6 测试统计数据", "effort_min": 2},
+      {"id": "H6", "action": "统一 E2E 扩展名", "effort_min": 3},
+      {"id": "H7", "action": "移动 test 文件至 src-electron/__tests__/", "effort_min": 5},
+      {"id": "H8", "action": "迁移 .npmrc 配置", "effort_min": 5}
+    ],
+    "p2_fixes": [
+      {"id": "M1", "action": "添加 CSP connect-src", "effort_min": 1},
+      {"id": "M3", "action": "更新 M0-07 状态或清理 E2E", "effort_min": 3},
+      {"id": "M5", "action": "创建 IPC 通道枚举", "effort_min": 10},
+      {"id": "M6", "action": "决定 E2E CI 策略", "effort_min": "决策项"}
+    ],
+    "verification_tasks": [
+      "vitest run (1204+ tests)",
+      "npx playwright test (修复 testMatch 后)",
+      "progress.md 全量逐行校验",
+      "L4 人工端到端复审"
+    ]
+  }
+}

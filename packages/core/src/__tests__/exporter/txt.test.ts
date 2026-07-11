@@ -190,6 +190,46 @@ describe('TXT 导出 — Markdown 剥离', () => {
 // ==========================================================================
 
 describe('TXT 导出 — 选项', () => {
+  it('正文中的 PlotFlow 选项语法不重复泄漏到纯文本', () => {
+    const data = makeData({
+      chapters: [{
+        id: 'ch1',
+        title: '章',
+        isAnonymous: false,
+        lineNumber: 1,
+        nodes: [{
+          id: 'n1',
+          fullId: 'ch1-n1',
+          title: '岔路',
+          body: '你站在岔路口。\n\n[选项] **向左走** -> 节点：左路\n  条件: ($勇气 > 1)',
+          chapterId: 'ch1',
+          options: [{
+            description: '**向左走**',
+            indentLevel: 0,
+            targetNodeId: '左路',
+            targetChapterId: null,
+            targetFullId: 'ch1-左路',
+            condition: null,
+            sideEffects: [],
+            conditionRaw: '($勇气 > 1)',
+            effectsRaw: null,
+            lineNumber: 4,
+          }],
+          diagnostics: { isRoot: true, isOrphan: false, isDeadEnd: false, diagnosticIds: [] },
+          lineNumber: 2,
+        }],
+      }],
+    });
+
+    const result = exportTXT(data);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toContain('选项: 向左走 → ch1-左路');
+      expect(result.data).not.toContain('[选项]');
+      expect(result.data).not.toContain('**');
+    }
+  });
+
   it('选项带跳转目标', () => {
     const data = makeData({
       chapters: [
@@ -210,6 +250,7 @@ describe('TXT 导出 — 选项', () => {
                   description: '走向左边',
                   indentLevel: 0,
                   targetNodeId: '左路',
+                  targetChapterId: null,
                   targetFullId: 'ch1-左路',
                   condition: null,
                   sideEffects: [],
@@ -221,6 +262,7 @@ describe('TXT 导出 — 选项', () => {
                   description: '走向右边',
                   indentLevel: 0,
                   targetNodeId: '右路',
+                  targetChapterId: null,
                   targetFullId: 'ch1-右路',
                   condition: null,
                   sideEffects: [],
@@ -264,6 +306,7 @@ describe('TXT 导出 — 选项', () => {
                   description: '购买药剂',
                   indentLevel: 0,
                   targetNodeId: '药剂',
+                  targetChapterId: null,
                   targetFullId: 'ch1-药剂',
                   condition: null, // 我们不测试 condition AST，只测试 raw
                   sideEffects: [],
@@ -308,6 +351,7 @@ describe('TXT 导出 — 选项', () => {
                   description: '开锁',
                   indentLevel: 0,
                   targetNodeId: '打开',
+                  targetChapterId: null,
                   targetFullId: 'ch1-打开',
                   condition: null,
                   sideEffects: [],
@@ -351,6 +395,7 @@ describe('TXT 导出 — 选项', () => {
                   description: '重新开始',
                   indentLevel: 0,
                   targetNodeId: null,
+                  targetChapterId: null,
                   targetFullId: null,
                   condition: null,
                   sideEffects: [],
@@ -434,6 +479,7 @@ describe('TXT 导出 — 章节', () => {
                   description: '前进',
                   indentLevel: 0,
                   targetNodeId: 'n2',
+                  targetChapterId: null,
                   targetFullId: 'ch1-n2',
                   condition: null,
                   sideEffects: [],
@@ -507,6 +553,7 @@ describe('TXT 导出 — 端到端集成', () => {
                   description: '走向左边的狼嚎声',
                   indentLevel: 0,
                   targetNodeId: '狼穴',
+                  targetChapterId: null,
                   targetFullId: '第一章：村庄-狼穴',
                   condition: null,
                   sideEffects: [{ variableName: '好感度', operation: 'add', value: 1, lineNumber: 12 }],
@@ -518,6 +565,7 @@ describe('TXT 导出 — 端到端集成', () => {
                   description: '探索右边的古井',
                   indentLevel: 0,
                   targetNodeId: '古井',
+                  targetChapterId: null,
                   targetFullId: '第一章：村庄-古井',
                   condition: null,
                   sideEffects: [],
@@ -529,6 +577,7 @@ describe('TXT 导出 — 端到端集成', () => {
                   description: '返回村庄',
                   indentLevel: 0,
                   targetNodeId: '村庄广场',
+                  targetChapterId: null,
                   targetFullId: '第一章：村庄-村庄广场',
                   condition: null,
                   sideEffects: [],
@@ -551,6 +600,7 @@ describe('TXT 导出 — 端到端集成', () => {
                   description: '战斗',
                   indentLevel: 0,
                   targetNodeId: '战斗结果',
+                  targetChapterId: null,
                   targetFullId: '第一章：村庄-战斗结果',
                   condition: null,
                   sideEffects: [{ variableName: '角色状态.生命', operation: 'subtract', value: 10, lineNumber: 21 }],
@@ -562,6 +612,7 @@ describe('TXT 导出 — 端到端集成', () => {
                   description: '投喂食物',
                   indentLevel: 0,
                   targetNodeId: '驯服狼',
+                  targetChapterId: null,
                   targetFullId: '第一章：村庄-驯服狼',
                   condition: null,
                   sideEffects: [
@@ -576,6 +627,7 @@ describe('TXT 导出 — 端到端集成', () => {
                   description: '悄悄退后',
                   indentLevel: 0,
                   targetNodeId: '森林入口',
+                  targetChapterId: null,
                   targetFullId: '第一章：村庄-森林入口',
                   condition: null,
                   sideEffects: [],

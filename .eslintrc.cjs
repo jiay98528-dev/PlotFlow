@@ -18,5 +18,15 @@ module.exports = {
     'prefer-const': 'error',
     'no-var': 'error',
   },
-  ignorePatterns: ['dist', 'out', 'node_modules', '.github'],
+  ignorePatterns: ['dist', 'out', 'node_modules', '.github', 'website'],
+  overrides: [
+    {
+      // 测试文件和脚本: 放宽控制台日志和 any 类型限制
+      files: ['**/__tests__/**', 'scripts/**'],
+      rules: {
+        'no-console': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+  ],
 };

@@ -29,7 +29,7 @@ import type {
   LogicalOperator,
 } from '../types/ast.js';
 import type { Diagnostic, ErrorCode } from '../types/diagnostic.js';
-import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
+import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 
 // ============================================================================
 // 常量
@@ -100,6 +100,7 @@ function createDiagnostic(
     code,
     severity: 'error',
     message: message ?? DIAGNOSTIC_MESSAGES[code],
+    ...createDiagnosticLocalization(code),
     detail,
     range: {
       startLine: line,

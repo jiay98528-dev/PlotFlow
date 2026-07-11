@@ -1,0 +1,343 @@
+{
+  "$schema": "https://plotflow.dev/schema/0.1/story.json",
+  "meta": {
+    "plotflow": "0.1",
+    "title": "Untitled Story",
+    "engine": "none",
+    "exportedAt": "2026-07-08T10:35:05.908Z",
+    "author": "PlotFlow Writer"
+  },
+  "variables": {
+    "信任度": {
+      "type": "int",
+      "default": 0
+    },
+    "金币": {
+      "type": "int",
+      "default": 0
+    },
+    "阵营": {
+      "type": "enum",
+      "default": "外来者",
+      "values": [
+        "外来者",
+        "村民",
+        "商会"
+      ]
+    }
+  },
+  "chapters": [
+    {
+      "id": "村口黄昏",
+      "title": "村口黄昏",
+      "nodes": [
+        {
+          "id": "村口",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-村口",
+          "title": "村口",
+          "body": [
+            "夕阳压在木栅栏上，守卫把长矛横在你胸前。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "说明自己只是路过",
+              "targetNodeId": "守卫盘问",
+              "targetFullId": "村口黄昏-守卫盘问",
+              "conditions": null,
+              "sideEffects": [
+                {
+                  "variable": "信任度",
+                  "operation": "add",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "text": "塞给守卫两枚金币",
+              "targetNodeId": "侧门",
+              "targetFullId": "村口黄昏-侧门",
+              "conditions": {
+                "expression": "$金币 >= 2",
+                "ast": {
+                  "type": "comparison",
+                  "variable": "金币",
+                  "operator": ">=",
+                  "value": 2
+                }
+              },
+              "sideEffects": [
+                {
+                  "variable": "金币",
+                  "operation": "subtract",
+                  "value": 2
+                },
+                {
+                  "variable": "信任度",
+                  "operation": "add",
+                  "value": 2
+                }
+              ]
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": true,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "守卫盘问",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-守卫盘问",
+          "title": "守卫盘问",
+          "body": [
+            "守卫眯起眼，问你是否见过北边燃起的黑烟。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "承认看见了黑烟",
+              "targetNodeId": "黑烟传闻",
+              "targetFullId": "村口黄昏-黑烟传闻",
+              "conditions": null,
+              "sideEffects": [
+                {
+                  "variable": "信任度",
+                  "operation": "add",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "text": "装作什么都不知道",
+              "targetNodeId": "酒馆",
+              "targetFullId": "村口黄昏-酒馆",
+              "conditions": null,
+              "sideEffects": []
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "侧门",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-侧门",
+          "title": "侧门",
+          "body": [
+            "守卫收下金币，示意你从磨坊后的小门进去。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "直接去酒馆打听消息",
+              "targetNodeId": "酒馆",
+              "targetFullId": "村口黄昏-酒馆",
+              "conditions": null,
+              "sideEffects": []
+            },
+            {
+              "index": 1,
+              "text": "先去仓库观察",
+              "targetNodeId": "仓库",
+              "targetFullId": "村口黄昏-仓库",
+              "conditions": null,
+              "sideEffects": []
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "黑烟传闻",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-黑烟传闻",
+          "title": "黑烟传闻",
+          "body": [
+            "守卫压低声音，说那是旧矿坑重新开门的信号。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "请求加入巡逻队",
+              "targetNodeId": "巡逻邀请",
+              "targetFullId": "村口黄昏-巡逻邀请",
+              "conditions": {
+                "expression": "$信任度 >= 2",
+                "ast": {
+                  "type": "comparison",
+                  "variable": "信任度",
+                  "operator": ">=",
+                  "value": 2
+                }
+              },
+              "sideEffects": [
+                {
+                  "variable": "阵营",
+                  "operation": "set",
+                  "value": "村民"
+                }
+              ]
+            },
+            {
+              "index": 1,
+              "text": "独自调查矿坑",
+              "targetNodeId": "仓库",
+              "targetFullId": "村口黄昏-仓库",
+              "conditions": null,
+              "sideEffects": []
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "酒馆",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-酒馆",
+          "title": "酒馆",
+          "body": [
+            "酒馆里炉火很旺，老板娘正在擦一只裂口杯。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "询问矿坑的事",
+              "targetNodeId": "仓库",
+              "targetFullId": "村口黄昏-仓库",
+              "conditions": null,
+              "sideEffects": []
+            },
+            {
+              "index": 1,
+              "text": "留下休息",
+              "targetNodeId": "夜宿",
+              "targetFullId": "村口黄昏-夜宿",
+              "conditions": null,
+              "sideEffects": []
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "仓库",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-仓库",
+          "title": "仓库",
+          "body": [
+            "仓库门缝里透出蓝色火光，地上有新鲜泥印。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "撬门进去",
+              "targetNodeId": "巡逻邀请",
+              "targetFullId": "村口黄昏-巡逻邀请",
+              "conditions": {
+                "expression": "$信任度 >= 1",
+                "ast": {
+                  "type": "comparison",
+                  "variable": "信任度",
+                  "operator": ">=",
+                  "value": 1
+                }
+              },
+              "sideEffects": []
+            },
+            {
+              "index": 1,
+              "text": "回酒馆找人帮忙",
+              "targetNodeId": "酒馆",
+              "targetFullId": "村口黄昏-酒馆",
+              "conditions": null,
+              "sideEffects": []
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "巡逻邀请",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-巡逻邀请",
+          "title": "巡逻邀请",
+          "body": [
+            "村长把一枚铜徽章按进你掌心，巡逻队今晚就出发。"
+          ],
+          "options": [
+            {
+              "index": 0,
+              "text": "接受任务",
+              "targetNodeId": "夜宿",
+              "targetFullId": "村口黄昏-夜宿",
+              "conditions": null,
+              "sideEffects": [
+                {
+                  "variable": "阵营",
+                  "operation": "set",
+                  "value": "村民"
+                }
+              ]
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": false
+        },
+        {
+          "id": "夜宿",
+          "chapterId": "村口黄昏",
+          "fullId": "村口黄昏-夜宿",
+          "title": "夜宿",
+          "body": [
+            "夜色落下，村外的黑烟像一根钉子钉在天边。"
+          ],
+          "options": [],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": false,
+          "isDeadEnd": true
+        }
+      ]
+    }
+  ]
+}

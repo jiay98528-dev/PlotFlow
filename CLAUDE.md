@@ -1,6 +1,6 @@
 # PlotFlow 项目开发工作流
 
-> 版本：V0.1 | 日期：2026-06-10 | 基于 MarkLuck 实战工作流模板构建
+> 版本：V0.3 | 日期：2026-06-23 | 基于 MarkLuck 实战工作流模板构建
 > 适用于：单人 + AI 协作的独立游戏开发工具项目
 
 ---
@@ -15,15 +15,17 @@
 
 ## 一、项目身份
 
-**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 Markdown 方言（`.mdstory`）为语法基础，以可视化分支图为辅助，以多格式导出为目标。
+**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并保留顶栏并列的 Split 完整源码投影，以多格式导出为目标。
 
-**一句话**：让文案用 Markdown 写分支剧情，程序拿干净 JSON 直接跑。不锁死数据，不强制联网，$29 买断。
+**一句话**：让叙事设计师用 Markdown 或流程图管理分支剧情，程序拿干净 JSON 直接跑。不锁死数据，不强制联网，$29 买断。
 
 ### 核心闭环
 
 ```
-用户打开/创建 .mdstory 文件 → 用 Markdown 方言写分支叙事
-    ├── 实时分支可视化图（React Flow，可拖拽编辑，双向同步文本）
+用户打开/创建 .mdstory 文件 → 默认进入 Graph Lab，以完整 GUI 工作流编辑分支叙事
+    ├── 实时分支可视化图（React Flow，可拖拽编辑，双向同步源文本）
+    ├── Graph Lab 默认主工作区（流程图优先、Inspector 编辑、Source Drawer 辅助）
+    ├── Split 辅助源码投影（完整 `.mdstory`、Monaco、Outline 与分支图）
     ├── 图形化条件编辑器（Airtable 风格，零代码）
     ├── 三级语法错误检测（错误/警告/建议，波浪线+侧边标记）
     ├── 四维幽灵字符补全（节点标题/选项句式/正文描述/变量名）
@@ -45,7 +47,7 @@
 
 | 层级 | 选型 | 锁定原因 |
 |------|------|---------|
-| 桌面框架 | **Electron 28** | 10年生态成熟，Monaco Editor 官方支持，复用现有编辑器资产 |
+| 桌面框架 | **Electron 42** | 当前受支持稳定主版本线，Monaco Editor 官方支持，复用现有编辑器资产 |
 | 前端框架 | **React 18 + TypeScript 5** (strict) | React Flow 原生 React 组件，TS 类型安全 |
 | 构建工具 | **Vite 5** | 快，Electron 生态首选 |
 | 包管理 | **pnpm workspace** | 为后续拆分解析器为独立包做准备 |
@@ -95,7 +97,7 @@
 | 决策 | 说明 |
 |------|------|
 | 文件即数据源 | `.mdstory` 是唯一数据源，绝不引入数据库存储脚本内容 |
-| 文本格式双向同步 | 图形化编辑和 Markdown 文本始终保持一致 |
+| 双投影同步 | `.mdstory` 是唯一磁盘真相源；GUI 与源文本是同一故事数据的两个编辑投影，图形化修改必须序列化回 `.mdstory` |
 | 离线优先 | 零网络依赖。本地运行，本地补全，本地导出 |
 | 补全隐私安全 | N-gram 统计模型，数据不离开本地 |
 | 插件模式变量由引擎定义 | 从 Godot/Unity 启动时，变量从引擎同步，编辑器不可自由创建变量 |
@@ -104,19 +106,22 @@
 
 ## 三、当前阶段
 
-**Phase 1: MVP 开发 (V0.1 / V0.2)** ← 当前阶段
+**Phase 2: 质量打磨与发布 (V0.3)** ← 当前阶段
 
-**目标**：可独立运行的单文件编辑器，核心编辑+可视化+导出闭环。约 12 人天。
+**目标**：V0.2 QA 审计全部 CRITICAL+HIGH 已修复，M0-M7 明细实际完成 132/142 (92.96%)。V0.3 聚焦发行门禁、文档同步与 Windows 正式包；M8 Graph Lab 已推进为图优先正式入口，后续收尾发布说明与帮助文案。
 
-详见 `spec/milestones.md` 和 `spec/progress.md`。
+详见 `spec/progress.md`（进度权威来源）。
 
-**当前进度（2026-06-17 V0.2）**：
-- M0-M6 核心功能完成，M7 打包延后至 V0.3
-- **V0.2 新增**：连线交互基础设施（Alt+删除/双击→条件编辑器/右键连线菜单）、
-  双击节点内联重命名、GhostText 幽灵补全接线、条件编辑器集成、
-  Edge ID 编码加固、章节标题正则修复
-- 总进度 111/142（78%），29 项延后（Godot 插件/学习器/打包）
-- 1090 测试全 PASS，Git 仓库 jiay98528-dev/PlotFlow
+**当前进度（2026-07-11 V0.3）**：
+- M0-M7 历史任务明细：132 个 ✅、9 个 ⏭️、1 个 ❌，总进度 **132/142（92.96%）**
+- M0 1 项历史 E2E 框架任务已移除；M4/M5 各 1 项延后；M7 7 项平台发布任务延后
+- M4 Godot 插件（9项）+ Unity 接口（2项）+ Unreal 接口（2项）均已实现
+- M5 增量学习器/语料导入/预处理/持久化/CorpusManager 面板均已实现
+- M7 核心配置/图标/文件关联/双击打开/CHANGELOG/Windows NSIS 正式包/Windows packaged smoke 完成，其余 7 项延后
+- V0.2 QA 审计 2 CRITICAL + 8 HIGH 全部修复验证通过
+- 基础门禁：lint（0 errors / 9 既有 warnings）、typecheck、test、build、lint:css、lint:tokens、lint:bundle 与 dependency audit 均通过；`pnpm.cmd test` 为 60 files / 1356 tests
+- 当前发行门禁：Graph-first/P2 完整 app 集成 E2E 79/79、source blackbox 11 passed / 6 目标专属 skipped、引擎合同 fixture 6/6、全新 Windows package 和 unpacked blackbox 16 passed / 1 installed-only skipped 均通过；严格 unpacked 旅程已通过原生 Open/Export 与磁盘 JSON Schema 0.2 Ajv 校验。远程 CI、installed blackbox、30 分钟人工巡检、Godot/Unity/Unreal 真实工具链 smoke 与 Authenticode 签名仍待完成，不得宣称 release-candidate-passed 或公共正式发行完成；详见 `spec/release-blackbox-gate.md`
+- M8 Graph Lab Core：18 项新增图优先源码任务当前 18/18，不混入旧 142 项统计；源码任务计数与发行验收继续分开记录
 
 ### V0.1 核心交付范围
 
@@ -124,13 +129,14 @@
 |------|------|
 | 编辑器 | Monaco 编辑器 + PlotFlow 语法高亮 + 大纲视图 + 自动保存 |
 | 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线，点击跳转，小地图） |
+| Graph Lab Core | 图优先正式入口：全屏画布、节点 palette、Inspector、Source Drawer，支持完整 GUI 操控并序列化回 `.mdstory` |
 | 条件编辑 | 内联图形化条件编辑器（Airtable 风格），双向文本同步 |
 | 错误检测 | 三级错误标记（8E/6W/3I 波浪线）+ 问题面板 |
 | 导出 | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
 | 模板 | 4 个内置模板（RPG/视觉小说/解谜/Godot 示例）+ 新建文件对话框 |
 | UI | 暗色/亮色双主题 + 海洋蓝/暖金双强调色 + 中英双语 |
 
-### V0.2 已交付（2026-06-17）
+### V0.2-V0.3 已交付（截至 2026-06-20）
 
 | 模块 | 内容 |
 |------|------|
@@ -139,16 +145,16 @@
 | GhostText | 幽灵补全接线（4维触发/英文语料152句/Tab/Esc/Ctrl+Space） |
 | 条件编辑器 | 集成连线双击触发 + AST 自动加载已有条件 |
 | Edge ID | encodeURIComponent 编码加固 + parseEdgeId 确定性解码 |
-| Bug 修复 | 章节标题正则（monaco-tokenizer）/ CorpusLoader API / 条件编辑器初始状态 |
+| 引擎插件 | Godot 编辑器插件+运行时库（8文件）、Unity C# 接口（2文件）、Unreal 数据模型 |
+| 学习管道 | N-gram 增量学习器（90天衰减）+ 语料导入器 + 预处理 + 持久化 + CorpusManager面板 |
+| Bug 修复 | 章节标题正则（monaco-tokenizer）/ CorpusLoader API / 条件编辑器初始状态 / QA审计2 CRITICAL+8 HIGH全部修复 |
 
 ### V0.3 延后交付
 
 | 模块 | 内容 |
 |------|------|
-| 引擎插件 | Godot 编辑器插件+运行时库、Unity/Unreal 接口定义 |
-| 学习 | N-gram 增量学习器 + 权重衰减 + 语料导入面板 |
-| 语料 | 中文语料包 (~500 样本) |
-| 打包 | Electron 三平台构建 (.exe/.dmg/.AppImage) + 自动更新 |
+| 语料 | 中文语料包扩展至 3.5MB（当前 45KB）、英文语料包扩展至 1.5MB（当前 30KB） |
+| 打包 | Electron 三平台构建 (.exe/.dmg/.AppImage) + 自动更新 + 首次启动引导 |
 
 ---
 
@@ -162,11 +168,12 @@
 | 1 | `PRD.md` | 产品需求规格（15章，50+功能点） | ✅ |
 | 2 | `COMPETITIVE_ANALYSIS.md` | 竞品分析（51功能矩阵，6竞品六维评分） | ✅ |
 | 3 | `MARKLUCK_REFERENCE.md` | MarkLuck 工作流与代码复用参考 | ✅ |
-| 4 | `spec/design-brief-editor-ux.md` | **🎨 UX 设计唯一真相源**（色彩/布局/交互/状态/文案/M0-M7 UI 规划） | ✅ |
+| 4 | `spec/design-brief-editor-ux.md` | **🎨 UX 设计唯一真相源**（色彩/布局/交互/状态/文案/M0-M8 UI 规划） | ✅ |
 | 5 | `doc/TAD.md` | 技术架构设计（组件/接口/数据流/类型定义，3,513 行） | ✅ |
 | 6 | `spec/syntax-formal.md` | 语法形式化规范（ISO 14977 EBNF/正则/解析规则，1,441 行） | ✅ |
 | 7 | `spec/json-schema.md` | JSON 导出格式 Schema 规范（draft-2020-12，1,697 行） | ✅ |
 | 8 | `spec/milestones.md` | 里程碑拆分与进度（M0-M7，142 项任务，依赖关系图） | ✅ |
+| 9 | `doc/standards-theme-development.md` | **主题开发唯一标准**（官方主题边界、ThemeDescriptor、Surface/Slot、官方远程包 runtime） | ✅ |
 
 ### 🎨 UX 设计权威来源
 
@@ -187,7 +194,7 @@
 
 ### 5.1 CI 自动检查
 
-L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元测试）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
+PR 的 Ubuntu 门禁覆盖 ESLint、TypeScript、Vitest、build、CSS/token/bundle、Graph 主路径 UI 字面量、Schema mirror、引擎合同、moderate+ 依赖审计和网站静态验证；PR 的 `windows-2022` 门禁覆盖 app E2E、视觉旅程和 source blackbox。nightly/manual Windows package、unpacked、性能、SHA256 与受保护 self-hosted installed 分层见 `.github/workflows/release-validation.yml`。工作流配置存在不等于门禁已通过，发行证据仍以 `spec/release-blackbox-gate.md` 为准。
 
 ### 5.2 里程碑复审
 
@@ -264,6 +271,13 @@ PlotFlowData AST (中间表示)
 - 文件读写显式指定 UTF-8 编码
 - `.mdstory` 文件扩展名：全小写
 - 导入路径使用相对路径（`../`），避免绝对路径依赖
+
+### 6.6 主题开发约束（强制）
+
+- 任何新增主题、修改主题 API、扩展 Surface/Slot、扩展官方远程主题 loader，必须先遵循并同步 `doc/standards-theme-development.md`
+- PlotFlow 当前只支持官方主题：内置官方主题和官方远程免费主题；不开放第三方、社区上传、本地导入、购买或授权
+- 官方远程主题必须通过 registry → ZIP 下载 → `sha256` 校验 → 安全解包 → `plotflow-theme://` 动态加载链路，不得直接执行 HTTPS JS
+- 主题可以控制 UX/视觉/布局/Surface/Slot/Monaco/assets，但不得改变 `.mdstory` 语义、parser/exporter、保存流程或 Graph Lab 命令层
 
 ---
 
@@ -457,7 +471,39 @@ PlotFlow/
 | **全局约束文件** | `index.html` (CSP), `.npmrc`, `electron.vite.config.ts` | 一处错误全局影响 |
 | **模块间胶水代码** | `parsePipeline.ts`, `adapter.ts`, `autoSaveService.ts` | 需要理解两端接口契约 |
 
-### 10.7 里程碑验收标准（不可变）
+### 10.7 Deepseek 协作闸门（新增）
+
+当用户希望借助 Deepseek 或其他低成本模型执行任务时，必须按以下规则处理：
+
+**可交给 Deepseek 的任务**（必须低风险、可机械验证）：
+- 纯符号迁移、注释清理、简单命名替换、文档/changelog 补写
+- 有明确规格的类型定义、barrel export、测试断言同步
+- 单文件或低耦合改动，失败可被 `typecheck` / `lint` / `test` 立即捕获
+
+**禁止交给 Deepseek 的任务**（必须由 Codex/V4Pro 执行或全程审计）：
+- `main.ts`、`preload.ts`、Electron IPC、文件系统、ZIP/解压、路径安全、签名/权限边界
+- Zustand/React Flow/Monaco 的交互状态同步、E2E 真实用户路径、拖拽/点击命中逻辑
+- 安全校验器、迁移逻辑、数据持久化、跨模块架构合同、删除旧系统入口
+- 主题 API、Theme Surface/Slot 扩展、官方远程主题 loader、Graph Lab 节点/连线真实交互行为
+- 任何需要判断“测试是否覆盖真实路径”而不是只覆盖 helper 的任务
+
+**交接流程**：
+1. Codex 先判断任务是否适合 Deepseek；不适合时直接说明原因并自行执行。
+2. 适合 Deepseek 时，Codex 只输出一份可复制的执行提示词，必须包含范围、禁止事项、验收命令、grep 门禁、停止点。
+3. 输出提示词后 Codex 必须停下，等待用户手动启动 Deepseek；不得继续假设 Deepseek 已执行。
+4. Deepseek 完成后，Codex 只按实际 diff / grep / 门禁结果审核，不接受摘要替代审计。
+5. 每个子里程碑必须先审计再进入下一阶段；禁止 Deepseek 连续跨阶段执行。
+
+**提示词必须包含的最低字段**：
+- `任务目标`
+- `允许修改文件`
+- `禁止修改文件`
+- `执行步骤`
+- `验收命令`
+- `必须为零的 grep`
+- `完成后停止并提交摘要`
+
+### 10.8 里程碑验收标准（不可变）
 
 每个里程碑完成**必须通过以下全部检查**，缺一不可标记为 100%：
 

@@ -24,11 +24,17 @@ export type {
   PlotFlowData,
   StoryMeta,
   EngineTarget,
+  GraphPosition,
+  GraphLayoutNode,
+  GraphLayout,
+  StoryLayout,
   VariableDeclaration,
   VariableType,
   VariableValue,
+  VariableScope,
   Chapter,
   StoryNode,
+  NodeNextTarget,
   NodeDiagnostics,
   Option,
   ConditionNode,
@@ -42,6 +48,11 @@ export type {
   // 诊断类型
   Diagnostic,
   DiagnosticCode,
+  DiagnosticDetailKey,
+  DiagnosticLocalization,
+  DiagnosticMessageKey,
+  DiagnosticMessageParam,
+  DiagnosticMessageParams,
   DiagnosticSeverity,
   DiagnosticSuggestion,
   DiagnosticSummary,
@@ -57,9 +68,18 @@ export type {
 // ============================================================================
 
 export {
+  createDiagnosticLocalization,
+  DIAGNOSTIC_MESSAGE_KEYS,
   DIAGNOSTIC_MESSAGES,
   DIAGNOSTIC_SEVERITY,
 } from './types/index.js';
+
+export {
+  ANONYMOUS_CHAPTER_ID,
+  createFullId,
+  encodeFullIdComponent,
+  legacyFullId,
+} from './fullId.js';
 
 // ============================================================================
 // ParseResult 错误处理模式
@@ -85,6 +105,20 @@ export {
 export type {
   FrontmatterResult,
 } from './parser/frontmatter.js';
+
+export {
+  analyzeStorySource,
+  normalizeStorySource,
+  restoreStoryNewline,
+} from './parser/source.js';
+
+export type {
+  SourceNewline,
+  StoryFrontmatterRange,
+  StorySourceAnalysis,
+  StorySourceLine,
+  StorySourceRange,
+} from './parser/source.js';
 
 export {
   parseStory,

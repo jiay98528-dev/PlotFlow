@@ -104,6 +104,7 @@ function createOption(
   return {
     description,
     targetNodeId,
+    targetChapterId: null,
     targetFullId: targetNodeId,
     indentLevel: 0,
     condition: null,
@@ -1285,8 +1286,8 @@ describe('validate - 17 条规则一站式验证', () => {
     });
 
     const result = validate(data);
-    expect(result.diagnostics).toHaveLength(0);
-    expect(result.summary).toEqual({ errors: 0, warnings: 0, infos: 0, total: 0 });
+    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['W007']);
+    expect(result.summary).toEqual({ errors: 0, warnings: 1, infos: 0, total: 1 });
   });
 });
 

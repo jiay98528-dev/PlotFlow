@@ -25,17 +25,16 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PlotFlowData } from '@plotflow/core';
+import type { Diagnostic, PlotFlowData } from '@plotflow/core';
 import { exportJSON, exportHTML, exportTXT } from '@plotflow/core';
+import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
-import { useUIStore } from '../../stores/uiStore';
+import { useUIStore, type ExportFormat } from '../../stores/uiStore';
+import { useAppText } from '../../i18n/appI18n';
 
 // ============================================================================
 // 类型定义
 // ============================================================================
-
-/** 导出格式 */
-type ExportFormat = 'json' | 'html' | 'txt';
 
 /** 导出状态 */
 type ExportStatus = 'idle' | 'exporting' | 'success' | 'error';
@@ -47,12 +46,10 @@ type ExportStatus = 'idle' | 'exporting' | 'success' | 'error';
 /** 格式选项配置 */
 interface FormatOption {
   readonly key: ExportFormat;
-  /** 显示标签 */
-  readonly label: string;
   /** 文件扩展名 */
   readonly extension: string;
-  /** 简短描述 */
-  readonly description: string;
+  readonly labelKey: string;
+  readonly descriptionKey: string;
 }
 
 function mimeType(format: ExportFormat): string {
@@ -66,31 +63,69 @@ function mimeType(format: ExportFormat): string {
 const FORMAT_OPTIONS: readonly FormatOption[] = [
   {
     key: 'json',
-    label: 'JSON',
     extension: 'json',
-    description: '标准结构化数据，适合程序读取',
+    labelKey: 'exportDialog.jsonLabel',
+    descriptionKey: 'exportDialog.jsonDesc',
   },
   {
     key: 'html',
-    label: 'HTML',
     extension: 'html',
-    description: '自包含可玩版，浏览器直接运行',
+    labelKey: 'exportDialog.htmlLabel',
+    descriptionKey: 'exportDialog.htmlDesc',
   },
   {
     key: 'txt',
-    label: 'TXT',
     extension: 'txt',
-    description: '纯文本，剥离 Markdown 标记',
+    labelKey: 'exportDialog.txtLabel',
+    descriptionKey: 'exportDialog.txtDesc',
   },
 ] as const;
 
-/** 导出状态映射 */
-const STATUS_LABEL: Readonly<Record<ExportStatus, string>> = {
-  idle: '导出',
-  exporting: '导出中...',
-  success: '导出成功',
-  error: '导出失败',
-};
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
+const TEMPLATE_PLACEHOLDER = /\{\{[^}]+}}/;
+const RESERVED_WINDOWS_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+function replaceInvalidFileNameChars(value: string): string {
+  return value
+    .replace(INVALID_FILENAME_CHARS, '_')
+    .split('')
+    .map((char) => (char.charCodeAt(0) < 32 ? '_' : char))
+    .join('');
+}
+
+function basenameWithoutExtension(path: string | null): string {
+  if (!path) return '';
+  const normalized = path.replace(/\\/g, '/');
+  const name = normalized.split('/').pop() ?? '';
+  return name.replace(/\.mdstory$/i, '');
+}
+
+function normalizeExportBaseName(value: string): string {
+  const cleaned = replaceInvalidFileNameChars(value)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '')
+    .slice(0, 96);
+  if (!cleaned || RESERVED_WINDOWS_NAMES.test(cleaned)) {
+    return '';
+  }
+  return cleaned;
+}
+
+export function buildExportBaseName(title: string | undefined, filePath: string | null): string {
+  const titleCandidate = (title ?? '').trim();
+  if (titleCandidate && !TEMPLATE_PLACEHOLDER.test(titleCandidate)) {
+    const safeTitle = normalizeExportBaseName(titleCandidate);
+    if (safeTitle) return safeTitle;
+  }
+
+  const fileCandidate = normalizeExportBaseName(basenameWithoutExtension(filePath));
+  return fileCandidate || 'plotflow-story';
+}
+
+export function countBlockingExportErrors(diagnostics: readonly Diagnostic[]): number {
+  return diagnostics.filter((diagnostic) => diagnostic.severity === 'error').length;
+}
 
 // ============================================================================
 // Component
@@ -98,12 +133,21 @@ const STATUS_LABEL: Readonly<Record<ExportStatus, string>> = {
 
 export function ExportDialog(): React.ReactElement | null {
   const isOpen = useUIStore((s) => s.isExportDialogOpen);
+  const requestedFormat = useUIStore((s) => s.exportDialogFormat);
   const closeExportDialog = useUIStore((s) => s.closeExportDialog);
+  const setGlobalStatusMessage = useUIStore((s) => s.setStatusMessage);
   const storyData = useStoryStore((s) => s.plotFlowData);
+  const filePath = useEditorStore((s) => s.filePath);
+  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const blockingErrorCount = useMemo(
+    () => countBlockingExportErrors(diagnostics),
+    [diagnostics],
+  );
 
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('json');
   const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
   const [statusMessage, setStatusMessage] = useState('');
+  const text = useAppText();
 
   // P0-5: 导出成功自动关闭 timer ref（组件卸载时可清理）
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -138,6 +182,7 @@ export function ExportDialog(): React.ReactElement | null {
 
   useEffect(() => {
     if (isOpen) {
+      setSelectedFormat(requestedFormat);
       setExportStatus('idle');
       setStatusMessage('');
       // P0-5: 对话框重新打开时清除残留的自动关闭 timer
@@ -146,7 +191,7 @@ export function ExportDialog(): React.ReactElement | null {
         autoCloseTimerRef.current = undefined;
       }
     }
-  }, [isOpen]);
+  }, [isOpen, requestedFormat]);
 
   // P0-5: 组件卸载时清除自动关闭 timer
   useEffect(() => {
@@ -162,12 +207,10 @@ export function ExportDialog(): React.ReactElement | null {
   // ========================================================================
 
   const defaultFileName = useMemo(() => {
-    const title = storyData?.meta?.title?.trim() || 'story';
-    // 清理文件名中的非法字符
-    const safeTitle = title.replace(/[<>:"/\\|?*]/g, '_');
+    const safeTitle = buildExportBaseName(storyData?.meta?.title, filePath);
     const ext = FORMAT_OPTIONS.find((f) => f.key === selectedFormat)?.extension ?? 'json';
     return `${safeTitle}.${ext}`;
-  }, [storyData, selectedFormat]);
+  }, [storyData, filePath, selectedFormat]);
 
   // ========================================================================
   // 导出处理
@@ -176,7 +219,13 @@ export function ExportDialog(): React.ReactElement | null {
   const handleExport = useCallback(async () => {
     if (!storyData) {
       setExportStatus('error');
-      setStatusMessage('没有可导出的故事数据。请先打开或创建故事文件。');
+      setStatusMessage(text('exportDialog.noStory'));
+      return;
+    }
+
+    if (blockingErrorCount > 0) {
+      setExportStatus('error');
+      setStatusMessage(text('exportDialog.blockedByErrors', { count: blockingErrorCount }));
       return;
     }
 
@@ -185,9 +234,13 @@ export function ExportDialog(): React.ReactElement | null {
 
     try {
       // ── 根据格式调用对应的导出器 ──
-      const result = exportContent(storyData, selectedFormat);
+      const result = exportContent(
+        storyData,
+        selectedFormat,
+        (format) => text('exportDialog.unsupportedFormat', { format }),
+      );
       if (!result.ok) {
-        const errMsg = result.errors[0]?.message ?? '导出失败';
+        const errMsg = result.errors[0]?.message ?? text('exportDialog.failed');
         setExportStatus('error');
         setStatusMessage(errMsg);
         return;
@@ -195,7 +248,8 @@ export function ExportDialog(): React.ReactElement | null {
 
       const content: string = result.data;
       const ext = FORMAT_OPTIONS.find((f) => f.key === selectedFormat)?.extension ?? 'json';
-      const filterName = FORMAT_OPTIONS.find((f) => f.key === selectedFormat)?.label ?? 'JSON';
+      const formatOption = FORMAT_OPTIONS.find((f) => f.key === selectedFormat);
+      const filterName = formatOption ? text(formatOption.labelKey) : 'JSON';
 
       // ── 调用 Electron 保存对话框（浏览器模式降级为 download）──
       const plotflow = window.plotflow;
@@ -214,6 +268,7 @@ export function ExportDialog(): React.ReactElement | null {
         content,
         defaultPath: defaultFileName,
         filters: [{ name: filterName, extensions: [ext] }],
+        format: selectedFormat,
       });
 
       // 用户取消保存
@@ -226,7 +281,9 @@ export function ExportDialog(): React.ReactElement | null {
       // ── 导出成功 ──
       const filePath = saveResult.filePath?.replace(/\\/g, '/');
       setExportStatus('success');
-      setStatusMessage(`已导出: ${filePath}`);
+      const successMessage = text('exportDialog.exported', { path: filePath ?? '' });
+      setStatusMessage(successMessage);
+      setGlobalStatusMessage(successMessage);
 
       // P0-5: 1.5 秒后自动关闭（timer 存入 ref 供清理）
       if (autoCloseTimerRef.current !== undefined) {
@@ -239,9 +296,9 @@ export function ExportDialog(): React.ReactElement | null {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setExportStatus('error');
-      setStatusMessage(`导出异常: ${message}`);
+      setStatusMessage(text('exportDialog.exception', { message }));
     }
-  }, [storyData, selectedFormat, defaultFileName, closeExportDialog]);
+  }, [blockingErrorCount, storyData, selectedFormat, defaultFileName, closeExportDialog, setGlobalStatusMessage, text]);
 
   // ========================================================================
   // 点击遮罩层关闭
@@ -255,6 +312,22 @@ export function ExportDialog(): React.ReactElement | null {
     },
     [closeExportDialog],
   );
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleWindowKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeExportDialog();
+      }
+    };
+
+    window.addEventListener('keydown', handleWindowKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown);
+    };
+  }, [closeExportDialog, isOpen]);
 
   // ========================================================================
   // 键盘事件：Enter 触发导出，Escape 关闭
@@ -283,17 +356,17 @@ export function ExportDialog(): React.ReactElement | null {
       style={overlayStyle}
       role="dialog"
       aria-modal="true"
-      aria-label="导出故事"
+      aria-label={text('exportDialog.aria')}
     >
       <div className="export-dialog__panel" style={panelStyle}>
         {/* ── 标题栏 ── */}
         <div style={headerStyle}>
-          <span style={headerTitleStyle}>导出故事</span>
+          <span style={headerTitleStyle}>{text('exportDialog.title')}</span>
           <span style={shortcutHintStyle}>Ctrl+E</span>
           <button
             type="button"
             onClick={closeExportDialog}
-            title="关闭导出对话框"
+            title={text('exportDialog.close')}
             style={closeButtonStyle}
           >
             ✕
@@ -302,7 +375,7 @@ export function ExportDialog(): React.ReactElement | null {
 
         {/* ── 格式选择 ── */}
         <div style={bodyStyle}>
-          <div style={sectionLabelStyle}>导出格式</div>
+          <div style={sectionLabelStyle}>{text('exportDialog.format')}</div>
           <div style={formatGroupStyle}>
             {FORMAT_OPTIONS.map((opt) => {
               const isChecked = selectedFormat === opt.key;
@@ -330,8 +403,8 @@ export function ExportDialog(): React.ReactElement | null {
                     }}
                     style={radioInputStyle}
                   />
-                  <span style={formatLabelStyle}>{opt.label}</span>
-                  <span style={formatDescStyle}>{opt.description}</span>
+                  <span style={formatLabelStyle}>{text(opt.labelKey)}</span>
+                  <span style={formatDescStyle}>{text(opt.descriptionKey)}</span>
                 </label>
               );
             })}
@@ -339,7 +412,7 @@ export function ExportDialog(): React.ReactElement | null {
 
           {/* ── 目标文件名 ── */}
           <div style={fileInfoStyle}>
-            <span style={fileLabelStyle}>文件名:</span>
+            <span style={fileLabelStyle}>{text('exportDialog.fileName')}</span>
             <span style={fileNameStyle}>{defaultFileName}</span>
           </div>
 
@@ -350,10 +423,10 @@ export function ExportDialog(): React.ReactElement | null {
                 ...statusStyle,
                 color:
                   exportStatus === 'success'
-                    ? 'var(--color-success, #2E7D32)'
+                    ? 'var(--color-success)'
                     : exportStatus === 'error'
-                      ? 'var(--color-error, #C62828)'
-                      : 'var(--color-text-muted, #8A8A8A)',
+                      ? 'var(--color-error)'
+                      : 'var(--color-text-muted)',
               }}
             >
               {exportStatus === 'error' && <span style={statusIconStyle}>&#x26A0;</span>}
@@ -366,7 +439,13 @@ export function ExportDialog(): React.ReactElement | null {
           {!storyData && exportStatus === 'idle' && (
             <div style={warningStyle}>
               <span style={statusIconStyle}>&#x26A0;</span>
-              <span>暂无故事数据，请先创建或打开一个 .mdstory 文件。</span>
+              <span>{text('exportDialog.noStoryInline')}</span>
+            </div>
+          )}
+          {storyData && blockingErrorCount > 0 && exportStatus === 'idle' && (
+            <div style={warningStyle} data-testid="export-blocked-by-errors">
+              <span style={statusIconStyle}>&#x26A0;</span>
+              <span>{text('exportDialog.blockedByErrors', { count: blockingErrorCount })}</span>
             </div>
           )}
         </div>
@@ -379,19 +458,21 @@ export function ExportDialog(): React.ReactElement | null {
             style={cancelButtonStyle}
             disabled={exportStatus === 'exporting'}
           >
-            取消
+            {text('common.cancel')}
           </button>
           <button
             type="button"
             onClick={handleExport}
+            data-testid="export-dialog-submit"
+            data-export-status={exportStatus}
             style={{
               ...exportButtonStyle,
               ...(exportStatus === 'exporting' ? exportButtonDisabledStyle : {}),
               ...(exportStatus === 'success' ? exportButtonSuccessStyle : {}),
             }}
-            disabled={exportStatus === 'exporting' || !storyData}
+            disabled={exportStatus === 'exporting' || !storyData || blockingErrorCount > 0}
           >
-            {STATUS_LABEL[exportStatus]}
+            {text(`exportDialog.${exportStatus}`)}
           </button>
         </div>
       </div>
@@ -413,6 +494,7 @@ export function ExportDialog(): React.ReactElement | null {
 function exportContent(
   data: PlotFlowData,
   format: ExportFormat,
+  unsupportedFormatMessage: (format: ExportFormat) => string,
 ): { ok: true; data: string } | { ok: false; errors: ReadonlyArray<{ message: string }> } {
   switch (format) {
     case 'json': {
@@ -437,7 +519,7 @@ function exportContent(
       return { ok: false, errors: result.errors };
     }
     default:
-      return { ok: false, errors: [{ message: `不支持的导出格式: ${format}` }] };
+      return { ok: false, errors: [{ message: unsupportedFormatMessage(format) }] };
   }
 }
 
@@ -453,8 +535,8 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0, 0, 0, 0.4)',
-  zIndex: 1000,
+  background: 'var(--color-overlay-modal)',
+  zIndex: 'var(--z-modal)',
   backdropFilter: 'blur(2px)',
 };
 
@@ -463,9 +545,9 @@ const overlayStyle: React.CSSProperties = {
 const panelStyle: React.CSSProperties = {
   width: 480,
   maxWidth: '90vw',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 12px)',
-  boxShadow: 'var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18))',
+  boxShadow: 'var(--shadow-lg)',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
@@ -481,9 +563,9 @@ const headerStyle: React.CSSProperties = {
   padding: '12px 16px',
   fontSize: '14px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
-  borderBottom: '1px solid var(--color-border-default, #E0E0E0)',
+  color: 'var(--color-text-primary)',
+  background: 'var(--color-bg-secondary)',
+  borderBottom: '1px solid var(--color-border-default)',
   userSelect: 'none',
 };
 
@@ -494,7 +576,7 @@ const headerTitleStyle: React.CSSProperties = {
 
 const shortcutHintStyle: React.CSSProperties = {
   fontSize: '10px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   marginRight: 'auto',
 };
 
@@ -503,7 +585,7 @@ const closeButtonStyle: React.CSSProperties = {
   background: 'transparent',
   cursor: 'pointer',
   fontSize: '14px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   padding: '2px 6px',
   borderRadius: 4,
   display: 'flex',
@@ -524,7 +606,7 @@ const bodyStyle: React.CSSProperties = {
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 600,
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   userSelect: 'none',
@@ -543,7 +625,7 @@ const formatOptionStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 10,
   padding: '10px 12px',
-  border: '1px solid var(--color-border-default, #E0E0E0)',
+  border: '1px solid var(--color-border-default)',
   borderRadius: 8,
   cursor: 'pointer',
   transition: 'border-color 0.12s ease, background 0.12s ease',
@@ -551,25 +633,25 @@ const formatOptionStyle: React.CSSProperties = {
 };
 
 const formatOptionActiveStyle: React.CSSProperties = {
-  borderColor: 'var(--color-accent, #A0703A)',
-  background: 'var(--color-accent-subtle, rgba(160,112,58,0.06))',
+  borderColor: 'var(--color-accent)',
+  background: 'var(--color-accent-subtle)',
 };
 
 const radioInputStyle: React.CSSProperties = {
-  accentColor: 'var(--color-accent, #A0703A)',
+  accentColor: 'var(--color-accent)',
   flexShrink: 0,
 };
 
 const formatLabelStyle: React.CSSProperties = {
   fontSize: '14px',
   fontWeight: 600,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   minWidth: 48,
 };
 
 const formatDescStyle: React.CSSProperties = {
   fontSize: '12px',
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
 };
 
 // -------- 文件名 --------
@@ -579,19 +661,19 @@ const fileInfoStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 8,
   padding: '8px 12px',
-  background: 'var(--color-bg-tertiary, #F0F0F1)',
+  background: 'var(--color-bg-tertiary)',
   borderRadius: 6,
   fontSize: '12px',
   fontFamily: 'var(--font-editor, Consolas, monospace)',
 };
 
 const fileLabelStyle: React.CSSProperties = {
-  color: 'var(--color-text-muted, #8A8A8A)',
+  color: 'var(--color-text-muted)',
   flexShrink: 0,
 };
 
 const fileNameStyle: React.CSSProperties = {
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   fontWeight: 500,
   wordBreak: 'break-all',
 };
@@ -606,7 +688,7 @@ const statusStyle: React.CSSProperties = {
   borderRadius: 6,
   fontSize: '12px',
   lineHeight: 1.5,
-  background: 'var(--color-bg-tertiary, #F0F0F1)',
+  background: 'var(--color-bg-tertiary)',
 };
 
 const warningStyle: React.CSSProperties = {
@@ -617,8 +699,8 @@ const warningStyle: React.CSSProperties = {
   borderRadius: 6,
   fontSize: '12px',
   lineHeight: 1.5,
-  color: 'var(--color-warning, #F9A825)',
-  background: 'var(--color-bg-tertiary, #F0F0F1)',
+  color: 'var(--color-warning)',
+  background: 'var(--color-bg-tertiary)',
 };
 
 const statusIconStyle: React.CSSProperties = {
@@ -634,17 +716,17 @@ const footerStyle: React.CSSProperties = {
   justifyContent: 'flex-end',
   gap: 8,
   padding: '12px 16px',
-  borderTop: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-secondary, #F5F5F6)',
+  borderTop: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-secondary)',
 };
 
 const cancelButtonStyle: React.CSSProperties = {
-  border: '1px solid var(--color-border-default, #E0E0E0)',
-  background: 'var(--color-bg-primary, #FFFFFF)',
+  border: '1px solid var(--color-border-default)',
+  background: 'var(--color-bg-primary)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 500,
-  color: 'var(--color-text-primary, #333333)',
+  color: 'var(--color-text-primary)',
   padding: '6px 16px',
   borderRadius: 6,
   lineHeight: '20px',
@@ -653,11 +735,11 @@ const cancelButtonStyle: React.CSSProperties = {
 
 const exportButtonStyle: React.CSSProperties = {
   border: 'none',
-  background: 'var(--color-accent, #A0703A)',
+  background: 'var(--color-accent)',
   cursor: 'pointer',
   fontSize: '13px',
   fontWeight: 600,
-  color: 'var(--color-text-on-accent, #FFFFFF)',
+  color: 'var(--color-text-on-accent)',
   padding: '6px 20px',
   borderRadius: 6,
   lineHeight: '20px',
@@ -671,5 +753,5 @@ const exportButtonDisabledStyle: React.CSSProperties = {
 };
 
 const exportButtonSuccessStyle: React.CSSProperties = {
-  background: 'var(--color-success, #2E7D32)',
+  background: 'var(--color-success)',
 };

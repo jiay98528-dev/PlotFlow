@@ -8,5 +8,6 @@ export {
   debouncedSave,
   forceSave,
   clearPendingSave,
+  saveAsCurrentFile,
   saveOrSaveAs,
 } from './autoSaveService';

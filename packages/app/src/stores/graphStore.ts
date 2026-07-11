@@ -14,11 +14,15 @@
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import type { Node, Edge } from '@xyflow/react';
 import type { PlotFlowData } from '@plotflow/core';
 import { plotFlowDataToFlow } from '../components/branch-graph/adapter';
-import type { NodeStatus } from '../components/branch-graph/adapter-helpers';
+import {
+  STATUS_TO_CLASS_MAP,
+  type NodeStatus,
+} from '../components/branch-graph/adapter-helpers';
+import { useUIStore } from './uiStore';
 
 // ============================================================================
 // 类型定义
@@ -33,6 +37,16 @@ export const ZOOM_CONSTRAINTS = {
   MAX: 2.0,
   DEFAULT: 1.0,
 } as const;
+
+const EDITING_LOCK_TIMEOUT_MS = 10_000;
+let editingLockTimer: ReturnType<typeof setTimeout> | undefined;
+
+function clearEditingLockTimer(): void {
+  if (editingLockTimer !== undefined) {
+    clearTimeout(editingLockTimer);
+    editingLockTimer = undefined;
+  }
+}
 
 /** 分支图状态 */
 export interface GraphState {
@@ -165,7 +179,8 @@ const initialState = {
 
 export const useGraphStore = create<GraphState>()(
   devtools(
-    (set, get) => ({
+    subscribeWithSelector(
+      (set, get) => ({
       // --- 初始状态 ---
       ...initialState,
 
@@ -215,12 +230,16 @@ export const useGraphStore = create<GraphState>()(
           'graph/setRenamingNodeId',
         ),
 
-      setEditing: (editing: boolean) =>
-        set(
-          { isEditing: editing },
-          false,
-          'graph/setEditing',
-        ),
+      setEditing: (editing: boolean) => {
+        clearEditingLockTimer();
+        set({ isEditing: editing }, false, 'graph/setEditing');
+        if (editing) {
+          editingLockTimer = setTimeout(() => {
+            editingLockTimer = undefined;
+            set({ isEditing: false }, false, 'graph/setEditing:timeout');
+          }, EDITING_LOCK_TIMEOUT_MS);
+        }
+      },
 
       /**
        * 切换同层节点组的折叠/展开状态 (M2-15)。
@@ -245,8 +264,16 @@ export const useGraphStore = create<GraphState>()(
 
       syncFromAST: (data: PlotFlowData | null) => {
         if (!data) {
+          clearEditingLockTimer();
           set(
-            { nodes: [], edges: [], selectedNodeId: null },
+            {
+              nodes: [],
+              edges: [],
+              selectedNodeId: null,
+              renamingNodeId: null,
+              isEditing: false,
+              collapsedGroups: {},
+            },
             false,
             'graph/syncFromAST:clear',
           );
@@ -263,10 +290,10 @@ export const useGraphStore = create<GraphState>()(
         } catch (error) {
           // eslint-disable-next-line no-console -- intentional error logging for diagnostics
           console.error('[GraphStore] syncFromAST failed:', error);
-          set(
-            { nodes: [], edges: [], selectedNodeId: null },
-            false,
-            'graph/syncFromAST:error',
+          // V02-033: 保留上次有效状态，不清空画布
+          // 仅设置状态栏消息告知用户渲染失败
+          useUIStore.getState().setStatusMessage(
+            '⚠️ 分支图渲染失败 — 已保留当前视图，请检查语法',
           );
         }
       },
@@ -295,17 +322,10 @@ export const useGraphStore = create<GraphState>()(
 
         const node = nodes[index]!;
 
-        const STATUS_TO_CLASS: Record<NodeStatus, string> = {
-          normal: 'node-status-normal',
-          orphan: 'node-status-orphan',
-          deadend: 'node-status-deadend',
-          error: 'node-status-error',
-        };
-
         const updatedNodes = [...nodes];
         updatedNodes[index] = {
           ...node,
-          className: STATUS_TO_CLASS[status],
+          className: STATUS_TO_CLASS_MAP[status],
           data: {
             ...node.data,
             status,
@@ -319,6 +339,7 @@ export const useGraphStore = create<GraphState>()(
         );
       },
     }),
-    { name: 'GraphStore' },
+  ),
+  { name: 'GraphStore' },
   ),
 );

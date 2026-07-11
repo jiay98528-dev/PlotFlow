@@ -128,8 +128,11 @@ export async function setupPlotFlowEditor(): Promise<void> {
       const index = new InvertedIndex();
       const loader = CorpusLoader.getInstance();
 
-      // 加载预置英文语料到 NGramEngine（中文语料 V02-062 待构建）
-      await loader.loadToEngine(engine, 'en');
+      // 两种内置语言都离线打包，确保中英文输入均有基础建议。
+      await Promise.all([
+        loader.loadToEngine(engine, 'zh'),
+        loader.loadToEngine(engine, 'en'),
+      ]);
 
       registerGhostTextProvider(engine, index);
     } catch (err) {
@@ -171,6 +174,7 @@ export async function setupPlotFlowEditor(): Promise<void> {
 export async function initMonacoEditor(
   container: HTMLElement,
   initialValue?: string,
+  theme?: string,
 ): Promise<monaco.editor.IStandaloneCodeEditor> {
   // 确保环境已就绪
   await setupPlotFlowEditor();
@@ -178,7 +182,7 @@ export async function initMonacoEditor(
   const editor = monaco.editor.create(container, {
     value: initialValue ?? '',
     language: PLOTFLOW_LANGUAGE_ID,
-    theme: THEME_DEFAULT,
+    theme: theme ?? THEME_DEFAULT,
 
     // ── 编辑器行为 ──
     automaticLayout: true,        // 容器尺寸变化时自动重排
@@ -187,8 +191,8 @@ export async function initMonacoEditor(
     lineNumbers: 'on',
     renderWhitespace: 'selection',
     bracketPairColorization: { enabled: true },
-    autoClosingBrackets: 'always',
-    autoClosingQuotes: 'always',
+    autoClosingBrackets: 'beforeWhitespace',
+    autoClosingQuotes: 'beforeWhitespace',
 
     // ── 字体 ──
     fontFamily:
@@ -200,6 +204,7 @@ export async function initMonacoEditor(
     cursorBlinking: 'smooth',
     cursorSmoothCaretAnimation: 'on',
     smoothScrolling: true,
+    // 不允许编辑器末尾虚拟空间，确保 Backspace 可删除尾随空行
     scrollBeyondLastLine: false,
     tabSize: 2,
     insertSpaces: true,
@@ -209,7 +214,13 @@ export async function initMonacoEditor(
       showWords: true,
       showSnippets: false,
     },
-    quickSuggestions: false,      // 关闭默认补全（使用 PlotFlow 自定义补全）
+    // V02-032: 使用细粒度关闭而非全局 false，确保 IME composition 期间
+    // Monaco 仍能正确处理方向键导航（IME 候选窗交互依赖 suggest 机制）。
+    quickSuggestions: {
+      other: false,
+      comments: false,
+      strings: false,
+    },
 
     // ── 空白渲染 ──
     renderLineHighlight: 'line',

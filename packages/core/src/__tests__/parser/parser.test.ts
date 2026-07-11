@@ -80,7 +80,7 @@ vars:
       expect(ch.nodes).toHaveLength(1);
       const node = ch.nodes[0]!;
       expect(node.id).toBe('森林入口');
-      expect(node.fullId).toBe('第一章-森林入口');
+      expect(node.fullId).toBe('%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3');
       expect(node.chapterId).toBe('第一章');
       expect(node.options).toHaveLength(2);
     }
@@ -185,7 +185,7 @@ vars:
     const result = parseStory(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('孤魂');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('%E5%AD%A4%E9%AD%82');
     }
   });
 
@@ -218,9 +218,11 @@ vars:
 正文B
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors[0]!.code).toBe('E007');
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors[0]!.code).toBe('E007');
     }
   });
 
@@ -238,10 +240,11 @@ vars:
 正文B
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
       // 两个 chapter ID 相同（"第一章"），所以 fullId 重复
-      const e007Errors = result.errors.filter((e) => e.code === 'E007');
+      const e007Errors = result.diagnostics.filter((e) => e.code === 'E007' && e.severity === 'error');
       expect(e007Errors.length).toBeGreaterThanOrEqual(1);
     }
   });
@@ -258,11 +261,11 @@ vars:
     const result = parseStory(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('测试节点');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('%E6%B5%8B%E8%AF%95%E8%8A%82%E7%82%B9');
     }
   });
 
-  it('命名章节 fullId = "章节ID-节点ID"', () => {
+  it('命名章节 fullId = 编码后的 "章节ID/节点ID"', () => {
     const input = `# 冒险开始
 
 ## 节点：出发
@@ -272,7 +275,7 @@ vars:
     const result = parseStory(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('冒险开始-出发');
+      expect(result.data.chapters[0]!.nodes[0]!.fullId).toBe('%E5%86%92%E9%99%A9%E5%BC%80%E5%A7%8B/%E5%87%BA%E5%8F%91');
     }
   });
 
@@ -332,7 +335,12 @@ vars:
 正文
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
+    }
   });
 
   it('章节标题为空 → E005', () => {
@@ -343,7 +351,12 @@ vars:
 正文
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
+    }
   });
 
   it('章节标题过长（超 256 码点） → W006', () => {
@@ -372,7 +385,12 @@ vars:
 ## 节点：
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
+    }
   });
 
   it('节点标题含 / → E005（自动替换）', () => {
@@ -383,7 +401,13 @@ vars:
 正文。
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递。
+    // 注意：节点仍会被创建（禁止字符自动替换为 _），AST 中包含该节点。
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
+    }
   });
 
   it('节点标题过长（超 128 码点） → E005', () => {
@@ -393,7 +417,12 @@ vars:
 ## 节点：${longName}
 `;
     const result = parseStory(input);
-    expect(result.ok).toBe(false);
+    // V02-033: parseStory 始终返回 success，错误通过 diagnostics 传递
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const errors = result.diagnostics.filter((d) => d.severity === 'error');
+      expect(errors.some((e) => e.code === 'E005')).toBe(true);
+    }
   });
 
   // ==========================================================================

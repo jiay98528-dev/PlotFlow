@@ -111,6 +111,7 @@ Frontmatter
 
 YAMLBlock
     = MetaFields
+      [ LayoutDecl ]
       VariableDeclarations
     ;
 
@@ -138,7 +139,21 @@ EngineDecl
     ;
 
 EngineValue
-    = "godot" | "unity" | "unreal" | "none"
+    = "generic" | "godot" | "unity" | "unreal"
+    ;
+
+LayoutDecl
+    = "layout:" NL
+      Indent "graph:" NL
+      Indent Indent "version:" WS Integer NL
+      Indent Indent "nodes:" NL
+      { GraphLayoutNode }
+    ;
+
+GraphLayoutNode
+    = Indent Indent Indent "-" WS "id:" WS StringValue NL
+      Indent Indent Indent "x:" WS NumberValue NL
+      Indent Indent Indent "y:" WS NumberValue NL
     ;
 
 VariableDeclarations
@@ -146,11 +161,68 @@ VariableDeclarations
     ;
 ```
 
+`.mdstory` 源语法和 Inspector 只使用 `generic | godot | unity | unreal`。`generic` 表示不绑定特定引擎；JSON Schema 0.2 导出边界必须把它映射为 `meta.engine: "none"`。`none` 仅属于 JSON 0.2 输出枚举，不是合法的源 `EngineValue`，parser 不应把源文件中的 `engine: none` 当作标准语法接受。
+
+### 2.1.1 Graph Layout 块（可选）
+
+`layout.graph.nodes` 是 Graph Lab / 分支图的手动布局投影，不属于剧情语义。旧文件可以完全没有该块；解析器必须继续用 Dagre 自动布局。存在该块时，节点坐标按 `id` 匹配到节点完整 ID。
+
+```yaml
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%9D%91%E5%8F%A3"
+        x: 120
+        y: 80
+```
+
+规则：
+
+- `version` 当前固定为 `1`；未知版本不得阻断剧情解析，但可以忽略布局。
+- `id` 使用 ADR-013 canonical FullID：`encodeURIComponent(chapterId) + "/" + encodeURIComponent(nodeId)`。FullID 是 opaque key，消费者不得自行拆分。
+- `x` / `y` 必须是有限数字；非法坐标项应被忽略，不应导致 `.mdstory` 无法打开。
+- 节点重命名、章节移动或删除时，Graph Lab 写回逻辑必须迁移或清理对应布局项。
+- `layout.graph.version` 继续为 `1`。读取旧 `chapter-node` ID 时必须枚举当前 AST 的真实 `(chapterId, nodeId)` 计算 legacy alias；仅唯一匹配时在内存迁移坐标，碰撞时禁止猜测并报告歧义诊断。打开文件不得静默改写；下一次真实保存或布局事务才写回 canonical ID。
+
 ### 2.2 变量声明语法
 
 ```ebnf
 VariableDecl
+    = ShorthandVariableDecl
+    | StructuredVariableDecl
+    ;
+
+ShorthandVariableDecl
     = Indent VarName ":" WS TypeSpec NL
+    ;
+
+StructuredVariableDecl
+    = Indent VarName ":" NL
+      Indent Indent StructuredVariableBody
+    ;
+
+StructuredVariableBody
+    = "type:" WS VariableTypeName NL
+      [ Indent Indent "default:" WS YamlValue NL ]
+      [ Indent Indent "scope:" WS ( "global" | "chapter" ) NL ]
+      [ Indent Indent "chapter:" WS StringValue NL ]
+      [ Indent Indent "description:" WS StringValue NL ]
+      [ Indent Indent "values:" WS YamlStringSequence NL ]
+      [ Indent Indent "fields:" NL { StructuredFieldDecl } ]
+    ;
+
+VariableTypeName
+    = PrimitiveType | "enum" | "object"
+    ;
+
+YamlValue
+    = ? 与声明类型匹配的 YAML 标量、序列或映射 ?
+    ;
+
+YamlStringSequence
+    = "[" StringValue { "," WS StringValue } "]"
+    | ? 标准 YAML 块序列 ?
     ;
 
 TypeSpec
@@ -185,18 +257,82 @@ ObjectType
 ObjectFieldDecl
     = VarName ":" WS TypeSpec
     ;
+
+StructuredFieldDecl
+    = Indent Indent Indent Indent VarName ":" WS TypeSpec NL
+    | Indent Indent Indent Indent VarName ":" NL
+      StructuredFieldBody
+    ;
+
+StructuredFieldBody
+    = "type:" WS VariableTypeName NL
+      [ Indent Indent "default:" WS YamlValue NL ]
+      [ Indent Indent "description:" WS StringValue NL ]
+      [ Indent Indent "values:" WS YamlStringSequence NL ]
+      [ Indent Indent "fields:" NL { StructuredFieldDecl } ]
+    ;
 ```
+
+`StructuredVariableDecl` 是与旧 shorthand 并存的标准 YAML 映射形式。磁盘读取必须同时接受两种形式；写入结构化形式时使用以下字段：
+
+| 字段 | 必需 | 约束 |
+|------|:---:|------|
+| `type` | ✅ | `int` / `float` / `bool` / `string` / `enum` / `object` |
+| `default` | ❌ | 必须与声明类型匹配；省略时使用 §2.3 的类型默认值 |
+| `scope` | ❌ | 仅顶层变量可用；`global` 或 `chapter`，省略时视为 `global` |
+| `chapter` | scope 为 chapter 时必需 | 仅顶层变量可用；非空且必须引用当前故事中的真实章节 |
+| `description` | ❌ | YAML 字符串 |
+| `values` | enum 必需 | 非空、无重复的字符串序列；`default` 必须属于该序列 |
+| `fields` | object 必需 | 字段名到结构化声明或旧 shorthand 的 YAML 映射，object 最多嵌套 3 层 |
+
+```yaml
+vars:
+  金币: int                         # 旧 shorthand 继续有效
+  职业:
+    type: enum
+    values: [战士, 法师, 盗贼]
+    default: 法师
+    scope: chapter
+    chapter: 第一章
+    description: 本章使用的职业伪装
+  玩家:
+    type: object
+    default:                       # object default 可以局部覆盖字段默认值
+      属性:
+        生命: 80
+    fields:
+      名称:
+        type: string
+        default: 无名者
+      属性:
+        type: object
+        fields:
+          生命:
+            type: int
+            default: 100
+          存活: bool               # fields 内可用 shorthand 渐进迁移
+```
+
+结构化声明的校验规则：
+
+- `int` 默认值必须是 32 位有符号整数；`float` 必须是有限 YAML 数字；`bool` 与 `string` 不做隐式类型转换。
+- `object.default` 必须是映射，只能引用 `fields` 中已声明的字段；允许局部覆盖，未出现的字段继承字段声明默认值。
+- 顶层 `scope: chapter` 必须同时声明非空 `chapter`，且该章节必须存在；缺失或悬空是 Error 并阻断导出。`scope: global` 或省略 scope 时禁止携带 `chapter`。
+- `scope` / `chapter` 只允许出现在顶层变量；object 的嵌套 fields 继承根变量的有效 scope/chapter，字段级声明二者触发 **E005**。
+- chapter-scoped 变量随故事会话持久化，但只在其 `chapter` 指定章节的节点、条件和效果上下文中可见。
+- 未知属性、非法类型、默认值类型不匹配或非法 `scope` 触发 **E005**；非法 enum 触发 **E003**；第 4 层 object 触发 **E006**。
+- 旧 `name: int`、`name: enum[...]`、`name: object{...}` 文件无需迁移即可继续解析。
 
 ### 2.3 类型系统完整规格
 
 | 类型 | 语法标记 | 默认值 | 合法值域 | 示例 |
 |------|---------|--------|---------|------|
-| `int` | `int` | `0` | 32位有符号整数 | `好感度: int` |
-| `float` | `float` | `0.0` | IEEE 754 双精度 | `暴击率: float` |
-| `bool` | `bool` | `false` | `true` / `false` | `钥匙: bool` |
-| `string` | `string` | `""` (空串) | 任意 Unicode 字符序列 | `日志: string` |
-| `enum` | `enum[v1, v2, ...]` | 第一个枚举值 | 声明中列出的值 | `职业: enum[战士, 法师, 盗贼]` |
-| `object` | `object{...}` | 各字段默认值的组合 | 嵌套类型组合 | `装备: object{武器: enum[剑,弓], ...}` |
+| `int` | `int` / `type: int` | `0` | 32位有符号整数 | `好感度: int` |
+| `float` | `float` / `type: float` | `0.0` | IEEE 754 双精度 | `暴击率: float` |
+| `bool` | `bool` / `type: bool` | `false` | `true` / `false` | `钥匙: bool` |
+| `string` | `string` / `type: string` | `""` (空串) | 任意 Unicode 字符序列 | `日志: string` |
+| `enum` | `enum[v1, ...]` / `type: enum` + `values` | 第一个枚举值 | 声明中列出的值 | `职业: enum[战士, 法师, 盗贼]` |
+| `object` | `object{...}` / `type: object` + `fields` | 各字段默认值的组合 | 嵌套类型组合 | `装备: object{武器: enum[剑,弓], ...}` |
 
 ### 2.4 嵌套规则
 
@@ -236,8 +372,8 @@ VarName
 
 ```
 int, float, bool, string, enum, object,
-true, false, AND, OR, NOT, none,
-plotflow, title, author, engine, vars
+true, false, AND, OR, NOT, generic, none,
+plotflow, title, author, engine, layout, graph, version, nodes, x, y, vars
 ```
 
 ### 2.6 字符串值
@@ -251,6 +387,22 @@ StringValue
 
 UnquotedString
     = ? 不含 ":"、换行符、首尾空白的非空字符序列 ?
+    ;
+```
+
+### 2.7 数字值
+
+```ebnf
+Integer
+    = Digit { Digit }
+    ;
+
+NumberValue
+    = [ "-" ] Digit { Digit } [ "." Digit { Digit } ]
+    ;
+
+Digit
+    = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
     ;
 ```
 
@@ -290,15 +442,17 @@ NodeName
     ;
 
 (* 节点 ID = NodeName 去除首尾空白 *)
-(* 节点 FullID = "ChapterTitle/NodeName" *)
+(* 命名章节 FullID = encodeURIComponent(ChapterTitle) "/" encodeURIComponent(NodeName) *)
+(* 匿名章节 FullID = encodeURIComponent(NodeName) *)
 (* FullID 必须全局唯一 *)
+(* FullID 是 opaque key；禁止通过 split/substring 反推 chapterId 或 nodeId *)
 ```
 
 ### 3.3 节点头部约束
 
 | 规则 | 约束内容 | 违反级别 |
 |------|---------|---------|
-| N1 | `FullID`（即 `章节名/节点名`）全局唯一。跨章节不得重名。 | 🔴 E007 |
+| N1 | canonical FullID 全局唯一；不同章节允许同名节点，身份由独立 `chapterId` / `nodeId` 组件构造。 | 🔴 E007 |
 | N3 | 章节标题格式 `# 标题`，节点标题格式 `## 节点：名称` | 🟡 W006 |
 | N5 | 节点描述文本（body）不能为空或仅空白字符 | 🟡 W005 |
 
@@ -353,7 +507,7 @@ TargetRef
     ;
 
 ChapterPrefix
-    = ChapterTitle              (* 不含 "/" 字符的章节名 *)
+    = ChapterTitle              (* 保持用户可读原文；不写百分号编码 FullID *)
     ;
 
 TargetNodeName
@@ -368,6 +522,8 @@ TargetNodeName
 | O1 | `-> 节点：目标` 必须存在，且 `TargetRef` 解析出的 FullID 必须对应一个已定义的 Node | 🔴 E001 |
 | O5 | 无条件子行的选项 = 默认选项，始终可用 | — |
 | O6 | 同一 Node 下所有 Option 的 OptionText（去除首尾空白后）不能完全相同 | 🟡 W004 |
+
+`TargetRef` 始终先解析为独立的 `targetChapterId` 与 `targetNodeId`，再由 core 共享 helper 生成 canonical `targetFullId`。App、插件和运行时必须把 FullID 当作 opaque key，不得自行拼接或拆分。章节名含 `/` 时，以目标标记前最后一个结构性 `/节点` 边界解析，名称组件本身保持未编码的用户文本。
 
 ### 4.3 条件子行
 
@@ -480,6 +636,22 @@ CompOp
     | "<"
     ;
 ```
+
+源 parser 将每个比较两侧解析为带类型的操作数。JSON Schema 0.2 的唯一写出形状为：
+
+```json
+{
+  "type": "comparison",
+  "left": { "type": "variable", "name": "角色状态.魔力" },
+  "operator": ">=",
+  "right": { "type": "literal", "value": 10 }
+}
+```
+
+- variable operand 写为 `{ "type": "variable", "name": string }`，`name` 保留完整点路径但不含 `$`。
+- literal operand 写为 `{ "type": "literal", "value": VariableValue }`。
+- 0.1 的 `{ type: "comparison", variable, operator, value }` 仅用于旧 JSON 读取兼容，parser/serializer 不得再把它作为 0.2 写出目标。
+- Godot、Unity、Unreal 运行时读取器必须在版本边界同时容忍 0.2 typed operands 与历史 0.1 `variable/value`，但重新导出统一规范化为 0.2。
 
 ### 5.2 运算符优先级表
 
@@ -1227,19 +1399,19 @@ Story
 │       │   ├── options:
 │       │   │   ├── Option[0]
 │       │   │   │   ├── text: "走向左边的狼嚎声"
-│       │   │   │   ├── target: "第一章/狼穴"
+│       │   │   │   ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E7%8B%BC%E7%A9%B4"
 │       │   │   │   ├── condition: null
 │       │   │   │   └── effects: [
 │       │   │   │       { var: "好感度", op: "add", value: 1 }
 │       │   │   │     ]
 │       │   │   ├── Option[1]
 │       │   │   │   ├── text: "探索右边的古井"
-│       │   │   │   ├── target: "第一章/古井"
+│       │   │   │   ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E5%8F%A4%E4%BA%95"
 │       │   │   │   ├── condition: null
 │       │   │   │   └── effects: []
 │       │   │   └── Option[2]
 │       │   │       ├── text: "返回村庄"
-│       │   │       ├── target: "第一章/村庄广场"
+│       │   │       ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%9D%91%E5%BA%84%E5%B9%BF%E5%9C%BA"
 │       │   │       ├── condition: null
 │       │   │       └── effects: []
 │       │
@@ -1251,18 +1423,18 @@ Story
 │       │   ├── options:
 │       │   │   ├── Option[0]
 │       │   │   │   ├── text: "战斗"
-│       │   │   │   ├── target: "第一章/战斗结果"
+│       │   │   │   ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%88%98%E6%96%97%E7%BB%93%E6%9E%9C"
 │       │   │   │   ├── condition: null
 │       │   │   │   └── effects: [
 │       │   │   │       { var: "角色状态", field: "生命", op: "subtract", value: 10 }
 │       │   │   │     ]
 │       │   │   ├── Option[1]
 │       │   │   │   ├── text: "投喂食物"
-│       │   │   │   ├── target: "第一章/驯服狼"
+│       │   │   │   ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E9%A9%AF%E6%9C%8D%E7%8B%BC"
 │       │   │   │   ├── condition: {
 │       │   │   │   │     type: "logical_and",
-│       │   │   │   │     left:  { type: "comparison", var: "金币", op: ">=", value: 10 },
-│       │   │   │   │     right: { type: "comparison", var: "武器", op: "!=", value: "无" }
+│       │   │   │   │     left:  { type: "comparison", left: { type: "variable", name: "金币" }, operator: ">=", right: { type: "literal", value: 10 } },
+│       │   │   │   │     right: { type: "comparison", left: { type: "variable", name: "武器" }, operator: "!=", right: { type: "literal", value: "无" } }
 │       │   │   │   │   }
 │       │   │   │   └── effects: [
 │       │   │   │       { var: "金币",   op: "subtract", value: 10 },
@@ -1270,7 +1442,7 @@ Story
 │       │   │   │     ]
 │       │   │   └── Option[2]
 │       │   │       ├── text: "悄悄退后"
-│       │   │       ├── target: "第一章/森林入口"
+│       │   │       ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3"
 │       │   │       ├── condition: null
 │       │   │       └── effects: []
 │       │
@@ -1282,25 +1454,25 @@ Story
 │           ├── options:
 │           │   ├── Option[0]
 │           │   │   ├── text: "喝井水"
-│           │   │   ├── target: "第一章/井水效果"
+│           │   │   ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E4%BA%95%E6%B0%B4%E6%95%88%E6%9E%9C"
 │           │   │   ├── condition: null
 │           │   │   └── effects: [
 │           │   │       { var: "角色状态", field: "魔力", op: "add", value: 5 }
 │           │   │     ]
 │           │   ├── Option[1]
 │           │   │   ├── text: "调查符文"
-│           │   │   ├── target: "第一章/符文秘密"
+│           │   │   ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E7%AC%A6%E6%96%87%E7%A7%98%E5%AF%86"
 │           │   │   ├── condition: {
 │           │   │   │     type: "comparison",
-│           │   │   │     var: "角色状态", field: "魔力",
-│           │   │   │     op: ">=", value: 10
+│           │   │   │     left: { type: "variable", name: "角色状态.魔力" },
+│           │   │   │     operator: ">=", right: { type: "literal", value: 10 }
 │           │   │   │   }
 │           │   │   └── effects: [
 │           │   │       { var: "拥有钥匙", op: "set", value: true }
 │           │   │     ]
 │           │   └── Option[2]
 │           │       ├── text: "离开"
-│           │       ├── target: "第一章/森林入口"
+│           │       ├── target: "%E7%AC%AC%E4%B8%80%E7%AB%A0/%E6%A3%AE%E6%9E%97%E5%85%A5%E5%8F%A3"
 │           │       ├── condition: null
 │           │       └── effects: []
 ```
@@ -1432,10 +1604,71 @@ Story
 | W004 | 重复选项描述 | §4.2 | 🟡 Warning |
 | W005 | 空描述节点 | §3.3 | 🟡 Warning |
 | W006 | 格式不规范 | §3.3, §10.3 | 🟡 Warning |
+| W007 | 可能无限循环 | §12.3 | 🟡 Warning |
 | I001 | 可能卡关 | — | 🔵 Info |
 | I002 | 描述过短 | — | 🔵 Info |
 | I003 | 无章节归属 | §10.1 BC10 | 🔵 Info |
 
 ---
 
-*本文档是 PlotFlow V0.1 解析器的唯一权威语法参考。任何实现差异以本文档为准。*
+---
+
+## 12. V0.3 Flow Exit Addendum
+
+This addendum records the V0.3 node-level flow exit syntax added for Graph Lab flow nodes.
+
+### 12.1 `下一步` node-level exit
+
+```ebnf
+NextLine
+    = "下一步" NextColon WS TargetRef NL
+    ;
+
+NextColon
+    = ":"
+    | "："
+    ;
+
+NextEffectLine
+    = Indent "效果" EffectColon WS "(" EffectList ")" NL
+    ;
+```
+
+Rules:
+
+- `下一步: 节点：目标节点名` is parsed as a node-level default exit, separate from `[选项]`.
+- `下一步: 章节/节点：目标节点名` is accepted for cross-chapter targets.
+- An immediately adjacent indented `效果:` line belongs to the `下一步` exit.
+- A node with at least one `[选项]` treats those options as explicit exits; Graph Lab hides the default node-level handle in that state.
+- A malformed `下一步` line is kept as normal body text and produces `E005`; it must not consume a following `效果:` line.
+
+### 12.2 Export compatibility
+
+The canonical `.mdstory` source stores `下一步` as a node-level exit. JSON Schema 0.2 projects `下一步` to a synthetic unconditional option during JSON export:
+
+- `text`: `下一步`
+- `index`: after existing options
+- `conditions`: `null`
+- `sideEffects`: parsed from the adjacent `效果:` line
+- `targetChapterId`: explicit chapter ID or `null`
+- `targetNodeId`: target node ID or `null`
+- `targetFullId`: canonical opaque FullID or `null`
+
+No separate `nextTarget` field is emitted; historical 0.1 readers continue to receive the synthetic option shape they already understand.
+
+### 12.3 W007 closed-cycle warning
+
+`W007` reports a possible infinite loop when the graph contains a closed strongly connected component with no outgoing edge to a node outside the component. The adjacency graph includes both `[选项]` edges and `下一步` edges. Edges with unresolved targets are skipped by W007 so they remain covered by `E001`.
+
+`W002` and `I001` must also treat `下一步` as an exit. A node with no `[选项]` but a valid `下一步` is not a dead end. A node with conditional options plus a valid unconditional `下一步` has a fallback path and should not trigger the “all choices are conditional” suggestion.
+
+### 12.4 Graph Lab chapter projection requirements
+
+These requirements are UI/source projection rules, not additional `.mdstory` syntax:
+
+- Graph Lab must present H1 chapters as visible top-level chapter tabs.
+- Creating a chapter in Graph Lab must immediately create a visible, selected tab and a source-backed chapter block.
+- Graph Lab Source Drawer edits are chapter slices mapped back to the full `.mdstory` by source offsets; split text mode remains the full-file editor.
+- Chapter tab visibility is a release-facing UX requirement and must be covered by screenshot-based E2E assertions, not only DOM existence checks.
+
+*本文档是 PlotFlow V0.1/V0.3 解析器的权威语法参考。任何实现差异以本文档为准。*

@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type * as monaco from 'monaco-editor';
 import type { Diagnostic } from '@plotflow/core';
+import type { FileExternalChangeEvent } from '../types/electron';
 
 // ============================================================================
 // 类型定义
@@ -26,6 +27,9 @@ export interface CursorPosition {
 
 /** 编辑器状态 */
 export interface EditorState {
+  /** 当前故事会话的单调递增标识；新建、打开或外部重载时变化。 */
+  readonly storySessionId: number;
+
   /** 自上次保存后是否有未保存的修改 */
   readonly isDirty: boolean;
 
@@ -34,6 +38,14 @@ export interface EditorState {
 
   /** 当前打开文件的绝对路径（null 表示新建未保存文件） */
   readonly filePath: string | null;
+
+  readonly baseFileHash: string | null;
+
+  readonly baseModifiedAt: number | null;
+
+  readonly pendingExternalChange: FileExternalChangeEvent | null;
+
+  readonly isSaveBlockedByConflict: boolean;
 
   /** 当前光标位置（1-based 行号/列号） */
   readonly cursorPosition: CursorPosition;
@@ -52,11 +64,20 @@ export interface EditorState {
   /** 设置编辑器文本内容，同时标记为脏状态 */
   setContent: (content: string) => void;
 
+  /** 开始新的故事会话，使所有仅属于当前会话的 UI 草稿失效。 */
+  beginStorySession: () => void;
+
   /** 标记为已保存（清除脏状态） */
   markSaved: () => void;
 
   /** 设置当前文件路径 */
   setFilePath: (path: string | null) => void;
+
+  setFileBaseline: (hash: string | null, modifiedAt: number | null) => void;
+
+  setPendingExternalChange: (event: FileExternalChangeEvent) => void;
+
+  clearPendingExternalChange: () => void;
 
   /** 设置光标位置 */
   setCursorPosition: (line: number, column: number) => void;
@@ -79,14 +100,19 @@ export interface EditorState {
 // ============================================================================
 
 const initialState = {
+  storySessionId: 0,
   isDirty: false,
   content: '',
   filePath: null,
+  baseFileHash: null,
+  baseModifiedAt: null,
+  pendingExternalChange: null,
+  isSaveBlockedByConflict: false,
   cursorPosition: { line: 1, column: 1 },
   diagnostics: [],
   activeNodeId: null,
   editorInstance: null,
-} as const satisfies Omit<EditorState, 'setContent' | 'markSaved' | 'setFilePath' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
+} as const satisfies Omit<EditorState, 'setContent' | 'beginStorySession' | 'markSaved' | 'setFilePath' | 'setFileBaseline' | 'setPendingExternalChange' | 'clearPendingExternalChange' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
 
 // ============================================================================
 // Store
@@ -107,6 +133,13 @@ export const useEditorStore = create<EditorState>()(
           'editor/setContent',
         ),
 
+      beginStorySession: () =>
+        set(
+          (state) => ({ storySessionId: state.storySessionId + 1 }),
+          false,
+          'editor/beginStorySession',
+        ),
+
       markSaved: () =>
         set(
           { isDirty: false },
@@ -116,9 +149,32 @@ export const useEditorStore = create<EditorState>()(
 
       setFilePath: (path: string | null) =>
         set(
-          { filePath: path },
+          path === null
+            ? { filePath: null, baseFileHash: null, baseModifiedAt: null, pendingExternalChange: null, isSaveBlockedByConflict: false }
+            : { filePath: path },
           false,
           'editor/setFilePath',
+        ),
+
+      setFileBaseline: (hash: string | null, modifiedAt: number | null) =>
+        set(
+          { baseFileHash: hash, baseModifiedAt: modifiedAt },
+          false,
+          'editor/setFileBaseline',
+        ),
+
+      setPendingExternalChange: (event: FileExternalChangeEvent) =>
+        set(
+          { pendingExternalChange: event, isSaveBlockedByConflict: true },
+          false,
+          'editor/setPendingExternalChange',
+        ),
+
+      clearPendingExternalChange: () =>
+        set(
+          { pendingExternalChange: null, isSaveBlockedByConflict: false },
+          false,
+          'editor/clearPendingExternalChange',
         ),
 
       setCursorPosition: (line: number, column: number) =>
@@ -151,7 +207,7 @@ export const useEditorStore = create<EditorState>()(
 
       reset: () =>
         set(
-          { ...initialState },
+          (state) => ({ ...initialState, storySessionId: state.storySessionId + 1 }),
           false,
           'editor/reset',
         ),

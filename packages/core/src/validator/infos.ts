@@ -35,6 +35,9 @@ export function checkPotentialSoftlock(data: PlotFlowData): Diagnostic[] {
       if (node.options.length === 0) {
         continue;
       }
+      if (node.nextTarget?.targetNodeId || node.nextTarget?.targetFullId) {
+        continue;
+      }
 
       // 检查是否所有选项都有条件
       const allConditional = node.options.every((opt) => opt.condition !== null);

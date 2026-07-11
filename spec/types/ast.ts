@@ -11,7 +11,7 @@
  * - spec/json-schema.md（AST → JSON 导出映射规则）
  * - doc/TAD.md §6 类型系统
  *
- * @version 0.1.0
+ * @version 0.2.0
  * @see {@link ../spec/syntax-formal.md}
  * @see {@link ../spec/json-schema.md}
  */
@@ -52,14 +52,18 @@ export interface StoryMeta {
   /** 作者 */
   readonly author: string;
 
-  /** 目标引擎（可选） */
+  /** 源文件与 Inspector 使用的目标引擎（可选）；`generic` 在 JSON 0.2 导出时写为 `none`。 */
   readonly engine?: EngineTarget;
 
   /** 导出时间戳（导出时填充） */
   readonly exportedAt?: string;
 }
 
-/** 目标游戏引擎 */
+/**
+ * `.mdstory`、Inspector 与内部 AST 的目标引擎。
+ * `generic` 表示无特定引擎，JSON 0.2 写出边界必须映射为 `none`；读取 JSON 0.2 时反向映射。
+ * 源 parser 不接受 JSON 专用的 `none`。任一边界的未知值都必须诊断，不能透传。
+ */
 export type EngineTarget = 'godot' | 'unity' | 'unreal' | 'generic';
 
 // ============================================================================
@@ -70,7 +74,19 @@ export type EngineTarget = 'godot' | 'unity' | 'unreal' | 'generic';
  * YAML Frontmatter 中的变量声明。
  * 对应 syntax-formal.md §2。
  */
-export interface VariableDeclaration {
+export interface VariableDeclaration extends VariableFieldDeclaration {
+  /** 顶层变量作用域；省略时视为 global。嵌套字段不得声明。 */
+  readonly scope?: VariableScope;
+
+  /** scope=chapter 时必填的真实章节 ID；公共 YAML/JSON 边界映射为 `chapter`。 */
+  readonly chapterId?: string;
+
+  /** object 子字段继承顶层 scope/chapter，字段自身不得覆盖。 */
+  readonly fields?: VariableFieldDeclaration[];
+}
+
+/** object 内的字段声明；结构递归，但没有独立 scope/chapter。 */
+export interface VariableFieldDeclaration {
   /** 变量名（不含 $ 前缀） */
   readonly name: string;
 
@@ -87,7 +103,7 @@ export interface VariableDeclaration {
   readonly enumValues?: string[];
 
   /** object 类型的子字段（最多 3 层嵌套） */
-  readonly fields?: VariableDeclaration[];
+  readonly fields?: VariableFieldDeclaration[];
 
   /** 在 Frontmatter 中的行号（1-based） */
   readonly lineNumber: number;
@@ -95,6 +111,9 @@ export interface VariableDeclaration {
 
 /** 变量类型枚举 */
 export type VariableType = 'int' | 'float' | 'bool' | 'string' | 'enum' | 'object';
+
+/** 顶层变量作用域。chapter 值随会话持久化，但只在归属章节可见。 */
+export type VariableScope = 'global' | 'chapter';
 
 /** 变量值联合类型 */
 export type VariableValue = number | boolean | string | Record<string, unknown>;
@@ -136,7 +155,11 @@ export interface StoryNode {
   /** 节点 ID（来自 `## 节点：XXX`，不含章节前缀） */
   readonly id: string;
 
-  /** 完整 ID（章节 ID + 节点 ID，如 `第一章-森林入口`） */
+  /**
+   * opaque canonical FullID。
+   * 命名章节：encodeURIComponent(chapterId) + "/" + encodeURIComponent(id)；
+   * 匿名章节：encodeURIComponent(id)。禁止消费者自行拆分。
+   */
   readonly fullId: string;
 
   /** 节点标题 */
@@ -151,8 +174,39 @@ export interface StoryNode {
   /** 选项列表 */
   readonly options: Option[];
 
+  /**
+   * 节点级默认流程出口。
+   * 来自 `.mdstory` 中的 `下一步: 节点：目标`，与普通 `[选项]` 分开建模。
+   * 导出 JSON schema v0.2 时投影为文本为 `下一步` 的无条件合成 Option。
+   */
+  readonly nextExit?: FlowExit;
+
   /** 诊断元数据（验证器填充） */
   readonly diagnostics: NodeDiagnostics;
+
+  /** 在源文件中的行号（1-based） */
+  readonly lineNumber: number;
+}
+
+/**
+ * 节点级流程出口。
+ * 对应 syntax-formal.md §12 `NextLine`。
+ */
+export interface FlowExit {
+  /** 跳转目标节点 ID */
+  readonly targetNodeId: string | null;
+
+  /** 显式跳转目标章节 ID；未写章节前缀时为 null */
+  readonly targetChapterId: string | null;
+
+  /** canonical opaque 目标 FullID；无目标或未解析时为 null，禁止自行拆分 */
+  readonly targetFullId: string | null;
+
+  /** 副作用列表（效果） */
+  readonly sideEffects: SideEffect[];
+
+  /** 原始效果文本（用于双向同步） */
+  readonly effectsRaw: string | null;
 
   /** 在源文件中的行号（1-based） */
   readonly lineNumber: number;
@@ -194,7 +248,10 @@ export interface Option {
   /** 跳转目标节点 ID */
   readonly targetNodeId: string | null;
 
-  /** 跳转目标完整 ID（解析后填充） */
+  /** 显式跳转目标章节 ID；未写章节前缀时为 null */
+  readonly targetChapterId: string | null;
+
+  /** canonical opaque 目标 FullID；无目标或未解析时为 null，禁止自行拆分 */
   readonly targetFullId: string | null;
 
   /** 执行条件（可选） */
@@ -225,7 +282,10 @@ export type ConditionNode =
   | ComparisonExpression
   | LogicalExpression;
 
-/** 比较表达式 */
+/**
+ * 比较表达式。JSON 0.2 映射为 `{ type, left, operator, right }`，其中两侧均为 typed operand。
+ * 历史 0.1 `{ type, variable, operator, value }` 只在导入边界兼容，不是内部目标形状。
+ */
 export interface ComparisonExpression {
   readonly type: 'comparison';
 
@@ -250,12 +310,15 @@ export interface LogicalExpression {
   readonly operands: ConditionNode[];
 }
 
-/** 操作数 */
+/**
+ * 操作数。
+ * JSON 0.2 映射：variable → `{ type: 'variable', name }`；literal → `{ type: 'literal', value }`。
+ */
 export interface Operand {
   /** 操作数类型 */
   readonly operandType: 'variable' | 'literal';
 
-  /** 变量名（operandType === 'variable' 时有效） */
+  /** 变量名（operandType === 'variable' 时有效；不含 `$`，object 字段保留完整点路径） */
   readonly variableName?: string;
 
   /** 字面值（operandType === 'literal' 时有效） */

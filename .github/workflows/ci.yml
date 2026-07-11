@@ -2,40 +2,162 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [master, main, dev]
   pull_request:
-    branches: [main]
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint:
+  ubuntu-gates:
+    name: Ubuntu quality gates
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
+      - name: Setup pnpm 11.5.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
 
-  test:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: TypeScript
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+
+      - name: CSS and design-token gates
+        run: |
+          pnpm lint:css
+          pnpm lint:tokens
+          pnpm lint:layers
+          pnpm lint:bundle
+
+      - name: Graph primary-path UI literal scan
+        run: pnpm lint:ui-literals
+
+      - name: Documentation UTF-8 mojibake gate
+        run: pnpm lint:docs
+
+      - name: JSON Schema mirror check
+        run: pnpm check:schema
+
+      - name: Engine consumption contracts
+        run: pnpm test:engine-contract
+
+      - name: Dependency security audit (moderate+)
+        run: pnpm audit --audit-level moderate
+
+      - name: Website lint, typecheck and tests
+        run: |
+          pnpm --dir website lint
+          pnpm --dir website typecheck
+          pnpm --dir website test
+
+      - name: Website static build and verification
+        run: |
+          pnpm --dir website build:static
+          pnpm --dir website verify:static
+
+  windows-e2e:
+    name: Windows app and blackbox E2E
+    if: github.event_name == 'pull_request'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      PLOTFLOW_VISUAL_FONT_ENV: windows-2022-segoe-ui
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm 11.5.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.0'
+          cache: pnpm
+
+      - name: Pin Windows display resolution
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Add-Type -AssemblyName System.Windows.Forms
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          "Primary display: $($bounds.Width)x$($bounds.Height)"
+          if ($bounds.Width -lt 1440 -or $bounds.Height -lt 900) {
+            throw "Visual E2E requires a display of at least 1440x900."
+          }
+
+      - name: Verify pinned Windows font environment
+        shell: pwsh
+        run: |
+          $font = Get-Item -LiteralPath "$env:WINDIR\Fonts\segoeui.ttf"
+          "Segoe UI file version: $($font.VersionInfo.FileVersion)"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @plotflow/app exec playwright install chromium
+
+      - name: Build app
+        run: pnpm build
+
+      - name: App integration E2E and visual journeys
+        run: pnpm --filter @plotflow/app test:e2e
+
+      - name: Source blackbox E2E
+        run: pnpm --filter @plotflow/app test:e2e:blackbox
+
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-failure-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            test-results/**
+            packages/app/test-results/**
+            playwright-report/**
+            packages/app/playwright-report/**
+
+  placeholder-scan:
+    name: Placeholder code scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Reject milestone placeholders
+        run: |
+          if grep -rn "待 M[0-9]" packages/app/src/; then
+            echo "Placeholder code detected."
+            exit 1
+          fi
+          echo "No milestone placeholder code found."

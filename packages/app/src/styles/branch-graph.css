@@ -6,55 +6,57 @@
 
 /* ── 节点卡片基类 ── */
 .story-node-card {
-  width: 220px;
-  min-height: 120px;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  position: relative;
+  box-sizing: border-box;
+  width: 320px;
+  min-height: 228px;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px color-mix(in oklch, var(--color-text-primary), transparent 92%);
   padding: var(--space-3);
-  background: var(--color-bg-primary);
-  border: 2px solid var(--color-border-default);
+  background: transparent;
+  border: 1px solid var(--color-border-light);
   cursor: pointer;
   font-size: var(--text-xs);
   line-height: 1.5;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   overflow: hidden;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   user-select: none;
 }
 
 /* ── 状态：正常（绿色边框） ── */
 .node-status-normal {
-  border-color: var(--color-success);
+  border-color: var(--color-border-light);
 }
 
 /* ── 状态：孤立（黄色边框） ── */
 .node-status-orphan {
-  border-color: var(--color-warning);
+  border-color: color-mix(in oklch, var(--color-warning), var(--color-border-default) 54%);
 }
 
 /* ── 状态：死胡同（灰色边框） ── */
 .node-status-deadend {
-  border-color: var(--color-text-muted);
+  border-color: var(--color-border-default);
 }
 
 /* ── 状态：错误（红色边框） ── */
 .node-status-error {
-  border-color: var(--color-error);
+  border-color: color-mix(in oklch, var(--color-error), var(--color-border-default) 34%);
 }
 
 /* ── 状态：选中（蓝色光晕） ── */
 .node-status-selected {
   box-shadow:
-    0 0 0 3px var(--color-accent),
-    var(--shadow-sm);
+    0 0 0 2px color-mix(in oklch, var(--color-accent), transparent 52%),
+    0 12px 34px color-mix(in oklch, var(--color-accent), transparent 86%);
 }
 
 /* ── 状态：根节点（蓝色加粗边框） ── */
 .node-status-root {
-  border-color: var(--color-accent);
-  border-width: 3px;
+  border-color: color-mix(in oklch, var(--color-accent), var(--color-border-default) 30%);
+  border-width: 1px;
 }
 
 /* ── 错误图标 ── */
@@ -89,11 +91,11 @@
 /* ── 状态标签 ── */
 .story-node-status-label {
   font-size: 10px;
-  font-weight: 500;
-  padding: 1px 6px;
+  font-weight: 720;
+  padding: 1px 7px;
   border-radius: var(--radius-sm);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-muted);
+  background: var(--color-control-group-bg);
+  color: var(--color-text-secondary);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -110,13 +112,14 @@
 /* ── 选项数量徽章 ── */
 .story-node-badge {
   font-size: 10px;
-  font-weight: 600;
-  padding: 1px 8px;
+  font-weight: 720;
+  padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: var(--color-accent);
-  color: var(--color-text-inverse);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-control-bg);
+  color: var(--color-text-secondary);
   flex-shrink: 0;
-  min-width: 20px;
+  min-width: 22px;
   text-align: center;
   line-height: 1.6;
 }
@@ -125,12 +128,156 @@
 .story-node-preview {
   color: var(--color-text-muted);
   font-size: var(--text-2xs);
-  line-height: 1.4;
+  line-height: 1.45;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   word-break: break-word;
+}
+
+/* Route summary: option requirement, target, and effects preview inside node cards. */
+.node-route-preview {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 0;
+  margin: 2px 0 0;
+  list-style: none;
+}
+
+.node-route-preview__row {
+  position: relative;
+  display: grid;
+  min-height: 38px;
+  padding: 6px 42px 6px 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 7px;
+  background: color-mix(in oklch, var(--color-bg-secondary), transparent 18%);
+  color: var(--color-text-primary);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--color-bg-primary), transparent 22%),
+    0 1px 2px color-mix(in oklch, var(--color-text-primary), transparent 96%);
+}
+
+.node-route-preview--with-input {
+  padding-left: 38px;
+}
+
+.node-route-preview__input-slot {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+.node-route-preview__row:hover {
+  border-color: var(--color-border-default);
+  background: color-mix(in oklch, var(--color-bg-secondary), var(--color-bg-primary) 36%);
+}
+
+.node-route-preview--overflow {
+  min-height: 26px;
+  padding-right: 8px;
+  place-items: center start;
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+.node-route-preview--hidden-handles {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 1px;
+  min-height: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.node-route-preview__content {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.node-route-preview__label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-route-preview__meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.node-route-preview__chip,
+.node-route-preview__overflow {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  min-height: 17px;
+  padding: 1px 5px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  background: var(--color-control-group-bg);
+  font-size: var(--text-2xs);
+  font-weight: 680;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-route-preview--requirement {
+  border-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.node-route-preview--conditional .node-route-preview--requirement {
+  border-color: color-mix(in oklch, var(--color-warning), transparent 64%);
+  color: color-mix(in oklch, var(--color-warning), var(--color-text-primary) 28%);
+  background: color-mix(in oklch, var(--color-warning-subtle), transparent 32%);
+}
+
+.node-route-preview--target-linked {
+  border-color: color-mix(in oklch, var(--color-accent), transparent 70%);
+  color: color-mix(in oklch, var(--color-accent), var(--color-text-primary) 22%);
+  background: color-mix(in oklch, var(--color-accent-subtle), transparent 40%);
+}
+
+.node-route-preview--target-pending,
+.node-route-preview--target-terminal {
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+}
+
+.node-route-preview--target-missing {
+  border-color: color-mix(in oklch, var(--color-error), transparent 56%);
+  color: color-mix(in oklch, var(--color-error), var(--color-text-primary) 18%);
+  background: color-mix(in oklch, var(--color-error-subtle), transparent 28%);
+}
+
+.node-route-preview--effect {
+  border-color: transparent;
+  color: var(--color-text-secondary);
+  background: color-mix(in oklch, var(--color-success-subtle), transparent 50%);
 }
 
 /* ── 空节点占位提示 ── */
@@ -142,41 +289,126 @@
   line-height: 1.4;
 }
 
-/* ── React Flow Handle（隐藏默认连线端口） ── */
+/* ── React Flow Handle（明确 pin，避免透明层拦截卡片拖拽） ── */
 .story-node-handle {
-  visibility: hidden !important;
-  width: 0 !important;
-  height: 0 !important;
+  opacity: 1 !important;
+  width: 22px !important;
+  height: 22px !important;
+  pointer-events: all !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.story-node-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1px solid color-mix(in oklch, var(--color-accent), var(--color-bg-primary) 18%);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--color-text-primary), transparent 90%);
+  transform: translate(-50%, -50%);
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.story-node-handle:hover::after {
+  background: var(--color-accent) !important;
+  transform: translate(-50%, -50%) scale(1.16);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent), transparent 78%);
+}
+
+.story-node-handle-target {
+  top: -7px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.story-node-handle-target--side {
+  top: 50% !important;
+  left: 12px !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.story-node-handle-target--side:hover {
+  transform: translate(-50%, -50%) !important;
+}
+
+.story-node-handle-target--inline {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.story-node-handle-target--inline:hover {
+  transform: translate(-50%, -50%) !important;
 }
 
 /* ── 可拖拽连线端口（每个选项一个） ── */
 .story-node-connect-handle {
-  visibility: visible !important;
-  width: 12px !important;
-  height: 12px !important;
-  min-width: 12px;
-  min-height: 12px;
-  background: var(--color-bg-primary);
-  border: 2px solid var(--color-accent);
-  border-radius: 50%;
+  position: relative;
+  top: auto;
+  bottom: auto;
+  left: auto !important;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border-radius: var(--radius-full);
   cursor: crosshair;
-  z-index: 5;
+  z-index: 100;
+  pointer-events: auto;
+  transform: none;
+}
+
+.story-node-connect-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  background: var(--color-bg-primary);
+  border: 1px solid color-mix(in oklch, var(--color-accent), var(--color-bg-primary) 10%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.story-node-connect-handle:hover {
+.story-node-connect-handle:hover::after {
   background: var(--color-accent);
-  transform: scale(1.4);
-  box-shadow: 0 0 0 3px var(--color-info-subtle);
+  transform: translate(-50%, -50%) scale(1.18);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-accent), transparent 78%);
 }
 
-/* 连接器容器（确保 Handle 定位基准正确） */
-.story-node-connectors {
+.story-node-connect-port {
+  visibility: visible !important;
+  opacity: 0 !important;
+  inset: 50% auto auto 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+  z-index: 1 !important;
+  pointer-events: auto !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.node-route-preview__row .story-node-connect-handle {
   position: absolute;
-  bottom: 0;
-  left: 0;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+}
+
+.node-route-preview--hidden-handles .story-node-connect-handle {
+  top: 0;
   right: 0;
-  height: 0;
+  opacity: 0;
+  transform: none;
 }
 
 /* ── 内联重命名编辑状态 (M2-08) ── */
@@ -266,4 +498,132 @@
 
 .collapse-node-card:hover .collapse-node-label {
   color: var(--color-accent);
+}
+
+/* ========================================================================
+   Wire Drop Menu — 线缆空投动作菜单
+   ======================================================================== */
+
+.wire-drop-menu {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  width: 292px;
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.wire-drop-menu__header {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.wire-drop-menu__search {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.wire-drop-menu__search:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-info-subtle);
+}
+
+.wire-drop-menu__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wire-drop-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wire-drop-menu button:hover,
+.wire-drop-menu button:focus {
+  border-color: var(--color-border-default);
+  background: var(--color-accent-subtle);
+  outline: none;
+}
+
+.wire-drop-menu__danger {
+  color: var(--color-error) !important;
+}
+
+.wire-drop-menu__results {
+  overflow: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.wire-drop-menu__results small {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.wire-drop-menu__empty {
+  padding: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.graph-canvas-diagnostic-strip {
+  position: absolute;
+  z-index: 4;
+  top: var(--space-3);
+  left: 50%;
+  display: inline-flex;
+  max-width: min(520px, calc(100% - var(--space-8)));
+  min-height: 30px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid color-mix(in oklch, var(--color-error), transparent 54%);
+  border-radius: var(--radius-md);
+  color: color-mix(in oklch, var(--color-error), var(--color-text-primary) 18%);
+  background: color-mix(in oklch, var(--color-bg-elevated), var(--color-error-subtle) 42%);
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--color-text-primary), transparent 94%);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.3;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.graph-canvas-diagnostic-strip__dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--color-error);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-error), transparent 82%);
 }

@@ -1,0 +1,45 @@
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-shell {
+  background:
+    radial-gradient(circle at 14% 18%, oklch(0.48 0.18 318 / 0.22), transparent 34%),
+    linear-gradient(135deg, oklch(0.13 0.03 270), oklch(0.08 0.025 262));
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-toolbar {
+  border-bottom: 1px solid oklch(0.7 0.15 205 / 0.32);
+  box-shadow: 0 18px 46px oklch(0.04 0.02 268 / 0.46);
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-toolbar__brand {
+  display: flex;
+  align-items: center;
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-toolbar__commands {
+  flex: 1;
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-graph-lab {
+  background:
+    radial-gradient(circle at 78% 18%, oklch(0.58 0.2 205 / 0.18), transparent 32%),
+    var(--theme-blueprint-canvas);
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-node-slot {
+  filter: drop-shadow(0 18px 32px oklch(0.05 0.02 268 / 0.46));
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-edge-slot {
+  filter: drop-shadow(0 0 14px oklch(0.78 0.19 205 / 0.42));
+}
+
+[data-theme-id="plotflow-neon-dossier"] .neon-dossier-theme-center__panel {
+  border: 1px solid oklch(0.68 0.15 205 / 0.28);
+  background:
+    linear-gradient(135deg, oklch(0.19 0.04 274 / 0.96), oklch(0.12 0.035 263 / 0.96));
+}
+
+.neon-dossier-preview__canvas {
+  background:
+    radial-gradient(circle at 18% 20%, oklch(0.58 0.2 205 / 0.18), transparent 34%),
+    linear-gradient(135deg, oklch(0.18 0.04 274), oklch(0.1 0.03 264));
+}

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * .mdstory Markdown 节点解析器 — 递归下降子集
  *
  * @packageDocumentation
@@ -14,16 +14,20 @@
  * @version 0.1.0
  */
 
-import { success, failure } from '../result.js';
+import { success } from '../result.js';
 import type { ParseResult } from '../result.js';
 import type {
   PlotFlowData,
   StoryMeta,
   EngineTarget,
+  GraphPosition,
+  StoryLayout,
   Chapter,
   StoryNode,
+  NodeNextTarget,
   NodeDiagnostics,
   Option,
+  SideEffect,
   VariableDeclaration,
 } from '../types/ast.js';
 import type {
@@ -34,10 +38,17 @@ import type {
   SourceRange,
   DiagnosticSeverity,
 } from '../types/diagnostic.js';
-import { DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
+import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { parseFrontmatter } from './frontmatter.js';
 import type { FrontmatterResult } from './frontmatter.js';
+import { analyzeStorySource } from './source.js';
 import { parseOptions } from './options.js';
+import { parseEffects } from './effects.js';
+import {
+  ANONYMOUS_CHAPTER_ID,
+  createFullId,
+  legacyFullId,
+} from '../fullId.js';
 
 // ============================================================================
 // 诊断创建辅助
@@ -84,6 +95,7 @@ function createDiagnostic(
     code,
     severity,
     message: message ?? DIAGNOSTIC_MESSAGES[code],
+    ...createDiagnosticLocalization(code),
     detail,
     range,
   };
@@ -112,18 +124,137 @@ const NODE_HEADING_RE = /^##[ \t]+节点[：:][ \t]*(.*)$/;
  * 分隔符：`---`（Markdown 水平线），节点间分隔。
  * 匹配以 `---` 开头的行（允许行首空白）。
  */
+const NEXT_TARGET_LINE_RE = /^[ \t]*\u4e0b\u4e00\u6b65[\uff1a:][ \t]*(.+)$/u;
+const NEXT_EFFECT_LINE_RE = /^[ \t]+\u6548\u679c[\uff1a:][ \t]*(.*)$/u;
+const TARGET_REF_RE = /^(?:(.+)\/)?\u8282\u70b9[\uff1a:][ \t]*(.+)$/u;
 const SEPARATOR_RE = /^[ \t]*---[ \t]*$/;
 
 // ============================================================================
 // 常量
 // ============================================================================
 
-/** 匿名章节 ID */
-const ANONYMOUS_CHAPTER_ID = '_anonymous';
-
 /** 默认元信息字段 */
 const DEFAULT_TITLE = 'Untitled';
 const DEFAULT_AUTHOR = 'Unknown';
+
+interface ParsedTargetReference {
+  readonly targetChapterId: string | null;
+  readonly targetNodeId: string | null;
+}
+
+function parseTargetReference(raw: string): ParsedTargetReference | null {
+  const match = TARGET_REF_RE.exec(raw.trim());
+  if (!match || !match[2] || match[2].trim().length === 0) return null;
+  return {
+    targetChapterId: match[1]?.trim() || null,
+    targetNodeId: match[2].trim(),
+  };
+}
+
+function stripOuterParens(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('(') && trimmed.endsWith(')') && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function parseNodeNextTarget(
+  lines: readonly string[],
+  baseLineNumber: number,
+  variables: readonly VariableDeclaration[],
+): {
+  readonly bodyLines: string[];
+  readonly narrativeBodyLines: string[];
+  readonly nextTarget: NodeNextTarget | null;
+  readonly diagnostics: Diagnostic[];
+} {
+  const bodyLines: string[] = [];
+  const narrativeBodyLines: string[] = [];
+  const diagnostics: Diagnostic[] = [];
+  let nextTarget: NodeNextTarget | null = null;
+  let collectNarrative = true;
+
+  for (let index = 0; index < lines.length;) {
+    const line = lines[index] ?? '';
+    const nextMatch = NEXT_TARGET_LINE_RE.exec(line);
+    if (!nextMatch) {
+      bodyLines.push(line);
+      if (collectNarrative) narrativeBodyLines.push(line);
+      index++;
+      continue;
+    }
+
+    const absoluteLine = baseLineNumber + index;
+    const rawTarget = (nextMatch[1] ?? '').trim();
+    const parsed = parseTargetReference(rawTarget);
+
+    if (!parsed) {
+      diagnostics.push(createDiagnostic(
+        'E005',
+        'error',
+        absoluteLine,
+        1,
+        line.length,
+        `下一步目标格式错误: "${rawTarget}"`,
+        '格式应为 "下一步: 节点：目标节点名" 或 "下一步: 章节/节点：目标节点名"。',
+      ));
+      bodyLines.push(line);
+      if (collectNarrative) narrativeBodyLines.push(line);
+      index++;
+      continue;
+    }
+
+    let effectsRaw: string | null = null;
+    let sideEffects: SideEffect[] = [];
+    let consumed = 1;
+
+    const effectLine = lines[index + 1] ?? '';
+    const effectMatch = NEXT_EFFECT_LINE_RE.exec(effectLine);
+    if (effectMatch) {
+      const rawEffect = stripOuterParens((effectMatch[1] ?? '').trim());
+      if (rawEffect.length > 0) {
+        effectsRaw = rawEffect;
+        const effectResult = parseEffects(rawEffect, variables, absoluteLine + 1);
+        if (effectResult.ok) {
+          sideEffects = effectResult.data;
+        } else {
+          diagnostics.push(...effectResult.errors);
+        }
+      }
+      consumed = 2;
+    }
+
+    if (nextTarget) {
+      diagnostics.push(createDiagnostic(
+        'W006',
+        'warning',
+        absoluteLine,
+        1,
+        line.length,
+        '重复的下一步声明将被忽略',
+      ));
+      bodyLines.push(...Array.from({ length: consumed }, () => ''));
+      index += consumed;
+      continue;
+    }
+
+    collectNarrative = false;
+    bodyLines.push(...Array.from({ length: consumed }, () => ''));
+    nextTarget = {
+      targetNodeId: parsed.targetNodeId,
+      targetChapterId: parsed.targetChapterId,
+      targetFullId: null,
+      raw: rawTarget,
+      sideEffects,
+      effectsRaw,
+      lineNumber: absoluteLine,
+    };
+    index += consumed;
+  }
+
+  return { bodyLines, narrativeBodyLines, nextTarget, diagnostics };
+}
 
 // ============================================================================
 // 内部 — 章节构建器
@@ -172,6 +303,11 @@ interface ChapterBuilder {
 export function parseStory(raw: string): ParseResult<PlotFlowData> {
   resetErrorSeq();
 
+  // Strip UTF-8 BOM if present (U+FEFF at file start breaks /^---/ regex)
+  if (raw.length > 0 && raw.charCodeAt(0) === 0xFEFF) {
+    raw = raw.slice(1);
+  }
+
   // 步骤 1：解析 Frontmatter
   const fmResult = parseFrontmatter(raw);
 
@@ -190,20 +326,15 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
     fmMeta = { variables: [] };
   }
 
-  // 步骤 3：定位 Frontmatter 结束位置
-  const fmEndMatch = raw.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*/);
-  const fmEndIndex = fmEndMatch ? (fmEndMatch.index ?? 0) + fmEndMatch[0].length : 0;
-
-  // 计算章节/节点区域的起始行号（1-based）
-  const fmLineCount = fmEndIndex > 0
-    ? raw.slice(0, fmEndIndex).split(/\r?\n|\r/).length
-    : 1;
-  const bodyStartLine = fmEndIndex > 0 ? fmLineCount : 1;
+  // 步骤 3：定位 Frontmatter 结束位置。必须与 parseFrontmatter 使用同一个
+  // source analyzer，避免 Graph Lab 和 parser 对 `---` 边界产生分叉。
+  const source = analyzeStorySource(raw);
+  const bodyStartLine = source.bodyStartLine;
 
   // 步骤 4：解析章节与节点（传入变量列表用于选项/条件/效果解析）
-  const afterFm = raw.slice(fmEndIndex);
+  const afterFm = raw.slice(source.bodyStartOffset);
   const lines = afterFm.split(/\r?\n|\r/);
-  const cnResult = parseChaptersAndNodes(lines, bodyStartLine, variables);
+  const cnResult = parseChaptersAndNodes(lines, bodyStartLine, variables, fmMeta.layout);
 
   // 步骤 5：收集章节/节点解析诊断
   if (cnResult.ok) {
@@ -212,14 +343,10 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
     allDiagnostics.push(...cnResult.errors);
   }
 
-  // 步骤 6：判断是否有错误级诊断
-  const hasErrors = allDiagnostics.some((d) => d.severity === 'error');
-
-  if (hasErrors) {
-    return failure(allDiagnostics as readonly Diagnostic[]);
-  }
-
-  // 步骤 7：组装 PlotFlowData
+  // 步骤 6：组装 PlotFlowData（始终返回 AST，错误通过 diagnostics 传递）
+  // V02-033: 删除 hasErrors → failure 的全有或全无策略。
+  // 解析器内部遵循"解析不中断"原则——一个节点/选项的错误不影响其他节点。
+  // 错误级诊断由编辑器波浪线 + 分支图横幅 + 状态栏消息共同呈现。
   const meta: StoryMeta = {
     plotflow: '0.1',
     title: fmMeta.title ?? DEFAULT_TITLE,
@@ -229,10 +356,29 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
 
   const chapters = cnResult.ok ? cnResult.data.chapters : [];
 
+  const knownChapterIds = new Set(chapters.flatMap((chapter) => [chapter.id, chapter.title]));
+  for (const variable of fmMeta.variables) {
+    if (
+      variable.scope === 'chapter'
+      && variable.chapterId
+      && !knownChapterIds.has(variable.chapterId)
+    ) {
+      allDiagnostics.push(createDiagnostic(
+        'E005',
+        'error',
+        variable.lineNumber,
+        1,
+        1,
+        `chapter scope 变量 "${variable.name}" 引用了不存在的章节 "${variable.chapterId}"`,
+      ));
+    }
+  }
+
   return success(
     {
       sourcePath: null,
       meta,
+      layout: fmMeta.layout,
       variables: fmMeta.variables,
       chapters,
     },
@@ -253,7 +399,7 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
  * - 无显式 `#` 章节的节点 → 归入匿名章节（id = "_anonymous"）
  * - 提取节点正文 body（节点标题之后到下一个 `##` 或 `#` 或文件尾之间的文本）
  * - 对每个节点的 body 调用 parseOptions 解析选项（含条件/效果）
- * - fullId 格式：`章节ID-节点ID`（匿名章节：`节点ID`）
+ * - fullId 格式：percent-encoded `章节ID/节点ID`（匿名章节：编码后的 `节点ID`）
  * - E007：fullId 重名检测
  * - I003：匿名章节归属检测
  * - W005：空正文检测
@@ -269,6 +415,7 @@ export function parseChaptersAndNodes(
   lines: string[],
   startLine: number,
   variables: readonly VariableDeclaration[],
+  layout?: StoryLayout,
 ): ParseResult<{ chapters: Chapter[]; nodes: StoryNode[] }> {
   resetErrorSeq();
   const allErrors: Diagnostic[] = [];
@@ -282,6 +429,12 @@ export function parseChaptersAndNodes(
 
   /** fullId → lineNumber 映射（用于 E007 重名检测） */
   const seenFullIds = new Map<string, number>();
+
+  /** fullId → Graph Lab 持久化位置映射 */
+  const layoutPositions = new Map<string, GraphPosition>();
+  for (const item of layout?.graph.nodes ?? []) {
+    layoutPositions.set(item.id, { x: item.x, y: item.y });
+  }
 
   /** 是否正在节点内部收集正文 */
   let inNode = false;
@@ -344,9 +497,7 @@ export function parseChaptersAndNodes(
     }
 
     // 生成 fullId
-    const fullId = chapterIsAnonymous
-      ? currentNodeId
-      : `${chapterId}-${currentNodeId}`;
+    const fullId = createFullId(chapterId, currentNodeId);
 
     // 确保章节构建器存在
     const builder = ensureChapter(
@@ -374,15 +525,21 @@ export function parseChaptersAndNodes(
     seenFullIds.set(fullId, currentNodeLineNumber);
 
     // 组装正文
-    const body = currentNodeBodyLines
+    const bodyStartLine = currentNodeLineNumber + 1;
+    const nextTargetResult = parseNodeNextTarget(currentNodeBodyLines, bodyStartLine, variables);
+    allErrors.push(...nextTargetResult.diagnostics);
+
+    const body = nextTargetResult.narrativeBodyLines
       .map((l) => l.trimEnd())
       .join('\n')
       .trim();
+    const optionSource = nextTargetResult.bodyLines
+      .map((l) => l.trimEnd())
+      .join('\n');
 
     // ---- 解析选项 (M1-03/04/05 集成) ----
     let nodeOptions: Option[] = [];
-    const bodyStartLine = currentNodeLineNumber + 1;
-    const optResult = parseOptions(body, bodyStartLine, variables);
+    const optResult = parseOptions(optionSource, bodyStartLine, variables);
     if (optResult.ok) {
       nodeOptions = optResult.data;
       // 非致命诊断（warnings/infos）累积到 allErrors
@@ -393,6 +550,22 @@ export function parseChaptersAndNodes(
     }
 
     // W005: 空正文检测
+    // 计算纯叙事正文（过滤语法标记行，BUG6 修复）
+    let inOptionBlock = false;
+    const narrativeBodyLines = nextTargetResult.narrativeBodyLines.filter((l) => {
+      const t = l.trimStart();
+      if (t.startsWith('[选项]')) {
+        inOptionBlock = true;
+        return false;
+      }
+      if (inOptionBlock && (t.startsWith('条件:') || t.startsWith('效果:'))) return false;
+      return true;
+    });
+    const narrativeBody = narrativeBodyLines
+      .map((l) => l.trimEnd())
+      .join('\n')
+      .trim();
+
     if (body.length === 0) {
       const diag = createDiagnostic(
         'W005',
@@ -431,10 +604,12 @@ export function parseChaptersAndNodes(
       id: currentNodeId,
       fullId,
       title: currentNodeTitle,
-      body,
+      body: narrativeBody,
       chapterId,
       options: nodeOptions,
+      nextTarget: nextTargetResult.nextTarget,
       diagnostics,
+      position: layoutPositions.get(fullId),
       lineNumber: currentNodeLineNumber,
     };
 
@@ -669,16 +844,41 @@ export function parseChaptersAndNodes(
     nodes.push(...builder.nodes);
   }
 
+  // Canonical layout keys win. A legacy hyphen key is accepted only when it
+  // maps to one node; collided legacy keys are inherently ambiguous.
+  const legacyMatches = new Map<string, StoryNode[]>();
+  for (const node of nodes) {
+    const legacyKey = legacyFullId(node.chapterId, node.id);
+    const matches = legacyMatches.get(legacyKey) ?? [];
+    matches.push(node);
+    legacyMatches.set(legacyKey, matches);
+  }
+  for (const [legacyKey, matches] of legacyMatches) {
+    const position = layoutPositions.get(legacyKey);
+    if (!position) continue;
+    if (matches.length === 1) {
+      const match = matches[0]!;
+      if (!match.position) {
+        (match as { position?: GraphPosition }).position = position;
+      }
+      continue;
+    }
+    allErrors.push(createDiagnostic(
+      'W006',
+      'warning',
+      1,
+      1,
+      1,
+      `旧版布局键 "${legacyKey}" 同时匹配 ${matches.length} 个节点，已忽略并等待重新布局`,
+    ));
+  }
+
   // 回填 targetFullId（M2: 跨章节引用解析）
   resolveTargetFullIds(chapterBuilders);
 
-  // 判定是否有错误级诊断
-  const hasErrors = allErrors.some((d) => d.severity === 'error');
-
-  if (hasErrors) {
-    return failure(allErrors as readonly Diagnostic[]);
-  }
-
+  // V02-033: 始终返回 success 含部分解析结果。
+  // 错误通过 diagnostics（severity === 'error'）传递给上游。
+  // 单个选项/节点的 E005 等错误不影响其他节点的正常解析。
   return success({ chapters, nodes }, allErrors);
 }
 
@@ -709,25 +909,41 @@ function resolveTargetFullIds(chapterBuilders: Map<string, ChapterBuilder>): voi
     }
   }
 
+  const resolveTarget = (
+    sourceChapterId: string,
+    targetNodeId: string,
+    targetChapterId: string | null,
+  ): string | null => {
+    if (targetChapterId) {
+      const explicitFullId = createFullId(targetChapterId, targetNodeId);
+      return allNodes.has(explicitFullId) ? explicitFullId : null;
+    }
+
+    const sameChapterFullId = createFullId(sourceChapterId, targetNodeId);
+    if (allNodes.has(sameChapterFullId)) return sameChapterFullId;
+
+    const matches = nodeIdToFullIds.get(targetNodeId);
+    if (matches && matches.length === 1) return matches[0]!;
+    return null;
+  };
+
   for (const builder of chapterBuilders.values()) {
     for (const node of builder.nodes) {
       for (const option of node.options) {
         if (option.targetFullId !== null) continue;
         if (!option.targetNodeId) continue;
+        const resolved = resolveTarget(
+          node.chapterId,
+          option.targetNodeId,
+          option.targetChapterId,
+        );
+        if (resolved) (option as { targetFullId: string | null }).targetFullId = resolved;
+      }
 
-        // 优先：同章节查找
-        const sameChapterFullId = `${node.chapterId}-${option.targetNodeId}`;
-        if (allNodes.has(sameChapterFullId)) {
-          (option as { targetFullId: string | null }).targetFullId = sameChapterFullId;
-          continue;
-        }
-
-        // 跨章节：仅当节点 ID 全局唯一时匹配
-        const matches = nodeIdToFullIds.get(option.targetNodeId);
-        if (matches && matches.length === 1) {
-          (option as { targetFullId: string | null }).targetFullId = matches[0]!;
-        }
-        // 否则 targetFullId 保持 null —— 验证器会报告 E001 (未定义目标节点)
+      const nextTarget = node.nextTarget;
+      if (nextTarget?.targetNodeId && !nextTarget.targetFullId) {
+        const resolved = resolveTarget(node.chapterId, nextTarget.targetNodeId, nextTarget.targetChapterId);
+        if (resolved) (nextTarget as { targetFullId: string | null }).targetFullId = resolved;
       }
     }
   }

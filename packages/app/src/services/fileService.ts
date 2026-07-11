@@ -19,17 +19,15 @@
 // ---------------------------------------------------------------------------
 
 /** 打开文件的结果 */
+import { rememberOpenedStory } from './recentFileService';
+
 export interface IFileOpenResult {
   /** 文件绝对路径（正斜杠） */
   path: string;
   /** 文件内容 (UTF-8) */
   content: string;
-}
-
-/** 新建文件的结果 */
-export interface INewFileResult {
-  /** 空字符串表示新建未保存的文件 */
-  path: string;
+  hash: string;
+  modifiedAt: number;
 }
 
 /** 文件操作服务接口 */
@@ -55,10 +53,6 @@ export interface IFileService {
    */
   saveFileAs(content: string): Promise<string>;
 
-  /**
-   * 新建文件（返回空路径，表示未保存的新文件）。
-   */
-  newFile(): Promise<INewFileResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,15 +72,21 @@ export class FileService implements IFileService {
     if (!result) {
       throw new Error('用户取消了文件打开操作');
     }
+    rememberOpenedStory(result);
     return {
       path: result.filePath.replace(/\\/g, '/'),
       content: result.content,
+      hash: result.hash,
+      modifiedAt: result.modifiedAt,
     };
   }
 
   async saveFile(path: string, content: string): Promise<void> {
     const api = this.getAPI();
-    await api.file.save(path, content);
+    const result = await api.file.save({ path, content, expectedHash: null });
+    if (!result.success) {
+      throw new Error(result.conflict ? '文件已被外部修改' : result.message ?? '文件保存失败');
+    }
   }
 
   async saveFileAs(content: string): Promise<string> {
@@ -96,10 +96,6 @@ export class FileService implements IFileService {
       throw new Error('用户取消了另存为操作');
     }
     return result.filePath.replace(/\\/g, '/');
-  }
-
-  async newFile(): Promise<INewFileResult> {
-    return { path: '' };
   }
 
   /**

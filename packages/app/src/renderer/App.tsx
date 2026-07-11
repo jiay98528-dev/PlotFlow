@@ -1,19 +1,22 @@
-import React, { useCallback, useEffect } from 'react';
+﻿import React, { useCallback, useEffect } from 'react';
 import {
   Database,
   Download,
   FilePlus2,
+  FileText,
+  GitBranch,
+  Home,
   Languages,
-  Moon,
+  Palette,
   PanelRightClose,
   PanelRightOpen,
-  Sun,
 } from 'lucide-react';
-import { t } from '@plotflow/core';
 import { MonacoEditor } from '../components/editor/MonacoEditor';
 import { OutlinePanel } from '../components/layout/OutlinePanel';
 import { GraphCanvas } from '../components/branch-graph/GraphCanvas';
+import { GraphLabWorkspace } from '../components/graph-lab/GraphLabWorkspace';
 import { ThemeProvider } from '../components/ThemeProvider';
+import { useThemePlatform } from '../components/ThemePlatformProvider';
 import { NewFileDialog } from '../components/panels/NewFileDialog';
 import { useEditorStore } from '../stores/editorStore';
 import { useStoryStore } from '../stores/storyStore';
@@ -26,9 +29,45 @@ import { ConditionEditor } from '../components/panels/ConditionEditor';
 import { StatusBar } from '../components/layout/StatusBar';
 import { ProblemPanel } from '../components/panels/ProblemPanel';
 import { CorpusManager } from '../components/panels/CorpusManager';
-import { clearPendingSave } from '../services/autoSaveService';
+import { ThemeCenter } from '../components/panels/ThemeCenter';
+import { HomeSurface } from '../components/home/HomeSurface';
+import {
+  applyExternalFileContent,
+  hasCurrentStoryUnsavedChanges,
+  overwritePendingExternalChange,
+  saveAsCurrentFile,
+  saveOrSaveAs,
+} from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
+import { loadSavedStorySession, startUnsavedStorySession } from '../services/storySessionService';
+import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
+import { useAppText } from '../i18n/appI18n';
+import { requestWorkspaceMode, toggleRequestedWorkspaceMode } from '../services/workspaceModeService';
+import type { PendingOpenFileResult } from '../types/electron';
+import { createOrderedAsyncDispatcher } from '../shared/orderedAsyncDispatcher';
+
+// ============================================================================
+// P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
+// ============================================================================
+//
+// 涓昏繘绋嬮€氳繃 mainWindow.webContents.executeJavaScript 璋冪敤杩欎簺鍑芥暟锛?
+// 鐢ㄤ簬绐楀彛鍏抽棴/搴旂敤閫€鍑烘椂鐨勮剰鐘舵€佹鏌ヤ笌淇濆瓨娴佺▼銆?
+// 娓叉煋杩涚▼閫氳繃 window.plotflow.dialog.confirm() 璋冪敤鍘熺敓瀵硅瘽妗嗗鐞?
+// 鏂板缓/鎵撳紑鏂囦欢鏃剁殑鑴忕姸鎬佺‘璁ゃ€?
+
+window.__getEditorDirtyState__ = () => {
+  const editor = useEditorStore.getState();
+  return { isDirty: hasCurrentStoryUnsavedChanges(), filePath: editor.filePath };
+};
+
+window.__forceSave__ = async () => {
+  return saveOrSaveAs();
+};
+
+function normalizeStoryPath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
 
 /**
  * PlotFlow Application Root
@@ -37,11 +76,18 @@ import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
  * The parser/graph synchronization flow remains the same as M2/M3.
  */
 export function App(): React.ReactElement {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
+function AppContent(): React.ReactElement {
   useMenuEvents();
 
   const { navigateToNode } = useOutlineSync();
 
-  const theme = useUIStore((state) => state.theme);
   const language = useUIStore((state) => state.language);
   const openNewFileDialog = useUIStore((state) => state.openNewFileDialog);
   const closeNewFileDialog = useUIStore((state) => state.closeNewFileDialog);
@@ -52,16 +98,19 @@ export function App(): React.ReactElement {
   const conditionEditorOptionIndex = useUIStore((state) => state.conditionEditorOptionIndex);
   const openExportDialog = useUIStore((state) => state.openExportDialog);
   const openCorpusManager = useUIStore((state) => state.openCorpusManager);
-  const toggleTheme = useUIStore((state) => state.toggleTheme);
+  const openThemeCenter = useUIStore((state) => state.openThemeCenter);
+  const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
   const setLanguage = useUIStore((state) => state.setLanguage);
   const activeRightPanel = useUIStore((state) => state.activeRightPanel);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const workspaceMode = useUIStore((state) => state.workspaceMode);
+  const text = useAppText();
 
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
 
-  // storyStore → graphStore 安全网（parsePipeline 已直接调用 syncFromAST，
-  // 此处仅处理直接调用 setPlotFlowData 的旁路路径）
+  // storyStore 鈫?graphStore 瀹夊叏缃戯紙parsePipeline 宸茬洿鎺ヨ皟鐢?syncFromAST锛?
+  // 姝ゅ浠呭鐞嗙洿鎺ヨ皟鐢?setPlotFlowData 鐨勬梺璺矾寰勶級
   useEffect(() => {
     const unsubscribe = useStoryStore.subscribe(
       (state, prevState) => {
@@ -76,22 +125,22 @@ export function App(): React.ReactElement {
     return () => { unsubscribe(); };
   }, []);
 
-  // P0-1: graphStore.selectedNodeId → editorStore 单向同步
-  // 分支图节点选中时自动联动大纲高亮与光标位置
-  // 订阅放在 App.tsx 全局层确保不受 GraphCanvas 条件渲染（minimap/split 切换）影响
+  // P0-1: graphStore.selectedNodeId 鈫?editorStore 鍗曞悜鍚屾
+  // 鍒嗘敮鍥捐妭鐐归€変腑鏃惰嚜鍔ㄨ仈鍔ㄥぇ绾查珮浜笌鍏夋爣浣嶇疆
+  // 璁㈤槄鏀惧湪 App.tsx 鍏ㄥ眬灞傜‘淇濅笉鍙?GraphCanvas 鏉′欢娓叉煋锛坢inimap/split 鍒囨崲锛夊奖鍝?
   useEffect(() => {
     const unsubscribe = useGraphStore.subscribe(
-      (state, prevState) => {
-        if (state.selectedNodeId === prevState.selectedNodeId) return;
-        if (state.isEditing) return; // 连线拖拽等操作中跳过
+      (state) => state.selectedNodeId,
+      (selectedNodeId, prevSelectedNodeId) => {
+        if (selectedNodeId === prevSelectedNodeId) return;
+        if (useGraphStore.getState().isEditing) return; // 杩炵嚎鎷栨嫿绛夋搷浣滀腑璺宠繃
 
-        const nodeId = state.selectedNodeId;
-        if (!nodeId) {
+        if (!selectedNodeId) {
           useEditorStore.getState().setActiveNodeId(null);
           return;
         }
 
-        const node = state.nodes.find((n) => n.id === nodeId);
+        const node = useGraphStore.getState().nodes.find((n) => n.id === selectedNodeId);
         const nodeData = node?.data as StoryFlowNodeData | undefined;
         if (nodeData?.fullId && nodeData?.lineNumber) {
           useEditorStore.getState().setActiveNodeId(nodeData.fullId);
@@ -103,21 +152,119 @@ export function App(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  const handleTemplateSelected = useCallback(
-    (template: string, meta: { readonly title: string; readonly author: string }) => {
-      clearPendingSave();
+  // P0: isEditing 閿侀噴鏀?鈫?鑷姩閲嶈В鏋愶紙闃叉缂栬緫閿佹湡闂寸殑鍐呭鍙樻洿涓㈠け锛?
+  useEffect(() => {
+    const unsub = useGraphStore.subscribe(
+      (s) => s.isEditing,
+      (editing, wasEditing) => {
+        if (wasEditing && !editing) {
+          const content = useEditorStore.getState().content;
+          if (content) {
+            parsePipelineNow(content);
+          }
+        }
+      },
+    );
+    return unsub;
+  }, []);
+
+  // P0-6: 鎸傝浇鏃舵鏌ョ郴缁熷弻鍑?鍛戒护琛屼紶鍏ョ殑寰呮墦寮€鏂囦欢 (M7-08)
+  // 绐楀彛棣栨鎸傝浇鏃惰皟鐢?getPendingOpenFile()锛屾秷璐规枃浠舵墦寮€绯荤粺浜嬩欢銆?
+  useEffect(() => {
+    let cancelled = false;
+    const consume = async (result: PendingOpenFileResult): Promise<void> => {
+      if (cancelled || result.status === 'none') return;
+      if (result.status === 'error') {
+        setStatusMessage(text('file.pendingOpenFailed', { path: result.path, code: result.code }));
+        return;
+      }
+      const canReplace = await confirmBeforeReplacingCurrentStory('open');
+      if (cancelled || !canReplace) return;
+      const normalizedPath = normalizeStoryPath(result.story.filePath);
+      loadSavedStorySession({
+        filePath: normalizedPath,
+        content: result.story.content,
+        hash: result.story.hash,
+        modifiedAt: result.story.modifiedAt,
+        closeHome: true,
+      });
+      setHomeSurfaceOpen(false);
+      setStatusMessage(text('status.opened', { path: normalizedPath }));
+    };
+    const dispatcher = createOrderedAsyncDispatcher(consume);
+    const enqueue = (result: PendingOpenFileResult): void => {
+      void dispatcher.enqueue(result);
+    };
+
+    const cleanup = window.plotflow?.file?.onSystemOpenFile?.(enqueue);
+    void window.plotflow?.file?.getPendingOpenFile?.().then(enqueue);
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [setHomeSurfaceOpen, setStatusMessage, text]);
+
+  // P0-6: 杩愯鏃剁洃鍚郴缁熸枃浠舵墦寮€閫氱煡锛堝簲鐢ㄥ凡杩愯锛岀敤鎴峰弻鍑?.mdstory 鏂囦欢鏃惰Е鍙戯級
+  useEffect(() => {
+    if (!window.plotflow?.file?.onExternalChange) return;
+
+    const cleanup = window.plotflow.file.onExternalChange(async (event) => {
+      const normalizedEvent = {
+        ...event,
+        filePath: event.filePath.replace(/\\/g, '/'),
+      };
       const editor = useEditorStore.getState();
-      editor.setFilePath(null);
-      editor.setDiagnostics([]);
-      editor.setActiveNodeId(null);
-      editor.setCursorPosition(1, 1);
-      useStoryStore.getState().clearParseData();
-      useGraphStore.getState().syncFromAST(null);
-      editor.setContent(template);
-      parsePipelineNow(template);
-      setStatusMessage(`新建: ${meta.title}`);
+      const currentFilePath = editor.filePath ? normalizeStoryPath(editor.filePath) : null;
+      if (currentFilePath && currentFilePath !== normalizedEvent.filePath) return;
+
+      if (!hasCurrentStoryUnsavedChanges()) {
+        applyExternalFileContent(normalizedEvent);
+        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+        return;
+      }
+
+      editor.setPendingExternalChange(normalizedEvent);
+      const choice = await window.plotflow.dialog.confirm({
+        type: 'warning',
+        message: text('appShell.externalChangeTitle'),
+        detail: text('appShell.externalChangeDetail', { path: normalizedEvent.filePath }),
+        buttons: [
+          text('appShell.saveCopy'),
+          text('appShell.reloadDisk'),
+          text('appShell.overwriteDisk'),
+          text('appShell.keepEditing'),
+        ],
+      });
+
+      if (choice === 0) {
+        const saved = await saveAsCurrentFile();
+        if (saved) {
+          setStatusMessage(text('appShell.copySaved'));
+        }
+      } else if (choice === 1) {
+        applyExternalFileContent(normalizedEvent);
+        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+      } else if (choice === 2) {
+        void overwritePendingExternalChange();
+      } else {
+        setStatusMessage(text('appShell.externalPending'));
+      }
+    });
+
+    return cleanup;
+  }, [setStatusMessage, text]);
+
+  const handleTemplateSelected = useCallback(
+    async (template: string, meta: { readonly title: string; readonly author: string }) => {
+      const canReplace = await confirmBeforeReplacingCurrentStory('new');
+      if (!canReplace) return;
+
+      startUnsavedStorySession({ content: template, closeHome: true });
+      setHomeSurfaceOpen(false);
+      setStatusMessage(text('file.created', { title: meta.title }));
     },
-    [setStatusMessage],
+    [setHomeSurfaceOpen, setStatusMessage, text],
   );
 
   const handleLanguageChange = useCallback(
@@ -127,110 +274,234 @@ export function App(): React.ReactElement {
     [setLanguage],
   );
 
+  useEffect(() => {
+    window.plotflow?.menu?.setLanguage(language);
+  }, [language]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void saveOrSaveAs();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'g') {
+        event.preventDefault();
+        toggleRequestedWorkspaceMode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!window.plotflow?.env?.isTest) {
+      return undefined;
+    }
+
+    window.__test_store__ = {
+      getEditorContent: () => useEditorStore.getState().content,
+      getDiagnostics: () => useEditorStore.getState().diagnostics,
+      getGraphNodes: () => useGraphStore.getState().nodes.map((node) => ({
+        id: node.id,
+        position: { ...node.position },
+      })),
+      getGraphZoom: () => useGraphStore.getState().zoomLevel,
+      setEditorContent: (content: string) => {
+        startUnsavedStorySession({ content, closeHome: true });
+      },
+      setEditorContentPreservingUI: (content: string) => {
+        useEditorStore.getState().setContent(content);
+        parsePipelineNow(content);
+      },
+      applyExternalFileContent: (event) => {
+        applyExternalFileContent(event);
+      },
+      openConditionEditor: (nodeId: string, optionIndex: number) => {
+        useUIStore.getState().openConditionEditor(nodeId, optionIndex);
+      },
+      setWorkspaceMode: (mode: 'split' | 'graphLab') => {
+        requestWorkspaceMode(mode);
+      },
+      getUIState: () => {
+        const state = useUIStore.getState();
+        return {
+          workspaceMode: state.workspaceMode,
+          isSourceDrawerOpen: state.isSourceDrawerOpen,
+          isConditionEditorOpen: state.isConditionEditorOpen,
+          conditionEditorNodeId: state.conditionEditorNodeId,
+          conditionEditorOptionIndex: state.conditionEditorOptionIndex,
+          activeRightPanel: state.activeRightPanel,
+          isExportDialogOpen: state.isExportDialogOpen,
+          isNewFileDialogOpen: state.isNewFileDialogOpen,
+          isThemeCenterOpen: state.isThemeCenterOpen,
+          isHomeSurfaceOpen: state.isHomeSurfaceOpen,
+          activeThemeId: state.activeThemeId,
+          activeChapterId: state.activeChapterId,
+          activeNodeId: useEditorStore.getState().activeNodeId,
+        };
+      },
+      setTheme: (themeId: string) => {
+        useUIStore.getState().setActiveThemeId(themeId);
+      },
+      getThemeId: () => useUIStore.getState().activeThemeId,
+      openThemeCenter: () => useUIStore.getState().openThemeCenter(),
+      setHomeSurfaceOpen: (open: boolean) => useUIStore.getState().setHomeSurfaceOpen(open),
+      /** 鐩存帴閫変腑鍒嗘敮鍥捐妭鐐瑰苟鑱斿姩缂栬緫鍣紝缁曞紑 DOM 鐐瑰嚮/鍐掓场/浜嬩欢濮旀墭渚濊禆 */
+      selectNode: (nodeId: string) => {
+        useGraphStore.getState().selectNode(nodeId);
+        useEditorStore.getState().setActiveNodeId(nodeId);
+      },
+    };
+
+    return () => {
+      delete window.__test_store__;
+    };
+  }, []);
+
   const showSplitGraph = activeRightPanel === 'graph' && viewMode === 'split';
   const showMinimap = activeRightPanel === 'graph' && viewMode === 'minimap';
   const graphModeLabel =
-    viewMode === 'split' ? t('toolbar.graphSplit') : t('toolbar.graphMinimap');
-  const themeLabel = theme === 'dark' ? t('toolbar.themeDark') : t('toolbar.themeLight');
-
+    viewMode === 'split' ? text('toolbar.splitGraph') : text('toolbar.minimap');
+  const { activeTheme } = useThemePlatform();
+  const Surfaces = activeTheme.surfaces;
   return (
-    <ThemeProvider>
-      <div className="app-shell">
-        <header className="app-topbar">
-          <div className="app-topbar__brand">
-            <span className="app-logo" aria-hidden="true">
-              Pf
-            </span>
-            <div>
-              <h1 className="app-title">PlotFlow V0.1</h1>
-              <p className="app-subtitle">{t('statusBar.phase')}</p>
-            </div>
-          </div>
-
-          <nav className="app-toolbar" aria-label="PlotFlow toolbar">
-            <div className="toolbar-group" role="group" aria-label={t('menu.file')}>
+      <Surfaces.AppShell workspaceMode={workspaceMode} topbar={null} overlays={null} statusBar={null}>
+        <Surfaces.Toolbar
+          brand={(
+            <button
+              type="button"
+              className="app-topbar__brand app-topbar-brand-button"
+              data-testid="toolbar-home"
+              onClick={() => setHomeSurfaceOpen(true)}
+            >
+              <span className="app-logo" aria-hidden="true">
+                {text('appShell.brandMark')}
+              </span>
+              <div>
+                <h1 className="app-title">{text('appShell.version')}</h1>
+                <p className="app-subtitle">{text('toolbar.phase')}</p>
+              </div>
+              <Home aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+          )}
+          fileControls={(
+            <>
               <button type="button" className="button button--primary" onClick={openNewFileDialog}>
                 <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-                <span>{t('toolbar.newFile')}</span>
+                <span>{text('toolbar.newFile')}</span>
               </button>
-              <button type="button" className="toolbar-button" onClick={openExportDialog}>
+              <button type="button" className="toolbar-button" data-testid="toolbar-export" onClick={() => openExportDialog()}>
                 <Download aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{t('toolbar.export')}</span>
+                <span>{text('toolbar.export')}</span>
               </button>
-            </div>
-
-            <div className="toolbar-group" role="group" aria-label={t('menu.view')}>
+            </>
+          )}
+          viewControls={(
+            <>
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
+                data-testid="workspace-mode-split"
+                onClick={() => {
+                  requestWorkspaceMode('split');
+                  setHomeSurfaceOpen(false);
+                }}
+                aria-pressed={workspaceMode === 'split'}
+              >
+                <FileText aria-hidden="true" size={15} strokeWidth={2} />
+                <span>Split</span>
+              </button>
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
+                data-testid="workspace-mode-graph-lab"
+                onClick={() => {
+                  requestWorkspaceMode('graphLab');
+                  setHomeSurfaceOpen(false);
+                }}
+                aria-pressed={workspaceMode === 'graphLab'}
+              >
+                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                <span>Graph Lab</span>
+                <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
+              </button>
               <button type="button" className="toolbar-button" onClick={openCorpusManager}>
                 <Database aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{t('toolbar.corpus')}</span>
+                <span>{text('toolbar.corpus')}</span>
               </button>
               <button
                 type="button"
-                className={`toolbar-button toolbar-button--state${viewMode === 'split' ? ' is-active' : ''}`}
-                onClick={toggleViewMode}
-                title={viewMode === 'split' ? t('toolbar.graphMinimap') : t('toolbar.graphSplit')}
-                aria-pressed={viewMode === 'split'}
+                className="toolbar-button"
+                data-testid="toolbar-theme-center"
+                onClick={openThemeCenter}
+                title={text('toolbar.themeCenter')}
               >
-                {viewMode === 'split' ? (
-                  <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
-                ) : (
-                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
-                )}
-                <span>{t('toolbar.graph')}</span>
-                <span className="toolbar-button__meta">{graphModeLabel}</span>
+                <Palette aria-hidden="true" size={15} strokeWidth={2} />
+                <span>{text('toolbar.theme')}</span>
               </button>
-            </div>
-
-            <div className="toolbar-group" role="group" aria-label={t('toolbar.preferences')}>
-              <button
-                type="button"
-                className="toolbar-button toolbar-button--state"
-                onClick={toggleTheme}
-                title={themeLabel}
-                aria-pressed={theme === 'dark'}
-              >
-                {theme === 'dark' ? (
-                  <Moon aria-hidden="true" size={15} strokeWidth={2} />
-                ) : (
-                  <Sun aria-hidden="true" size={15} strokeWidth={2} />
-                )}
-                <span>{themeLabel}</span>
-              </button>
-              <label className="toolbar-select">
-                <Languages aria-hidden="true" size={15} strokeWidth={2} />
-                <span className="visually-hidden">{t('toolbar.language')}</span>
-                <select
-                  className="language-select"
-                  aria-label={t('toolbar.language')}
-                  value={language}
-                  onChange={handleLanguageChange}
-                >
-                  <option value="zh-CN">中文</option>
-                  <option value="en-US">English</option>
-                </select>
-              </label>
-            </div>
-          </nav>
-        </header>
-
-        <div className="app-main">
-          <OutlinePanel onNodeClick={navigateToNode} />
-
-          <main className="editor-pane">
-            <MonacoEditor />
-          </main>
-
-          {showSplitGraph && (
-            <aside className="graph-pane" aria-label={t('toolbar.graph')}>
-              <GraphCanvas viewMode="split" />
-            </aside>
+            </>
           )}
-        </div>
+          preferenceControls={(
+            <label className="toolbar-select">
+              <Languages aria-hidden="true" size={15} strokeWidth={2} />
+              <span className="visually-hidden">{text('toolbar.language')}</span>
+              <select
+                className="language-select"
+                aria-label={text('toolbar.language')}
+                value={language}
+                onChange={handleLanguageChange}
+              >
+                <option value="zh-CN">{text('appShell.languageChinese')}</option>
+                <option value="en-US">{text('appShell.languageEnglish')}</option>
+              </select>
+            </label>
+          )}
+        />
 
-        {showMinimap && (
-          <div className="minimap-shell" aria-label="PlotFlow minimap">
-            <GraphCanvas viewMode="minimap" />
-          </div>
+        <HomeSurface />
+        {workspaceMode === 'graphLab' ? (
+          <GraphLabWorkspace />
+        ) : (
+          <Surfaces.SplitShell
+            viewbar={(
+              <div className="split-viewbar" aria-label={text('appShell.splitControls')}>
+                <div className="split-viewbar__label">
+                  <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                  <span>{text('toolbar.graph')}</span>
+                </div>
+                <button
+                  type="button"
+                  className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
+                  data-testid="toolbar-graph-view-toggle"
+                  onClick={toggleViewMode}
+                  title={viewMode === 'split' ? text('toolbar.minimap') : text('toolbar.splitGraph')}
+                  aria-pressed={viewMode === 'split'}
+                >
+                  {viewMode === 'split' ? (
+                    <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
+                  ) : (
+                    <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+                  )}
+                  <span>{text('toolbar.graph')}: {graphModeLabel}</span>
+                </button>
+              </div>
+            )}
+            outline={<OutlinePanel onNodeClick={navigateToNode} />}
+            editor={<MonacoEditor />}
+            graph={showSplitGraph ? (
+              <aside className="graph-pane" aria-label={text('toolbar.graph')}>
+                <GraphCanvas viewMode="split" />
+              </aside>
+            ) : null}
+            minimap={showMinimap ? (
+              <div className="minimap-shell" aria-label={text('appShell.minimap')}>
+                <GraphCanvas viewMode="minimap" />
+              </div>
+            ) : null}
+          />
         )}
 
         {isConditionEditorOpen && (
@@ -243,6 +514,7 @@ export function App(): React.ReactElement {
         <ExportDialog />
         <ProblemPanel />
         <CorpusManager />
+        <ThemeCenter />
 
         {isNewFileDialogOpen && (
           <NewFileDialog
@@ -252,7 +524,6 @@ export function App(): React.ReactElement {
         )}
 
         <StatusBar />
-      </div>
-    </ThemeProvider>
+      </Surfaces.AppShell>
   );
 }

@@ -12,6 +12,8 @@ import { parseStory, validate, type ParseResult, type PlotFlowData, type Diagnos
 import { useStoryStore } from '../stores/storyStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useGraphStore } from '../stores/graphStore';
+import { useUIStore } from '../stores/uiStore';
+import { appT } from '../i18n/appI18n';
 
 // ============================================================================
 // 模块级状态
@@ -19,6 +21,12 @@ import { useGraphStore } from '../stores/graphStore';
 
 let parseTimer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_MS = 500;
+const PARSE_STATUS_PREFIX = 'parse:';
+const SAVE_STATUS_PREFIX = 'save:';
+
+function pipelineText(key: string, params?: Readonly<Record<string, string | number>>): string {
+  return appT(key, params, useUIStore.getState().language);
+}
 
 // ============================================================================
 // 主函数
@@ -61,33 +69,63 @@ function executePipeline(raw: string): void {
   const graphStore = useGraphStore.getState();
   if (graphStore.isEditing) return;
 
-  // 1. 解析
-  const parseResult: ParseResult<PlotFlowData> = parseStory(raw);
-
-  if (!parseResult.ok) {
-    // 解析失败 — 设置错误诊断但不更新 AST
-    useEditorStore.getState().setDiagnostics([...parseResult.errors]);
+  // 1. Parse (V02-033: parseStory 始终返回 AST，错误在 diagnostics 中)
+  let parseResult: ParseResult<PlotFlowData>;
+  try {
+    parseResult = parseStory(raw);
+  } catch (err) {
+    // 意外崩溃 — 极其罕见但必须兜底
+    // eslint-disable-next-line no-console
+    console.error('[ParsePipeline] parseStory threw unexpectedly:', err);
+    const ui = useUIStore.getState();
+    if (!ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
+      ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.exception')}`);
+    }
     return;
   }
+
+  if (!parseResult.ok) return; // unreachable: parseStory always returns ok
 
   const ast = parseResult.data;
 
   // 2. 验证 (M3: 17 种诊断规则)
   const validationResult = validate(ast);
 
-  // 3. 汇总诊断（parse 中的 warn/info + validate 中的全部诊断）
-  const parseDiags: Diagnostic[] = 'diagnostics' in parseResult ? [...parseResult.diagnostics] : [];
+  // 3. 汇总诊断（parse 中的全部诊断 + validate 中的全部诊断）
+  const parseDiags: Diagnostic[] = [...parseResult.diagnostics];
   const validDiags: Diagnostic[] = validationResult.ok
     ? [...validationResult.diagnostics]
     : [...validationResult.errors];
   const allDiagnostics = [...parseDiags, ...validDiags];
 
-  // 4. 更新 AST (M1)
+  // BUG2 修复：按 code + 行/列去重（parser 与 validator 可能产出同一问题的不同 ID 格式）
+  const seen = new Map<string, Diagnostic>();
+  for (const d of allDiagnostics) {
+    const key = `${d.code}:${d.range.startLine}:${d.range.startColumn}`;
+    if (!seen.has(key)) seen.set(key, d);
+  }
+  const dedupedDiags = [...seen.values()];
+
+  // 4. 更新 AST (M1) — 触发 App.tsx 中的 subscription 自动调用 graphStore.syncFromAST
   useStoryStore.getState().setPlotFlowData(ast);
 
-  // 5. 更新分支图 (M2: AST → Nodes + Edges)
-  useGraphStore.getState().syncFromAST(ast);
+  // 5. 更新诊断 (M3: 波浪线 + 侧标 + Tooltip + 节点着色)
+  useEditorStore.getState().setDiagnostics(dedupedDiags);
 
-  // 6. 更新诊断 (M3: 波浪线 + 侧标 + Tooltip + 节点着色)
-  useEditorStore.getState().setDiagnostics(allDiagnostics);
+  // 6. 状态栏消息：有错误时提示用户分支图可能不完整 (V02-033)
+  const errorCount = allDiagnostics.filter((d) => d.severity === 'error').length;
+  const ui = useUIStore.getState();
+  if (ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
+    return;
+  }
+
+  if (errorCount > 0) {
+    ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.syntaxErrors', { count: errorCount })}`);
+  } else {
+    // 无错误时清除之前可能残留的错误消息
+    const current = ui.statusMessage;
+    if (current.startsWith(PARSE_STATUS_PREFIX)) {
+      ui.setStatusMessage('');
+    }
+  }
 }

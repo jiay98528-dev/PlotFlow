@@ -1,0 +1,19 @@
+Untitled Story
+
+---
+第一章
+
+开始
+写下第一个场景。
+
+SOURCE_R154_SLICE_EDIT
+
+GUI_R160_NODE
+在这里写下剧情正文。
+
+---
+第一章 2
+
+新节点
+在这里写下剧情正文。
+SOURCE_R184_SECOND_CHAPTER_DIRTY

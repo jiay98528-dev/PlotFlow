@@ -74,6 +74,7 @@ describe('parseOptions', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.description).toBe('向前走');
       expect(result.data[0]!.targetNodeId).toBe('森林深处');
+      expect(result.data[0]!.targetChapterId).toBeNull();
       expect(result.data[0]!.indentLevel).toBe(0);
     }
   });
@@ -84,6 +85,7 @@ describe('parseOptions', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data[0]!.targetNodeId).toBe('城堡大门');
+      expect(result.data[0]!.targetChapterId).toBe('第二章');
     }
   });
 

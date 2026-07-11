@@ -3,32 +3,25 @@
  *
  * 功能：
  * 1. `setModelMarkers()` — 红色/黄色/蓝色波浪线标记（供问题面板与滚动条概览使用）
- *    色值由 Monaco Theme `editorError.foreground` 等属性通过 CSS 变量控制：
- *      - Error   → var(--color-diagnostic-error)   — 红色波浪下划线
- *      - Warning → var(--color-diagnostic-warning) — 黄色波浪下划线
- *      - Info    → var(--color-diagnostic-info)    — 蓝色下划线
- * 2. `deltaDecorations()` — 内联文本装饰（波浪线 + hover tooltip）
- *    样式由 `src/styles/diagnostics.css` 中的 `diagnostic-*-underline` 类控制
- * 3. 侧边栏标记点（Gutter Glyphs）：红色方块 / 黄色三角 / 蓝色圆点
- *    样式由 `src/styles/diagnostics.css` 中的 `diagnostic-*-glyph` 类控制
- * 4. Hover Tooltip（M3-15）：鼠标悬停波浪线/标记点时显示
+ * 2. `IEditorDecorationsCollection.set()` — 内联文本装饰（波浪线 + hover tooltip）
+ *    + 侧边栏标记点（glyph margin icons + hover）
+ *    使用 createDecorationsCollection API（Monaco 0.31+），自动追踪/替换旧装饰，
+ *    彻底杜绝 deltaDecorations([], ...) 导致的 DOM 累积泄漏。
+ * 3. Hover Tooltip（M3-15）：鼠标悬停波浪线/标记点时显示
  *    诊断编号 + 描述 + 可操作建议（格式化的 Markdown）
  *
- * 颜色 Token 定义见 doc/standards-css.md §2.2：
- *   - 亮色: --color-diagnostic-error: #D32F2F; --color-diagnostic-warning: #F9A825; --color-diagnostic-info: #1976D2
- *   - 暗色: --color-diagnostic-error: #F44747; --color-diagnostic-warning: #FFD54F; --color-diagnostic-info: #64B5F6
+ * 架构要点 (2026-06-20 根因修复):
+ * - 严禁使用 `editor.deltaDecorations([], newDecos)` — 空数组表示"不删除旧装饰"
+ * - 使用 `editor.createDecorationsCollection()` 替代，内部自动追踪装饰 ID
+ * - setModelMarkers 天然防泄漏（基于 owner 替换，非追加）
  *
  * 使用方式：
- *   import { applyDiagnostics } from '@/editor/diagnosticsDecorator';
+ *   import { applyDiagnostics, clearDiagnostics } from '@/editor/diagnosticsDecorator';
  *   applyDiagnostics(editor, diagnostics);
- *
- *   // 也可单独使用格式化函数：
- *   import { formatHoverMessage } from '@/editor/diagnosticsDecorator';
- *   const msg = formatHoverMessage(diagnostic);
+ *   clearDiagnostics(editor);
  *
  * @see spec/milestones.md — M3-13/M3-14/M3-15
  * @see packages/core/src/types/diagnostic.ts — Diagnostic 类型定义
- * @see doc/standards-css.md — CSS Token --color-diagnostic-* 定义
  * @see src/styles/diagnostics.css — 波浪线/下划线 + 侧边栏标记样式
  */
 
@@ -41,6 +34,37 @@ import type { Diagnostic, SourceRange, DiagnosticSeverity } from '@plotflow/core
 
 /** Marker 所有者标识（setModelMarkers owner，确保按来源分组隔离） */
 const MARKER_OWNER = 'plotflow-diagnostics';
+
+/**
+ * 装饰器集合缓存（按编辑器实例隔离）。
+ *
+ * 使用 Monaco 0.31+ 的 `createDecorationsCollection()` API 替代手动的
+ * `deltaDecorations(oldIds, newDecos)`。该 API 内部自动追踪装饰 ID，
+ * `collection.set()` 自动替换旧装饰，从架构层面杜绝 DOM 累积泄漏。
+ *
+ * 每个编辑器实例独立一个 IEditorDecorationsCollection，
+ * 编辑器 dispose 后 Monaco 自动清理其装饰，WeakMap 随之 GC。
+ */
+const decorationCollections = new WeakMap<
+  monaco.editor.IStandaloneCodeEditor,
+  monaco.editor.IEditorDecorationsCollection
+>();
+
+/**
+ * 获取或创建编辑器实例对应的装饰器集合。
+ *
+ * 惰性创建（首次调用时），后续调用复用同一集合实例。
+ */
+function getDecorationCollection(
+  editor: monaco.editor.IStandaloneCodeEditor,
+): monaco.editor.IEditorDecorationsCollection {
+  let collection = decorationCollections.get(editor);
+  if (!collection) {
+    collection = editor.createDecorationsCollection();
+    decorationCollections.set(editor, collection);
+  }
+  return collection;
+}
 
 /** 诊断严重级别 → Monaco MarkerSeverity 映射 */
 const SEVERITY_TO_MARKER: Record<DiagnosticSeverity, monaco.MarkerSeverity> = {
@@ -214,13 +238,9 @@ export function createGlyphDecorations(
 /**
  * 将诊断信息应用到 Monaco 编辑器。
  *
- * 执行三个操作：
- * 1. `editor.setModelMarkers()` — 注入红色/黄色/蓝色波浪线标记
- *    供问题面板（ProblemPanel）和滚动条概览使用
- * 2. `editor.deltaDecorations()` — 注入内联文本装饰（波浪线 + hover tooltip）
- * 3. `editor.deltaDecorations()` — 注入侧边栏标记点（glyph margin icons + hover）
- *
- * 每次调用都会清除之前的标记和装饰，实现增量更新。
+ * 执行两个操作：
+ * 1. `editor.setModelMarkers()` — 注入模型标记（owner-based 替换，天然防泄漏）
+ * 2. `collection.set()` — 注入内联+侧边栏装饰，自动替换旧装饰，杜绝 DOM 累积
  *
  * @param editor  - Monaco 编辑器实例
  * @param diagnostics - 诊断信息列表（来自 Validator）
@@ -234,7 +254,7 @@ export function applyDiagnostics(
     return;
   }
 
-  // ── 1. 注入模型标记（波浪线 + 问题面板） ──
+  // ── 1. 注入模型标记（owner-based 替换 → 天然无泄漏） ──
   const markers: monaco.editor.IMarkerData[] = diagnostics.map((d) => ({
     severity: SEVERITY_TO_MARKER[d.severity],
     message: d.detail
@@ -247,18 +267,17 @@ export function applyDiagnostics(
 
   monaco.editor.setModelMarkers(model, MARKER_OWNER, markers);
 
-  // ── 2. 注入内联装饰（波浪线 + hover tooltip） ──
+  // ── 2. 注入装饰（createDecorationsCollection 自动替换旧装饰） ──
   const inlineDecos = createInlineDecorations(diagnostics);
-
-  // ── 3. 注入侧边栏装饰（glyph margin 图标 + hover tooltip） ──
   const glyphDecos = createGlyphDecorations(diagnostics);
 
-  // 合并两组装饰，一次 deltaDecorations 调用
-  editor.deltaDecorations([], [...inlineDecos, ...glyphDecos]);
+  getDecorationCollection(editor).set([...inlineDecos, ...glyphDecos]);
 }
 
 /**
  * 清除所有由本模块注入的标记和装饰。
+ *
+ * `collection.clear()` 内部自动清除追踪的旧装饰 ID，确保 DOM 完全清理。
  *
  * @param editor - Monaco 编辑器实例
  */
@@ -271,5 +290,7 @@ export function clearDiagnostics(
   }
 
   monaco.editor.setModelMarkers(model, MARKER_OWNER, []);
-  editor.deltaDecorations([], []);
+
+  // createDecorationsCollection 内部追踪旧 ID，clear() 确保全部移除
+  getDecorationCollection(editor).clear();
 }

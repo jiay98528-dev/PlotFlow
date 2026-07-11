@@ -110,6 +110,9 @@ html[data-theme='light'] {
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
   --z-popover: 800;
+  --z-panel: 50;
+  --z-canvas-overlay: 100;
+  --z-dropdown: 900;
   --z-modal: 1000;
   --z-toast: 1200;
 }

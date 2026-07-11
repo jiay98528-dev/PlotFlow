@@ -1,0 +1,19 @@
+---
+plotflow: "0.1"
+title: "Untitled Story"
+author: "PlotFlow Writer"
+engine: "generic"
+vars:
+---
+
+# 第一章
+
+## 节点：开始
+写下第一个场景。
+
+GUI_R140_DIRTY_LINE
+EXTERNAL_R140_DISK_LINE
+
+EXTERNAL_R141_DISK_NOW
+
+EXTERNAL_R146_DISK_FOR_COPY

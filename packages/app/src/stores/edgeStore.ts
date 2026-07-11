@@ -39,6 +39,8 @@ const ARROW_SEPARATOR = '->';
 /** 目标和选项索引之间的分隔符 */
 const HASH_SEPARATOR = '#';
 
+export const NEXT_EDGE_OPTION_INDEX = -1;
+
 // ============================================================================
 // 公共 API
 // ============================================================================
@@ -89,7 +91,7 @@ export function parseEdgeId(edgeId: string): ParsedEdgeId {
 
   const optionIndexStr = edgeId.slice(hashIdx + 1);
   const optionIndex = parseInt(optionIndexStr, 10);
-  if (isNaN(optionIndex) || optionIndex < 0) {
+  if (isNaN(optionIndex) || optionIndex < NEXT_EDGE_OPTION_INDEX) {
     throw new Error(
       `Invalid edgeId: invalid optionIndex "${optionIndexStr}" — "${edgeId}"`,
     );

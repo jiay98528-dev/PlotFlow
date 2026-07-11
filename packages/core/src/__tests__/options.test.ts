@@ -47,6 +47,7 @@ describe('parseOptions - 基本选项解析', () => {
       const opt = result.data[0]!;
       expect(opt.description).toBe('走向左边的狼嚎声');
       expect(opt.targetNodeId).toBe('狼穴');
+      expect(opt.targetChapterId).toBeNull();
       expect(opt.indentLevel).toBe(0);
       expect(opt.targetFullId).toBeNull();
       expect(opt.condition).toBeNull();
@@ -143,11 +144,12 @@ describe('parseOptions - 目标引用', () => {
   });
 
   it('跨章节目标引用（章节前缀）', () => {
-    const result = parseOptions('[选项] 传送 -> 节点：第一章/节点：村庄广场', 1, NO_VARS);
+    const result = parseOptions('[选项] 传送 -> 第一章/节点：村庄广场', 1, NO_VARS);
     expect(result.ok).toBe(true);
     if (result.ok) {
       // targetNodeId 仅为节点名部分
       expect(result.data[0]!.targetNodeId).toBe('村庄广场');
+      expect(result.data[0]!.targetChapterId).toBe('第一章');
     }
   });
 

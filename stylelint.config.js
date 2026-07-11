@@ -12,7 +12,7 @@ module.exports = {
     ],
     'number-max-precision': 4,
     'custom-property-pattern': [
-      '^(color|space|radius|shadow|font|motion|z|text|ease)-[a-z0-9]+(-[a-z0-9]+)*$',
+      '^(color|space|radius|shadow|font|motion|z|text|ease|theme)-[a-z0-9]+(-[a-z0-9]+)*$',
       {
         message: 'Custom property must follow --<category>-<role>-<variant> pattern',
       },

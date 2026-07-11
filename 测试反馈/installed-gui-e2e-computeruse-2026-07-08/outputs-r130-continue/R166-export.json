@@ -1,0 +1,54 @@
+{
+  "$schema": "https://plotflow.dev/schema/0.1/story.json",
+  "meta": {
+    "plotflow": "0.1",
+    "title": "Untitled Story",
+    "engine": "none",
+    "exportedAt": "2026-07-09T03:45:00.147Z",
+    "author": "PlotFlow Writer"
+  },
+  "variables": {},
+  "chapters": [
+    {
+      "id": "第一章",
+      "title": "第一章",
+      "nodes": [
+        {
+          "id": "开始",
+          "chapterId": "第一章",
+          "fullId": "第一章-开始",
+          "title": "开始",
+          "body": [
+            "写下第一个场景。",
+            "SOURCE_R154_SLICE_EDIT"
+          ],
+          "options": [],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": true,
+          "isOrphan": false,
+          "isDeadEnd": true
+        },
+        {
+          "id": "GUI_R160_NODE",
+          "chapterId": "第一章",
+          "fullId": "第一章-GUI_R160_NODE",
+          "title": "GUI_R160_NODE",
+          "body": [
+            "在这里写下剧情正文。"
+          ],
+          "options": [],
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "isRoot": false,
+          "isOrphan": true,
+          "isDeadEnd": true
+        }
+      ]
+    }
+  ]
+}

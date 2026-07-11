@@ -1,0 +1,21 @@
+{
+  "themes": [
+    {
+      "id": "plotflow-neon-dossier",
+      "name": {
+        "zh-CN": "霓虹档案",
+        "en-US": "Neon Dossier"
+      },
+      "version": "1.0.0",
+      "channel": "stable",
+      "priceLabel": "免费主题",
+      "manifestUrl": "https://plotflow.app/themes/plotflow-neon-dossier/manifest.json",
+      "bundleUrl": "https://plotflow.app/themes/plotflow-neon-dossier/plotflow-neon-dossier-1.0.0.pf-official-theme.zip",
+      "sha256": "4a8d0102f06d0da0eb2d8df60f5fa034ec62bd2eb99527822869536805aa1206",
+      "minAppVersion": "0.1.0",
+      "themeApiVersion": 1,
+      "previewUrl": "https://plotflow.app/themes/plotflow-neon-dossier/assets/preview.svg",
+      "changelog": "首个官方远程免费主题，用于验证下载、更新与注册链路。"
+    }
+  ]
+}

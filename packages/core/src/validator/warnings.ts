@@ -9,9 +9,10 @@
  * @version 0.1.0
  */
 
-import type { PlotFlowData, Option } from '../types/ast.js';
+import type { PlotFlowData, Option, VariableDeclaration } from '../types/ast.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
+import { buildStoryAdjacency } from './adjacency.js';
 
 // ============================================================================
 // W001 — 孤立节点
@@ -29,17 +30,7 @@ export function checkOrphanNodes(data: PlotFlowData): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
   // 收集所有选项的目标节点 ID（fullId）
-  const allTargetIds = new Set<string>();
-  for (const chapter of data.chapters) {
-    for (const node of chapter.nodes) {
-      for (const option of node.options) {
-        if (option.targetFullId !== null) {
-          allTargetIds.add(option.targetFullId);
-        }
-      }
-    }
-  }
-
+  const adjacency = buildStoryAdjacency(data);
   // 遍历所有节点，找出孤立节点
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
@@ -49,7 +40,7 @@ export function checkOrphanNodes(data: PlotFlowData): Diagnostic[] {
       }
 
       // 如果没有任何选项指向此节点，且非根节点 → 孤立
-      if (!allTargetIds.has(node.fullId)) {
+      if (!adjacency.incomingByTargetFullId.has(node.fullId)) {
         diagnostics.push(
           createDiagnostic(
             'W001',
@@ -79,10 +70,11 @@ export function checkOrphanNodes(data: PlotFlowData): Diagnostic[] {
  */
 export function checkDeadEndNodes(data: PlotFlowData): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  const adjacency = buildStoryAdjacency(data);
 
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
-      if (node.options.length === 0) {
+      if (!adjacency.outgoingBySourceFullId.has(node.fullId)) {
         diagnostics.push(
           createDiagnostic(
             'W002',
@@ -134,17 +126,22 @@ export function checkUnusedVariables(data: PlotFlowData): Diagnostic[] {
           referencedVariables.add(effect.variableName);
         }
       }
+
+      for (const effect of node.nextTarget?.sideEffects ?? []) {
+        referencedVariables.add(effect.variableName);
+      }
     }
   }
 
-  // 找出声明的但未被引用的变量
-  for (const variable of data.variables) {
-    if (!referencedVariables.has(variable.name)) {
+  // 扁平化变量声明（含嵌套对象字段），找出声明的但未被引用的变量
+  const declaredVars = flattenVars(data.variables);
+  for (const [fullName, info] of declaredVars) {
+    if (!referencedVariables.has(fullName)) {
       diagnostics.push(
         createDiagnostic(
           'W003',
-          rangeAtLine(variable.lineNumber),
-          `变量「${variable.name}」在故事中未使用，建议移除或添加引用`,
+          rangeAtLine(info.lineNumber),
+          `变量「${fullName}」在故事中未使用，建议移除或添加引用`,
           undefined,
         ),
       );
@@ -152,6 +149,27 @@ export function checkUnusedVariables(data: PlotFlowData): Diagnostic[] {
   }
 
   return diagnostics;
+}
+
+/**
+ * 扁平化变量声明（含嵌套对象字段），构建完整路径名映射。
+ * 与 validator.ts 中 collectDeclaredVariables 的递归模式一致。
+ */
+function flattenVars(
+  variables: VariableDeclaration[],
+): Map<string, { lineNumber: number }> {
+  const map = new Map<string, { lineNumber: number }>();
+  function walk(vars: VariableDeclaration[], prefix: string) {
+    for (const v of vars) {
+      const fullName = prefix ? `${prefix}.${v.name}` : v.name;
+      map.set(fullName, { lineNumber: v.lineNumber });
+      if (v.type === 'object' && v.fields) {
+        walk(v.fields, fullName);
+      }
+    }
+  }
+  walk(variables, '');
+  return map;
 }
 
 /**
@@ -306,6 +324,104 @@ export function checkFormatIrregularities(data: PlotFlowData): Diagnostic[] {
         }
       }
     }
+  }
+
+  return diagnostics;
+}
+
+// ============================================================================
+// W007 - closed cycle risk
+// ============================================================================
+
+export function checkClosedCycles(data: PlotFlowData): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const adjacency = buildStoryAdjacency(data);
+  const nodeMeta = new Map<string, { title: string; lineNumber: number }>();
+  const graph = new Map<string, string[]>();
+
+  for (const chapter of data.chapters) {
+    for (const node of chapter.nodes) {
+      nodeMeta.set(node.fullId, { title: node.title, lineNumber: node.lineNumber });
+      graph.set(node.fullId, []);
+    }
+  }
+
+  for (const edge of adjacency.edges) {
+    if (!edge.targetFullId || !adjacency.nodeFullIds.has(edge.targetFullId)) continue;
+    graph.get(edge.sourceFullId)?.push(edge.targetFullId);
+  }
+
+  const indexByNode = new Map<string, number>();
+  const lowLinkByNode = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const components: string[][] = [];
+  let index = 0;
+
+  const strongConnect = (nodeId: string): void => {
+    indexByNode.set(nodeId, index);
+    lowLinkByNode.set(nodeId, index);
+    index++;
+    stack.push(nodeId);
+    onStack.add(nodeId);
+
+    for (const targetId of graph.get(nodeId) ?? []) {
+      if (!indexByNode.has(targetId)) {
+        strongConnect(targetId);
+        lowLinkByNode.set(
+          nodeId,
+          Math.min(lowLinkByNode.get(nodeId) ?? 0, lowLinkByNode.get(targetId) ?? 0),
+        );
+      } else if (onStack.has(targetId)) {
+        lowLinkByNode.set(
+          nodeId,
+          Math.min(lowLinkByNode.get(nodeId) ?? 0, indexByNode.get(targetId) ?? 0),
+        );
+      }
+    }
+
+    if (lowLinkByNode.get(nodeId) !== indexByNode.get(nodeId)) return;
+
+    const component: string[] = [];
+    let next: string | undefined;
+    do {
+      next = stack.pop();
+      if (!next) break;
+      onStack.delete(next);
+      component.push(next);
+    } while (next !== nodeId);
+    components.push(component);
+  };
+
+  for (const nodeId of graph.keys()) {
+    if (!indexByNode.has(nodeId)) strongConnect(nodeId);
+  }
+
+  for (const component of components) {
+    const componentSet = new Set(component);
+    const isCycle = component.length > 1
+      || (component.length === 1 && (graph.get(component[0]!) ?? []).includes(component[0]!));
+    if (!isCycle) continue;
+
+    const hasExit = component.some((nodeId) =>
+      (adjacency.outgoingBySourceFullId.get(nodeId) ?? []).some((edge) =>
+        edge.targetFullId !== null && !componentSet.has(edge.targetFullId),
+      ),
+    );
+    if (hasExit) continue;
+
+    const firstNodeId = component
+      .slice()
+      .sort((a, b) => (nodeMeta.get(a)?.lineNumber ?? 0) - (nodeMeta.get(b)?.lineNumber ?? 0))[0]!;
+    const firstNode = nodeMeta.get(firstNodeId);
+    diagnostics.push(
+      createDiagnostic(
+        'W007',
+        rangeAtLine(firstNode?.lineNumber ?? 1),
+        `Closed cycle detected: ${component.map((id) => nodeMeta.get(id)?.title ?? id).join(' -> ')}`,
+        firstNodeId,
+      ),
+    );
   }
 
   return diagnostics;

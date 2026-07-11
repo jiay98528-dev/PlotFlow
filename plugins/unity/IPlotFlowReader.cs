@@ -9,12 +9,13 @@
 //   2. GetNode()                — 按 fullId 获取节点
 //   3. GetAvailableOptions()    — 根据当前变量状态过滤可用选项
 //
-// 版本: 0.1.0
-// 日期: 2026-06-13
+// 版本: 0.2.0（保留 0.1 Dictionary API）
+// 日期: 2026-07-11
 // ============================================================================
 
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace PlotFlow
 {
@@ -27,11 +28,19 @@ namespace PlotFlow
     /// 对应 json-schema.md §2 顶层结构。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class PlotFlowData
     {
+        [JsonProperty("$schema")]
         public string SchemaVersion;
+
+        [JsonProperty("meta")]
         public StoryMeta Meta;
+
+        [JsonProperty("variables")]
         public Dictionary<string, VariableDeclaration> Variables;
+
+        [JsonProperty("chapters")]
         public List<Chapter> Chapters;
     }
 
@@ -40,12 +49,22 @@ namespace PlotFlow
     /// 对应 json-schema.md §3 Meta 对象。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class StoryMeta
     {
+        [JsonProperty("plotflow")]
         public string Plotflow;
+
+        [JsonProperty("title")]
         public string Title;
+
+        [JsonProperty("author")]
         public string Author;
+
+        [JsonProperty("engine")]
         public string Engine;
+
+        [JsonProperty("exportedAt")]
         public string ExportedAt;
     }
 
@@ -58,16 +77,31 @@ namespace PlotFlow
     /// 对应 json-schema.md §4 VariableDef。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class VariableDeclaration
     {
+        [JsonProperty("type")]
         public string Type;          // "int" | "float" | "bool" | "string" | "enum" | "object"
+
+        [JsonProperty("scope")]
         public string Scope;         // "global" | "chapter"
+
+        // 0.1 compatibility: older integrations may still provide a concrete chapter.
+        [JsonProperty("chapter")]
         public string Chapter;       // 仅 scope="chapter" 时使用
+
+        [JsonProperty("values")]
         public List<string> Values;  // 仅 type="enum" 时使用
+
+        [JsonProperty("fields")]
         public Dictionary<string, VariableDeclaration> Fields; // 仅 type="object" 时使用
+
+        [JsonProperty("description")]
+        public string Description;
 
         // 默认值以 JSON 原生类型存储。解析时根据 Type 字段反序列化具体值。
         // 例如: int → long, float → double, bool → bool, string → string
+        [JsonProperty("default")]
         public object DefaultValue;
     }
 
@@ -80,10 +114,16 @@ namespace PlotFlow
     /// 对应 json-schema.md §5.1 Chapter。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class Chapter
     {
+        [JsonProperty("id")]
         public string Id;
+
+        [JsonProperty("title")]
         public string Title;
+
+        [JsonProperty("nodes")]
         public List<StoryNode> Nodes;
     }
 
@@ -92,17 +132,37 @@ namespace PlotFlow
     /// 对应 json-schema.md §5.2 Node。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class StoryNode
     {
+        [JsonProperty("id")]
         public string Id;
+
+        [JsonProperty("chapterId")]
         public string ChapterId;
+
+        [JsonProperty("fullId")]
         public string FullId;
+
+        [JsonProperty("title")]
         public string Title;
+
+        [JsonProperty("body")]
         public List<string> Body;
+
+        [JsonProperty("options")]
         public List<StoryOption> Options;
+
+        [JsonProperty("position")]
         public NodePosition Position;
+
+        [JsonProperty("isRoot")]
         public bool IsRoot;
+
+        [JsonProperty("isOrphan")]
         public bool IsOrphan;
+
+        [JsonProperty("isDeadEnd")]
         public bool IsDeadEnd;
     }
 
@@ -111,9 +171,13 @@ namespace PlotFlow
     /// 对应 json-schema.md §5.2 Node.position。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class NodePosition
     {
+        [JsonProperty("x")]
         public float X;
+
+        [JsonProperty("y")]
         public float Y;
     }
 
@@ -126,13 +190,28 @@ namespace PlotFlow
     /// 对应 json-schema.md §5.3 Option。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class StoryOption
     {
+        [JsonProperty("index")]
         public int Index;
+
+        [JsonProperty("text")]
         public string Text;
+
+        [JsonProperty("targetNodeId")]
         public string TargetNodeId;
+
+        [JsonProperty("targetChapterId")]
+        public string TargetChapterId;
+
+        [JsonProperty("targetFullId")]
         public string TargetFullId;
+
+        [JsonProperty("conditions")]
         public ConditionExpression Conditions;
+
+        [JsonProperty("sideEffects")]
         public List<SideEffect> SideEffects;
     }
 
@@ -145,15 +224,18 @@ namespace PlotFlow
     /// 对应 json-schema.md §5.4 ConditionExpression。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class ConditionExpression
     {
         /// <summary>人类可读的条件表达式文本，如 "($金币>=10) AND ($武器!='无')"。</summary>
+        [JsonProperty("expression")]
         public string Expression;
 
         /// <summary>
         /// 条件 AST。使用原始 JSON 节点存储，由运行时评估器解析。
         /// 运行时通过 ConditionEvaluator.Evaluate() 方法递归解释。
         /// </summary>
+        [JsonProperty("ast")]
         public object Ast;
     }
 
@@ -179,10 +261,16 @@ namespace PlotFlow
     /// 对应 json-schema.md §5.5 SideEffect。
     /// </summary>
     [Serializable]
+    [JsonObject(MemberSerialization.OptIn)]
     public class SideEffect
     {
+        [JsonProperty("variable")]
         public string Variable;
+
+        [JsonProperty("operation")]
         public string Operation; // "set" | "add" | "subtract" | "append"
+
+        [JsonProperty("value")]
         public object Value;
     }
 
@@ -262,6 +350,15 @@ namespace PlotFlow
         /// <param name="variables">当前运行时变量状态（变量名 → 值）。</param>
         /// <returns>通过条件筛选的可用选项列表（保持原 index 顺序）。</returns>
         List<StoryOption> GetAvailableOptions(string nodeId, Dictionary<string, object> variables);
+    }
+
+    /// <summary>
+    /// 可选的 0.2 作用域感知读取接口。旧的 Dictionary 入口保留在
+    /// IPlotFlowReader 中，现有项目无需迁移即可继续运行。
+    /// </summary>
+    public interface IPlotFlowScopedReader : IPlotFlowReader
+    {
+        List<StoryOption> GetAvailableOptions(string nodeId, PlotFlowVariableStore variables);
     }
 
     // ============================================================================

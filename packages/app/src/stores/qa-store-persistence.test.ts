@@ -16,9 +16,6 @@
 // 0. Mocks & Global Setup (runs before any imports due to vi.mock hoisting)
 // ============================================================================
 
-/** localStorage 共享存储对象 (供 vi.mock factory 引用) */
-const _sharedLocalStorage: Record<string, string> = {};
-
 /**
  * 适配器 mock — plotFlowDataToFlow 在 graphStore.syncFromAST 中被调用。
  * 该 mock 会在 graphStore 模块导入前安装，确保 store 初始化时引用 mock 版本。
@@ -84,8 +81,16 @@ import { describe, it, expect, beforeEach, vi, beforeAll } from 'vitest';
 import { useEditorStore } from './editorStore';
 import { useStoryStore } from './storyStore';
 import { useGraphStore, ZOOM_CONSTRAINTS } from './graphStore';
-import { useUIStore } from './uiStore';
+import { useUIStore, normalizeLegacyThemeValue } from './uiStore';
 import type { PlotFlowData, Diagnostic } from '@plotflow/core';
+import { parsePipelineNow } from '../services/parsePipeline';
+import { forceSave, clearPendingSave } from '../services/autoSaveService';
+
+const PRISM_FOUNDRY_THEME_ID = 'plotflow-prism-foundry';
+const FORMAL_THEME_IDS = [
+  'plotflow-narrative-workbench',
+  'plotflow-engine-telemetry',
+] as const;
 
 // ============================================================================
 // 2. Helpers & Mock Data
@@ -93,12 +98,6 @@ import type { PlotFlowData, Diagnostic } from '@plotflow/core';
 
 /** localStorage 实例引用 (每个测试前重置) */
 let localStorageStore: Record<string, string> = {};
-
-const _LOCALSTORAGE_KEYS = {
-  theme: 'plotflow:theme',
-  language: 'plotflow:language',
-  accent: 'plotflow:accent',
-} as const;
 
 /**
  * 模拟的 mockPlotFlowData — 3 节点线性故事
@@ -138,6 +137,7 @@ const mockPlotFlowData: PlotFlowData = {
               description: '继续前进',
               indentLevel: 0,
               targetNodeId: 'middle',
+              targetChapterId: null,
               targetFullId: '第1章-middle',
               condition: null,
               sideEffects: [],
@@ -165,6 +165,7 @@ const mockPlotFlowData: PlotFlowData = {
               description: '向左走',
               indentLevel: 0,
               targetNodeId: 'end',
+              targetChapterId: null,
               targetFullId: '第1章-end',
               condition: null,
               sideEffects: [],
@@ -241,9 +242,9 @@ function resetAllStores(): void {
 
   // uiStore — 无 reset() 方法，手动设置到默认值
   useUIStore.setState({
-    theme: 'light',
     language: 'zh-CN' as const,
-    accent: 'ocean',
+    workspaceMode: 'graphLab' as const,
+    activeThemeId: PRISM_FOUNDRY_THEME_ID,
     activeRightPanel: 'graph',
     isOutlinePanelOpen: true,
     statusMessage: '',
@@ -682,19 +683,15 @@ describe('graphStore — 状态流 (ST-07~ST-10)', () => {
 
 describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   // --------------------------------------------------------------------------
-  // ST-11: toggleTheme
   // --------------------------------------------------------------------------
-  it('[ST-11] toggleTheme() → theme 在 light/dark 翻转', () => {
-    // 初始状态为 light (beforeEach reset)
-    expect(useUIStore.getState().theme).toBe('light');
+  it('[ST-11] setActiveThemeId() -> activeThemeId 更新', () => {
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    // 第1次 → dark
-    useUIStore.getState().toggleTheme();
-    expect(useUIStore.getState().theme).toBe('dark');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    // 第2次 → light
-    useUIStore.getState().toggleTheme();
-    expect(useUIStore.getState().theme).toBe('light');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
   // --------------------------------------------------------------------------
@@ -713,18 +710,13 @@ describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // ST-13: setAccent
   // --------------------------------------------------------------------------
-  it('[ST-13] setAccent("gold") → accent="gold"', () => {
-    // Act
-    useUIStore.getState().setAccent('gold');
+  it('[ST-13] setActiveThemeId() -> 任意字符串 ID 直接接受', () => {
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    // Assert
-    expect(useUIStore.getState().accent).toBe('gold');
-
-    // 切回 ocean
-    useUIStore.getState().setAccent('ocean');
-    expect(useUIStore.getState().accent).toBe('ocean');
+    useUIStore.getState().setActiveThemeId('custom-official-theme');
+    expect(useUIStore.getState().activeThemeId).toBe('custom-official-theme');
   });
 
   // --------------------------------------------------------------------------
@@ -822,91 +814,178 @@ describe('localStorage 持久化 (DATA-03)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // DATA-03-17: toggleTheme 持久化
   // --------------------------------------------------------------------------
-  it('[DATA-03-17] toggleTheme() → localStorage 有 plotflow:theme', () => {
-    // Act: 切换为 dark
-    useUIStore.getState().toggleTheme();
+  it('[DATA-03-17] setActiveThemeId() -> localStorage themeId key', () => {
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
-    // Assert: localStorage 应有 'dark'
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('dark');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    // Act: 再切回 light
-    useUIStore.getState().toggleTheme();
-
-    // Assert: localStorage 应有 'light'
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('light');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
   // --------------------------------------------------------------------------
-  // DATA-03-18: setAccent 持久化
   // --------------------------------------------------------------------------
-  it('[DATA-03-18] setAccent("gold") → localStorage 有 plotflow:accent = "gold"', () => {
-    // Act
-    useUIStore.getState().setAccent('gold');
+  it('[DATA-03-18] setActiveThemeId() -> 旧键已清除', () => {
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
-    // Assert
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('gold');
+    // 旧键不应存在（持久化只保留新键 plotflow:themeId）
+    expect(window.localStorage.getItem('plotflow:officialTheme')).toBeNull();
+  });
 
-    // 切回 ocean
-    useUIStore.getState().setAccent('ocean');
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('ocean');
+  // --------------------------------------------------------------------------
+  // DATA-03-18b: legacy dark/light → 规范化为正式 themeId
+  // --------------------------------------------------------------------------
+  it('[DATA-03-18b] normalizeLegacyThemeValue: dark -> Prism Foundry', () => {
+    expect(normalizeLegacyThemeValue('dark')).toBe(PRISM_FOUNDRY_THEME_ID);
+  });
+
+  it('[DATA-03-18c] normalizeLegacyThemeValue: light -> Prism Foundry', () => {
+    expect(normalizeLegacyThemeValue('light')).toBe(PRISM_FOUNDRY_THEME_ID);
+  });
+
+  it('[DATA-03-18d] normalizeLegacyThemeValue: existing official IDs stay unchanged', () => {
+    for (const themeId of FORMAL_THEME_IDS) {
+      expect(normalizeLegacyThemeValue(themeId)).toBe(themeId);
+    }
+  });
+
+  it('[DATA-03-18e] legacy plotflow:theme=dark 触发完整初始化迁移路径', async () => {
+    // 模拟用户浏览器中残留的旧键
+    window.localStorage.setItem('plotflow:theme', 'dark');
+
+    // 清除模块缓存，使下次 import 重新执行模块级初始化（readStoredThemeId()）
+    vi.resetModules();
+
+    // 动态 import 触发 uiStore.ts 模块执行：
+    //   readStoredThemeId() → 读到 'dark' → normalizeLegacyThemeValue('dark')
+    //   → migrateToNewKey('plotflow-prism-foundry')
+    //   → 新 key 写入 + 旧 key 删除 + store 初始化为规范化值
+    const fresh = await import('./uiStore');
+
+    // 断言新键 plotflow:themeId 被写入规范化后的值
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
+    // 断言旧键 plotflow:theme 被删除
+    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    // 断言 store 的 activeThemeId 是规范化后的值
+    expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+
+    // 恢复模块缓存，防止影响后续测试
+    vi.resetModules();
+    await import('./uiStore');
+  });
+
+  it('[DATA-03-18f] legacy plotflow:theme=light 迁移触发', async () => {
+    window.localStorage.setItem('plotflow:theme', 'light');
+    vi.resetModules();
+    const fresh = await import('./uiStore');
+
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
+    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+
+    vi.resetModules();
+    await import('./uiStore');
+  });
+
+  it.each(['dark', 'light'] as const)(
+    '[DATA-03-18g] current plotflow:themeId=%s migrates to Prism Foundry',
+    async (legacyThemeId) => {
+      window.localStorage.setItem('plotflow:themeId', legacyThemeId);
+      vi.resetModules();
+      const fresh = await import('./uiStore');
+
+      expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
+      expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+
+      vi.resetModules();
+      await import('./uiStore');
+    },
+  );
+
+  it('[DATA-03-18h] stored official theme IDs remain unchanged during initialization', async () => {
+    for (const themeId of FORMAL_THEME_IDS) {
+      clearLocalStorage();
+      window.localStorage.setItem('plotflow:themeId', themeId);
+      vi.resetModules();
+      const fresh = await import('./uiStore');
+
+      expect(window.localStorage.getItem('plotflow:themeId')).toBe(themeId);
+      expect(fresh.useUIStore.getState().activeThemeId).toBe(themeId);
+    }
+
+    vi.resetModules();
+    await import('./uiStore');
   });
 
   // --------------------------------------------------------------------------
   // DATA-03-19: 回退到默认值
   // --------------------------------------------------------------------------
-  it('[DATA-03-19] 清除 localStorage → 验证回退到默认值 (light, zh-CN, ocean)', () => {
-    // Arrange: 先设置非默认值
+  it('[DATA-03-19] localStorage 清除后重置为默认主题', () => {
     useUIStore.getState().setLanguage('en-US');
-    useUIStore.getState().toggleTheme(); // light → dark
-    useUIStore.getState().setAccent('gold');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
-    // 验证 localStorage 已被修改
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('dark');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('gold');
 
-    // Act: 清除 localStorage
     clearLocalStorage();
 
-    // 验证 localStorage 已清空
-    expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
+    expect(window.localStorage.getItem('plotflow:themeId')).toBeNull();
     expect(window.localStorage.getItem('plotflow:language')).toBeNull();
-    expect(window.localStorage.getItem('plotflow:accent')).toBeNull();
 
-    // 手动触发 store 回退到默认值
-    // 由于 store 是单例且模块已加载，需要模拟重新初始化的行为：
-    // 1. 清除 localStorage
-    // 2. 重置 store 状态到默认值（等同于新建 store 的行为）
     resetAllStores();
 
-    // Assert: store 状态回退到默认值
-    expect(useUIStore.getState().theme).toBe('light');
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
     expect(useUIStore.getState().language).toBe('zh-CN');
-    expect(useUIStore.getState().accent).toBe('ocean');
   });
 
-  // --------------------------------------------------------------------------
-  // 额外验证: 仅有这三个 key 被持久化
-  // --------------------------------------------------------------------------
-  it('只有 theme / language / accent 三个 key 被持久化', () => {
+  it('setActiveThemeId 持久化到 localStorage', () => {
     useUIStore.getState().setLanguage('en-US');
-    useUIStore.getState().toggleTheme(); // → dark
-    useUIStore.getState().setAccent('gold');
+    useUIStore.getState().setWorkspaceMode('graphLab');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
-    // 其他操作不应写入 localStorage
     useUIStore.getState().setActiveRightPanel('none');
     useUIStore.getState().openExportDialog();
     useUIStore.getState().setStatusMessage('hello');
 
-    // localStorage 仍只有 3 个 key
-    expect(window.localStorage.getItem('plotflow:theme')).toBe('dark');
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
-    expect(window.localStorage.getItem('plotflow:accent')).toBe('gold');
+    expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('graphLab');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
+    expect(window.localStorage.getItem('plotflow:accent')).toBeNull();
 
-    // 不应有其他 key
-    expect(Object.keys(localStorageStore)).toHaveLength(3);
+    expect(Object.keys(localStorageStore).sort()).toEqual([
+      'plotflow:language',
+      'plotflow:themeId',
+      'plotflow:workspaceMode',
+      'plotflow:workspaceModePreferenceVersion',
+    ]);
+  });
+
+  it('[DATA-03-20] pre-V2 Split preference migrates once to Graph Lab', async () => {
+    clearLocalStorage();
+    window.localStorage.setItem('plotflow:workspaceMode', 'split');
+    vi.resetModules();
+
+    const fresh = await import('./uiStore');
+
+    expect(fresh.useUIStore.getState().workspaceMode).toBe('graphLab');
+    expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('graphLab');
+    expect(window.localStorage.getItem('plotflow:workspaceModePreferenceVersion')).toBe('2');
+  });
+
+  it('[DATA-03-21] user-selected Split remains after V2 migration', async () => {
+    clearLocalStorage();
+    window.localStorage.setItem('plotflow:workspaceMode', 'split');
+    window.localStorage.setItem('plotflow:workspaceModePreferenceVersion', '2');
+    vi.resetModules();
+
+    const fresh = await import('./uiStore');
+
+    expect(fresh.useUIStore.getState().workspaceMode).toBe('split');
+    fresh.useUIStore.getState().setWorkspaceMode('graphLab');
+    fresh.useUIStore.getState().setWorkspaceMode('split');
+    expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('split');
+    expect(window.localStorage.getItem('plotflow:workspaceModePreferenceVersion')).toBe('2');
   });
 });
 
@@ -956,6 +1035,8 @@ describe('跨 store 一致性 (ST-05)', () => {
     const data = useStoryStore.getState().plotFlowData;
     useGraphStore.getState().syncFromAST(data);
     expect(useGraphStore.getState().nodes.length).toBeGreaterThan(0);
+    useGraphStore.getState().toggleGroupCollapse('old-file-group');
+    useGraphStore.getState().setEditing(true);
 
     // Act: syncFromAST(null)
     useGraphStore.getState().syncFromAST(null);
@@ -964,6 +1045,8 @@ describe('跨 store 一致性 (ST-05)', () => {
     expect(useGraphStore.getState().nodes).toHaveLength(0);
     expect(useGraphStore.getState().edges).toHaveLength(0);
     expect(useGraphStore.getState().selectedNodeId).toBeNull();
+    expect(useGraphStore.getState().collapsedGroups).toEqual({});
+    expect(useGraphStore.getState().isEditing).toBe(false);
   });
 
   // --------------------------------------------------------------------------
@@ -981,5 +1064,114 @@ describe('跨 store 一致性 (ST-05)', () => {
     expect(useStoryStore.getState().parseError).toBeNull();
     expect(useStoryStore.getState().isParsing).toBe(false);
     expect(useStoryStore.getState().plotFlowData).not.toBeNull();
+  });
+});
+
+// ============================================================================
+// 数据完整性集成测试
+// ============================================================================
+
+describe('数据完整性集成测试', () => {
+  /** 被 forceSave 捕获的文本内容 */
+  let capturedContent = '';
+
+  beforeAll(() => {
+    // 为 window 添加 plotflow.file.save mock，捕获保存的内容供后续 reload
+    const win = globalThis.window as unknown as Record<string, unknown>;
+    win['plotflow'] = {
+      file: {
+        save: vi.fn(async (request: { readonly content: string }) => {
+          capturedContent = request.content;
+          return { success: true, timestamp: Date.now(), hash: 'qa-save-hash', modifiedAt: Date.now() };
+        }),
+      },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  });
+
+  // --------------------------------------------------------------------------
+  // 完整编辑-保存-关闭-重开周期验证 AST 完整性
+  // --------------------------------------------------------------------------
+  it('[DATA-INTEGRITY-01] Full edit-save-close-reopen cycle preserves AST integrity', async () => {
+    // 1. 创建包含 variables / chapters / nodes / options / conditions 的 .mdstory
+    const sample = [
+      '---',
+      'plotflow: "0.1"',
+      'title: 数据完整性测试',
+      'author: 集成测试',
+      'vars:',
+      '  hp: int',
+      '  has_key: bool',
+      '',
+      '---',
+      '',
+      '# 第一章',
+      '',
+      '## 节点：起点',
+      '',
+      '故事从这里开始。',
+      '',
+      '[选项] 继续前进 -> 节点：中途',
+      '  条件: ($hp > 50)',
+      '',
+      '## 节点：中途',
+      '',
+      '你在路途中间。',
+      '',
+      '[选项] 向左走 -> 节点：终点',
+      '',
+      '## 节点：终点',
+      '',
+      '故事结束。',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：第二章开始',
+      '',
+      '新的篇章。',
+      '',
+      '[选项] 查看结局 -> 节点：第二章结局',
+      '',
+      '## 节点：第二章结局',
+      '',
+      '全剧终。',
+    ].join('\n');
+
+    // 2. editorStore.setContent(sample), parsePipelineNow(sample)
+    useEditorStore.getState().setContent(sample);
+    useEditorStore.getState().setFilePath('/test/integration-test.mdstory');
+    parsePipelineNow(sample);
+
+    // 3. JSON.stringify(storyStore.plotFlowData) 作为快照
+    const ast = useStoryStore.getState().plotFlowData;
+    expect(ast).not.toBeNull();
+    const snapshot = JSON.stringify(ast);
+
+    // 4. Mock window.plotflow.file.save 以捕获内容（已在 beforeAll 中完成）
+
+    // 5. 调用 forceSave()
+    await forceSave();
+    expect(capturedContent.length).toBeGreaterThan(0);
+
+    // 6. 重置所有 store
+    resetAllStores();
+    clearPendingSave();
+
+    // 7. 重新加载捕获的内容并重新解析
+    useEditorStore.getState().setContent(capturedContent);
+    useEditorStore.getState().setFilePath('/test/integration-test.mdstory');
+    parsePipelineNow(capturedContent);
+
+    // 8. 断言新 AST JSON 与快照一致
+    const newAst = useStoryStore.getState().plotFlowData;
+    expect(newAst).not.toBeNull();
+    expect(JSON.stringify(newAst)).toBe(snapshot);
+
+    // 手动同步 graphStore（测试环境中无 App.tsx 订阅，需显式调用）
+    useGraphStore.getState().syncFromAST(newAst);
+
+    // 9. 断言 graphStore 中有节点和连线
+    expect(useGraphStore.getState().nodes.length).toBeGreaterThan(0);
+    expect(useGraphStore.getState().edges.length).toBeGreaterThan(0);
   });
 });

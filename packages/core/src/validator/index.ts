@@ -27,6 +27,7 @@ import { checkUnusedVariables } from './warnings.js';
 import { checkDuplicateOptionDescriptions } from './warnings.js';
 import { checkEmptyBodyNodes } from './warnings.js';
 import { checkFormatIrregularities } from './warnings.js';
+import { checkClosedCycles } from './warnings.js';
 
 import { checkPotentialSoftlock } from './infos.js';
 import { checkShortBody } from './infos.js';
@@ -80,6 +81,7 @@ export {
   checkDuplicateOptionDescriptions,
   checkEmptyBodyNodes,
   checkFormatIrregularities,
+  checkClosedCycles,
   // 建议（I001-I003）
   checkPotentialSoftlock,
   checkShortBody,
