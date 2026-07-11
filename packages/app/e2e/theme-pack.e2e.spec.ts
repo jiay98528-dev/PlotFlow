@@ -10,6 +10,18 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 const MAIN_JS = path.join(PROJECT_ROOT, 'out', 'main', 'main.js');
 const REMOTE_THEME_ROOT = path.join(PROJECT_ROOT, 'website', 'public', 'themes', 'plotflow-neon-dossier');
 const REMOTE_THEME_ZIP = path.join(REMOTE_THEME_ROOT, 'plotflow-neon-dossier-1.0.0.pf-official-theme.zip');
+const FONT_ENV_SNAPSHOTS = new Set([
+  'narrative-workbench-390x844.png',
+  'prism-foundry-source-open-1440x900.png',
+  'engine-telemetry-source-390x844.png',
+]);
+
+function visualSnapshotName(name: string): string {
+  const fontEnvironment = process.env['PLOTFLOW_VISUAL_FONT_ENV'];
+  if (!fontEnvironment || !FONT_ENV_SNAPSHOTS.has(name)) return name;
+  const safeEnvironment = fontEnvironment.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+  return name.replace(/\.png$/, `-${safeEnvironment}.png`);
+}
 
 const THEME_STORY = `---
 plotflow: 0.1
@@ -294,7 +306,7 @@ test.describe('Official Theme Center E2E', () => {
       await page.setViewportSize(viewport);
       await page.keyboard.press('Control+0');
       if (viewport.width <= 900) await expectCompactCommandbarActions(page);
-      await expect(graphLab).toHaveScreenshot(`narrative-workbench-${viewport.name}.png`, {
+      await expect(graphLab).toHaveScreenshot(visualSnapshotName(`narrative-workbench-${viewport.name}.png`), {
         animations: 'disabled',
         maxDiffPixelRatio: 0.01,
       });
@@ -420,7 +432,7 @@ test.describe('Official Theme Center E2E', () => {
 
     const workspaceShot = await graphLab.screenshot();
     expect(workspaceShot.length).toBeGreaterThan(5_000);
-    await expect(graphLab).toHaveScreenshot('prism-foundry-source-open-1440x900.png', {
+    await expect(graphLab).toHaveScreenshot(visualSnapshotName('prism-foundry-source-open-1440x900.png'), {
       animations: 'disabled',
       maxDiffPixelRatio: 0.01,
     });
@@ -583,7 +595,7 @@ test.describe('Official Theme Center E2E', () => {
       await page.setViewportSize(viewport);
       await page.keyboard.press('Control+0');
       if (viewport.width <= 900) await expectCompactCommandbarActions(page);
-      await expect(graphLab).toHaveScreenshot(`engine-telemetry-source-${viewport.name}.png`, {
+      await expect(graphLab).toHaveScreenshot(visualSnapshotName(`engine-telemetry-source-${viewport.name}.png`), {
         animations: 'disabled',
         maxDiffPixelRatio: 0.01,
       });
