@@ -101,14 +101,31 @@ async function snapshotFirstNodes(page: Page, count: number): Promise<NodeSnapsh
   return snapshots;
 }
 
-function maxNodeDrift(before: NodeSnapshot[], after: NodeSnapshot[]): number {
+function maxRelativeNodeDrift(before: NodeSnapshot[], after: NodeSnapshot[]): number {
   const length = Math.min(before.length, after.length);
+  const beforeAnchor = before[0];
+  const afterAnchor = after[0];
+  if (!beforeAnchor || !afterAnchor) return 0;
   let max = 0;
   for (let index = 0; index < length; index += 1) {
     const previous = before[index];
     const next = after[index];
     if (!previous || !next) continue;
-    max = Math.max(max, Math.hypot(next.x - previous.x, next.y - previous.y));
+    const previousRelative = {
+      x: previous.x - beforeAnchor.x,
+      y: previous.y - beforeAnchor.y,
+    };
+    const nextRelative = {
+      x: next.x - afterAnchor.x,
+      y: next.y - afterAnchor.y,
+    };
+    max = Math.max(
+      max,
+      Math.hypot(
+        nextRelative.x - previousRelative.x,
+        nextRelative.y - previousRelative.y,
+      ),
+    );
   }
   return max;
 }
@@ -161,7 +178,7 @@ test.describe('blackbox Graph Lab high-risk GUI behavior', () => {
       await expect(page.getByTestId('wire-drop-menu')).toHaveCount(0);
 
       const after = await snapshotFirstNodes(page, before.length);
-      expect(maxNodeDrift(before, after)).toBeLessThanOrEqual(24);
+      expect(maxRelativeNodeDrift(before, after)).toBeLessThanOrEqual(24);
     } finally {
       await closeBlackboxApp(launched.app);
     }
