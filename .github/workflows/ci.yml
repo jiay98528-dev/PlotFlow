@@ -103,6 +103,17 @@ jobs:
           node-version: '22.13.0'
           cache: pnpm
 
+      - name: Pin Windows display resolution
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Add-Type -AssemblyName System.Windows.Forms
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          "Primary display: $($bounds.Width)x$($bounds.Height)"
+          if ($bounds.Width -lt 1440 -or $bounds.Height -lt 900) {
+            throw "Visual E2E requires a display of at least 1440x900."
+          }
+
       - name: Verify pinned Windows font environment
         shell: pwsh
         run: |
