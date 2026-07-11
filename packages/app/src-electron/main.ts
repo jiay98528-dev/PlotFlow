@@ -5,6 +5,10 @@ import { readFile, stat, readdir } from 'node:fs/promises';
 import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { buildMenu, type AppMenuLanguage } from './menu';
+import { IPC_CHANNELS } from '../src/shared/ipcChannels';
+import { createOrderedAsyncDispatcher } from '../src/shared/orderedAsyncDispatcher';
+import { getMainProcessMessages } from './mainProcessI18n';
+import { resolvePendingOpenFile } from './pendingOpenFile';
 import {
   assertWritableContent,
   findStoryFileArgument,
@@ -26,6 +30,7 @@ import {
 // See: https://github.com/mongodb-js/electron-squirrel-startup
 
 let mainWindow: BrowserWindow | null = null;
+let currentMenuLanguage: AppMenuLanguage = 'zh-CN';
 
 registerOfficialThemeProtocolScheme();
 
@@ -69,7 +74,7 @@ async function notifyExternalStoryChange(filePath: string): Promise<void> {
     if (!watchedStoryFile || watchedStoryFile.path !== filePath || watchedStoryFile.lastHash === hash) return;
     if (watchedStoryFile.lastNotifiedHash === hash) return;
     watchedStoryFile.lastNotifiedHash = hash;
-    mainWindow?.webContents.send('file:external-change', {
+    mainWindow?.webContents.send(IPC_CHANNELS.file.externalChange, {
       filePath,
       content,
       hash,
@@ -128,6 +133,24 @@ function startWatchingStoryFile(filePath: string, content: string): void {
  *   - Windows/Linux: process.argv[1] 鍛戒护琛屽弬鏁? *
  * 绐楀彛灏辩华鍚庯紝娓叉煋杩涚▼閫氳繃 file:getPendingOpenFile IPC 鑾峰彇姝よ矾寰勫苟鍔犺浇銆? */
 let pendingFilePath: string | null = null;
+let rendererReadyForSystemOpen = false;
+const systemOpenDispatcher = createOrderedAsyncDispatcher<string>(async (filePath) => {
+    const result = await resolvePendingOpenFile(filePath, readStoryFile);
+    const target = mainWindow;
+    if (!rendererReadyForSystemOpen || !target || target.isDestroyed()) {
+      pendingFilePath = filePath;
+      return;
+    }
+    target.webContents.send(IPC_CHANNELS.file.systemOpenNotify, result);
+});
+
+function dispatchSystemOpenFile(filePath: string): void {
+  void systemOpenDispatcher.enqueue(filePath).catch((error: unknown) => {
+    // eslint-disable-next-line no-console -- main-process system-open failures require durable diagnostics
+    console.error('[PlotFlow] 系统打开文件分发失败', error);
+    pendingFilePath = filePath;
+  });
+}
 
 const APP_ID = 'com.plotflow.app';
 const RENDERER_QUERY_TIMEOUT_MS = 5_000;
@@ -344,7 +367,7 @@ async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesR
  * 由渲染进程通过 window.plotflow.file.save({ path, content, expectedHash }) 触发。
  * 对应 TAD.md §4.2 AutoSaveManager 的主进程写文件逻辑。
  */
-ipcMain.handle('file:save', async (_event, payload: {
+ipcMain.handle(IPC_CHANNELS.file.save, async (_event, payload: {
   path: string;
   content: string;
   expectedHash: string | null;
@@ -414,14 +437,14 @@ ipcMain.handle('file:save', async (_event, payload: {
  * file:open 鈥?鎵撳紑鏂囦欢瀵硅瘽妗?+ 璇诲彇鍐呭
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.open() 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_OPEN 閫氶亾銆? */
-ipcMain.handle('file:open', async () => {
+ipcMain.handle(IPC_CHANNELS.file.open, async () => {
   try {
     focusNativeDialogOwner();
     const openOptions: OpenDialogOptions = {
-      title: '打开 PlotFlow 故事文件',
+      title: getMainProcessMessages(currentMenuLanguage).openStoryTitle,
       filters: [
         { name: 'PlotFlow Story', extensions: ['mdstory'] },
-        { name: '所有文件', extensions: ['*'] },
+        { name: getMainProcessMessages(currentMenuLanguage).allFiles, extensions: ['*'] },
       ],
       properties: ['openFile'],
     };
@@ -443,12 +466,12 @@ ipcMain.handle('file:open', async () => {
  * file:saveAs 鈥?鍙﹀瓨涓哄璇濇 + 鍐欏叆鏂囦欢
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveAs(content) 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_SAVE_AS 閫氶亾銆? */
-ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.saveAs, async (_event, payload: { content: string }) => {
   try {
     assertWritableContent(payload?.content);
     focusNativeDialogOwner();
     const saveOptions: SaveDialogOptions = {
-      title: '保存 PlotFlow 故事文件',
+      title: getMainProcessMessages(currentMenuLanguage).saveStoryTitle,
       filters: [{ name: 'PlotFlow Story', extensions: ['mdstory'] }],
       defaultPath: 'untitled.mdstory',
     };
@@ -478,7 +501,7 @@ ipcMain.handle('file:saveAs', async (_event, payload: { content: string }) => {
  * file:export 鈥?瀵煎嚭鏂囦欢瀵硅瘽妗?+ 鍐欏叆鏂囦欢
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveExport(options) 瑙﹀彂銆? * 鏀寔鎸囧畾鏂囦欢绫诲瀷杩囨护鍣紙濡?.json / .html / .txt锛夊拰寤鸿鏂囦欢鍚嶃€? * 琚彇娑堟椂杩斿洖 null銆? */
-ipcMain.handle('file:export', async (_event, payload: {
+ipcMain.handle(IPC_CHANNELS.file.export, async (_event, payload: {
   content: string;
   defaultPath: string;
   filters: Array<{ name: string; extensions: string[] }>;
@@ -505,7 +528,7 @@ ipcMain.handle('file:export', async (_event, payload: {
 
     focusNativeDialogOwner();
     const exportOptions: SaveDialogOptions = {
-      title: '导出 PlotFlow 文件',
+      title: getMainProcessMessages(currentMenuLanguage).exportTitle,
       filters: payload.filters,
       defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
     };
@@ -526,39 +549,45 @@ ipcMain.handle('file:export', async (_event, payload: {
  * file:getPendingOpenFile 鈥?鑾峰彇绯荤粺鎵撳紑鐨勬枃浠惰矾寰勪笌鍐呭锛圡7-08锛? *
  * 娓叉煋杩涚▼鍦ㄧ獥鍙ｆ寕杞藉悗璋冪敤姝?IPC锛? * 妫€鏌ユ槸鍚︽湁绯荤粺锛堝弻鍑?.mdstory / open-file 浜嬩欢锛変紶閫掔殑鏂囦欢寰呮墦寮€銆? *
  * 杩斿洖 { filePath, content } 鎴?null锛堟棤寰呮墦寮€鏂囦欢锛夈€? * 杩斿洖鍚庢竻闄?pending 鐘舵€侊紝閬垮厤閲嶅鎵撳紑銆? */
-ipcMain.handle('file:getPendingOpenFile', async () => {
-  if (!pendingFilePath) {
-    return null;
-  }
-
+ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async () => {
   const path = pendingFilePath;
-  pendingFilePath = null; // 涓€娆℃€ф秷璐?
-  try {
-    return readStoryFile(path);
-  } catch (error) {
-    console.error(`[PlotFlow] 读取系统打开文件失败: ${path}`, error);
-    return null;
+  pendingFilePath = null;
+  const result = await resolvePendingOpenFile(path, readStoryFile);
+  if (result.status === 'error') {
+    console.error(`[PlotFlow] 读取系统打开文件失败: ${result.path} (${result.code})`);
+    const text = getMainProcessMessages(currentMenuLanguage);
+    const options: MessageBoxOptions = {
+      type: 'error',
+      title: 'PlotFlow',
+      message: text.systemOpenFailedMessage,
+      detail: text.systemOpenFailedDetail(result.path, result.code),
+      buttons: [text.okButton],
+    };
+    const owner = focusNativeDialogOwner();
+    if (owner) await dialog.showMessageBox(owner, options);
+    else await dialog.showMessageBox(options);
   }
+  return result;
 });
 
 /**
  * file:readByPath 鈥?鎸夎矾寰勮鍙栨枃浠跺唴瀹?(M7-08)
  *
  * 娓叉煋杩涚▼鍦ㄦ敹鍒扮郴缁熸枃浠舵墦寮€閫氱煡鍚庤皟鐢ㄦ IPC锛? * 璇诲彇鎸囧畾璺緞鐨?.mdstory 鏂囦欢鍐呭銆? */
-ipcMain.handle('file:readByPath', async (_event, payload: { path: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.readByPath, async (_event, payload: { path: string }) => {
   try {
-    return readStoryFile(payload.path);
+    return await readStoryFile(payload.path);
   } catch (error) {
     console.error(`[PlotFlow] 读取文件失败: ${payload.path}`, error);
     return null;
   }
 });
 
-ipcMain.handle('file:chooseWorkspaceFolder', async () => {
+ipcMain.handle(IPC_CHANNELS.file.chooseWorkspaceFolder, async () => {
   try {
     focusNativeDialogOwner();
     const workspaceOptions: OpenDialogOptions = {
-      title: '选择 PlotFlow 工作区',
+      title: getMainProcessMessages(currentMenuLanguage).chooseWorkspaceTitle,
       properties: ['openDirectory'],
     };
     const result = await dialog.showOpenDialog(workspaceOptions);
@@ -573,7 +602,7 @@ ipcMain.handle('file:chooseWorkspaceFolder', async () => {
   }
 });
 
-ipcMain.handle('file:listWorkspaceStories', async (_event, payload: { rootPath: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.listWorkspaceStories, async (_event, payload: { rootPath: string }) => {
   try {
     return listWorkspaceStories(payload.rootPath);
   } catch (error) {
@@ -581,7 +610,7 @@ ipcMain.handle('file:listWorkspaceStories', async (_event, payload: { rootPath: 
   }
 });
 
-ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: string; filePath: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.readWorkspaceStory, async (_event, payload: { rootPath: string; filePath: string }) => {
   try {
     const rootPath = normalize(payload.rootPath);
     const filePath = normalize(payload.filePath);
@@ -597,7 +626,7 @@ ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: st
  * dialog:confirm 鈥?浠庢覆鏌撹繘绋嬭皟鐢ㄥ師鐢熸秷鎭璇濇
  *
  * 渚涙覆鏌撹繘绋嬮€氳繃 window.plotflow.dialog.confirm(options) 瑙﹀彂銆? * 杩斿洖鐢ㄦ埛鐐瑰嚮鐨勬寜閽储寮曪紙0-based锛夛紝dialog 鍏抽棴鏃惰繑鍥?-1銆? */
-ipcMain.handle('dialog:confirm', async (_event, options: {
+ipcMain.handle(IPC_CHANNELS.dialog.confirm, async (_event, options: {
   type?: 'none' | 'info' | 'error' | 'question' | 'warning';
   message: string;
   detail: string;
@@ -619,28 +648,29 @@ ipcMain.handle('dialog:confirm', async (_event, options: {
   return result.response;
 });
 
-ipcMain.handle('theme:listOfficialInstalled', async () => {
+ipcMain.handle(IPC_CHANNELS.theme.listOfficialInstalled, async () => {
   return listInstalledOfficialThemes();
 });
 
-ipcMain.handle('theme:listOfficialRemote', async () => {
+ipcMain.handle(IPC_CHANNELS.theme.listOfficialRemote, async () => {
   return listOfficialRemoteThemeViews();
 });
 
-ipcMain.handle('theme:downloadOfficialTheme', async (_event, themeId: string) => {
+ipcMain.handle(IPC_CHANNELS.theme.downloadOfficialTheme, async (_event, themeId: string) => {
   return downloadOfficialTheme(themeId);
 });
 
-ipcMain.handle('theme:openThemeMarket', async () => {
+ipcMain.handle(IPC_CHANNELS.theme.openThemeMarket, async () => {
   await shell.openExternal('https://plotflow.app/themes');
 });
 
-ipcMain.handle('theme:openOfficialThemeStore', async () => {
+ipcMain.handle(IPC_CHANNELS.theme.openOfficialThemeStore, async () => {
   await shell.openExternal('https://plotflow.app/themes');
 });
 
-ipcMain.on('menu:setLanguage', (_event, language: AppMenuLanguage) => {
+ipcMain.on(IPC_CHANNELS.menu.setLanguage, (_event, language: AppMenuLanguage) => {
   const nextLanguage = language === 'en-US' ? 'en-US' : 'zh-CN';
+  currentMenuLanguage = nextLanguage;
   Menu.setApplicationMenu(buildMenu(nextLanguage));
 });
 
@@ -667,6 +697,17 @@ function createWindow(): void {
     },
   });
 
+  rendererReadyForSystemOpen = false;
+  mainWindow.webContents.on('did-start-loading', () => {
+    rendererReadyForSystemOpen = false;
+  });
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererReadyForSystemOpen = true;
+    const pending = pendingFilePath;
+    pendingFilePath = null;
+    if (pending) dispatchSystemOpenFile(pending);
+  });
+
   // In development, load from Vite dev server
   // eslint-disable-next-line dot-notation
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -676,21 +717,24 @@ function createWindow(): void {
   }
 
   mainWindow.on('closed', () => {
+    rendererReadyForSystemOpen = false;
     stopWatchingStoryFile();
     mainWindow = null;
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    rendererReadyForSystemOpen = false;
     console.error('[PlotFlow] 渲染进程退出', details.reason, details.exitCode);
     if (details.reason === 'clean-exit' || mainWindow === null) return;
 
     const affectedWindow = mainWindow;
+    const text = getMainProcessMessages(currentMenuLanguage);
     void dialog.showMessageBox(affectedWindow, {
       type: 'error',
       title: 'PlotFlow',
-      message: '编辑器渲染进程意外退出',
-      detail: '可以尝试重新加载编辑器。尚未写入磁盘的内容可能无法恢复。',
-      buttons: ['重新加载', '关闭'],
+      message: text.rendererCrashMessage,
+      detail: text.rendererCrashDetail,
+      buttons: [...text.rendererCrashButtons],
       defaultId: 0,
       cancelId: 1,
     }).then(({ response }) => {
@@ -719,16 +763,15 @@ function createWindow(): void {
       );
 
       if (state && state.isDirty) {
+        const text = getMainProcessMessages(currentMenuLanguage);
         const result = await dialog.showMessageBox(mainWindow, {
           type: 'warning',
-          buttons: ['保存', '不保存', '取消'],
+          buttons: [...text.unsavedButtons],
           defaultId: 0,
           cancelId: 2,
           title: 'PlotFlow',
-          message: '有未保存的更改',
-          detail: state.filePath
-            ? `"${state.filePath}" 有未保存的更改。退出前是否保存？`
-            : '未命名文件有未保存的更改。退出前是否保存？',
+          message: text.unsavedMessage,
+          detail: text.unsavedDetail(state.filePath),
         });
 
         if (result.response === 0) {
@@ -768,13 +811,10 @@ app.on('open-file', (event, path) => {
     return;
   }
 
-  pendingFilePath = path;
   console.log(`[PlotFlow] macOS open-file: ${path}`);
 
-  // 濡傛灉绐楀彛宸插瓨鍦紝閫氱煡娓叉煋杩涚▼鏈夋枃浠跺緟鎵撳紑
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('file:system-open-notify', path);
-  }
+  if (rendererReadyForSystemOpen && mainWindow && !mainWindow.isDestroyed()) dispatchSystemOpenFile(path);
+  else pendingFilePath = path;
 });
 
 /**
@@ -813,14 +853,17 @@ if (!hasSingleInstanceLock) {
     mainWindow.show();
     mainWindow.focus();
     if (hasStoryFile && pendingFilePath) {
-      mainWindow.webContents.send('file:system-open-notify', pendingFilePath);
+      const path = pendingFilePath;
+      pendingFilePath = null;
+      if (rendererReadyForSystemOpen) dispatchSystemOpenFile(path);
+      else pendingFilePath = path;
     }
   });
 
   app.whenReady().then(() => {
     checkCommandLineArgs();
     registerOfficialThemeProtocolHandler();
-    Menu.setApplicationMenu(buildMenu());
+    Menu.setApplicationMenu(buildMenu(currentMenuLanguage));
     createWindow();
 
     app.on('activate', () => {

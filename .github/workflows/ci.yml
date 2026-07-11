@@ -6,136 +6,144 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint:
+  ubuntu-gates:
+    name: Ubuntu quality gates
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with: { version: 9 }
+
+      - name: Setup pnpm 11.5.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
+        with:
+          node-version: '20'
+          cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: ESLint check
+
+      - name: ESLint
         run: pnpm lint
 
-  stylelint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Stylelint CSS check
-        run: pnpm lint:css
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: TypeScript type check
+      - name: TypeScript
         run: pnpm typecheck
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
       - name: Unit tests
         run: pnpm test
 
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
       - name: Production build
         run: pnpm build
 
-  audit:
-    runs-on: ubuntu-latest
-    continue-on-error: true  # 已知 Electron 28 不可升级漏洞，不阻断 CI
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with: { version: 9 }
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'pnpm' }
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: CSS and design-token gates
+        run: |
+          pnpm lint:css
+          pnpm lint:tokens
+          pnpm lint:layers
+          pnpm lint:bundle
+
+      - name: Graph primary-path UI literal scan
+        run: pnpm lint:ui-literals
+
+      - name: Documentation UTF-8 mojibake gate
+        run: pnpm lint:docs
+
+      - name: JSON Schema mirror check
+        run: pnpm check:schema
+
+      - name: Engine consumption contracts
+        run: pnpm test:engine-contract
+
       - name: Dependency security audit (moderate+)
         run: pnpm audit --audit-level moderate
 
-  tsx-color-scan:
-    runs-on: ubuntu-latest
+      - name: Website lint, typecheck and tests
+        run: |
+          pnpm --dir website lint
+          pnpm --dir website typecheck
+          pnpm --dir website test
+
+      - name: Website static build and verification
+        run: |
+          pnpm --dir website build:static
+          pnpm --dir website verify:static
+
+  windows-e2e:
+    name: Windows app and blackbox E2E
+    if: github.event_name == 'pull_request'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      PLOTFLOW_VISUAL_FONT_ENV: windows-2022-segoe-ui
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Scan TSX for bare hex colors (excluding var() fallbacks)
+
+      - name: Setup pnpm 11.5.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Verify pinned Windows font environment
+        shell: pwsh
         run: |
-          # 查找 TSX 内联样式中的裸 hex 色值
-          # 排除: var(--*) 回退值、MINIMAP_SVG 标记区域、nodeColor/maskColor 上下文
-          VIOLATIONS=$(grep -rn "'#[0-9a-fA-F]\{3,8\}'" packages/app/src/components/ --include='*.tsx' \
-            | grep -v "var(--" \
-            | grep -v "MINIMAP_SVG" \
-            | grep -v "nodeColor\|maskColor" \
-            || true)
-          if [ -n "$VIOLATIONS" ]; then
-            echo "❌ TSX bare hex color values found (must use var(--color-*) tokens):"
-            echo "$VIOLATIONS"
-            exit 1
-          else
-            echo "✅ No bare hex colors in TSX (all use Design Tokens)"
-          fi
+          $font = Get-Item -LiteralPath "$env:WINDIR\Fonts\segoeui.ttf"
+          "Segoe UI file version: $($font.VersionInfo.FileVersion)"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm build
+
+      - name: App integration E2E and visual journeys
+        run: pnpm --filter @plotflow/app test:e2e
+
+      - name: Source blackbox E2E
+        run: pnpm --filter @plotflow/app test:e2e:blackbox
+
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-failure-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            test-results/**
+            packages/app/test-results/**
+            playwright-report/**
+            packages/app/playwright-report/**
 
   placeholder-scan:
+    name: Placeholder code scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Scan for placeholder code (待 M[0-9])
+      - name: Reject milestone placeholders
         run: |
           if grep -rn "待 M[0-9]" packages/app/src/; then
-            echo "❌ Placeholder code detected! Blocking merge."
+            echo "Placeholder code detected."
             exit 1
-          else
-            echo "✅ No placeholder code found."
           fi
+          echo "No milestone placeholder code found."

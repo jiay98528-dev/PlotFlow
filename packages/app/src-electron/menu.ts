@@ -4,6 +4,8 @@ import {
   Menu,
   type MenuItemConstructorOptions,
 } from 'electron';
+import { IPC_CHANNELS } from '../src/shared/ipcChannels';
+import type { MenuEventChannel } from '../src/shared/ipcChannels';
 
 export type AppMenuLanguage = 'zh-CN' | 'en-US';
 
@@ -98,7 +100,7 @@ const labels: Record<AppMenuLanguage, {
   },
 };
 
-function sendToRenderer(channel: string, ...args: unknown[]): void {
+function sendToRenderer(channel: MenuEventChannel, ...args: unknown[]): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
   if (win?.webContents && !win.webContents.isDestroyed()) {
     win.webContents.send(channel, ...args);
@@ -131,23 +133,23 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
         {
           label: text.new,
           accelerator: 'CmdOrCtrl+N',
-          click: () => sendToRenderer('menu:file:new'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.fileNew),
         },
         {
           label: text.open,
           accelerator: 'CmdOrCtrl+O',
-          click: () => sendToRenderer('menu:file:open'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.fileOpen),
         },
         { type: 'separator' },
         {
           label: text.save,
           accelerator: 'CmdOrCtrl+S',
-          click: () => sendToRenderer('menu:file:save'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.fileSave),
         },
         {
           label: text.saveAs,
           accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => sendToRenderer('menu:file:saveAs'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.fileSaveAs),
         },
         { type: 'separator' },
         ...(IS_MAC
@@ -167,12 +169,12 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
         {
           label: text.undo,
           accelerator: 'CmdOrCtrl+Z',
-          click: () => sendToRenderer('menu:edit:undo'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.editUndo),
         },
         {
           label: text.redo,
           accelerator: IS_MAC ? 'Cmd+Shift+Z' : 'CmdOrCtrl+Y',
-          click: () => sendToRenderer('menu:edit:redo'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.editRedo),
         },
         { type: 'separator' },
         { label: text.cut, accelerator: 'CmdOrCtrl+X', role: 'cut' },
@@ -183,12 +185,12 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
         {
           label: text.find,
           accelerator: 'CmdOrCtrl+F',
-          click: () => sendToRenderer('menu:edit:find'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.editFind),
         },
         {
           label: text.replace,
           accelerator: 'CmdOrCtrl+H',
-          click: () => sendToRenderer('menu:edit:replace'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.editReplace),
         },
       ],
     },
@@ -198,22 +200,22 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
         {
           label: text.outline,
           accelerator: 'CmdOrCtrl+Shift+O',
-          click: () => sendToRenderer('menu:view:toggleOutline'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.viewToggleOutline),
         },
         {
           label: text.branchGraph,
           accelerator: 'CmdOrCtrl+Shift+G',
-          click: () => sendToRenderer('menu:view:toggleGraph'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.viewToggleGraph),
         },
         {
           label: text.problems,
           accelerator: 'CmdOrCtrl+Shift+M',
-          click: () => sendToRenderer('menu:view:toggleProblems'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.viewToggleProblems),
         },
         { type: 'separator' },
         {
           label: text.themeCenter,
-          click: () => sendToRenderer('menu:view:themeBrowser'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.viewThemeBrowser),
         },
       ],
     },
@@ -223,17 +225,17 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
         {
           label: text.exportJson,
           accelerator: 'CmdOrCtrl+E',
-          click: () => sendToRenderer('menu:export:json'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.exportJson),
         },
         {
           label: text.exportHtml,
           accelerator: 'CmdOrCtrl+Shift+E',
-          click: () => sendToRenderer('menu:export:html'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.exportHtml),
         },
         {
           label: text.exportTxt,
           accelerator: 'CmdOrCtrl+Alt+E',
-          click: () => sendToRenderer('menu:export:txt'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.exportTxt),
         },
       ],
     },
@@ -245,13 +247,13 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
           : [
               {
                 label: text.about,
-                click: () => sendToRenderer('menu:help:about'),
+                click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpAbout),
               },
               { type: 'separator' as const },
             ]),
         {
           label: text.docs,
-          click: () => sendToRenderer('menu:help:docs'),
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpDocs),
         },
       ],
     },

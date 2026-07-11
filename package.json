@@ -23,7 +23,12 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:css": "stylelint \"packages/app/src/**/*.css\"",
     "lint:tokens": "node scripts/check-no-tsx-colors.mjs",
+    "lint:layers": "node scripts/check-ui-layer-tokens.mjs",
     "lint:bundle": "node scripts/check-renderer-bundle-budget.mjs",
+    "lint:ui-literals": "node scripts/check-ui-literals.mjs",
+    "lint:docs": "node scripts/check-doc-mojibake.mjs",
+    "check:schema": "node scripts/sync-story-schema.mjs --check",
+    "test:engine-contract": "node --test tests/engine-contract/engine-contract.test.mjs",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
   },

@@ -1,0 +1,178 @@
+name: Windows Release Validation
+
+on:
+  schedule:
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+    inputs:
+      run_installed:
+        description: Run the protected self-hosted installed-app gate
+        required: true
+        default: false
+        type: boolean
+      installed_path:
+        description: Absolute path to the freshly installed PlotFlow.exe
+        required: false
+        default: 'D:\PF\PlotFlow\PlotFlow.exe'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-validation
+  cancel-in-progress: false
+
+jobs:
+  package-unpacked:
+    name: Fresh package, unpacked blackbox and performance
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm 11.5.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build fresh Windows package
+        run: pnpm package:win
+
+      - name: Run unpacked blackbox
+        run: pnpm --filter @plotflow/app test:e2e:unpacked
+
+      - name: Run unpacked 100, 500 and 1000 node performance journeys
+        shell: pwsh
+        run: |
+          $env:PLOTFLOW_BLACKBOX_TARGET = 'winUnpacked'
+          pnpm.cmd --filter @plotflow/app test:e2e:blackbox:perf
+
+      - name: Generate SHA256 manifest
+        shell: pwsh
+        run: |
+          $releaseRoot = (Resolve-Path -LiteralPath 'release').Path
+          $files = @(
+            Get-ChildItem -LiteralPath 'release' -File -Filter 'PlotFlow Setup *.exe'
+            Get-ChildItem -LiteralPath 'release/win-unpacked' -File -Filter 'PlotFlow.exe'
+          ) | Sort-Object FullName
+          if ($files.Count -ne 2) {
+            throw "Expected one installer and one unpacked executable, found $($files.Count)."
+          }
+          $lines = foreach ($file in $files) {
+            $relative = $file.FullName.Substring($releaseRoot.Length + 1).Replace('\', '/')
+            "$(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256 | Select-Object -ExpandProperty Hash) *$relative"
+          }
+          $lines | Set-Content -LiteralPath 'release/SHA256SUMS.txt' -Encoding utf8
+          Get-Content -LiteralPath 'release/SHA256SUMS.txt'
+
+      - name: Upload package and SHA256 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: plotflow-windows-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            release/PlotFlow Setup *.exe
+            release/PlotFlow Setup *.exe.blockmap
+            release/win-unpacked/PlotFlow.exe
+            release/SHA256SUMS.txt
+
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-validation-failure-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            test-results/**
+            packages/app/test-results/**
+            playwright-report/**
+            packages/app/playwright-report/**
+
+  installed:
+    name: Protected installed-app blackbox
+    if: github.event_name == 'workflow_dispatch' && inputs.run_installed == true
+    needs: package-unpacked
+    runs-on: [self-hosted, Windows]
+    environment: windows-installed-release
+    timeout-minutes: 90
+    env:
+      REQUESTED_INSTALLED_PATH: ${{ inputs.installed_path }}
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm 11.5.1
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download package from this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: plotflow-windows-${{ github.sha }}
+          path: validated-release
+
+      - name: Verify package hash and installed executable path
+        shell: pwsh
+        run: |
+          $manifestPath = Resolve-Path -LiteralPath 'validated-release/SHA256SUMS.txt'
+          $manifest = Get-Content -LiteralPath $manifestPath
+          $installer = Get-ChildItem -LiteralPath 'validated-release' -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Downloaded installer is missing.' }
+          $installerEntry = $manifest | Where-Object { $_ -like "* *$($installer.Name)" } | Select-Object -First 1
+          if (-not $installerEntry) { throw 'Installer is missing from SHA256SUMS.txt.' }
+          $expectedInstallerHash = ($installerEntry -split ' ')[0]
+          $actualInstallerHash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash
+          if ($actualInstallerHash -ne $expectedInstallerHash) { throw 'Installer SHA256 mismatch.' }
+
+          $installed = (Resolve-Path -LiteralPath $env:REQUESTED_INSTALLED_PATH).Path
+          if ([IO.Path]::GetFileName($installed) -ne 'PlotFlow.exe') { throw 'Installed path must resolve to PlotFlow.exe.' }
+          if ($installed.StartsWith($env:GITHUB_WORKSPACE, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Installed blackbox cannot target a workspace or unpacked build.'
+          }
+          $unpackedEntry = $manifest | Where-Object { $_ -like '* *win-unpacked/PlotFlow.exe' } | Select-Object -First 1
+          if (-not $unpackedEntry) { throw 'Unpacked executable is missing from SHA256SUMS.txt.' }
+          $expectedExecutableHash = ($unpackedEntry -split ' ')[0]
+          $actualExecutableHash = (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash
+          if ($actualExecutableHash -ne $expectedExecutableHash) {
+            throw 'Installed executable does not match the freshly packaged executable.'
+          }
+          "PLOTFLOW_INSTALLED_EXE=$installed" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Run installed blackbox
+        run: pnpm --filter @plotflow/app test:e2e:installed
+
+      - name: Upload installed-gate failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installed-blackbox-failure-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            test-results/**
+            packages/app/test-results/**
+            playwright-report/**
+            packages/app/playwright-report/**

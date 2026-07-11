@@ -33,6 +33,7 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "ajv": "8.20.0",
     "electron": "^42.5.0",
     "electron-vite": "^5.0.0",
     "playwright": "1.61.1",
