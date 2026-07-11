@@ -13,6 +13,9 @@ import type {
   OfficialThemeDownloadResult,
   OfficialThemeRemoteView,
 } from '../theme-platform/types';
+import type { MenuEventChannel } from '../shared/ipcChannels';
+
+export type { MenuEventChannel } from '../shared/ipcChannels';
 
 // ============================================================================
 // 鏂囦欢鎿嶄綔绫诲瀷
@@ -25,6 +28,13 @@ export interface FileOpenResult {
   readonly hash: string;
   readonly modifiedAt: number;
 }
+
+export type PendingOpenFileResult =
+  | { readonly status: 'none' }
+  | { readonly status: 'opened'; readonly story: FileOpenResult }
+  | { readonly status: 'error'; readonly path: string; readonly code: string };
+
+export type SystemOpenFileResult = PendingOpenFileResult;
 
 /** 鏂囦欢淇濆瓨鎿嶄綔鐨勭粨鏋?*/
 export type FileSaveResult =
@@ -102,7 +112,7 @@ export interface FileAPI {
    * 绐楀彛鎸傝浇鍚庤皟鐢紝杩斿洖 { filePath, content } 鎴?null銆?
    * 杩斿洖鍚?pending 鐘舵€佽娓呴櫎锛岄伩鍏嶉噸澶嶆墦寮€銆?
    */
-  getPendingOpenFile: () => Promise<FileOpenResult | null>;
+  getPendingOpenFile: () => Promise<PendingOpenFileResult>;
 
   /**
    * 鐩戝惉绯荤粺鏂囦欢鎵撳紑閫氱煡锛堝綋搴旂敤宸茶繍琛屼笖鐢ㄦ埛鍙屽嚮 .mdstory 鏃惰Е鍙戯級銆?
@@ -113,7 +123,7 @@ export interface FileAPI {
    * @param callback - 鏂囦欢璺緞鍥炶皟
    * @returns 娓呯悊鍑芥暟锛岀敤浜庣Щ闄や簨浠剁洃鍚櫒
    */
-  onSystemOpenFile: (callback: (filePath: string) => void) => () => void;
+  onSystemOpenFile: (callback: (result: SystemOpenFileResult) => void) => () => void;
 
   onExternalChange: (callback: (event: FileExternalChangeEvent) => void) => () => void;
 
@@ -155,25 +165,6 @@ export interface Versions {
 // ============================================================================
 
 /** 鑿滃崟浜嬩欢棰戦亾鍚嶇О */
-export type MenuEventChannel =
-  | 'menu:file:new'
-  | 'menu:file:open'
-  | 'menu:file:save'
-  | 'menu:file:saveAs'
-  | 'menu:edit:undo'
-  | 'menu:edit:redo'
-  | 'menu:edit:find'
-  | 'menu:edit:replace'
-  | 'menu:view:toggleOutline'
-  | 'menu:view:toggleGraph'
-  | 'menu:view:toggleProblems'
-  | 'menu:view:themeBrowser'
-  | 'menu:export:json'
-  | 'menu:export:html'
-  | 'menu:export:txt'
-  | 'menu:help:about'
-  | 'menu:help:docs';
-
 /** 鑿滃崟浜嬩欢 API 鈥?娉ㄥ唽/绉婚櫎涓昏繘绋嬭彍鍗曡Е鍙戠殑 IPC 浜嬩欢鐩戝惉鍣?*/
 export interface MenuAPI {
   /**
@@ -275,6 +266,7 @@ export interface TestStoreBridge {
   getGraphZoom: () => number;
   setEditorContent: (content: string) => void;
   setEditorContentPreservingUI: (content: string) => void;
+  applyExternalFileContent: (event: FileExternalChangeEvent) => void;
   openConditionEditor: (nodeId: string, optionIndex: number) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
   getUIState: () => {

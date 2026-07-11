@@ -27,6 +27,9 @@ export interface CursorPosition {
 
 /** 编辑器状态 */
 export interface EditorState {
+  /** 当前故事会话的单调递增标识；新建、打开或外部重载时变化。 */
+  readonly storySessionId: number;
+
   /** 自上次保存后是否有未保存的修改 */
   readonly isDirty: boolean;
 
@@ -61,6 +64,9 @@ export interface EditorState {
   /** 设置编辑器文本内容，同时标记为脏状态 */
   setContent: (content: string) => void;
 
+  /** 开始新的故事会话，使所有仅属于当前会话的 UI 草稿失效。 */
+  beginStorySession: () => void;
+
   /** 标记为已保存（清除脏状态） */
   markSaved: () => void;
 
@@ -94,6 +100,7 @@ export interface EditorState {
 // ============================================================================
 
 const initialState = {
+  storySessionId: 0,
   isDirty: false,
   content: '',
   filePath: null,
@@ -105,7 +112,7 @@ const initialState = {
   diagnostics: [],
   activeNodeId: null,
   editorInstance: null,
-} as const satisfies Omit<EditorState, 'setContent' | 'markSaved' | 'setFilePath' | 'setFileBaseline' | 'setPendingExternalChange' | 'clearPendingExternalChange' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
+} as const satisfies Omit<EditorState, 'setContent' | 'beginStorySession' | 'markSaved' | 'setFilePath' | 'setFileBaseline' | 'setPendingExternalChange' | 'clearPendingExternalChange' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
 
 // ============================================================================
 // Store
@@ -124,6 +131,13 @@ export const useEditorStore = create<EditorState>()(
           { content, isDirty: true },
           false,
           'editor/setContent',
+        ),
+
+      beginStorySession: () =>
+        set(
+          (state) => ({ storySessionId: state.storySessionId + 1 }),
+          false,
+          'editor/beginStorySession',
         ),
 
       markSaved: () =>
@@ -193,7 +207,7 @@ export const useEditorStore = create<EditorState>()(
 
       reset: () =>
         set(
-          { ...initialState },
+          (state) => ({ ...initialState, storySessionId: state.storySessionId + 1 }),
           false,
           'editor/reset',
         ),

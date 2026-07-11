@@ -39,11 +39,13 @@ import {
   saveOrSaveAs,
 } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
-import { rememberOpenedStory } from '../services/recentFileService';
 import { loadSavedStorySession, startUnsavedStorySession } from '../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
+import { requestWorkspaceMode, toggleRequestedWorkspaceMode } from '../services/workspaceModeService';
+import type { PendingOpenFileResult } from '../types/electron';
+import { createOrderedAsyncDispatcher } from '../shared/orderedAsyncDispatcher';
 
 // ============================================================================
 // P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
@@ -102,8 +104,6 @@ function AppContent(): React.ReactElement {
   const activeRightPanel = useUIStore((state) => state.activeRightPanel);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const workspaceMode = useUIStore((state) => state.workspaceMode);
-  const setWorkspaceMode = useUIStore((state) => state.setWorkspaceMode);
-  const toggleWorkspaceMode = useUIStore((state) => state.toggleWorkspaceMode);
   const text = useAppText();
 
   const viewMode = useGraphStore((state) => state.viewMode);
@@ -172,67 +172,40 @@ function AppContent(): React.ReactElement {
   // 绐楀彛棣栨鎸傝浇鏃惰皟鐢?getPendingOpenFile()锛屾秷璐规枃浠舵墦寮€绯荤粺浜嬩欢銆?
   useEffect(() => {
     let cancelled = false;
-
-    (async () => {
-      if (!window.plotflow?.file?.getPendingOpenFile) return;
-
-      const pending = await window.plotflow.file.getPendingOpenFile();
-      if (!pending || cancelled) return;
-
-      const { filePath, content, hash, modifiedAt } = pending;
-      const normalizedPath = normalizeStoryPath(filePath);
+    const consume = async (result: PendingOpenFileResult): Promise<void> => {
+      if (cancelled || result.status === 'none') return;
+      if (result.status === 'error') {
+        setStatusMessage(text('file.pendingOpenFailed', { path: result.path, code: result.code }));
+        return;
+      }
       const canReplace = await confirmBeforeReplacingCurrentStory('open');
       if (cancelled || !canReplace) return;
-
-      if (cancelled) return;
-
-      loadSavedStorySession({ filePath: normalizedPath, content, hash, modifiedAt, closeHome: true });
+      const normalizedPath = normalizeStoryPath(result.story.filePath);
+      loadSavedStorySession({
+        filePath: normalizedPath,
+        content: result.story.content,
+        hash: result.story.hash,
+        modifiedAt: result.story.modifiedAt,
+        closeHome: true,
+      });
       setHomeSurfaceOpen(false);
       setStatusMessage(text('status.opened', { path: normalizedPath }));
-    })();
+    };
+    const dispatcher = createOrderedAsyncDispatcher(consume);
+    const enqueue = (result: PendingOpenFileResult): void => {
+      void dispatcher.enqueue(result);
+    };
+
+    const cleanup = window.plotflow?.file?.onSystemOpenFile?.(enqueue);
+    void window.plotflow?.file?.getPendingOpenFile?.().then(enqueue);
 
     return () => {
       cancelled = true;
+      cleanup?.();
     };
   }, [setHomeSurfaceOpen, setStatusMessage, text]);
 
   // P0-6: 杩愯鏃剁洃鍚郴缁熸枃浠舵墦寮€閫氱煡锛堝簲鐢ㄥ凡杩愯锛岀敤鎴峰弻鍑?.mdstory 鏂囦欢鏃惰Е鍙戯級
-  useEffect(() => {
-    if (!window.plotflow?.file?.onSystemOpenFile) return;
-
-    const cleanup = window.plotflow.file.onSystemOpenFile(async (filePath: string) => {
-      const canReplace = await confirmBeforeReplacingCurrentStory('open');
-      if (!canReplace) return;
-
-      // 閫氳繃 IPC 璇诲彇鏂囦欢鍐呭
-      if (!window.plotflow?.file?.readByPath) {
-        setStatusMessage(text('file.readIpcUnavailable'));
-        return;
-      }
-
-      const result = await window.plotflow.file.readByPath(filePath);
-      if (!result) {
-        setStatusMessage(text('file.cannotRead', { path: filePath }));
-        return;
-      }
-
-      const normalizedPath = normalizeStoryPath(result.filePath);
-      rememberOpenedStory(result);
-      loadSavedStorySession({
-        filePath: normalizedPath,
-        content: result.content,
-        hash: result.hash,
-        modifiedAt: result.modifiedAt,
-        closeHome: true,
-        rememberRecent: false,
-      });
-      setHomeSurfaceOpen(false);
-      setStatusMessage(text('status.opened', { path: normalizedPath }));
-    });
-
-    return cleanup;
-  }, [setHomeSurfaceOpen, setStatusMessage, text]);
-
   useEffect(() => {
     if (!window.plotflow?.file?.onExternalChange) return;
 
@@ -247,35 +220,40 @@ function AppContent(): React.ReactElement {
 
       if (!hasCurrentStoryUnsavedChanges()) {
         applyExternalFileContent(normalizedEvent);
-        setStatusMessage(`Reloaded external changes: ${normalizedEvent.filePath}`);
+        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
         return;
       }
 
       editor.setPendingExternalChange(normalizedEvent);
       const choice = await window.plotflow.dialog.confirm({
         type: 'warning',
-        message: 'File changed on disk',
-        detail: `${normalizedEvent.filePath}\n\nThe file was modified outside PlotFlow. Save a copy of your current edits, reload the disk version, overwrite the disk version, or keep editing without reloading.`,
-        buttons: ['Save Copy', 'Reload Disk', 'Overwrite Disk', 'Keep Editing'],
+        message: text('appShell.externalChangeTitle'),
+        detail: text('appShell.externalChangeDetail', { path: normalizedEvent.filePath }),
+        buttons: [
+          text('appShell.saveCopy'),
+          text('appShell.reloadDisk'),
+          text('appShell.overwriteDisk'),
+          text('appShell.keepEditing'),
+        ],
       });
 
       if (choice === 0) {
         const saved = await saveAsCurrentFile();
         if (saved) {
-          setStatusMessage('Saved a copy; external change no longer blocks the new file');
+          setStatusMessage(text('appShell.copySaved'));
         }
       } else if (choice === 1) {
         applyExternalFileContent(normalizedEvent);
-        setStatusMessage(`Reloaded external changes: ${normalizedEvent.filePath}`);
+        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
       } else if (choice === 2) {
         void overwritePendingExternalChange();
       } else {
-        setStatusMessage('External file change kept pending');
+        setStatusMessage(text('appShell.externalPending'));
       }
     });
 
     return cleanup;
-  }, [setStatusMessage]);
+  }, [setStatusMessage, text]);
 
   const handleTemplateSelected = useCallback(
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
@@ -310,13 +288,13 @@ function AppContent(): React.ReactElement {
 
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'g') {
         event.preventDefault();
-        toggleWorkspaceMode();
+        toggleRequestedWorkspaceMode();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleWorkspaceMode]);
+  }, []);
 
   useEffect(() => {
     if (!window.plotflow?.env?.isTest) {
@@ -338,11 +316,14 @@ function AppContent(): React.ReactElement {
         useEditorStore.getState().setContent(content);
         parsePipelineNow(content);
       },
+      applyExternalFileContent: (event) => {
+        applyExternalFileContent(event);
+      },
       openConditionEditor: (nodeId: string, optionIndex: number) => {
         useUIStore.getState().openConditionEditor(nodeId, optionIndex);
       },
       setWorkspaceMode: (mode: 'split' | 'graphLab') => {
-        useUIStore.getState().setWorkspaceMode(mode);
+        requestWorkspaceMode(mode);
       },
       getUIState: () => {
         const state = useUIStore.getState();
@@ -397,10 +378,10 @@ function AppContent(): React.ReactElement {
               onClick={() => setHomeSurfaceOpen(true)}
             >
               <span className="app-logo" aria-hidden="true">
-                Pf
+                {text('appShell.brandMark')}
               </span>
               <div>
-                <h1 className="app-title">PlotFlow V0.1</h1>
+                <h1 className="app-title">{text('appShell.version')}</h1>
                 <p className="app-subtitle">{text('toolbar.phase')}</p>
               </div>
               <Home aria-hidden="true" size={15} strokeWidth={2} />
@@ -425,7 +406,7 @@ function AppContent(): React.ReactElement {
                 className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
                 data-testid="workspace-mode-split"
                 onClick={() => {
-                  setWorkspaceMode('split');
+                  requestWorkspaceMode('split');
                   setHomeSurfaceOpen(false);
                 }}
                 aria-pressed={workspaceMode === 'split'}
@@ -438,7 +419,7 @@ function AppContent(): React.ReactElement {
                 className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
                 data-testid="workspace-mode-graph-lab"
                 onClick={() => {
-                  setWorkspaceMode('graphLab');
+                  requestWorkspaceMode('graphLab');
                   setHomeSurfaceOpen(false);
                 }}
                 aria-pressed={workspaceMode === 'graphLab'}
@@ -473,8 +454,8 @@ function AppContent(): React.ReactElement {
                 value={language}
                 onChange={handleLanguageChange}
               >
-                <option value="zh-CN">中文</option>
-                <option value="en-US">English</option>
+                <option value="zh-CN">{text('appShell.languageChinese')}</option>
+                <option value="en-US">{text('appShell.languageEnglish')}</option>
               </select>
             </label>
           )}
@@ -486,7 +467,7 @@ function AppContent(): React.ReactElement {
         ) : (
           <Surfaces.SplitShell
             viewbar={(
-              <div className="split-viewbar" aria-label="Split workspace controls">
+              <div className="split-viewbar" aria-label={text('appShell.splitControls')}>
                 <div className="split-viewbar__label">
                   <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
                   <span>{text('toolbar.graph')}</span>
@@ -516,7 +497,7 @@ function AppContent(): React.ReactElement {
               </aside>
             ) : null}
             minimap={showMinimap ? (
-              <div className="minimap-shell" aria-label="PlotFlow minimap">
+              <div className="minimap-shell" aria-label={text('appShell.minimap')}>
                 <GraphCanvas viewMode="minimap" />
               </div>
             ) : null}

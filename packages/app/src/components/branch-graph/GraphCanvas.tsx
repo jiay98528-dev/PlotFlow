@@ -59,6 +59,7 @@ import { CollapseNode } from './CollapseNode';
 import { collapseSiblingNodes, COLLAPSE_THRESHOLD, LARGE_GRAPH_LAYOUT_THRESHOLD, NODE_DIMENSIONS } from './layout';
 import type { CollapseNodeData } from './layout';
 import { layoutNodesInWorker } from './graphLayoutClient';
+import { isCurrentStorySession } from '../../services/storyRuntimeResetService';
 
 // ============================================================================
 // 自定义节点类型注册表
@@ -86,6 +87,13 @@ interface ManualWireDrag extends WireDragSource {
 
 interface LiveWirePreview extends ManualWireDrag {
   readonly currentPoint: { readonly x: number; readonly y: number };
+}
+
+interface NodePositionDrag {
+  readonly flowNodeId: string;
+  readonly fullId: string;
+  readonly startPosition: { readonly x: number; readonly y: number };
+  readonly storySessionId: number;
 }
 
 function isNextEdgeIndex(optionIndex: number): boolean {
@@ -227,6 +235,7 @@ function WireDropMenu({
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
   const getAllNodes = useStoryStore((state) => state.getAllNodes);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
+  const text = useAppText();
   const [query, setQuery] = useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -256,17 +265,17 @@ function WireDropMenu({
       if (event.key === 'Enter' && candidates[0] && sourceNode && (option || isNextTarget)) {
         event.preventDefault();
         if (isNextTarget) {
-          graphEditService.connectNextTarget(sourceNode, candidates[0].id);
+          graphEditService.connectNextTarget(sourceNode, candidates[0].fullId);
         } else if (option) {
-          graphEditService.connectOption(option, candidates[0].id);
+          graphEditService.connectOption(option, candidates[0].fullId);
         }
-        setStatusMessage(`Graph Lab 已连接到「${candidates[0].title}」`);
+        setStatusMessage(text('graphCanvas.connected', { title: candidates[0].title }));
         onClose();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, isNextTarget, onClose, option, setStatusMessage, sourceNode]);
+  }, [candidates, isNextTarget, onClose, option, setStatusMessage, sourceNode, text]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -290,7 +299,7 @@ function WireDropMenu({
     } else if (option) {
       graphEditService.createNodeAndConnect(sourceNode, option, title, context.flowPosition);
     }
-    setStatusMessage(`Graph Lab 已创建并连接「${title}」`);
+    setStatusMessage(text('graphCanvas.createdAndConnected', { title }));
     onClose();
   };
 
@@ -300,17 +309,20 @@ function WireDropMenu({
     } else if (option) {
       graphEditService.connectOption(option, targetId);
     }
-    setStatusMessage(`Graph Lab 已连接到「${targetTitle}」`);
+    setStatusMessage(text('graphCanvas.connected', { title: targetTitle }));
     onClose();
   };
 
   const disconnect = (): void => {
     if (isNextTarget) {
       graphEditService.connectNextTarget(sourceNode, null);
-      setStatusMessage(`Graph Lab 已断开「${sourceNode.title}」的下一步`);
+      setStatusMessage(text('graphCanvas.disconnectedNext', { title: sourceNode.title }));
     } else if (option) {
       graphEditService.connectOption(option, null);
-      setStatusMessage(`Graph Lab 已断开「${sourceNode.title}」的选项 ${context.optionIndex + 1}`);
+      setStatusMessage(text('graphCanvas.disconnectedOption', {
+        title: sourceNode.title,
+        index: context.optionIndex + 1,
+      }));
     }
     onClose();
   };
@@ -326,26 +338,26 @@ function WireDropMenu({
       onClick={(event) => event.stopPropagation()}
     >
       <div className="wire-drop-menu__header">
-        {context.mode === 'reconnect' ? '重连或断开线缆' : '创建或连接目标'}
+        {text(context.mode === 'reconnect' ? 'graphCanvas.wireReconnectTitle' : 'graphCanvas.wireConnectTitle')}
       </div>
       <input
         ref={inputRef}
         className="wire-drop-menu__search"
         data-testid="wire-drop-search"
         value={query}
-        placeholder="搜索已有节点"
+        placeholder={text('graphCanvas.wireSearchPlaceholder')}
         onChange={(event) => setQuery(event.target.value)}
       />
       <div className="wire-drop-menu__section">
-        <button type="button" data-testid="wire-drop-create-node" onClick={() => createAndConnect('新节点')}>
-          创建普通节点并连接
+        <button type="button" data-testid="wire-drop-create-node" onClick={() => createAndConnect(text('graphCanvas.newNodeTitle'))}>
+          {text('graphCanvas.createNodeAndConnect')}
         </button>
-        <button type="button" data-testid="wire-drop-create-ending" onClick={() => createAndConnect('结局')}>
-          创建结局节点并连接
+        <button type="button" data-testid="wire-drop-create-ending" onClick={() => createAndConnect(text('graphCanvas.endingTitle'))}>
+          {text('graphCanvas.createEndingAndConnect')}
         </button>
         {(context.mode === 'reconnect' || option?.targetNodeId || (isNextTarget && sourceNode.nextTarget?.targetNodeId)) && (
           <button type="button" data-testid="wire-drop-disconnect" className="wire-drop-menu__danger" onClick={disconnect}>
-            断开此选项
+            {text('graphCanvas.disconnectRoute')}
           </button>
         )}
       </div>
@@ -355,14 +367,14 @@ function WireDropMenu({
             type="button"
             key={candidate.fullId}
             data-testid="wire-drop-connect-existing"
-            onClick={() => connectExisting(candidate.id, candidate.title)}
+            onClick={() => connectExisting(candidate.fullId, candidate.title)}
           >
             <span>{candidate.title}</span>
             <small>{candidate.chapterId}</small>
           </button>
         ))}
         {candidates.length === 0 && (
-          <div className="wire-drop-menu__empty">没有匹配节点</div>
+          <div className="wire-drop-menu__empty">{text('graphCanvas.noMatchingNodes')}</div>
         )}
       </div>
     </div>
@@ -387,6 +399,42 @@ function ZoomResetShortcut(): null {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fitView]);
+
+  return null;
+}
+
+function GraphFocusController({ nodes }: { readonly nodes: readonly Node[] }): null {
+  const request = useUIStore((state) => state.graphFocusRequest);
+  const consumeGraphFocus = useUIStore((state) => state.consumeGraphFocus);
+  const { fitView, getZoom, setCenter } = useReactFlow();
+
+  useEffect(() => {
+    if (!request) return;
+    const target = nodes.find((node) => {
+      const fullId = typeof node.data?.['fullId'] === 'string' ? node.data['fullId'] : node.id;
+      return fullId === request.fullId;
+    });
+    if (!target) {
+      consumeGraphFocus(request.requestId);
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      if (request.behavior === 'fit') {
+        void fitView({ nodes: [target], padding: 0.65, minZoom: 0.9, maxZoom: 1.15, duration: 180 });
+      } else {
+        const readableZoom = Math.min(1.15, Math.max(0.9, getZoom()));
+        void setCenter(
+          target.position.x + NODE_DIMENSIONS.width / 2,
+          target.position.y + NODE_DIMENSIONS.height / 2,
+          { zoom: readableZoom, duration: 180 },
+        );
+      }
+      document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(target.id)}"]`)?.focus({ preventScroll: true });
+      consumeGraphFocus(request.requestId);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [consumeGraphFocus, fitView, getZoom, nodes, request, setCenter]);
 
   return null;
 }
@@ -450,6 +498,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
   const collapsedGroups = useGraphStore((state) => state.collapsedGroups);
+  const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const selectNode = useGraphStore((state) => state.selectNode);
   const setZoom = useGraphStore((state) => state.setZoom);
   const renamingNodeId = useGraphStore((state) => state.renamingNodeId);
@@ -484,8 +533,55 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const suppressAutoFitRef = React.useRef(false);
   const suppressAutoFitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressNextPaneClickRef = React.useRef(false);
+  const nodePositionDragRef = React.useRef<NodePositionDrag | null>(null);
+  const contextMenuTriggerRef = React.useRef<HTMLElement | null>(null);
   const [liveWirePreview, setLiveWirePreview] = useState<LiveWirePreview | null>(null);
   const [wireDropContext, setWireDropContext] = useState<WireDropContext | null>(null);
+
+  /**
+   * Graph Lab 的键盘重命名路径。
+   * React Flow 已负责节点本身的焦点和选中语义，这里只在已有选中节点时用 F2
+   * 打开同一份内联输入框，避免在自定义节点正文中制造重复的 Tab 停靠点。
+   */
+  useEffect(() => {
+    const handleRenameShortcut = (event: KeyboardEvent): void => {
+      if (
+        event.key !== 'F2' ||
+        !canEditGraph ||
+        renamingNodeId !== null ||
+        !selectedNodeId ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
+      const selectedNode = nodes.find((node) => {
+        if (node.id === selectedNodeId) return true;
+        const nodeData = node.data as StoryFlowNodeData | undefined;
+        return nodeData?.fullId === selectedNodeId;
+      });
+      const nodeData = selectedNode?.data as StoryFlowNodeData | undefined;
+      if (!selectedNode || selectedNode.type === 'collapseNode' || !nodeData) return;
+
+      event.preventDefault();
+      setRenamingNodeId(nodeData.fullId);
+      setStatusMessage(text('themeNode.renameShortcutAnnounce', { title: nodeData.title }));
+    };
+
+    window.addEventListener('keydown', handleRenameShortcut);
+    return () => window.removeEventListener('keydown', handleRenameShortcut);
+  }, [canEditGraph, nodes, renamingNodeId, selectedNodeId, setRenamingNodeId, setStatusMessage, text]);
 
   const nodeTypes = useMemo(
     () => ({
@@ -629,11 +725,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             const targetNode = getNodeByFullId(dropTargetFullId);
             if (targetNode) {
               if (isNextTarget) {
-                graphEditService.connectNextTarget(sourceNode, targetNode.id);
+                graphEditService.connectNextTarget(sourceNode, targetNode.fullId);
               } else if (option) {
-                graphEditService.connectOption(option, targetNode.id);
+                graphEditService.connectOption(option, targetNode.fullId);
               }
-              setStatusMessage(`Graph Lab 已重连到「${targetNode.title}」`);
+              setStatusMessage(text('graphCanvas.reconnected', { title: targetNode.title }));
               return;
             }
           }
@@ -655,7 +751,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const editor = useEditorStore.getState().editorInstance;
       if (editor) { parsePipelineNow(editor.getValue()); }
     },
-    [getNodeByFullId, nodes, setEditing, setStatusMessage],
+    [getNodeByFullId, nodes, setEditing, setStatusMessage, text],
   );
 
   /**
@@ -735,13 +831,13 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
       // 步骤 3: 获取对应选项
       if (isNextEdgeIndex(optionIndex)) {
-        graphEditService.connectNextTarget(sourceNode, targetNode.id);
+        graphEditService.connectNextTarget(sourceNode, targetNode.fullId);
         return;
       }
 
       const option = sourceNode.options[optionIndex];
       if (!option) return;
-      graphEditService.connectOption(option, targetNode.id);
+      graphEditService.connectOption(option, targetNode.fullId);
     },
     [getNodeByFullId],
   );
@@ -768,7 +864,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           if (!targetNode) return;
 
           reconnectDidSucceed.current = true;
-          graphEditService.connectNextTarget(sourceNode, targetNode.id);
+          graphEditService.connectNextTarget(sourceNode, targetNode.fullId);
 
           const currentEdges = useGraphStore.getState().edges;
           const reconnected = reconnectEdge(oldEdge, newConnection, currentEdges, {
@@ -786,7 +882,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         if (!targetNode) return;
 
         reconnectDidSucceed.current = true;
-        graphEditService.connectOption(option, targetNode.id);
+        graphEditService.connectOption(option, targetNode.fullId);
 
         // 步骤 4: 即时视觉反馈 — reconnectEdge + setEdges
         const currentEdges = useGraphStore.getState().edges;
@@ -828,6 +924,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       event.preventDefault();
       // 操作锁 (M2-08)：内联重命名期间禁用右键菜单
       if (renamingNodeId !== null) return;
+      contextMenuTriggerRef.current = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('.react-flow__node')
+        : null;
       setContextMenu({
         isOpen: true,
         position: { x: event.clientX, y: event.clientY },
@@ -845,6 +944,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       event.preventDefault();
       // 操作锁 (M2-08)：内联重命名期间禁用右键菜单
       if (renamingNodeId !== null) return;
+      contextMenuTriggerRef.current = event.target instanceof HTMLElement ? event.target : null;
       setContextMenu({
         isOpen: true,
         position: { x: event.clientX, y: event.clientY },
@@ -857,9 +957,42 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   );
 
   /** 关闭右键菜单 */
-  const handleContextMenuClose = useCallback(() => {
+  const handleContextMenuClose = useCallback((restoreFocus = false) => {
     setContextMenu((prev) => ({ ...prev, isOpen: false }));
+    if (restoreFocus) {
+      const trigger = contextMenuTriggerRef.current;
+      requestAnimationFrame(() => trigger?.focus());
+    }
   }, []);
+
+  useEffect(() => {
+    if (!canEditGraph) return undefined;
+    const handleKeyboardContextMenu = (event: KeyboardEvent): void => {
+      if (!(event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) return;
+      const eventTarget = event.target;
+      if (!(eventTarget instanceof Element) || !eventTarget.closest('.react-flow, .react-flow__node')) return;
+      if (eventTarget.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const current = useGraphStore.getState();
+      const selected = current.nodes.find((candidate) => candidate.id === current.selectedNodeId
+        || (candidate.data as StoryFlowNodeData | undefined)?.fullId === current.selectedNodeId);
+      if (!selected || selected.type === 'collapseNode') return;
+      const selector = `.react-flow__node[data-id="${CSS.escape(selected.id)}"]`;
+      const trigger = document.querySelector<HTMLElement>(selector);
+      if (!trigger) return;
+      event.preventDefault();
+      const rect = trigger.getBoundingClientRect();
+      contextMenuTriggerRef.current = trigger;
+      setContextMenu({
+        isOpen: true,
+        position: { x: rect.left + Math.min(24, rect.width / 2), y: rect.top + Math.min(24, rect.height / 2) },
+        type: 'node',
+        node: selected as Node<StoryFlowNodeData>,
+        edge: null,
+      });
+    };
+    window.addEventListener('keydown', handleKeyboardContextMenu);
+    return () => window.removeEventListener('keydown', handleKeyboardContextMenu);
+  }, [canEditGraph]);
 
   // ==========================================================================
   // 连线事件处理器 (V02-014: Edge Interactivity)
@@ -999,6 +1132,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     (event: React.MouseEvent, edge: Edge<StoryEdgeData>) => {
       event.preventDefault();
       if (renamingNodeId !== null) return;
+      contextMenuTriggerRef.current = event.target instanceof HTMLElement ? event.target : null;
 
       setContextMenu({
         isOpen: true,
@@ -1119,7 +1253,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const option = optionIndex >= 0 ? sourceNode?.options[optionIndex] : undefined;
 
       if (!sourceNode || (!option && !isNextTarget)) {
-        setStatusMessage('拖拽到空白 — 未找到可连接的选项');
+        setStatusMessage(text('graphCanvas.missingConnectableRoute'));
         return;
       }
 
@@ -1130,11 +1264,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const targetNode = getNodeByFullId(dropTargetFullId);
         if (targetNode) {
           if (isNextTarget) {
-            graphEditService.connectNextTarget(sourceNode, targetNode.id);
+            graphEditService.connectNextTarget(sourceNode, targetNode.fullId);
           } else if (option) {
-            graphEditService.connectOption(option, targetNode.id);
+            graphEditService.connectOption(option, targetNode.fullId);
           }
-          setStatusMessage(`Graph Lab 已连接到「${targetNode.title}」`);
+          setStatusMessage(text('graphCanvas.connected', { title: targetNode.title }));
           return;
         }
       }
@@ -1145,9 +1279,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         sourceFullId: sourceNode.fullId,
         optionIndex,
       });
-      setStatusMessage('Graph Lab 请选择线缆目标');
+      setStatusMessage(text('graphCanvas.chooseWireTarget'));
     },
-    [getNodeByFullId, handleConnectEnd, setStatusMessage],
+    [getNodeByFullId, handleConnectEnd, setStatusMessage, text],
   );
 
   // Graph Lab 自有线缆手势兜底：避免 React Flow 节点拖拽抢走端口拖线。
@@ -1215,7 +1349,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       suppressNextPaneClickRef.current = true;
 
       if (!isPointInsideReactFlow(clientPoint)) {
-        setStatusMessage('Graph Lab 已取消线缆拖拽');
+        setStatusMessage(text('graphCanvas.cancelledWireDrag'));
         return true;
       }
 
@@ -1223,7 +1357,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const isNextTarget = isNextEdgeIndex(drag.optionIndex);
       const option = sourceNode?.options[drag.optionIndex];
       if (!sourceNode || (!option && !isNextTarget)) {
-        setStatusMessage('拖拽线缆 — 未找到可连接的选项');
+        setStatusMessage(text('graphCanvas.missingConnectableRoute'));
         return true;
       }
 
@@ -1232,11 +1366,11 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         const targetNode = getNodeByFullId(dropTargetFullId);
         if (targetNode) {
           if (isNextTarget) {
-            graphEditService.connectNextTarget(sourceNode, targetNode.id);
+            graphEditService.connectNextTarget(sourceNode, targetNode.fullId);
           } else if (option) {
-            graphEditService.connectOption(option, targetNode.id);
+            graphEditService.connectOption(option, targetNode.fullId);
           }
-          setStatusMessage(`Graph Lab 已连接到「${targetNode.title}」`);
+          setStatusMessage(text('graphCanvas.connected', { title: targetNode.title }));
           return true;
         }
       }
@@ -1249,10 +1383,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         sourceFullId: sourceNode.fullId,
         optionIndex: drag.optionIndex,
       });
-      setStatusMessage('Graph Lab 请选择线缆目标');
+      setStatusMessage(text('graphCanvas.chooseWireTarget'));
       return true;
     },
-    [getNodeByFullId, nodes, setEditing, setStatusMessage],
+    [getNodeByFullId, nodes, setEditing, setStatusMessage, text],
   );
 
   const handleManualWirePointerUp = useCallback(
@@ -1355,42 +1489,59 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const handleNodeDragStart = useCallback(
     (_event: MouseEvent | TouchEvent, node: Node) => {
       if (renamingNodeId !== null || node.type === 'collapseNode') return;
+      const nodeData = node.data as StoryFlowNodeData | undefined;
+      if (!nodeData?.fullId) return;
+      nodePositionDragRef.current = {
+        flowNodeId: node.id,
+        fullId: nodeData.fullId,
+        startPosition: { ...node.position },
+        storySessionId: useEditorStore.getState().storySessionId,
+      };
       suppressAutoFitForUserViewportChange();
       setEditing(true);
     },
     [renamingNodeId, setEditing, suppressAutoFitForUserViewportChange],
   );
 
-  const persistDraggedNodePosition = useCallback(
-    (node: Node, notify: boolean) => {
-      if (node.type === 'collapseNode') return;
-      const nodeData = node.data as StoryFlowNodeData | undefined;
-      if (!nodeData?.fullId) return;
-      const storyNode = getNodeByFullId(nodeData.fullId);
-      if (!storyNode) return;
-      graphEditService.updateNodePosition(storyNode, node.position);
-      if (notify) {
-        setStatusMessage(`Graph Lab 已保存「${storyNode.title}」的位置`);
-      }
-    },
-    [getNodeByFullId, setStatusMessage],
-  );
-
   const handleNodeDrag = useCallback(
-    (_event: MouseEvent | TouchEvent, node: Node) => {
+    (_event: MouseEvent | TouchEvent, _node: Node) => {
       suppressAutoFitRef.current = true;
-      persistDraggedNodePosition(node, false);
     },
-    [persistDraggedNodePosition],
+    [],
   );
 
   const handleNodeDragStop = useCallback(
     (_event: MouseEvent | TouchEvent, node: Node) => {
       setEditing(false);
       suppressAutoFitForUserViewportChange();
-      persistDraggedNodePosition(node, true);
+      const drag = nodePositionDragRef.current;
+      nodePositionDragRef.current = null;
+      if (!drag || drag.flowNodeId !== node.id || node.type === 'collapseNode') return;
+      if (!isCurrentStorySession(drag.storySessionId)) return;
+
+      const moved = Math.round(drag.startPosition.x) !== Math.round(node.position.x)
+        || Math.round(drag.startPosition.y) !== Math.round(node.position.y);
+      if (!moved) return;
+
+      const storyNode = getNodeByFullId(drag.fullId);
+      if (!storyNode) return;
+      const committed = graphEditService.updateNodePositions([{
+        fullId: drag.fullId,
+        position: node.position,
+      }]);
+      if (committed) {
+        setStatusMessage(text('graphCanvas.positionSaved', { title: storyNode.title }));
+        return;
+      }
+
+      const currentNodes = useGraphStore.getState().nodes;
+      useGraphStore.getState().setNodes(currentNodes.map((current) => (
+        current.id === drag.flowNodeId
+          ? { ...current, position: { ...drag.startPosition } }
+          : current
+      )));
     },
-    [persistDraggedNodePosition, setEditing, suppressAutoFitForUserViewportChange],
+    [getNodeByFullId, setEditing, setStatusMessage, suppressAutoFitForUserViewportChange, text],
   );
 
   // ==========================================================================
@@ -1437,18 +1588,18 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         if (result.layoutMode === 'fallback-grid') {
           setStatusMessage(
             result.errorMessage
-              ? `Graph layout fallback used: ${result.errorMessage}`
-              : `Large graph uses fast-grid layout (${nodes.length} nodes)`,
+              ? text('graphCanvas.layoutFallbackError', { detail: result.errorMessage })
+              : text('graphCanvas.layoutFallbackLarge', { count: nodes.length }),
           );
         } else if (result.elapsedMs > 250) {
-          setStatusMessage(`Graph layout completed in ${Math.round(result.elapsedMs)}ms`);
+          setStatusMessage(text('graphCanvas.layoutCompleted', { elapsed: Math.round(result.elapsedMs) }));
         }
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         setStatusMessage(message);
       });
-  }, [edges, hasCompleteManualLayout, nodes, setNodes, setStatusMessage]);
+  }, [edges, hasCompleteManualLayout, nodes, setNodes, setStatusMessage, text]);
 
   // ==========================================================================
   // 同层折叠 + 节点高亮派生 (M2-15, M2-04)
@@ -1533,17 +1684,17 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         {hasParseErrors ? (
           <>
             <span style={{ color: 'var(--color-diagnostic-error)' }}>
-              解析遇到 {errorDiagnostics.length} 个错误
+              {text('graphCanvas.parseErrorTitle', { count: errorDiagnostics.length })}
             </span>
             <span style={{ fontSize: 'var(--text-xs, 12px)', opacity: 0.7 }}>
-              请修复编辑器中的错误以生成完整分支图
+              {text('graphCanvas.parseErrorHint')}
             </span>
           </>
         ) : (
           <>
-            <span>打开 .mdstory 文件以查看分支图</span>
+            <span>{text('graphCanvas.emptyTitle')}</span>
             <span style={{ fontSize: 'var(--text-xs, 12px)', opacity: 0.7 }}>
-              编写 Markdown 分支剧情后，分支图将在此处自动生成
+              {text('graphCanvas.emptyHint')}
             </span>
           </>
         )}
@@ -1567,7 +1718,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         onClickCapture={canEditGraph ? handleEdgeHitAreaClickCapture : undefined}
       >
         <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
-        <ZoomResetShortcut />
+          <ZoomResetShortcut />
+          <GraphFocusController nodes={displayedNodes} />
         <ReactFlow
           nodes={displayedNodes}
           edges={displayedEdges}

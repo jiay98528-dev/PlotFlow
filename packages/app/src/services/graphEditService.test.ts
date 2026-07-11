@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStory, validateAll, type PlotFlowData, type StoryNode } from '@plotflow/core';
+import { createFullId, parseStory, validateAll, type PlotFlowData, type StoryNode } from '@plotflow/core';
 import { BUILTIN_TEMPLATES } from '../templates/builtinTemplates';
 import {
   addOptionText,
@@ -99,11 +99,51 @@ describe('graphEditService text commands', () => {
     expect(validation.diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('E001');
   });
 
+  it('renames only full-id-matched option and next targets across chapters', () => {
+    const story = [
+      '---',
+      'plotflow: 0.1',
+      '---',
+      '',
+      '# 第一章',
+      '',
+      '## 节点：入口',
+      '[选项] 第一章结局 -> 第一章/节点：终点',
+      '',
+      '## 节点：自动路线',
+      '下一步: 第一章/节点：终点',
+      '',
+      '## 节点：终点',
+      '第一章结束。',
+      '',
+      '# 第二章',
+      '',
+      '## 节点：入口',
+      '[选项] 第二章结局 -> 节点：终点',
+      '',
+      '## 节点：终点',
+      '第二章结束。',
+      '',
+    ].join('\n');
+    const firstEnding = parse(story).chapters[0]!.nodes.find((node) => node.title === '终点')!;
+    const renamed = updateNodeText(story, firstEnding, { title: '真终点' });
+
+    expect(renamed.content).toContain('[选项] 第一章结局 -> 第一章/节点：真终点');
+    expect(renamed.content).toContain('下一步: 第一章/节点：真终点');
+    expect(renamed.content).toContain('[选项] 第二章结局 -> 节点：终点');
+
+    const data = parse(renamed.content);
+    expect(data.chapters[0]!.nodes[0]!.options[0]!.targetFullId).toBe(createFullId('第一章', '真终点'));
+    expect(data.chapters[0]!.nodes[1]!.nextTarget?.targetFullId).toBe(createFullId('第一章', '真终点'));
+    expect(data.chapters[1]!.nodes[0]!.options[0]!.targetFullId).toBe(createFullId('第二章', '终点'));
+  });
+
   it('adds, edits, reorders and deletes options through source text patches', () => {
     const node = findNode(BASE_STORY, '森林');
     const added = addOptionText(BASE_STORY, node, {
       description: '回到村口',
       targetNodeId: '村口',
+      targetChapterId: null,
       conditionRaw: '金币 >= 1',
       effectsRaw: '金币 -1',
     });
@@ -140,7 +180,7 @@ describe('graphEditService text commands', () => {
     expect(result.content).toContain('## 节点：井边');
     expect(result.content).toContain('[选项] 留下 -> 节点：井边');
     expect(result.content).toContain('layout:');
-    expect(result.content).toContain('      - id: "第一章-井边"');
+    expect(result.content).toContain(`      - id: ${JSON.stringify(createFullId('第一章', '井边'))}`);
     expect(result.content).toContain('        x: 320');
     expect(result.content).toContain('        y: 180');
     expect(findNode(result.content, '井边').title).toBe('井边');
@@ -179,18 +219,124 @@ describe('graphEditService text commands', () => {
     expect(findNode(cleared.content, 'A').nextTarget).toBeNull();
   });
 
+  it('writes cross-chapter next targets and preserves adjacent effects', () => {
+    const story = [
+      '---',
+      'plotflow: 0.1',
+      'vars:',
+      '  coins: int',
+      '---',
+      '',
+      '# Chapter One',
+      '',
+      '## 节点：A',
+      'Body.',
+      '',
+      '# Chapter Two',
+      '',
+      '## 节点：B',
+      'Done.',
+      '',
+    ].join('\n');
+    const node = findNode(story, 'A');
+    const connected = updateNodeNextTargetText(story, node, 'B', 'coins+1', 'Chapter Two');
+
+    expect(connected.content).toContain('下一步: Chapter Two/节点：B\n  效果: coins+1');
+    const parsed = findNode(connected.content, 'A');
+    expect(parsed.nextTarget?.targetChapterId).toBe('Chapter Two');
+    expect(parsed.nextTarget?.targetFullId).toBe(createFullId('Chapter Two', 'B'));
+    expect(parsed.nextTarget?.effectsRaw).toBe('coins+1');
+
+    const bodyUpdated = updateNodeText(connected.content, parsed, { body: 'Updated body.' });
+    expect(bodyUpdated.content).toContain('下一步: Chapter Two/节点：B\n  效果: coins+1');
+    expect(findNode(bodyUpdated.content, 'A').nextTarget?.effectsRaw).toBe('coins+1');
+  });
+
   it('updates frontmatter meta and writes variables using supported vars syntax', () => {
     const withMeta = updateMetaText(BASE_STORY, 'author', '叙事组');
-    const withVariable = upsertVariableText(withMeta.content, {
+    const withEngine = updateMetaText(withMeta.content, 'engine', 'godot');
+    const withVariable = upsertVariableText(withEngine.content, {
       name: '声望',
       type: 'float',
+      defaultValue: 2.5,
+      scope: 'chapter',
+      chapterId: '第一章',
+      description: '本章声望',
     });
     const data = parse(withVariable.content);
 
     expect(data.meta.author).toBe('叙事组');
+    expect(data.meta.engine).toBe('godot');
+    expect(data.meta.plotflow).toBe('0.1');
     expect(withVariable.content).toContain('vars:');
-    expect(withVariable.content).toContain('  声望: float');
-    expect(data.variables.some((variable) => variable.name === '声望' && variable.type === 'float')).toBe(true);
+    expect(withVariable.content).toContain('  声望:\n    type: float\n    default: 2.5\n    scope: chapter\n    chapter: "第一章"\n    description: "本章声望"');
+    expect(data.variables.find((variable) => variable.name === '声望')).toMatchObject({
+      type: 'float',
+      defaultValue: 2.5,
+      scope: 'chapter',
+      chapterId: '第一章',
+      description: '本章声望',
+    });
+  });
+
+  it('quotes every YAML-sensitive meta scalar, including quotes, newlines and empty strings', () => {
+    const specialTitle = 'A: #B "quoted"\nsecond line';
+    const withTitle = updateMetaText(BASE_STORY, 'title', specialTitle);
+    const withAuthor = updateMetaText(withTitle.content, 'author', '');
+    const data = parse(withAuthor.content);
+
+    expect(withAuthor.content).toContain(`title: ${JSON.stringify(specialTitle)}`);
+    expect(withAuthor.content).toContain('author: ""');
+    expect(data.meta.title).toBe(specialTitle);
+    expect(data.meta.author).toBe('');
+  });
+
+  it('round-trips enum and three-level object variable declarations', () => {
+    const withEnum = upsertVariableText(BASE_STORY, {
+      name: '职业',
+      type: 'enum',
+      enumValues: ['战士', '法师', '盗贼'],
+    });
+    const withObject = upsertVariableText(withEnum.content, {
+      name: '装备',
+      type: 'object',
+      fields: [
+        { name: '武器', type: 'enum', enumValues: ['剑', '弓'] },
+        {
+          name: '状态',
+          type: 'object',
+          fields: [
+            { name: '生命', type: 'int' },
+            {
+              name: '增益',
+              type: 'object',
+              fields: [{ name: '火焰', type: 'bool' }],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(withObject.content).toContain('  职业:\n    type: enum\n    values: ["战士","法师","盗贼"]');
+    expect(withObject.content).toContain('  装备:\n    type: object');
+    expect(withObject.content).toContain('    fields:\n      武器:\n        type: enum');
+    expect(withObject.content).toContain('      状态:\n        type: object');
+
+    const data = parse(withObject.content);
+    const role = data.variables.find((variable) => variable.name === '职业');
+    const equipment = data.variables.find((variable) => variable.name === '装备');
+    expect(role?.enumValues).toEqual(['战士', '法师', '盗贼']);
+    expect(equipment?.fields?.find((field) => field.name === '武器')?.enumValues).toEqual(['剑', '弓']);
+    expect(equipment?.fields?.find((field) => field.name === '状态')?.fields
+      ?.find((field) => field.name === '增益')?.fields?.[0]).toMatchObject({ name: '火焰', type: 'bool' });
+
+    const replaced = upsertVariableText(withObject.content, { name: '装备', type: 'string' });
+    expect(replaced.content).not.toContain('      状态:');
+    expect(parse(replaced.content).variables.find((variable) => variable.name === '装备')?.type).toBe('string');
+
+    const deleted = deleteVariableText(withObject.content, '装备');
+    expect(deleted.content).not.toContain('  装备:');
+    expect(parse(deleted.content).variables.some((variable) => variable.name === '装备')).toBe(false);
   });
 
   it('deletes a variable from supported vars syntax', () => {
@@ -220,16 +366,18 @@ describe('graphEditService text commands', () => {
 
     expect(positioned.content).toContain('layout:');
     expect(positioned.content.indexOf('layout:')).toBeLessThan(positioned.content.indexOf('vars:'));
-    expect(positioned.content).toContain('      - id: "第一章-村口"');
+    expect(positioned.content).toContain(`      - id: ${JSON.stringify(createFullId('第一章', '村口'))}`);
     expect(positioned.content).toContain('        x: 123');
     expect(positioned.content).toContain('        y: 89');
     expect(findNode(positioned.content, '村口').position).toEqual({ x: 123, y: 89 });
 
-    const migrated = migrateGraphLayoutNodeText(positioned.content, '第一章-村口', '第一章-村口广场');
-    expect(migrated.content).not.toContain('      - id: "第一章-村口"');
-    expect(migrated.content).toContain('      - id: "第一章-村口广场"');
+    const villageId = createFullId('第一章', '村口');
+    const squareId = createFullId('第一章', '村口广场');
+    const migrated = migrateGraphLayoutNodeText(positioned.content, villageId, squareId);
+    expect(migrated.content).not.toContain(`      - id: ${JSON.stringify(villageId)}`);
+    expect(migrated.content).toContain(`      - id: ${JSON.stringify(squareId)}`);
 
-    const removed = removeGraphLayoutNodesText(migrated.content, ['第一章-村口广场']);
+    const removed = removeGraphLayoutNodesText(migrated.content, [squareId]);
     expect(removed.content).not.toContain('layout:');
   });
 
@@ -241,13 +389,13 @@ describe('graphEditService text commands', () => {
 
     const village = findNode(withLayout, '村口');
     const renamed = updateNodeText(withLayout, village, { title: '村口广场' });
-    expect(renamed.content).toContain('      - id: "第一章-村口广场"');
-    expect(renamed.content).not.toContain('      - id: "第一章-村口"');
+    expect(renamed.content).toContain(`      - id: ${JSON.stringify(createFullId('第一章', '村口广场'))}`);
+    expect(renamed.content).not.toContain(`      - id: ${JSON.stringify(createFullId('第一章', '村口'))}`);
 
     const forest = findNode(renamed.content, '森林');
     const deleted = deleteNodeText(renamed.content, forest);
-    expect(deleted.content).not.toContain('      - id: "第一章-森林"');
-    expect(deleted.content).toContain('      - id: "第一章-村口广场"');
+    expect(deleted.content).not.toContain(`      - id: ${JSON.stringify(createFullId('第一章', '森林'))}`);
+    expect(deleted.content).toContain(`      - id: ${JSON.stringify(createFullId('第一章', '村口广场'))}`);
   });
 
   it('deletes a node from the RPG dialogue template by parsed line range', () => {

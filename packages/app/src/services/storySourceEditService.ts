@@ -1,16 +1,29 @@
 import {
   analyzeStorySource,
+  createFullId,
+  legacyFullId,
   normalizeStorySource,
+  parseStory,
   restoreStoryNewline,
   type GraphPosition,
   type StoryNode,
   type Option,
+  type VariableDeclaration,
+  type VariableScope,
+  type VariableType,
+  type VariableValue,
 } from '@plotflow/core';
 import { useEditorStore } from '../stores/editorStore';
+import { useGraphStore } from '../stores/graphStore';
 import { useStoryStore } from '../stores/storyStore';
+import { useUIStore } from '../stores/uiStore';
 import { parsePipelineNow } from './parsePipeline';
 import { debouncedSave } from './autoSaveService';
 import { flushSourceDraftBeforeSaveOrReplace } from './sourceDraftCoordinator';
+import {
+  configureGraphHistoryReplay,
+  recordGraphEdit,
+} from './graphHistoryService';
 
 export interface GraphEditResult {
   readonly content: string;
@@ -31,14 +44,25 @@ export interface StorySourceEditResult extends GraphEditResult {
   readonly edits: readonly TextEdit[];
 }
 
+interface GraphEditHistoryContext {
+  readonly afterSelectedNodeId?: string | null;
+  readonly afterActiveChapterId?: string | null;
+}
+
 export interface GraphLayoutPatch {
   readonly id: string;
+  readonly position: GraphPosition;
+}
+
+export interface GraphNodePositionPatch {
+  readonly fullId: string;
   readonly position: GraphPosition;
 }
 
 export interface OptionPatch {
   readonly description?: string;
   readonly targetNodeId?: string | null;
+  readonly targetChapterId?: string | null;
   readonly conditionRaw?: string | null;
   readonly effectsRaw?: string | null;
 }
@@ -51,9 +75,19 @@ export interface NodePatch {
 
 export interface VariablePatch {
   readonly name: string;
-  readonly type: string;
-  readonly defaultValue?: string;
+  readonly type: VariableType;
+  readonly originalName?: string;
+  readonly defaultValue?: VariableValue;
+  readonly scope?: VariableScope;
+  readonly chapterId?: string;
   readonly description?: string;
+  readonly enumValues?: readonly string[];
+  readonly fields?: readonly VariablePatch[];
+}
+
+export interface NodeNextTargetPatch {
+  readonly targetFullId?: string | null;
+  readonly effectsRaw?: string | null;
 }
 
 const DEFAULT_CHAPTER_TITLE = '第一章';
@@ -64,6 +98,12 @@ const CONDITION_LABEL = '\u6761\u4ef6';
 const EFFECTS_LABEL = '\u6548\u679c';
 const NEXT_LABEL = '\u4e0b\u4e00\u6b65';
 const NODE_LABEL = '\u8282\u70b9';
+const VARIABLE_NAME_RE = /^[\p{L}][\p{L}\p{N}_]{0,63}$/u;
+const RESERVED_VARIABLE_NAMES = new Set([
+  'int', 'float', 'bool', 'string', 'enum', 'object',
+  'true', 'false', 'AND', 'OR', 'NOT', 'none',
+  'plotflow', 'title', 'author', 'engine', 'layout', 'graph', 'version', 'nodes', 'x', 'y', 'vars',
+]);
 
 function normalizeText(value: string): string {
   return normalizeStorySource(value);
@@ -119,6 +159,7 @@ function parseOptionLine(line: string): {
   readonly prefix: string;
   readonly description: string;
   readonly targetNodeId: string | null;
+  readonly targetChapterId: string | null;
   readonly conditionRaw: string | null;
   readonly effectsRaw: string | null;
 } | null {
@@ -141,9 +182,11 @@ function parseOptionLine(line: string): {
   }
 
   let targetNodeId: string | null = null;
-  const targetMatch = rest.match(/\s*->\s*节点[：:]\s*(.+)\s*$/);
+  let targetChapterId: string | null = null;
+  const targetMatch = rest.match(/\s*->\s*(?:(.+?)\/)?节点[：:]\s*(.+)\s*$/);
   if (targetMatch) {
-    targetNodeId = targetMatch[1]?.trim() ?? null;
+    targetChapterId = targetMatch[1]?.trim() || null;
+    targetNodeId = targetMatch[2]?.trim() ?? null;
     rest = rest.slice(0, targetMatch.index).trimEnd();
   }
 
@@ -151,6 +194,7 @@ function parseOptionLine(line: string): {
     prefix: match[1] ?? '[选项] ',
     description: rest.trim(),
     targetNodeId,
+    targetChapterId,
     conditionRaw,
     effectsRaw,
   };
@@ -216,8 +260,13 @@ function findNextTargetBlockEndLineIndex(lines: readonly string[], nextLineIndex
   return new RegExp(`^\\s+${EFFECTS_LABEL}[：:]`).test(nextLine) ? nextLineIndex + 2 : nextLineIndex + 1;
 }
 
-function serializeNextTargetBlock(targetNodeId: string, effectsRaw: string | null): string[] {
-  const lines = [`${NEXT_LABEL}: ${NODE_LABEL}：${targetNodeId.trim()}`];
+function serializeNextTargetBlock(
+  targetNodeId: string,
+  effectsRaw: string | null,
+  targetChapterId: string | null = null,
+): string[] {
+  const chapterPrefix = targetChapterId?.trim() ? `${targetChapterId.trim()}/` : '';
+  const lines = [`${NEXT_LABEL}: ${chapterPrefix}${NODE_LABEL}：${targetNodeId.trim()}`];
   if (effectsRaw?.trim()) {
     lines.push(`  ${EFFECTS_LABEL}: ${effectsRaw.trim()}`);
   }
@@ -228,12 +277,16 @@ function serializeOptionLine(option: {
   readonly prefix?: string;
   readonly description: string;
   readonly targetNodeId: string | null;
+  readonly targetChapterId: string | null;
   readonly conditionRaw: string | null;
   readonly effectsRaw: string | null;
 }): string {
   let line = `${option.prefix ?? '[选项] '}${option.description.trim() || DEFAULT_OPTION}`;
   if (option.targetNodeId && option.targetNodeId.trim()) {
-    line += ` -> 节点：${option.targetNodeId.trim()}`;
+    const chapterPrefix = option.targetChapterId?.trim()
+      ? `${option.targetChapterId.trim()}/`
+      : '';
+    line += ` -> ${chapterPrefix}节点：${option.targetNodeId.trim()}`;
   }
   return line;
 }
@@ -242,6 +295,7 @@ function serializeOptionBlock(option: {
   readonly prefix?: string;
   readonly description: string;
   readonly targetNodeId: string | null;
+  readonly targetChapterId: string | null;
   readonly conditionRaw: string | null;
   readonly effectsRaw: string | null;
 }): string[] {
@@ -259,6 +313,7 @@ function optionToBlock(option: Option): string[] {
   return serializeOptionBlock({
     description: option.description,
     targetNodeId: option.targetNodeId,
+    targetChapterId: option.targetChapterId,
     conditionRaw: option.conditionRaw,
     effectsRaw: option.effectsRaw,
   });
@@ -284,7 +339,7 @@ function uniqueNodeTitle(content: string, desiredTitle: string): string {
 }
 
 function fullIdFor(chapterId: string, nodeId: string): string {
-  return chapterId === '_anonymous' ? nodeId : `${chapterId}-${nodeId}`;
+  return createFullId(chapterId, nodeId);
 }
 
 function roundPosition(position: GraphPosition): GraphPosition {
@@ -455,9 +510,30 @@ export function upsertGraphLayoutText(
   patches: readonly GraphLayoutPatch[],
 ): GraphEditResult {
   const normalized = normalizeText(content);
-  const byId = new Map(readExistingLayoutNodes(normalized).map((node) => [node.id, node]));
+  const parsed = parseStory(normalized);
+  const storyNodes = parsed.ok
+    ? parsed.data.chapters.flatMap((chapter) => chapter.nodes)
+    : [];
+  const canonicalIds = new Set(storyNodes.map((node) => node.fullId));
+  const legacyMatches = new Map<string, StoryNode[]>();
+  for (const node of storyNodes) {
+    const key = legacyFullId(node.chapterId, node.id);
+    const matches = legacyMatches.get(key) ?? [];
+    matches.push(node);
+    legacyMatches.set(key, matches);
+  }
+  const migrated = readExistingLayoutNodes(normalized).flatMap((node): GraphLayoutPatch[] => {
+    if (canonicalIds.has(node.id)) return [node];
+    const matches = legacyMatches.get(node.id);
+    if (!matches) return [node];
+    if (matches.length !== 1) return [];
+    return [{ id: matches[0]!.fullId, position: node.position }];
+  });
+  const byId = new Map(migrated.map((node) => [node.id, node]));
   for (const patch of patches) {
-    byId.set(patch.id, { id: patch.id, position: roundPosition(patch.position) });
+    const matches = canonicalIds.has(patch.id) ? undefined : legacyMatches.get(patch.id);
+    const id = matches?.length === 1 ? matches[0]!.fullId : patch.id;
+    byId.set(id, { id, position: roundPosition(patch.position) });
   }
   return setGraphLayoutNodesText(content, [...byId.values()]);
 }
@@ -480,6 +556,7 @@ export function migrateGraphLayoutNodeText(
   const normalized = normalizeText(content);
   if (fromId === toId) return { content, changed: false };
   const nodes = readExistingLayoutNodes(normalized);
+  if (!nodes.some((node) => node.id === fromId)) return { content, changed: false };
   let changed = false;
   const next = nodes.flatMap((node): GraphLayoutPatch[] => {
     if (node.id === fromId) {
@@ -554,7 +631,10 @@ export function deleteNodeText(content: string, node: StoryNode): GraphEditResul
   lines.splice(start, end - start);
   const withoutNode = lines.join('\n').replace(/\n{3,}/g, '\n\n');
   const nodeRemoval = patchResult(content, withoutNode);
-  const layoutRemoval = removeGraphLayoutNodesText(nodeRemoval.content, [node.fullId]);
+  const layoutRemoval = removeGraphLayoutNodesText(nodeRemoval.content, [
+    node.fullId,
+    legacyFullId(node.chapterId, node.id),
+  ]);
   return {
     content: layoutRemoval.content,
     changed: nodeRemoval.changed || layoutRemoval.changed,
@@ -563,42 +643,67 @@ export function deleteNodeText(content: string, node: StoryNode): GraphEditResul
 
 export function updateNodeText(content: string, node: StoryNode, patch: NodePatch): GraphEditResult {
   const normalized = normalizeText(content);
-  let next = normalized;
   const oldFullId = node.fullId;
-  let nextChapterId = node.chapterId;
-  let nextNodeId = node.id;
+  const nextChapterId = patch.chapterTitle?.trim() || node.chapterId;
+  const nextNodeId = patch.title?.trim() || node.id;
+  const newFullId = fullIdFor(nextChapterId, nextNodeId);
+  let next = newFullId === oldFullId
+    ? normalized
+    : replaceTargetReferencesText(
+      normalized,
+      oldFullId,
+      nextNodeId,
+      nextChapterId,
+    ).content;
 
   if (patch.title !== undefined && patch.title.trim()) {
     const { lines, start } = getNodeRange(next, node);
-    nextNodeId = patch.title.trim();
     lines[start] = `## 节点：${nextNodeId}`;
     next = lines.join('\n');
   }
 
   if (patch.body !== undefined) {
-    const freshNode = patch.title && patch.title !== node.title
-      ? { ...node, title: patch.title.trim() }
-      : node;
+    const currentFullId = fullIdFor(node.chapterId, nextNodeId);
+    const parsed = parseStory(next);
+    const parsedNode = parsed.ok
+      ? parsed.data.chapters
+        .flatMap((chapter) => chapter.nodes)
+        .find((candidate) => candidate.fullId === currentFullId)
+      : undefined;
+    const freshNode = parsedNode ?? (patch.title && patch.title !== node.title
+      ? { ...node, id: nextNodeId, fullId: currentFullId, title: nextNodeId }
+      : node);
     const { lines, start, end } = getNodeRange(next, freshNode);
-    const existingOptions = node.options.flatMap(optionToBlock);
+    const existingNextTarget = freshNode.nextTarget?.targetNodeId
+      ? serializeNextTargetBlock(
+        freshNode.nextTarget.targetNodeId,
+        freshNode.nextTarget.effectsRaw,
+        freshNode.nextTarget.targetChapterId,
+      )
+      : [];
+    const existingOptions = freshNode.options.flatMap(optionToBlock);
     const titleLine = lines[start] ?? `## 节点：${freshNode.title}`;
     const bodyLines = patch.body.trim().length > 0 ? patch.body.trim().split('\n') : [''];
-    lines.splice(start, end - start, titleLine, '', ...bodyLines, '', ...existingOptions);
+    const flowLines = [
+      ...existingNextTarget,
+      ...(existingNextTarget.length > 0 && existingOptions.length > 0 ? [''] : []),
+      ...existingOptions,
+    ];
+    lines.splice(start, end - start, titleLine, '', ...bodyLines, ...(flowLines.length > 0 ? ['', ...flowLines] : []));
     next = lines.join('\n');
   }
 
   if (patch.chapterTitle !== undefined && patch.chapterTitle.trim() && patch.chapterTitle.trim() !== node.chapterId) {
-    nextChapterId = patch.chapterTitle.trim();
     next = moveNodeToChapterText(next, node, nextChapterId).content;
   }
 
-  const newFullId = fullIdFor(nextChapterId, nextNodeId);
   if (newFullId !== oldFullId) {
     next = migrateGraphLayoutNodeText(next, oldFullId, newFullId).content;
-  }
-
-  if (nextNodeId !== node.id) {
-    next = replaceOptionTargetReferencesText(next, node.id, nextNodeId).content;
+    next = migrateGraphLayoutNodeText(
+      next,
+      legacyFullId(node.chapterId, node.id),
+      newFullId,
+    ).content;
   }
 
   return patchResult(content, next);
@@ -629,6 +734,7 @@ export function addOptionText(
   const block = serializeOptionBlock({
     description: patch.description ?? DEFAULT_OPTION,
     targetNodeId: patch.targetNodeId ?? null,
+    targetChapterId: patch.targetChapterId ?? null,
     conditionRaw: patch.conditionRaw ?? null,
     effectsRaw: patch.effectsRaw ?? null,
   });
@@ -650,6 +756,9 @@ export function updateOptionText(
     prefix: parsed?.prefix,
     description: patch.description ?? parsed?.description ?? option.description,
     targetNodeId: patch.targetNodeId !== undefined ? patch.targetNodeId : parsed?.targetNodeId ?? option.targetNodeId,
+    targetChapterId: patch.targetChapterId !== undefined
+      ? patch.targetChapterId
+      : parsed?.targetChapterId ?? option.targetChapterId,
     conditionRaw: patch.conditionRaw !== undefined ? patch.conditionRaw : parsed?.conditionRaw ?? option.conditionRaw,
     effectsRaw: patch.effectsRaw !== undefined ? patch.effectsRaw : parsed?.effectsRaw ?? option.effectsRaw,
   });
@@ -663,6 +772,7 @@ export function updateNodeNextTargetText(
   node: StoryNode,
   targetNodeId: string | null,
   effectsRaw = node.nextTarget?.effectsRaw ?? null,
+  targetChapterId = node.nextTarget?.targetChapterId ?? null,
 ): GraphEditResult {
   const normalized = normalizeText(content);
   const lines = linesOf(normalized);
@@ -676,7 +786,7 @@ export function updateNodeNextTargetText(
     return patchResult(content, lines.join('\n').replace(/\n{3,}/g, '\n\n'));
   }
 
-  const block = serializeNextTargetBlock(targetNodeId, effectsRaw);
+  const block = serializeNextTargetBlock(targetNodeId, effectsRaw, targetChapterId);
   if (existingIndex >= 0) {
     const blockEnd = findNextTargetBlockEndLineIndex(lines, existingIndex);
     lines.splice(existingIndex, blockEnd - existingIndex, ...block);
@@ -691,34 +801,59 @@ export function updateNodeNextTargetText(
   return patchResult(content, lines.join('\n'));
 }
 
-function replaceOptionTargetReferencesText(
+function replaceTargetReferencesText(
   content: string,
-  fromTargetNodeId: string,
+  fromTargetFullId: string,
   toTargetNodeId: string,
+  toTargetChapterId: string,
 ): GraphEditResult {
   const normalized = normalizeText(content);
-  const fromTarget = fromTargetNodeId.trim();
+  const fromTarget = fromTargetFullId.trim();
   const toTarget = toTargetNodeId.trim();
-  if (!fromTarget || !toTarget || fromTarget === toTarget) {
+  const toChapter = toTargetChapterId.trim();
+  if (!fromTarget || !toTarget || !toChapter) {
     return { content, changed: false };
   }
 
   const lines = linesOf(normalized);
+  const parsed = parseStory(normalized);
+  if (!parsed.ok) return { content, changed: false };
   let changed = false;
 
-  lines.forEach((line, index) => {
-    const parsed = parseOptionLine(line);
-    if (!parsed || parsed.targetNodeId !== fromTarget) return;
+  for (const chapter of parsed.data.chapters) {
+    for (const sourceNode of chapter.nodes) {
+      for (const option of sourceNode.options) {
+        if (option.targetFullId !== fromTarget) continue;
+        const index = findOptionLineIndex(lines, option);
+        const optionLine = index >= 0 ? parseOptionLine(lines[index] ?? '') : null;
+        if (!optionLine) continue;
+        lines[index] = serializeOptionLine({
+          prefix: optionLine.prefix,
+          description: optionLine.description,
+          targetNodeId: toTarget,
+          targetChapterId: option.targetChapterId !== null || sourceNode.chapterId !== toChapter
+            ? toChapter
+            : null,
+          conditionRaw: optionLine.conditionRaw,
+          effectsRaw: optionLine.effectsRaw,
+        });
+        changed = true;
+      }
 
-    lines[index] = serializeOptionLine({
-      prefix: parsed.prefix,
-      description: parsed.description,
-      targetNodeId: toTarget,
-      conditionRaw: parsed.conditionRaw,
-      effectsRaw: parsed.effectsRaw,
-    });
-    changed = true;
-  });
+      const nextTarget = sourceNode.nextTarget;
+      if (nextTarget?.targetFullId !== fromTarget) continue;
+      const index = findNodeNextTargetLineIndex(lines, sourceNode);
+      if (index < 0) continue;
+      lines[index] = serializeNextTargetBlock(
+        toTarget,
+        nextTarget.effectsRaw,
+        nextTarget.targetChapterId !== null || sourceNode.chapterId !== toChapter
+          ? toChapter
+          : null,
+      )[0]!;
+      changed = true;
+    }
+  }
 
   return changed ? patchResult(content, lines.join('\n')) : { content, changed: false };
 }
@@ -805,7 +940,28 @@ export function updateNodePositionText(
   return upsertGraphLayoutText(content, [{ id: node.fullId, position }]);
 }
 
-export function updateMetaText(content: string, field: 'title' | 'author', value: string): GraphEditResult {
+export function updateNodePositionsText(
+  content: string,
+  patches: readonly GraphNodePositionPatch[],
+): GraphEditResult {
+  return upsertGraphLayoutText(content, patches.map((patch) => ({
+    id: patch.fullId,
+    position: patch.position,
+  })));
+}
+
+export function updateMetaText(content: string, field: 'title' | 'author' | 'engine', value: string): GraphEditResult {
+  const normalizedValue = value.trim();
+  if (
+    field === 'engine'
+    && normalizedValue !== 'generic'
+    && normalizedValue !== 'godot'
+    && normalizedValue !== 'unity'
+    && normalizedValue !== 'unreal'
+  ) {
+    return { content, changed: false };
+  }
+  const serializedValue = JSON.stringify(normalizedValue);
   const normalized = normalizeText(content);
   const lines = linesOf(normalized);
   let inFrontmatter = false;
@@ -822,90 +978,178 @@ export function updateMetaText(content: string, field: 'title' | 'author', value
   }
 
   if (!inFrontmatter || frontmatterEnd < 0) {
-    const next = `---\nplotflow: 0.1\n${field}: ${value.trim()}\n---\n\n${normalized.trimStart()}`;
+    const next = `---\nplotflow: 0.1\n${field}: ${serializedValue}\n---\n\n${normalized.trimStart()}`;
     return patchResult(content, next);
   }
 
   const fieldIndex = lines.findIndex((line, index) => index > 0 && index < frontmatterEnd && line.startsWith(`${field}:`));
   if (fieldIndex >= 0) {
-    lines[fieldIndex] = `${field}: ${value.trim()}`;
+    lines[fieldIndex] = `${field}: ${serializedValue}`;
   } else {
-    lines.splice(frontmatterEnd, 0, `${field}: ${value.trim()}`);
+    const variablesIndex = lines.findIndex((line, index) => (
+      index > 0 && index < frontmatterEnd && line.trim() === 'vars:'
+    ));
+    lines.splice(variablesIndex >= 0 ? variablesIndex : frontmatterEnd, 0, `${field}: ${serializedValue}`);
+  }
+  return patchResult(content, lines.join('\n'));
+}
+
+function implicitVariableDefault(variable: VariablePatch): VariableValue {
+  if (variable.type === 'int' || variable.type === 'float') return 0;
+  if (variable.type === 'bool') return false;
+  if (variable.type === 'string') return '';
+  if (variable.type === 'enum') return variable.enumValues?.[0]?.trim() ?? '';
+  return Object.fromEntries((variable.fields ?? []).map((field) => [
+    field.name.trim(),
+    field.defaultValue ?? implicitVariableDefault(field),
+  ]));
+}
+
+function declarationToVariablePatch(variable: VariableDeclaration): VariablePatch {
+  return {
+    name: variable.name,
+    type: variable.type,
+    defaultValue: variable.defaultValue,
+    scope: variable.scope,
+    chapterId: variable.chapterId,
+    description: variable.description,
+    enumValues: variable.enumValues,
+    fields: variable.fields?.map(declarationToVariablePatch),
+  };
+}
+
+function normalizedVariablePatch(variable: VariablePatch, depth = 1): VariablePatch | null {
+  const name = variable.name.trim().replace(/^\$/, '');
+  if (!VARIABLE_NAME_RE.test(name) || RESERVED_VARIABLE_NAMES.has(name)) return null;
+  const enumValues = variable.type === 'enum'
+    ? (variable.enumValues ?? []).map((value) => value.trim()).filter(Boolean)
+    : undefined;
+  if (variable.type === 'enum' && (!enumValues?.length || new Set(enumValues).size !== enumValues.length)) {
+    return null;
+  }
+  const fields = variable.type === 'object'
+    ? (variable.fields ?? []).map((field) => normalizedVariablePatch(field, depth + 1))
+    : undefined;
+  if (fields?.some((field) => field === null)) return null;
+  const normalizedFields = fields?.filter((field): field is VariablePatch => field !== null);
+  if (normalizedFields && new Set(normalizedFields.map((field) => field.name)).size !== normalizedFields.length) {
+    return null;
+  }
+  const chapterId = variable.chapterId?.trim();
+  if (depth > 1 && (variable.scope !== undefined || chapterId !== undefined)) return null;
+  if (variable.scope === 'chapter' && !chapterId) return null;
+  if (variable.scope !== 'chapter' && chapterId) return null;
+  return {
+    ...variable,
+    name,
+    enumValues,
+    fields: normalizedFields,
+    chapterId,
+    defaultValue: variable.defaultValue ?? implicitVariableDefault({
+      ...variable,
+      name,
+      enumValues,
+      fields: normalizedFields,
+    }),
+    description: variable.description?.trim() || undefined,
+  };
+}
+
+function serializeYamlValue(value: VariableValue): string {
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '0';
+  if (typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
+function serializeStructuredVariable(variable: VariablePatch, indent: number, depth: number): string[] | null {
+  if (variable.type === 'object' && depth > 3) return null;
+  const normalized = normalizedVariablePatch(variable);
+  if (!normalized) return null;
+  const prefix = ' '.repeat(indent);
+  const propertyPrefix = ' '.repeat(indent + 2);
+  const lines = [
+    `${prefix}${normalized.name}:`,
+    `${propertyPrefix}type: ${normalized.type}`,
+  ];
+  if (normalized.type === 'enum') {
+    lines.push(`${propertyPrefix}values: ${JSON.stringify(normalized.enumValues ?? [])}`);
+  }
+  lines.push(`${propertyPrefix}default: ${serializeYamlValue(normalized.defaultValue ?? implicitVariableDefault(normalized))}`);
+  if (normalized.scope) lines.push(`${propertyPrefix}scope: ${normalized.scope}`);
+  if (normalized.scope === 'chapter' && normalized.chapterId) {
+    lines.push(`${propertyPrefix}chapter: ${JSON.stringify(normalized.chapterId)}`);
+  }
+  if (normalized.description) lines.push(`${propertyPrefix}description: ${JSON.stringify(normalized.description)}`);
+  if (normalized.type === 'object') {
+    const fields = normalized.fields ?? [];
+    if (fields.length === 0) {
+      lines.push(`${propertyPrefix}fields: {}`);
+    } else {
+      lines.push(`${propertyPrefix}fields:`);
+      for (const field of fields) {
+        const serialized = serializeStructuredVariable(field, indent + 4, depth + 1);
+        if (!serialized) return null;
+        lines.push(...serialized);
+      }
+    }
+  }
+  return lines;
+}
+
+function replaceVariablesSection(content: string, variables: readonly VariablePatch[]): GraphEditResult {
+  const normalized = normalizeText(content);
+  const serializedEntries = variables.map((variable) => serializeStructuredVariable(variable, 2, 1));
+  if (serializedEntries.some((entry) => entry === null)) return { content, changed: false };
+  const serializedVariables = serializedEntries.flatMap((entry) => entry ?? []);
+  const block = ['vars:', ...serializedVariables];
+  const lines = linesOf(normalized);
+  const frontmatter = getFrontmatterRange(lines);
+  if (!frontmatter) {
+    return patchResult(content, [
+      '---',
+      'plotflow: 0.1',
+      ...block,
+      '---',
+      '',
+      normalized.trimStart(),
+    ].join('\n'));
+  }
+  const existing = findTopLevelBlockRange(lines, frontmatter, 'vars');
+  if (existing) {
+    lines.splice(existing.start, existing.end - existing.start, ...block);
+  } else {
+    lines.splice(frontmatter.end, 0, ...block);
   }
   return patchResult(content, lines.join('\n'));
 }
 
 export function upsertVariableText(content: string, variable: VariablePatch): GraphEditResult {
   const normalized = normalizeText(content);
-  const lines = linesOf(normalized);
-  const variableName = variable.name.trim().replace(/^\$/, '');
-  const entry = `  ${variableName}: ${variable.type.trim() || 'int'}`;
-
-  let frontmatterEnd = -1;
-  if ((lines[0] ?? '').trim() === '---') {
-    for (let index = 1; index < lines.length; index++) {
-      if ((lines[index] ?? '').trim() === '---') {
-        frontmatterEnd = index;
-        break;
-      }
-    }
-  }
-
-  if (frontmatterEnd < 0) {
-    return patchResult(content, `---\nplotflow: 0.1\nvars:\n${entry}\n---\n\n${normalized.trimStart()}`);
-  }
-
-  const variablesIndex = lines.findIndex((line, index) => index > 0 && index < frontmatterEnd && line.trim() === 'vars:');
-  if (variablesIndex < 0) {
-    lines.splice(frontmatterEnd, 0, 'vars:', entry);
-    return patchResult(content, lines.join('\n'));
-  }
-
-  const existingIndex = lines.findIndex(
-    (line, index) => index > variablesIndex && index < frontmatterEnd && line.trim().startsWith(`${variableName}:`),
-  );
-  if (existingIndex >= 0) {
-    lines[existingIndex] = entry;
-  } else {
-    lines.splice(variablesIndex + 1, 0, entry);
-  }
-  return patchResult(content, lines.join('\n'));
+  const nextVariable = normalizedVariablePatch(variable);
+  if (!nextVariable) return { content, changed: false };
+  const parsed = parseStory(normalized);
+  if (!parsed.ok) return { content, changed: false };
+  const originalName = variable.originalName?.trim() || nextVariable.name;
+  const nextVariables = parsed.data.variables
+    .filter((candidate) => candidate.name !== originalName && candidate.name !== nextVariable.name)
+    .map(declarationToVariablePatch);
+  nextVariables.push(nextVariable);
+  return replaceVariablesSection(content, nextVariables);
 }
 
 export function deleteVariableText(content: string, variableName: string): GraphEditResult {
   const normalized = normalizeText(content);
-  const lines = linesOf(normalized);
-  const frontmatterEnd = (() => {
-    if ((lines[0] ?? '').trim() !== '---') return -1;
-    for (let index = 1; index < lines.length; index++) {
-      if ((lines[index] ?? '').trim() === '---') return index;
-    }
-    return -1;
-  })();
-  if (frontmatterEnd < 0) return { content, changed: false };
-
-  const targetIndex = lines.findIndex((line, index) => (
-    index > 0 &&
-    index < frontmatterEnd &&
-    new RegExp(`^\\s{2}${variableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`).test(line)
-  ));
-  if (targetIndex < 0) return { content, changed: false };
-
-  const baseIndent = (lines[targetIndex]!.match(/^(\s*)/)?.[1] ?? '').length;
-  let deleteEnd = targetIndex + 1;
-  while (deleteEnd < frontmatterEnd) {
-    const line = lines[deleteEnd] ?? '';
-    if (line.trim() === '') {
-      deleteEnd++;
-      continue;
-    }
-    const indent = (line.match(/^(\s*)/)?.[1] ?? '').length;
-    if (indent <= baseIndent) break;
-    deleteEnd++;
+  const parsed = parseStory(normalized);
+  if (!parsed.ok || !parsed.data.variables.some((variable) => variable.name === variableName)) {
+    return { content, changed: false };
   }
-
-  lines.splice(targetIndex, deleteEnd - targetIndex);
-  return patchResult(content, lines.join('\n'));
+  return replaceVariablesSection(
+    content,
+    parsed.data.variables
+      .filter((variable) => variable.name !== variableName)
+      .map(declarationToVariablePatch),
+  );
 }
 
 function createTextEdits(before: string, after: string): TextEdit[] {
@@ -974,13 +1218,41 @@ export const StorySourceEditService = {
     return content.slice(0, cursor) + next;
   },
 
-  commit(nextContent: string, source = 'story-source-edit-service', edits?: readonly TextEdit[]): void {
-    applyGraphEdit(nextContent, source, edits);
+  commit(
+    nextContent: string,
+    source = 'story-source-edit-service',
+    edits?: readonly TextEdit[],
+    historyContext?: GraphEditHistoryContext,
+  ): void {
+    applyGraphEdit(nextContent, source, edits, historyContext);
   },
 };
 
-export function applyGraphEdit(nextContent: string, source = 'graph-edit-service', edits?: readonly TextEdit[]): void {
+export function applyGraphEdit(
+  nextContent: string,
+  source = 'graph-edit-service',
+  edits?: readonly TextEdit[],
+  historyContext?: GraphEditHistoryContext,
+): void {
   const editor = useEditorStore.getState().editorInstance;
+  const beforeContent = editor?.getValue() ?? useEditorStore.getState().content;
+  const graphState = useGraphStore.getState();
+  const uiState = useUIStore.getState();
+  if (uiState.workspaceMode === 'graphLab') {
+    recordGraphEdit({
+      beforeContent,
+      afterContent: nextContent,
+      beforeSelectedNodeId: graphState.selectedNodeId,
+      afterSelectedNodeId: historyContext?.afterSelectedNodeId !== undefined
+        ? historyContext.afterSelectedNodeId
+        : graphState.selectedNodeId,
+      beforeActiveChapterId: uiState.activeChapterId,
+      afterActiveChapterId: historyContext?.afterActiveChapterId !== undefined
+        ? historyContext.afterActiveChapterId
+        : uiState.activeChapterId,
+      source,
+    });
+  }
   if (editor) {
     const model = editor.getModel();
     if (model) {
@@ -1013,9 +1285,23 @@ export function applyGraphEdit(nextContent: string, source = 'graph-edit-service
   debouncedSave(nextContent, useEditorStore.getState().filePath);
 }
 
-function commit(result: GraphEditResult, source: string): boolean {
+configureGraphHistoryReplay((target) => {
+  const editorState = useEditorStore.getState();
+  editorState.setContent(target.content);
+  parsePipelineNow(target.content);
+  useUIStore.getState().setActiveChapterId(target.activeChapterId);
+  useGraphStore.getState().selectNode(target.selectedNodeId);
+  editorState.setActiveNodeId(target.selectedNodeId);
+  debouncedSave(target.content, editorState.filePath);
+});
+
+function commit(
+  result: GraphEditResult,
+  source: string,
+  historyContext?: GraphEditHistoryContext,
+): boolean {
   if (!result.changed) return false;
-  StorySourceEditService.commit(result.content, source);
+  StorySourceEditService.commit(result.content, source, undefined, historyContext);
   return true;
 }
 
@@ -1024,9 +1310,13 @@ function currentContent(): string {
   return editor?.getValue() ?? useEditorStore.getState().content;
 }
 
-function runGraphEdit(source: string, edit: (content: string) => GraphEditResult): boolean {
+function runGraphEdit(
+  source: string,
+  edit: (content: string) => GraphEditResult,
+  historyContext?: GraphEditHistoryContext,
+): boolean {
   if (!flushSourceDraftBeforeSaveOrReplace('replace')) return false;
-  return commit(edit(currentContent()), source);
+  return commit(edit(currentContent()), source, historyContext);
 }
 
 function selectedNode(): StoryNode | undefined {
@@ -1034,6 +1324,24 @@ function selectedNode(): StoryNode | undefined {
   const selectedId = useEditorStore.getState().activeNodeId;
   if (selectedId) return graphState.getNodeByFullId(selectedId);
   return undefined;
+}
+
+function resolveNextTarget(
+  sourceNode: StoryNode,
+  targetReference: string | null,
+): { readonly targetNodeId: string | null; readonly targetChapterId: string | null } {
+  if (!targetReference) return { targetNodeId: null, targetChapterId: null };
+  const storyState = useStoryStore.getState();
+  const target = storyState.getNodeByFullId(targetReference)
+    ?? storyState.getAllNodes().find((candidate) => (
+      candidate.id === targetReference && candidate.chapterId === sourceNode.chapterId
+    ))
+    ?? storyState.getAllNodes().find((candidate) => candidate.id === targetReference);
+  if (!target) return { targetNodeId: targetReference, targetChapterId: null };
+  return {
+    targetNodeId: target.id,
+    targetChapterId: target.chapterId === sourceNode.chapterId ? null : target.chapterId,
+  };
 }
 
 export const graphEditService = {
@@ -1046,11 +1354,47 @@ export const graphEditService = {
   },
 
   deleteNode(node: StoryNode): boolean {
-    return runGraphEdit('graph-lab-delete-node', (content) => deleteNodeText(content, node));
+    const selectedNodeId = useGraphStore.getState().selectedNodeId;
+    const deletingSelection = selectedNodeId === node.fullId;
+    const changed = runGraphEdit(
+      'graph-lab-delete-node',
+      (content) => deleteNodeText(content, node),
+      deletingSelection ? { afterSelectedNodeId: null } : undefined,
+    );
+    if (changed && deletingSelection) {
+      useGraphStore.getState().selectNode(null);
+      useEditorStore.getState().setActiveNodeId(null);
+    }
+    return changed;
   },
 
   updateNode(node: StoryNode, patch: NodePatch): boolean {
-    return runGraphEdit('graph-lab-update-node', (content) => updateNodeText(content, node, patch));
+    const nextChapterId = patch.chapterTitle?.trim() || node.chapterId;
+    const nextNodeId = patch.title?.trim() || node.id;
+    const nextFullId = fullIdFor(nextChapterId, nextNodeId);
+    const selectionMoves = useGraphStore.getState().selectedNodeId === node.fullId
+      && nextFullId !== node.fullId;
+    const historyContext = selectionMoves
+      ? {
+        afterSelectedNodeId: nextFullId,
+        afterActiveChapterId: patch.chapterTitle?.trim()
+          ? nextChapterId
+          : useUIStore.getState().activeChapterId,
+      }
+      : undefined;
+    const changed = runGraphEdit(
+      'graph-lab-update-node',
+      (content) => updateNodeText(content, node, patch),
+      historyContext,
+    );
+    if (changed && selectionMoves) {
+      useGraphStore.getState().selectNode(nextFullId);
+      useEditorStore.getState().setActiveNodeId(nextFullId);
+      if (patch.chapterTitle?.trim()) {
+        useUIStore.getState().setActiveChapterId(nextChapterId);
+      }
+    }
+    return changed;
   },
 
   addOption(node: StoryNode, patch?: OptionPatch): boolean {
@@ -1069,12 +1413,40 @@ export const graphEditService = {
     return runGraphEdit('graph-lab-reorder-option', (content) => reorderOptionText(content, node, fromIndex, toIndex));
   },
 
-  connectOption(option: Option, targetNodeId: string | null): boolean {
-    return runGraphEdit('graph-lab-connect-option', (content) => updateOptionText(content, option, { targetNodeId }));
+  connectOption(option: Option, targetFullId: string | null): boolean {
+    const target = targetFullId ? useStoryStore.getState().getNodeByFullId(targetFullId) : undefined;
+    return runGraphEdit('graph-lab-connect-option', (content) => updateOptionText(content, option, {
+      targetNodeId: target?.id ?? targetFullId,
+      targetChapterId: target?.chapterId ?? null,
+    }));
   },
 
-  connectNextTarget(node: StoryNode, targetNodeId: string | null): boolean {
-    return runGraphEdit('graph-lab-connect-next-target', (content) => updateNodeNextTargetText(content, node, targetNodeId));
+  connectNextTarget(node: StoryNode, targetReference: string | null): boolean {
+    const target = resolveNextTarget(node, targetReference);
+    return runGraphEdit('graph-lab-connect-next-target', (content) => updateNodeNextTargetText(
+      content,
+      node,
+      target.targetNodeId,
+      node.nextTarget?.effectsRaw ?? null,
+      target.targetChapterId,
+    ));
+  },
+
+  updateNextTarget(node: StoryNode, patch: NodeNextTargetPatch): boolean {
+    const targetReference = patch.targetFullId !== undefined
+      ? patch.targetFullId
+      : node.nextTarget?.targetFullId ?? null;
+    const target = resolveNextTarget(node, targetReference);
+    const effectsRaw = patch.effectsRaw !== undefined
+      ? patch.effectsRaw
+      : node.nextTarget?.effectsRaw ?? null;
+    return runGraphEdit('graph-lab-update-next-target', (content) => updateNodeNextTargetText(
+      content,
+      node,
+      target.targetNodeId,
+      effectsRaw,
+      target.targetChapterId,
+    ));
   },
 
   createNodeAndConnect(
@@ -1095,10 +1467,18 @@ export const graphEditService = {
   },
 
   updateNodePosition(node: StoryNode, position: GraphPosition): boolean {
-    return runGraphEdit('graph-lab-update-node-position', (content) => updateNodePositionText(content, node, position));
+    return graphEditService.updateNodePositions([{ fullId: node.fullId, position }]);
   },
 
-  updateMeta(field: 'title' | 'author', value: string): boolean {
+  updateNodePositions(patches: readonly GraphNodePositionPatch[]): boolean {
+    if (patches.length === 0) return false;
+    return runGraphEdit(
+      'graph-lab-update-node-positions',
+      (content) => updateNodePositionsText(content, patches),
+    );
+  },
+
+  updateMeta(field: 'title' | 'author' | 'engine', value: string): boolean {
     return runGraphEdit('graph-lab-update-meta', (content) => updateMetaText(content, field, value));
   },
 

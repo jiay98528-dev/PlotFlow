@@ -86,6 +86,12 @@ import type { PlotFlowData, Diagnostic } from '@plotflow/core';
 import { parsePipelineNow } from '../services/parsePipeline';
 import { forceSave, clearPendingSave } from '../services/autoSaveService';
 
+const PRISM_FOUNDRY_THEME_ID = 'plotflow-prism-foundry';
+const FORMAL_THEME_IDS = [
+  'plotflow-narrative-workbench',
+  'plotflow-engine-telemetry',
+] as const;
+
 // ============================================================================
 // 2. Helpers & Mock Data
 // ============================================================================
@@ -131,6 +137,7 @@ const mockPlotFlowData: PlotFlowData = {
               description: '继续前进',
               indentLevel: 0,
               targetNodeId: 'middle',
+              targetChapterId: null,
               targetFullId: '第1章-middle',
               condition: null,
               sideEffects: [],
@@ -158,6 +165,7 @@ const mockPlotFlowData: PlotFlowData = {
               description: '向左走',
               indentLevel: 0,
               targetNodeId: 'end',
+              targetChapterId: null,
               targetFullId: '第1章-end',
               condition: null,
               sideEffects: [],
@@ -235,7 +243,8 @@ function resetAllStores(): void {
   // uiStore — 无 reset() 方法，手动设置到默认值
   useUIStore.setState({
     language: 'zh-CN' as const,
-    activeThemeId: 'plotflow-narrative-workbench',
+    workspaceMode: 'graphLab' as const,
+    activeThemeId: PRISM_FOUNDRY_THEME_ID,
     activeRightPanel: 'graph',
     isOutlinePanelOpen: true,
     statusMessage: '',
@@ -676,13 +685,13 @@ describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
   it('[ST-11] setActiveThemeId() -> activeThemeId 更新', () => {
-    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
-    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
-    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
   // --------------------------------------------------------------------------
@@ -703,8 +712,8 @@ describe('uiStore — 状态流 (ST-11~ST-15)', () => {
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
   it('[ST-13] setActiveThemeId() -> 任意字符串 ID 直接接受', () => {
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
-    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
     useUIStore.getState().setActiveThemeId('custom-official-theme');
     expect(useUIStore.getState().activeThemeId).toBe('custom-official-theme');
@@ -807,18 +816,18 @@ describe('localStorage 持久化 (DATA-03)', () => {
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
   it('[DATA-03-17] setActiveThemeId() -> localStorage themeId key', () => {
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
-    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
 
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
-    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
   it('[DATA-03-18] setActiveThemeId() -> 旧键已清除', () => {
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
     // 旧键不应存在（持久化只保留新键 plotflow:themeId）
     expect(window.localStorage.getItem('plotflow:officialTheme')).toBeNull();
@@ -827,17 +836,18 @@ describe('localStorage 持久化 (DATA-03)', () => {
   // --------------------------------------------------------------------------
   // DATA-03-18b: legacy dark/light → 规范化为正式 themeId
   // --------------------------------------------------------------------------
-  it('[DATA-03-18b] normalizeLegacyThemeValue: dark -> workbench', () => {
-    expect(normalizeLegacyThemeValue('dark')).toBe('plotflow-narrative-workbench');
+  it('[DATA-03-18b] normalizeLegacyThemeValue: dark -> Prism Foundry', () => {
+    expect(normalizeLegacyThemeValue('dark')).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
-  it('[DATA-03-18c] normalizeLegacyThemeValue: light -> workbench', () => {
-    expect(normalizeLegacyThemeValue('light')).toBe('plotflow-narrative-workbench');
+  it('[DATA-03-18c] normalizeLegacyThemeValue: light -> Prism Foundry', () => {
+    expect(normalizeLegacyThemeValue('light')).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
-  it('[DATA-03-18d] normalizeLegacyThemeValue: officialTheme ID 原样保留', () => {
-    expect(normalizeLegacyThemeValue('plotflow-narrative-workbench')).toBe('plotflow-narrative-workbench');
-    expect(normalizeLegacyThemeValue('plotflow-narrative-workbench')).toBe('plotflow-narrative-workbench');
+  it('[DATA-03-18d] normalizeLegacyThemeValue: existing official IDs stay unchanged', () => {
+    for (const themeId of FORMAL_THEME_IDS) {
+      expect(normalizeLegacyThemeValue(themeId)).toBe(themeId);
+    }
   });
 
   it('[DATA-03-18e] legacy plotflow:theme=dark 触发完整初始化迁移路径', async () => {
@@ -849,16 +859,16 @@ describe('localStorage 持久化 (DATA-03)', () => {
 
     // 动态 import 触发 uiStore.ts 模块执行：
     //   readStoredThemeId() → 读到 'dark' → normalizeLegacyThemeValue('dark')
-    //   → migrateToNewKey('plotflow-narrative-workbench')
+    //   → migrateToNewKey('plotflow-prism-foundry')
     //   → 新 key 写入 + 旧 key 删除 + store 初始化为规范化值
     const fresh = await import('./uiStore');
 
     // 断言新键 plotflow:themeId 被写入规范化后的值
-    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
     // 断言旧键 plotflow:theme 被删除
     expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
     // 断言 store 的 activeThemeId 是规范化后的值
-    expect(fresh.useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
     // 恢复模块缓存，防止影响后续测试
     vi.resetModules();
@@ -870,9 +880,39 @@ describe('localStorage 持久化 (DATA-03)', () => {
     vi.resetModules();
     const fresh = await import('./uiStore');
 
-    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
     expect(window.localStorage.getItem('plotflow:theme')).toBeNull();
-    expect(fresh.useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+
+    vi.resetModules();
+    await import('./uiStore');
+  });
+
+  it.each(['dark', 'light'] as const)(
+    '[DATA-03-18g] current plotflow:themeId=%s migrates to Prism Foundry',
+    async (legacyThemeId) => {
+      window.localStorage.setItem('plotflow:themeId', legacyThemeId);
+      vi.resetModules();
+      const fresh = await import('./uiStore');
+
+      expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
+      expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+
+      vi.resetModules();
+      await import('./uiStore');
+    },
+  );
+
+  it('[DATA-03-18h] stored official theme IDs remain unchanged during initialization', async () => {
+    for (const themeId of FORMAL_THEME_IDS) {
+      clearLocalStorage();
+      window.localStorage.setItem('plotflow:themeId', themeId);
+      vi.resetModules();
+      const fresh = await import('./uiStore');
+
+      expect(window.localStorage.getItem('plotflow:themeId')).toBe(themeId);
+      expect(fresh.useUIStore.getState().activeThemeId).toBe(themeId);
+    }
 
     vi.resetModules();
     await import('./uiStore');
@@ -883,9 +923,9 @@ describe('localStorage 持久化 (DATA-03)', () => {
   // --------------------------------------------------------------------------
   it('[DATA-03-19] localStorage 清除后重置为默认主题', () => {
     useUIStore.getState().setLanguage('en-US');
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
-    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
 
     clearLocalStorage();
@@ -895,14 +935,14 @@ describe('localStorage 持久化 (DATA-03)', () => {
 
     resetAllStores();
 
-    expect(useUIStore.getState().activeThemeId).toBe('plotflow-narrative-workbench');
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
     expect(useUIStore.getState().language).toBe('zh-CN');
   });
 
   it('setActiveThemeId 持久化到 localStorage', () => {
     useUIStore.getState().setLanguage('en-US');
     useUIStore.getState().setWorkspaceMode('graphLab');
-    useUIStore.getState().setActiveThemeId('plotflow-narrative-workbench');
+    useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
 
     useUIStore.getState().setActiveRightPanel('none');
     useUIStore.getState().openExportDialog();
@@ -910,14 +950,42 @@ describe('localStorage 持久化 (DATA-03)', () => {
 
     expect(window.localStorage.getItem('plotflow:language')).toBe('en-US');
     expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('graphLab');
-    expect(window.localStorage.getItem('plotflow:themeId')).toBe('plotflow-narrative-workbench');
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
     expect(window.localStorage.getItem('plotflow:accent')).toBeNull();
 
     expect(Object.keys(localStorageStore).sort()).toEqual([
       'plotflow:language',
       'plotflow:themeId',
       'plotflow:workspaceMode',
+      'plotflow:workspaceModePreferenceVersion',
     ]);
+  });
+
+  it('[DATA-03-20] pre-V2 Split preference migrates once to Graph Lab', async () => {
+    clearLocalStorage();
+    window.localStorage.setItem('plotflow:workspaceMode', 'split');
+    vi.resetModules();
+
+    const fresh = await import('./uiStore');
+
+    expect(fresh.useUIStore.getState().workspaceMode).toBe('graphLab');
+    expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('graphLab');
+    expect(window.localStorage.getItem('plotflow:workspaceModePreferenceVersion')).toBe('2');
+  });
+
+  it('[DATA-03-21] user-selected Split remains after V2 migration', async () => {
+    clearLocalStorage();
+    window.localStorage.setItem('plotflow:workspaceMode', 'split');
+    window.localStorage.setItem('plotflow:workspaceModePreferenceVersion', '2');
+    vi.resetModules();
+
+    const fresh = await import('./uiStore');
+
+    expect(fresh.useUIStore.getState().workspaceMode).toBe('split');
+    fresh.useUIStore.getState().setWorkspaceMode('graphLab');
+    fresh.useUIStore.getState().setWorkspaceMode('split');
+    expect(window.localStorage.getItem('plotflow:workspaceMode')).toBe('split');
+    expect(window.localStorage.getItem('plotflow:workspaceModePreferenceVersion')).toBe('2');
   });
 });
 

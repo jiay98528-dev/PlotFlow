@@ -1,10 +1,10 @@
 import { useEditorStore } from '../stores/editorStore';
-import { useGraphStore } from '../stores/graphStore';
 import { useStoryStore } from '../stores/storyStore';
 import { useUIStore } from '../stores/uiStore';
 import { clearPendingSave, resetAutoSaveBaseline } from './autoSaveService';
 import { parsePipelineNow } from './parsePipeline';
 import { rememberRecentStory } from './recentFileService';
+import { resetStoryRuntimeState } from './storyRuntimeResetService';
 
 interface ResetStorySessionOptions {
   readonly closeHome?: boolean;
@@ -22,32 +22,10 @@ interface StartUnsavedStorySessionOptions extends ResetStorySessionOptions {
   readonly content: string;
 }
 
-function resetTransientUiState(closeHome: boolean): void {
-  const ui = useUIStore.getState();
-  ui.setActiveChapterId(null);
-  ui.setSourceDrawerOpen(false);
-  ui.setProblemPanelOpen(false);
-  ui.closeExportDialog();
-  ui.closeThemeCenter();
-  if (ui.isConditionEditorOpen) {
-    ui.toggleConditionEditor();
-  }
-  if (closeHome) {
-    ui.setHomeSurfaceOpen(false);
-  }
-}
-
 export function resetStorySession(options: ResetStorySessionOptions = {}): void {
   clearPendingSave();
   resetAutoSaveBaseline(null);
-  const editor = useEditorStore.getState();
-  editor.setDiagnostics([]);
-  editor.setActiveNodeId(null);
-  editor.setCursorPosition(1, 1);
-  editor.clearPendingExternalChange();
-  useStoryStore.getState().clearParseData();
-  useGraphStore.getState().syncFromAST(null);
-  resetTransientUiState(options.closeHome ?? true);
+  resetStoryRuntimeState(options);
 }
 
 function selectFirstParsedChapter(): void {

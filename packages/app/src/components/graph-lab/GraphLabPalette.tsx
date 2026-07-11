@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle,
+  ChevronDown,
   FilePlus2,
   FileSearch,
   FileText,
@@ -23,6 +24,7 @@ import { graphEditService } from '../../services/graphEditService';
 import { loadSavedStorySession } from '../../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
 import { useAppText } from '../../i18n/appI18n';
+import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
 
 interface GraphLabPaletteProps {
   readonly onNodeNavigate: (nodeId: string, lineNumber: number, chapterId: string) => void;
@@ -45,11 +47,6 @@ function formatBytes(bytes: number): string {
 }
 
 type TextFn = ReturnType<typeof useAppText>;
-
-function getFileName(path: string | null, fallback: string): string {
-  if (!path) return fallback;
-  return path.split(/[/\\]/).pop() || path;
-}
 
 function getNodeSeverityLabel(severity: NodeSeverity, text: TextFn): string {
   switch (severity) {
@@ -109,6 +106,8 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
   const setNodes = useGraphStore((state) => state.setNodes);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
+  const compactGraphPanel = useUIStore((state) => state.compactGraphPanel);
+  const isCompactGraphLayout = useCompactGraphLayout();
   const setActiveChapterId = useUIStore((state) => state.setActiveChapterId);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const diagnostics = useEditorStore((state) => state.diagnostics);
@@ -173,6 +172,14 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
     void layoutNodesInWorker(nodes, edges)
       .then((result) => {
         if (result.stale) return;
+        const patches = result.nodes.flatMap((node) => {
+          const fullId = typeof node.data?.['fullId'] === 'string' ? node.data['fullId'] : null;
+          return fullId ? [{ fullId, position: node.position }] : [];
+        });
+        if (!graphEditService.updateNodePositions(patches)) {
+          setStatusMessage(text('palette.relayoutFailed'));
+          return;
+        }
         setNodes(result.nodes);
         setStatusMessage(text('palette.relayoutDone'));
       })
@@ -234,30 +241,29 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
   const hasOutline = (plotFlowData?.chapters.length ?? 0) > 0;
 
   return (
-    <aside className="graph-lab-rail" aria-label={text('palette.aria')}>
-      <section className="graph-lab-rail__block graph-lab-rail__hero">
-        <div className="graph-lab-panel__header">
-          <span className="graph-lab-panel__eyebrow">PlotFlow</span>
-          <h2>{text('palette.workbench')}</h2>
-        </div>
-        <p className="graph-lab-rail__current" title={filePath ?? undefined}>
-          <FileText aria-hidden="true" size={15} strokeWidth={2} />
-          <span>{getFileName(filePath, text('graphLab.unsavedStory'))}</span>
-        </p>
-      </section>
-
-      <section className="graph-lab-rail__block" data-testid="graph-lab-workspace-browser">
-        <div className="graph-lab-section__title">
+    <aside
+      className={`graph-lab-rail${compactGraphPanel === 'palette' ? ' is-compact-open' : ''}`}
+      aria-label={text('palette.aria')}
+      {...(isCompactGraphLayout && compactGraphPanel !== 'palette'
+        ? { 'aria-hidden': true, inert: true }
+        : {})}
+    >
+      <details className="graph-lab-rail__block graph-lab-rail__workspace" data-testid="graph-lab-workspace-browser">
+        <summary className="graph-lab-section__title">
           <h3>{text('palette.contentBrowser')}</h3>
+          <ChevronDown className="graph-lab-disclosure-icon" aria-hidden="true" size={15} strokeWidth={2} />
+        </summary>
+        <div className="graph-lab-workspace-actions">
           <button
             type="button"
-            className="icon-button"
+            className="graph-lab-inline-button"
             data-testid="graph-lab-choose-workspace"
             onClick={handleChooseWorkspace}
             title={text('palette.chooseWorkspace')}
             disabled={isScanning}
           >
             <FolderOpen aria-hidden="true" size={15} strokeWidth={2} />
+            <span>{text('palette.chooseWorkspace')}</span>
           </button>
         </div>
 
@@ -305,20 +311,14 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
             </div>
           </>
         ) : (
-          <button
-            type="button"
-            className="graph-lab-empty-action"
-            onClick={handleChooseWorkspace}
-            disabled={isScanning}
-          >
-            <FolderOpen aria-hidden="true" size={15} strokeWidth={2} />
-            <span>{isScanning ? text('palette.scanning') : text('palette.chooseWorkspace')}</span>
-          </button>
+          <p className="graph-lab-empty">
+            {isScanning ? text('palette.scanning') : text('palette.noWorkspaceSelected')}
+          </p>
         )}
         {workspaceError && <p className="graph-lab-warning">{workspaceError}</p>}
-      </section>
+      </details>
 
-      <section className="graph-lab-rail__block graph-lab-rail__create">
+      <section className="graph-lab-rail__block">
         <div className="graph-lab-section__title">
           <h3>{text('palette.outline')}</h3>
           <ListTree aria-hidden="true" size={15} strokeWidth={2} />
@@ -354,7 +354,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
         )}
       </section>
 
-      <section className="graph-lab-rail__block">
+      <section className="graph-lab-rail__block graph-lab-rail__create">
         <div className="graph-lab-section__title">
           <h3>{text('palette.create')}</h3>
           <GitBranchPlus aria-hidden="true" size={15} strokeWidth={2} />

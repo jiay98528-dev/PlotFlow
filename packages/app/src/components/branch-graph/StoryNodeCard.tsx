@@ -71,15 +71,6 @@ const STATUS_CLASS_MAP: Record<StoryFlowNodeData['status'], string> = {
   root: 'node-status-root',
 };
 
-/** 节点状态 → 显示标签映射 */
-const STATUS_LABEL_MAP: Record<StoryFlowNodeData['status'], string> = {
-  normal: '',
-  orphan: '孤立',
-  deadend: '死胡同',
-  error: '错误',
-  root: '起点',
-};
-
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -114,10 +105,10 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
   // --- 数据提取 ---
   const text = useAppText();
   const statusClass = STATUS_CLASS_MAP[data.status] ?? 'node-status-normal';
-  const statusLabel = STATUS_LABEL_MAP[data.status] ?? '';
+  const statusLabel = data.status === 'normal' ? '' : text(`themeNode.status.${data.status}`);
 
   // 标题截断到 30 字符
-  const title = truncate(data.title || '未命名节点', 30);
+  const title = truncate(data.title || text('themeNode.untitled'), 30);
 
   // 正文：剥离 Markdown → 截断到 30 字符
   const bodyPlain = stripMarkdown(data.body);
@@ -378,7 +369,7 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
       {/* 空内容占位 */}
       {!hasPreview && !data.optionCount && routeSummaries.length === 0 && (
         <div className="story-node-empty-hint">
-          （空节点 — 暂无内容）
+          {text('themeNode.emptyLegacyNode')}
         </div>
       )}
 

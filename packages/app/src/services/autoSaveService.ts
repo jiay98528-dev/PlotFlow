@@ -21,6 +21,8 @@ import { appT } from '../i18n/appI18n';
 import { parsePipelineNow } from './parsePipeline';
 import { rememberRecentStory } from './recentFileService';
 import { flushSourceDraftBeforeSaveOrReplace, hasSourceDraftRisk } from './sourceDraftCoordinator';
+import { migrateLegacyGraphLayoutKeys } from './graphLayoutMigration';
+import { resetStoryRuntimeState } from './storyRuntimeResetService';
 
 // ============================================================================
 // 模块级状态
@@ -161,6 +163,26 @@ function syncLatestEditorContent(): string {
   return editorState.content;
 }
 
+function prepareContentForSave(content: string): string {
+  const migrated = migrateLegacyGraphLayoutKeys(content);
+  if (migrated === content) return content;
+
+  const editorState = useEditorStore.getState();
+  const model = editorState.editorInstance?.getModel();
+  if (model && model.getValue() !== migrated) {
+    model.pushEditOperations(
+      [],
+      [{ range: model.getFullModelRange(), text: migrated }],
+      () => null,
+    );
+  }
+  editorState.setContent(migrated);
+  parsePipelineNow(migrated);
+  pendingContent = migrated;
+  pendingPath = editorState.filePath;
+  return migrated;
+}
+
 export function resetAutoSaveBaseline(content: string | null): void {
   clearPendingSave();
   lastSavedContent = content;
@@ -186,6 +208,8 @@ export function hasCurrentStoryUnsavedChanges(): boolean {
 export function applyExternalFileContent(event: FileExternalChangeEvent): void {
   const normalizedEvent = normalizeExternalEvent(event);
   clearPendingSave();
+  resetAutoSaveBaseline(null);
+  resetStoryRuntimeState({ closeHome: true });
   const editorState = useEditorStore.getState();
   editorState.setFilePath(normalizedEvent.filePath);
   editorState.setFileBaseline(normalizedEvent.hash, normalizedEvent.modifiedAt);
@@ -194,7 +218,7 @@ export function applyExternalFileContent(event: FileExternalChangeEvent): void {
   editorState.setActiveNodeId(null);
   editorState.setContent(normalizedEvent.content);
   editorState.markSaved();
-  lastSavedContent = normalizedEvent.content;
+  resetAutoSaveBaseline(normalizedEvent.content);
   rememberRecentStory(normalizedEvent.filePath, normalizedEvent.hash, normalizedEvent.modifiedAt);
   parsePipelineNow(normalizedEvent.content);
 }
@@ -226,6 +250,7 @@ async function performSave(
     pendingPath = path;
     clearSaveTimer();
   }
+  saveContent = prepareContentForSave(saveContent);
   const earlyReturnState = useEditorStore.getState();
   const hasConflictContext = Boolean(
     options.overwriteConflict
@@ -438,7 +463,7 @@ async function resolveExternalConflictBeforeSave(): Promise<boolean> {
 export async function saveOrSaveAs(): Promise<boolean> {
   const directSaveSucceeded = await forceSave();
   const editorState = useEditorStore.getState();
-  const currentContent = syncLatestEditorContent();
+  let currentContent = syncLatestEditorContent();
 
   if (!directSaveSucceeded && (editorState.filePath !== null || hasSourceDraftRisk())) {
     return false;
@@ -453,6 +478,7 @@ export async function saveOrSaveAs(): Promise<boolean> {
     isSaveAsDialogOpen = true;
     updateSaveDialogStatus('opening');
     try {
+      currentContent = prepareContentForSave(currentContent);
       const result = await window.plotflow.file.saveAs(currentContent);
       if (!result) {
         updateSaveDialogStatus('cancelled');
@@ -491,7 +517,7 @@ export async function saveAsCurrentFile(): Promise<boolean> {
   if (!flushSourceDraftBeforeSaveOrReplace('save')) {
     return false;
   }
-  const currentContent = syncLatestEditorContent();
+  const currentContent = prepareContentForSave(syncLatestEditorContent());
   const editorState = useEditorStore.getState();
   isSaveAsDialogOpen = true;
   updateSaveDialogStatus('opening');

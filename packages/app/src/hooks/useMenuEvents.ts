@@ -25,6 +25,7 @@ import { FileService } from '../services/fileService';
 import { loadSavedStorySession } from '../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
 import { appT } from '../i18n/appI18n';
+import { redoGraphEdit, undoGraphEdit } from '../services/graphHistoryService';
 
 // ============================================================================
 // 模块级实例
@@ -139,11 +140,19 @@ export function useMenuEvents(): void {
     });
 
     menu.onEvent('menu:edit:undo', () => {
+      if (useUIStore.getState().workspaceMode === 'graphLab') {
+        void undoGraphEdit();
+        return;
+      }
       const editor = useEditorStore.getState().editorInstance;
       editor?.trigger('keyboard', 'undo', null);
     });
 
     menu.onEvent('menu:edit:redo', () => {
+      if (useUIStore.getState().workspaceMode === 'graphLab') {
+        void redoGraphEdit();
+        return;
+      }
       const editor = useEditorStore.getState().editorInstance;
       editor?.trigger('keyboard', 'redo', null);
     });

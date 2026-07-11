@@ -30,12 +30,6 @@ export interface IFileOpenResult {
   modifiedAt: number;
 }
 
-/** 新建文件的结果 */
-export interface INewFileResult {
-  /** 空字符串表示新建未保存的文件 */
-  path: string;
-}
-
 /** 文件操作服务接口 */
 export interface IFileService {
   /**
@@ -59,10 +53,6 @@ export interface IFileService {
    */
   saveFileAs(content: string): Promise<string>;
 
-  /**
-   * 新建文件（返回空路径，表示未保存的新文件）。
-   */
-  newFile(): Promise<INewFileResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,10 +96,6 @@ export class FileService implements IFileService {
       throw new Error('用户取消了另存为操作');
     }
     return result.filePath.replace(/\\/g, '/');
-  }
-
-  async newFile(): Promise<INewFileResult> {
-    return { path: '' };
   }
 
   /**

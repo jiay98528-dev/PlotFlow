@@ -35,6 +35,16 @@ export type ExportFormat = 'json' | 'html' | 'txt';
 
 export type WorkspaceMode = 'split' | 'graphLab';
 
+export type InspectorTab = 'node' | 'routes' | 'variables' | 'story';
+
+export type CompactGraphPanel = 'palette' | 'inspector' | null;
+
+export interface GraphFocusRequest {
+  readonly requestId: number;
+  readonly fullId: string;
+  readonly behavior: 'center' | 'fit';
+}
+
 /** UI 全局状态 */
 export interface UIState {
   /** 当前主题（亮色 / 暗色） */
@@ -66,6 +76,9 @@ export interface UIState {
   readonly isProblemPanelOpen: boolean;
   readonly isSourceDrawerOpen: boolean;
   readonly activeChapterId: string | null;
+  readonly inspectorTab: InspectorTab;
+  readonly compactGraphPanel: CompactGraphPanel;
+  readonly graphFocusRequest: GraphFocusRequest | null;
 
   /** 导出对话框是否打开（M4） */
   readonly isExportDialogOpen: boolean;
@@ -115,6 +128,10 @@ export interface UIState {
   toggleSourceDrawer: () => void;
   setSourceDrawerOpen: (open: boolean) => void;
   setActiveChapterId: (chapterId: string | null) => void;
+  setInspectorTab: (tab: InspectorTab) => void;
+  setCompactGraphPanel: (panel: CompactGraphPanel) => void;
+  requestGraphFocus: (fullId: string, behavior?: GraphFocusRequest['behavior']) => void;
+  consumeGraphFocus: (requestId: number) => void;
 
   /** 打开导出对话框 */
   openExportDialog: (format?: ExportFormat) => void;
@@ -145,8 +162,11 @@ export interface UIState {
 
 const LANGUAGE_STORAGE_KEY = 'plotflow:language';
 const WORKSPACE_MODE_STORAGE_KEY = 'plotflow:workspaceMode';
+const WORKSPACE_MODE_PREFERENCE_VERSION_KEY = 'plotflow:workspaceModePreferenceVersion';
+const WORKSPACE_MODE_PREFERENCE_VERSION = '2';
 /** M4 — 平台唯一主题持久化键 */
 const THEME_STORAGE_KEY = 'plotflow:themeId';
+let nextGraphFocusRequestId = 0;
 /**
  * 旧版主题键（迁移用，只读不写）。
  * M7: 合并为一次性回退列表，保持 localStorage 兼容性。
@@ -164,13 +184,27 @@ function readStoredLanguage(): Language {
 }
 
 function readStoredWorkspaceMode(): WorkspaceMode {
-  if (typeof window === 'undefined') return 'split';
+  if (typeof window === 'undefined') return 'graphLab';
   try {
+    const preferenceVersion = window.localStorage.getItem(WORKSPACE_MODE_PREFERENCE_VERSION_KEY);
+    if (preferenceVersion !== WORKSPACE_MODE_PREFERENCE_VERSION) {
+      // V2 makes Graph Lab the primary/default workspace. All pre-V2 values,
+      // including the former implicit Split default, migrate exactly once.
+      window.localStorage.setItem(WORKSPACE_MODE_STORAGE_KEY, 'graphLab');
+      window.localStorage.setItem(WORKSPACE_MODE_PREFERENCE_VERSION_KEY, WORKSPACE_MODE_PREFERENCE_VERSION);
+      return 'graphLab';
+    }
+
     const saved = window.localStorage.getItem(WORKSPACE_MODE_STORAGE_KEY);
-    return saved === 'graphLab' ? 'graphLab' : 'split';
+    return saved === 'split' ? 'split' : 'graphLab';
   } catch {
-    return 'split';
+    return 'graphLab';
   }
+}
+
+function persistWorkspaceMode(mode: WorkspaceMode): void {
+  persistPreference(WORKSPACE_MODE_STORAGE_KEY, mode);
+  persistPreference(WORKSPACE_MODE_PREFERENCE_VERSION_KEY, WORKSPACE_MODE_PREFERENCE_VERSION);
 }
 
 /**
@@ -180,8 +214,8 @@ function readStoredWorkspaceMode(): WorkspaceMode {
  * 其他旧键（officialTheme / themePack）存储的已经是正式 ID。
  */
 export function normalizeLegacyThemeValue(value: string): ThemeId {
-  if (value === 'dark') return 'plotflow-narrative-workbench';
-  if (value === 'light') return 'plotflow-narrative-workbench';
+  if (value === 'dark') return 'plotflow-prism-foundry';
+  if (value === 'light') return 'plotflow-prism-foundry';
   return value;
 }
 
@@ -192,12 +226,16 @@ export function normalizeLegacyThemeValue(value: string): ThemeId {
  * 迁移完成后删除所有旧键。旧 'dark'/'light' 值会规范化后再写入新键。
  */
 function readStoredThemeId(): ThemeId {
-  const DEFAULT_ID = 'plotflow-narrative-workbench';
+  const DEFAULT_ID = 'plotflow-prism-foundry';
   if (typeof window === 'undefined') return DEFAULT_ID;
   try {
     // 1. 当前键
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved) return saved;
+    if (saved) {
+      const normalized = normalizeLegacyThemeValue(saved);
+      if (normalized !== saved) migrateToNewKey(normalized);
+      return normalized;
+    }
 
     // 2. 遍历旧键回退链，规范化后迁移
     for (const legacyKey of LEGACY_THEME_KEYS) {
@@ -249,13 +287,16 @@ const initialState = {
   isProblemPanelOpen: false,
   isSourceDrawerOpen: false,
   activeChapterId: null,
+  inspectorTab: 'node' as InspectorTab,
+  compactGraphPanel: null as CompactGraphPanel,
+  graphFocusRequest: null as GraphFocusRequest | null,
   isExportDialogOpen: false,
   exportDialogFormat: 'json' as ExportFormat,
   isCorpusManagerOpen: false,
   isNewFileDialogOpen: false,
   isThemeCenterOpen: false,
   isHomeSurfaceOpen: true,
-} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
+} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'setInspectorTab' | 'setCompactGraphPanel' | 'requestGraphFocus' | 'consumeGraphFocus' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
 
 // ============================================================================
 // Store
@@ -280,7 +321,7 @@ export const useUIStore = create<UIState>()(
       },
 
       setWorkspaceMode: (mode: WorkspaceMode) => {
-        persistPreference(WORKSPACE_MODE_STORAGE_KEY, mode);
+        persistWorkspaceMode(mode);
         set(
           { workspaceMode: mode },
           false,
@@ -292,7 +333,7 @@ export const useUIStore = create<UIState>()(
         set(
           (state) => {
             const workspaceMode = state.workspaceMode === 'split' ? 'graphLab' : 'split';
-            persistPreference(WORKSPACE_MODE_STORAGE_KEY, workspaceMode);
+            persistWorkspaceMode(workspaceMode);
             return { workspaceMode };
           },
           false,
@@ -373,6 +414,7 @@ export const useUIStore = create<UIState>()(
         set(
           (state) => ({
             isSourceDrawerOpen: !state.isSourceDrawerOpen,
+            ...(state.isSourceDrawerOpen ? {} : { compactGraphPanel: null }),
           }),
           false,
           'ui/toggleSourceDrawer',
@@ -380,7 +422,9 @@ export const useUIStore = create<UIState>()(
 
       setSourceDrawerOpen: (open: boolean) =>
         set(
-          { isSourceDrawerOpen: open },
+          open
+            ? { isSourceDrawerOpen: true, compactGraphPanel: null }
+            : { isSourceDrawerOpen: false },
           false,
           'ui/setSourceDrawerOpen',
         ),
@@ -390,6 +434,40 @@ export const useUIStore = create<UIState>()(
           { activeChapterId: chapterId },
           false,
           'ui/setActiveChapterId',
+        ),
+
+      setInspectorTab: (tab: InspectorTab) =>
+        set({ inspectorTab: tab }, false, 'ui/setInspectorTab'),
+
+      setCompactGraphPanel: (panel: CompactGraphPanel) =>
+        set(
+          panel === null
+            ? { compactGraphPanel: null }
+            : { compactGraphPanel: panel, isSourceDrawerOpen: false },
+          false,
+          'ui/setCompactGraphPanel',
+        ),
+
+      requestGraphFocus: (fullId: string, behavior: GraphFocusRequest['behavior'] = 'center') =>
+        set(
+          () => ({
+            graphFocusRequest: {
+              requestId: ++nextGraphFocusRequestId,
+              fullId,
+              behavior,
+            },
+          }),
+          false,
+          'ui/requestGraphFocus',
+        ),
+
+      consumeGraphFocus: (requestId: number) =>
+        set(
+          (state) => state.graphFocusRequest?.requestId === requestId
+            ? { graphFocusRequest: null }
+            : {},
+          false,
+          'ui/consumeGraphFocus',
         ),
 
       openExportDialog: (format?: ExportFormat) =>
