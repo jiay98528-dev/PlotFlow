@@ -3,7 +3,7 @@
 > **版本**：V0.3 | **创建日期**：2026-06-12 | **更新**：2026-07-11 Graph Lab Ready 外审修复 — M0-M7 实际 132/142 (92.96%)
 > **关联**：`spec/milestones.md`（任务定义来源，已归档为历史规划）| `CLAUDE.md`（开发规范）
 
-> **Current Gate Snapshot（待完成）**：ADR-014 后续自审缺陷修复正在当前分支验证。已通过 `lint`（0 error / 9 个既有 warning）、`typecheck`、新增聚焦单测 15/15、`build`，以及键盘章节/上下文菜单与“拖动中外部重载”聚焦 App E2E 2/2。完整 unit/App E2E/source blackbox/package/unpacked 与远程 Ubuntu/Windows PR CI 尚未在最终 revision 上完成，因此当前仍是 Draft，不得标记 Ready for Review、RC 或公共正式发行。
+> **Current Gate Snapshot（本地通过，远程待验收）**：代码 revision `6faf4801a4f0d2d9a0d15fd2de46f092a2b918b0` 在 `dirty=false` 状态完成本地外审门禁：`lint`（0 error / 9 个既有 warning）、`typecheck`、unit（72 files / 1385 tests）、`build`、CSS/token/layer/bundle/UI literal/文档乱码/Schema/engine/website/audit、App E2E（82/82）、source blackbox（11 passed / 6 target-specific skipped）、fresh Windows package 与 unpacked blackbox（16 passed / 1 installed-only skipped）均通过。安装包 SHA256 为 `65FA5E72BA31DB8232A7C39880D2F8796AC1766B44A45DD0F18B9C9D32A835C8`，unpacked EXE SHA256 为 `3C29B1CF0B03C981D6636331BA7246704FC0968A6626B7D390DAB591FB2B95BB`，两者均为 `NotSigned`。远程 Ubuntu/Windows PR CI 尚未通过实际 run 验收，因此 PR 必须保持 Draft，不得标记 Ready for Review、RC 或公共正式发行。
 
 > **Graph-first 合同**：ADR-012 将 Graph Lab 定义为主要且默认创作工作区；ADR-013 固化规范 FullID、Schema 0.2 与章节变量；ADR-014 固化会话草稿守卫、诊断本地化、Canvas-first 响应式和 CI 分层。Split 顶栏并列保留为辅助和高级源码投影，`.mdstory` 继续是唯一磁盘真相源。
 
@@ -413,7 +413,7 @@
 | 旧 Electron 主版本安全风险接受 | 已解除 | 运行时已迁移到 Electron 42.5.0，`pnpm audit --audit-level moderate` 无已知漏洞，旧风险接受文档仅保留为历史快照 |
 | ExportDialog E2E 自动关闭竞态 | 历史复核卡点，本轮未复现 | 上一轮失败指向导出对话框 auto-close timer 与 close helper 竞争；本轮导出套件 5/5 通过，保留为回归关注项 |
 | 平台发布任务延后 | 阻断完整商业发行 | macOS/Linux 安装包、自动更新、发布草稿、首次启动引导、macOS/Linux 冒烟尚未完成 |
-| Graph Lab 外审与发行证据 | 阻断 Ready/RC 状态声明 | M8 源码和文档任务已完成；最终 revision 的本地完整门禁、远程 PR CI、发行黑盒和签名仍按层级独立验收 |
+| Graph Lab 外审与发行证据 | 远程 CI 阻断 Ready；外部门禁阻断 RC/发行 | 干净代码 revision `6faf480…` 的本地完整门禁、fresh package 与 unpacked blackbox 已通过；远程 Ubuntu/Windows PR CI 待实际 run，installed blackbox、真实引擎 smoke、30 分钟巡检与 Authenticode 仍按发行层级独立验收 |
 | 主题市场与授权 | 后续增强项 | 当前只发行官方内置主题，购买入口跳转官网；社区主题、本地导入、远程索引、授权下载和更新留到后续任务 |
 
 ---
@@ -436,7 +436,7 @@
 | 2026-06-30—07-01 | **主题与 Windows 黑盒硬化**：补齐官方远程主题、安全下载链路、source/unpacked 分层黑盒、原生保存与导出真实性校验，并修复保存取消后错误继续替换故事的问题。各次门禁数值均为历史 revision 快照。 |
 | 2026-07-06—07-09 | **外审 P0/P1 与 installed GUI 阻断修复**：补齐 Continue editing、章节源码切片、节点级下一步、W007、变量编辑、原生对话框、1000 节点 fallback 和 Source Drawer 事务守卫；installed、人工巡检与签名仍待外部门禁。 |
 | 2026-07-10 | **Graph-first 默认工作流**：ADR-012 覆盖 Split 默认历史条款，完成一次性偏好迁移、Graph 原生历史、跨章节目标、完整条件/变量/meta/下一步 GUI 与 Graph-first 黑盒。 |
-| 2026-07-11 | **Schema 0.2 与 P2 结构调优**：ADR-013/014 固化 FullID、章节变量、Schema 0.2、模式切换草稿守卫、会话 ID、诊断本地化、Canvas-first 响应式、搜索聚焦、共享 IPC 与 CI 分层。当前 Ready 外审修复仍以顶部 Current Gate Snapshot 为准。 |
+| 2026-07-11 | **Schema 0.2、P2 结构调优与 Ready 外审本地闭环**：ADR-013/014 固化 FullID、章节变量、Schema 0.2、模式切换草稿守卫、会话 ID、诊断本地化、Canvas-first 响应式、搜索聚焦、共享 IPC 与 CI 分层。干净代码 revision `6faf480…` 已通过本地完整门禁、fresh package 与 unpacked blackbox；远程 PR CI 未验收前保持 Draft，installed/真实引擎/人工巡检/签名继续阻断 RC 和正式发行。 |
 
 ---
 
