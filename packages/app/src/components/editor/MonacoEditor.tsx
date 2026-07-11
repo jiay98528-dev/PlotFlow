@@ -25,6 +25,8 @@ import {
   THEME_LIGHT,
 } from '../../editor/setupEditor';
 import { getThemeOrDefault } from '../../theme-platform/registry';
+import { clearGraphHistory } from '../../services/graphHistoryService';
+import { localizeDiagnostic } from '../../i18n/localizeDiagnostic';
 
 export function MonacoEditor(): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +37,7 @@ export function MonacoEditor(): React.ReactElement {
   const setContent = useEditorStore((s) => s.setContent);
   const filePath = useEditorStore((s) => s.filePath);
   const diagnostics = useEditorStore((s) => s.diagnostics);
+  const language = useUIStore((s) => s.language);
   const setEditorInstance = useEditorStore((s) => s.setEditorInstance);
 
   // V02-033: isEditing 锁自动恢复 — 拖拽连线期间管线被阻塞，锁释放后自动重解析
@@ -71,6 +74,9 @@ export function MonacoEditor(): React.ReactElement {
       // 内容变更 → store + pipeline
       editor.onDidChangeModelContent(() => {
         const newContent = editor.getValue();
+        // Split owns Monaco's native history. Once its source changes, a
+        // previous Graph history branch can no longer be replayed safely.
+        clearGraphHistory();
         // 标记为编辑器内用户操作（阻止 useEffect 覆盖为旧内容）
         isUserEditRef.current = true;
         setContent(newContent);
@@ -140,11 +146,14 @@ export function MonacoEditor(): React.ReactElement {
     const editor = editorRef.current;
     if (!editor) return;
     if (diagnostics.length > 0) {
-      applyDiagnostics(editor, diagnostics);
+      applyDiagnostics(editor, diagnostics.map((diagnostic) => ({
+        ...diagnostic,
+        ...localizeDiagnostic(diagnostic, language),
+      })));
     } else {
       clearDiagnostics(editor);
     }
-  }, [diagnostics]);
+  }, [diagnostics, language]);
 
   // ── isEditing 锁自动恢复：连线拖拽结束后重解析 (V02-033) ──
   useEffect(() => {

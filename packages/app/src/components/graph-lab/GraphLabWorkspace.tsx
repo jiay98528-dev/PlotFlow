@@ -8,13 +8,18 @@ import {
   ListChecks,
   PanelBottomClose,
   PanelBottomOpen,
+  PanelLeftOpen,
+  PanelRightOpen,
+  Redo2,
   RotateCcw,
   Save,
+  Undo2,
 } from 'lucide-react';
 import { analyzeStorySource } from '@plotflow/core';
 import { GraphCanvas } from '../branch-graph/GraphCanvas';
 import { GraphLabPalette } from './GraphLabPalette';
 import { GraphInspector } from './GraphInspector';
+import { GraphNodeSearch } from './GraphNodeSearch';
 import { SourceDrawer } from './SourceDrawer';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
@@ -22,9 +27,18 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useThemePlatform } from '../ThemePlatformProvider';
 import { useAppText } from '../../i18n/appI18n';
+import { localizeDiagnostic } from '../../i18n/localizeDiagnostic';
 import { graphEditService, StorySourceEditService, type TextEdit } from '../../services/graphEditService';
+import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
 import { saveOrSaveAs } from '../../services/autoSaveService';
 import { registerSourceDraftController } from '../../services/sourceDraftCoordinator';
+import {
+  canRedo,
+  canUndo,
+  redoGraphEdit,
+  subscribeGraphHistory,
+  undoGraphEdit,
+} from '../../services/graphHistoryService';
 
 function getFileName(path: string | null, fallback: string): string {
   if (!path) return fallback;
@@ -55,6 +69,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
   const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
+  const language = useUIStore((state) => state.language);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const [draft, setDraft] = useState('');
   const draftRef = useRef('');
@@ -321,7 +336,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
                 >
                   <span>{diagnostic.code}</span>
                   <small>{text('sourceDock.jumpToLine', { line: diagnostic.range.startLine })}</small>
-                  <em>{diagnostic.message}</em>
+                  <em>{localizeDiagnostic(diagnostic, language).message}</em>
                 </button>
               </li>
             ))}
@@ -346,10 +361,14 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
 
 export function GraphLabWorkspace(): React.ReactElement {
   const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
+  const language = useUIStore((state) => state.language);
   const toggleSourceDrawer = useUIStore((state) => state.toggleSourceDrawer);
   const setProblemPanelOpen = useUIStore((state) => state.setProblemPanelOpen);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
   const setActiveChapterId = useUIStore((state) => state.setActiveChapterId);
+  const compactGraphPanel = useUIStore((state) => state.compactGraphPanel);
+  const setCompactGraphPanel = useUIStore((state) => state.setCompactGraphPanel);
+  const isCompactGraphLayout = useCompactGraphLayout();
   const content = useEditorStore((state) => state.content);
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const filePath = useEditorStore((state) => state.filePath);
@@ -357,8 +376,32 @@ export function GraphLabWorkspace(): React.ReactElement {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const { activeTheme } = useThemePlatform();
   const Surface = activeTheme.surfaces.GraphLabShell;
+  const themeModeLabel = `Graph Lab · ${activeTheme.name[language]}`;
   const text = useAppText();
   const sourceSliceRef = useRef<ChapterSourceSliceEditorHandle>(null);
+  const paletteToggleRef = useRef<HTMLButtonElement>(null);
+  const inspectorToggleRef = useRef<HTMLButtonElement>(null);
+  const canUndoGraph = React.useSyncExternalStore(subscribeGraphHistory, canUndo, canUndo);
+  const canRedoGraph = React.useSyncExternalStore(subscribeGraphHistory, canRedo, canRedo);
+
+  useEffect(() => {
+    if (!isCompactGraphLayout && compactGraphPanel !== null) {
+      setCompactGraphPanel(null);
+    }
+  }, [compactGraphPanel, isCompactGraphLayout, setCompactGraphPanel]);
+
+  useEffect(() => {
+    if (!isCompactGraphLayout || compactGraphPanel === null) return undefined;
+    const closeCompactPanel = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      event.preventDefault();
+      const trigger = compactGraphPanel === 'palette' ? paletteToggleRef.current : inspectorToggleRef.current;
+      setCompactGraphPanel(null);
+      window.setTimeout(() => trigger?.focus({ preventScroll: true }), 0);
+    };
+    window.addEventListener('keydown', closeCompactPanel);
+    return () => window.removeEventListener('keydown', closeCompactPanel);
+  }, [compactGraphPanel, isCompactGraphLayout, setCompactGraphPanel]);
 
   const stats = useMemo(() => {
     const chapters = plotFlowData?.chapters.length ?? 0;
@@ -382,6 +425,19 @@ export function GraphLabWorkspace(): React.ReactElement {
     setActiveChapterId(chapterId);
     return true;
   }, [activeChapterId, saveSourceSliceBeforeChapterChange, setActiveChapterId]);
+
+  const handleChapterTabKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let targetIndex: number | null = null;
+    if (event.key === 'ArrowRight') targetIndex = (index + 1) % chapters.length;
+    if (event.key === 'ArrowLeft') targetIndex = (index - 1 + chapters.length) % chapters.length;
+    if (event.key === 'Home') targetIndex = 0;
+    if (event.key === 'End') targetIndex = chapters.length - 1;
+    if (targetIndex === null || chapters.length === 0) return;
+    event.preventDefault();
+    const targetChapter = chapters[targetIndex];
+    if (!targetChapter || !switchActiveChapter(targetChapter.id)) return;
+    document.getElementById(`graph-lab-chapter-tab-${targetIndex}`)?.focus();
+  }, [chapters, switchActiveChapter]);
 
   useEffect(() => {
     if (chapters.length === 0) {
@@ -407,7 +463,11 @@ export function GraphLabWorkspace(): React.ReactElement {
     }
   }, [switchActiveChapter]);
 
-  const selectedLabel = selectedNodeId ? selectedNodeId.split('-').slice(1).join('-') || selectedNodeId : text('graphLab.noSelection');
+  const selectedLabel = selectedNodeId
+    ? plotFlowData?.chapters
+      .flatMap((chapter) => chapter.nodes)
+      .find((node) => node.fullId === selectedNodeId)?.title ?? text('graphLab.noSelection')
+    : text('graphLab.noSelection');
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -439,10 +499,12 @@ export function GraphLabWorkspace(): React.ReactElement {
                 <GitBranch size={16} strokeWidth={2.2} />
               </span>
               <div>
-                <p className="graph-lab__mode">{text('graphLab.mode')}</p>
+                <p className="graph-lab__mode">{themeModeLabel}</p>
                 <h2>{getFileName(filePath, text('graphLab.unsavedStory'))}</h2>
               </div>
             </div>
+
+            <GraphNodeSearch />
 
             <div className="graph-lab__commandbar-stats" aria-label={text('graphLab.statsLabel')}>
               <span>{text('graphLab.chapters', { count: stats.chapters })}</span>
@@ -460,16 +522,72 @@ export function GraphLabWorkspace(): React.ReactElement {
             </div>
 
             <div className="graph-lab__commandbar-actions">
-              <span className="graph-lab__selection" title={selectedLabel}>
+              <button
+                ref={paletteToggleRef}
+                type="button"
+                className="graph-lab-dock-toggle graph-lab__compact-toggle"
+                data-testid="graph-lab-palette-toggle"
+                aria-pressed={compactGraphPanel === 'palette'}
+                aria-label={text('graphLab.openPalette')}
+                onClick={() => setCompactGraphPanel(compactGraphPanel === 'palette' ? null : 'palette')}
+              >
+                <PanelLeftOpen aria-hidden="true" size={15} strokeWidth={2} />
+              </button>
+              <button
+                ref={inspectorToggleRef}
+                type="button"
+                className="graph-lab-dock-toggle graph-lab__compact-toggle"
+                data-testid="graph-lab-inspector-toggle"
+                aria-pressed={compactGraphPanel === 'inspector'}
+                aria-label={text('graphLab.openInspector')}
+                onClick={() => setCompactGraphPanel(compactGraphPanel === 'inspector' ? null : 'inspector')}
+              >
+                <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+              </button>
+              <span className="graph-lab__selection" data-testid="graph-lab-selection-label" title={selectedLabel}>
                 <Activity aria-hidden="true" size={14} strokeWidth={2} />
                 {selectedLabel}
               </span>
               <button
                 type="button"
                 className="graph-lab-dock-toggle"
+                data-testid="graph-lab-undo"
+                onClick={() => { void undoGraphEdit(); }}
+                disabled={!canUndoGraph}
+                aria-label={text('graphLab.undo')}
+                title={text('graphLab.undo')}
+              >
+                <Undo2 aria-hidden="true" size={15} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="graph-lab-dock-toggle"
+                data-testid="graph-lab-redo"
+                onClick={() => { void redoGraphEdit(); }}
+                disabled={!canRedoGraph}
+                aria-label={text('graphLab.redo')}
+                title={text('graphLab.redo')}
+              >
+                <Redo2 aria-hidden="true" size={15} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="graph-lab-dock-toggle"
+                data-testid="graph-lab-save"
+                onClick={() => { void saveOrSaveAs(); }}
+                aria-label={text('graphLab.save')}
+                title={text('graphLab.save')}
+              >
+                <Save aria-hidden="true" size={15} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="graph-lab-dock-toggle"
                 data-testid="graph-lab-source-toggle"
                 onClick={toggleSourceDrawer}
                 aria-expanded={isSourceDrawerOpen}
+                aria-controls="graph-lab-source-drawer"
+                aria-label={text(isSourceDrawerOpen ? 'graphLab.closeSource' : 'graphLab.openSource')}
               >
                 <FileText aria-hidden="true" size={15} strokeWidth={2} />
                 <span>{text('graphLab.sourceText')}</span>
@@ -509,6 +627,7 @@ export function GraphLabWorkspace(): React.ReactElement {
                     aria-controls="graph-lab-canvas"
                     tabIndex={selected ? 0 : -1}
                     onClick={() => switchActiveChapter(chapter.id)}
+                    onKeyDown={(event) => handleChapterTabKeyDown(event, index)}
                   >
                     <span className="graph-lab__chapter-tab-title">{chapter.title || chapter.id}</span>
                     <span className="graph-lab__chapter-tab-meta">

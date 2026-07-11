@@ -19,7 +19,7 @@ const registry = new Map<ThemeId, ThemeDescriptor>();
 // 常量
 // ============================================================================
 
-export const DEFAULT_THEME_ID: ThemeId = 'plotflow-narrative-workbench';
+export const DEFAULT_THEME_ID: ThemeId = 'plotflow-prism-foundry';
 
 // ============================================================================
 // 公开 API

@@ -25,7 +25,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PlotFlowData } from '@plotflow/core';
+import type { Diagnostic, PlotFlowData } from '@plotflow/core';
 import { exportJSON, exportHTML, exportTXT } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
@@ -123,6 +123,10 @@ export function buildExportBaseName(title: string | undefined, filePath: string 
   return fileCandidate || 'plotflow-story';
 }
 
+export function countBlockingExportErrors(diagnostics: readonly Diagnostic[]): number {
+  return diagnostics.filter((diagnostic) => diagnostic.severity === 'error').length;
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -131,8 +135,14 @@ export function ExportDialog(): React.ReactElement | null {
   const isOpen = useUIStore((s) => s.isExportDialogOpen);
   const requestedFormat = useUIStore((s) => s.exportDialogFormat);
   const closeExportDialog = useUIStore((s) => s.closeExportDialog);
+  const setGlobalStatusMessage = useUIStore((s) => s.setStatusMessage);
   const storyData = useStoryStore((s) => s.plotFlowData);
   const filePath = useEditorStore((s) => s.filePath);
+  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const blockingErrorCount = useMemo(
+    () => countBlockingExportErrors(diagnostics),
+    [diagnostics],
+  );
 
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('json');
   const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
@@ -213,6 +223,12 @@ export function ExportDialog(): React.ReactElement | null {
       return;
     }
 
+    if (blockingErrorCount > 0) {
+      setExportStatus('error');
+      setStatusMessage(text('exportDialog.blockedByErrors', { count: blockingErrorCount }));
+      return;
+    }
+
     setExportStatus('exporting');
     setStatusMessage('');
 
@@ -265,7 +281,9 @@ export function ExportDialog(): React.ReactElement | null {
       // ── 导出成功 ──
       const filePath = saveResult.filePath?.replace(/\\/g, '/');
       setExportStatus('success');
-      setStatusMessage(text('exportDialog.exported', { path: filePath ?? '' }));
+      const successMessage = text('exportDialog.exported', { path: filePath ?? '' });
+      setStatusMessage(successMessage);
+      setGlobalStatusMessage(successMessage);
 
       // P0-5: 1.5 秒后自动关闭（timer 存入 ref 供清理）
       if (autoCloseTimerRef.current !== undefined) {
@@ -280,7 +298,7 @@ export function ExportDialog(): React.ReactElement | null {
       setExportStatus('error');
       setStatusMessage(text('exportDialog.exception', { message }));
     }
-  }, [storyData, selectedFormat, defaultFileName, closeExportDialog, text]);
+  }, [blockingErrorCount, storyData, selectedFormat, defaultFileName, closeExportDialog, setGlobalStatusMessage, text]);
 
   // ========================================================================
   // 点击遮罩层关闭
@@ -424,6 +442,12 @@ export function ExportDialog(): React.ReactElement | null {
               <span>{text('exportDialog.noStoryInline')}</span>
             </div>
           )}
+          {storyData && blockingErrorCount > 0 && exportStatus === 'idle' && (
+            <div style={warningStyle} data-testid="export-blocked-by-errors">
+              <span style={statusIconStyle}>&#x26A0;</span>
+              <span>{text('exportDialog.blockedByErrors', { count: blockingErrorCount })}</span>
+            </div>
+          )}
         </div>
 
         {/* ── 按钮栏 ── */}
@@ -446,7 +470,7 @@ export function ExportDialog(): React.ReactElement | null {
               ...(exportStatus === 'exporting' ? exportButtonDisabledStyle : {}),
               ...(exportStatus === 'success' ? exportButtonSuccessStyle : {}),
             }}
-            disabled={exportStatus === 'exporting' || !storyData}
+            disabled={exportStatus === 'exporting' || !storyData || blockingErrorCount > 0}
           >
             {text(`exportDialog.${exportStatus}`)}
           </button>
@@ -512,7 +536,7 @@ const overlayStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   background: 'var(--color-overlay-modal)',
-  zIndex: 1000,
+  zIndex: 'var(--z-modal)',
   backdropFilter: 'blur(2px)',
 };
 

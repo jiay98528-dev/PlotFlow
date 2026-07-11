@@ -15,6 +15,7 @@ export function SourceDrawer({ children }: SourceDrawerProps): React.ReactElemen
     <section
       className={`source-drawer${isOpen ? ' source-drawer--open' : ''}`}
       aria-label={text('sourceDock.aria')}
+      id="graph-lab-source-drawer"
       data-testid="graph-lab-source-drawer"
     >
       <header className="source-drawer__header">

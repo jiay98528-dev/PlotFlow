@@ -26,6 +26,7 @@ import type { Node, Edge } from '@xyflow/react';
 import { useGraphStore } from '../../stores/graphStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
+import { useAppText } from '../../i18n/appI18n';
 import { useUIStore } from '../../stores/uiStore';
 import { NEXT_EDGE_OPTION_INDEX, parseEdgeId } from '../../stores/edgeStore';
 import {
@@ -63,7 +64,7 @@ export interface GraphContextMenuProps {
   /** 右键点击的连线对象（type='edge' 时有效，否则为 null） */
   readonly edge: Edge | null;
   /** 关闭菜单回调 */
-  readonly onClose: () => void;
+  readonly onClose: (restoreFocus?: boolean) => void;
 }
 
 // ============================================================================
@@ -98,13 +99,13 @@ interface MenuItemProps {
  * - disabled 时显示灰色并禁止点击
  * - danger 时文本为红色（用于删除操作）
  */
-const MenuItem: React.FC<MenuItemProps> = ({
+const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(function MenuItem({
   label,
   shortcut,
   danger = false,
   disabled = false,
   onClick,
-}) => {
+}, ref) {
   const [hovered, setHovered] = useState(false);
 
   const handleClick = useCallback(() => {
@@ -114,17 +115,22 @@ const MenuItem: React.FC<MenuItemProps> = ({
   }, [disabled, onClick]);
 
   return (
-    <div
+    <button
+      ref={ref}
+      type="button"
       role="menuitem"
       aria-disabled={disabled}
+      disabled={disabled}
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex',
+        width: '100%',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: `0 12px`,
+        border: 0,
         height: MENU_ITEM_HEIGHT,
         cursor: disabled ? 'not-allowed' : 'pointer',
         background:
@@ -159,9 +165,9 @@ const MenuItem: React.FC<MenuItemProps> = ({
           {shortcut}
         </span>
       )}
-    </div>
+    </button>
   );
-};
+});
 
 // ============================================================================
 // RenameDialog 子组件
@@ -184,6 +190,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const text = useAppText();
   const [value, setValue] = useState(currentTitle);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -220,7 +227,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 'var(--z-modal, 1000)',
+        zIndex: 'var(--z-modal)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -249,7 +256,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
             fontFamily: 'var(--font-ui, system-ui, sans-serif)',
           }}
         >
-          重命名节点
+          {text('graphContext.renameNode')}
         </label>
         <input
           ref={inputRef}
@@ -291,7 +298,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
               lineHeight: '18px',
             }}
           >
-            取消
+            {text('common.cancel')}
           </button>
           <button
             type="button"
@@ -309,7 +316,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
               lineHeight: '18px',
             }}
           >
-            确定
+            {text('common.confirm')}
           </button>
         </div>
       </div>
@@ -340,12 +347,15 @@ interface ConfirmDialogProps {
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   title,
   message,
-  confirmLabel = '确定',
-  cancelLabel = '取消',
+  confirmLabel,
+  cancelLabel,
   danger = false,
   onConfirm,
   onCancel,
 }) => {
+  const text = useAppText();
+  const resolvedConfirmLabel = confirmLabel ?? text('common.confirm');
+  const resolvedCancelLabel = cancelLabel ?? text('common.cancel');
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
@@ -371,7 +381,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 'var(--z-modal, 1000)',
+        zIndex: 'var(--z-modal)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -438,7 +448,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               lineHeight: '18px',
             }}
           >
-            {cancelLabel}
+          {resolvedCancelLabel}
           </button>
           <button
             type="button"
@@ -459,7 +469,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               lineHeight: '18px',
             }}
           >
-            {confirmLabel}
+          {resolvedConfirmLabel}
           </button>
         </div>
       </div>
@@ -502,6 +512,7 @@ export function GraphContextMenu({
   const setNodes = useGraphStore((s) => s.setNodes);
   const setStatusMessage = useUIStore((s) => s.setStatusMessage);
   const openConditionEditor = useUIStore((s) => s.openConditionEditor);
+  const text = useAppText();
 
   // ==========================================================================
   // 内部状态
@@ -511,6 +522,15 @@ export function GraphContextMenu({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    if (!isOpen || showRenameDialog || showDeleteDialog) return;
+    const frame = requestAnimationFrame(() => {
+      itemRefs.current.find((item) => item && !item.disabled)?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, showDeleteDialog, showRenameDialog, type]);
 
   // ==========================================================================
   // 副作用：点击菜单外部关闭
@@ -529,7 +549,7 @@ export function GraphContextMenu({
           target &&
           !menuRef.current.contains(target)
         ) {
-          onClose();
+          onClose(true);
         }
       };
       document.addEventListener('mousedown', handleClickOutside);
@@ -553,7 +573,7 @@ export function GraphContextMenu({
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onClose(true);
       }
     };
     document.addEventListener('keydown', handleKey);
@@ -572,6 +592,20 @@ export function GraphContextMenu({
 
   const isNodeActionDisabled = !storyNode || !plotFlowData;
 
+  const handleMenuKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const enabledItems = itemRefs.current.filter((item): item is HTMLButtonElement => Boolean(item && !item.disabled));
+    if (enabledItems.length === 0) return;
+    const currentIndex = Math.max(0, enabledItems.indexOf(document.activeElement as HTMLButtonElement));
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % enabledItems.length;
+    if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + enabledItems.length) % enabledItems.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = enabledItems.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    enabledItems[nextIndex]?.focus();
+  }, []);
+
   // ==========================================================================
   // 事件处理器：节点菜单
   // ==========================================================================
@@ -586,9 +620,9 @@ export function GraphContextMenu({
     editorInstance.setPosition({ lineNumber: storyNode.lineNumber, column: 1 });
     editorInstance.focus();
     setCursorPosition(storyNode.lineNumber, 1);
-    setStatusMessage(`已跳转到: ${storyNode.title}`);
+    setStatusMessage(text('graphContext.jumpedToNode', { title: storyNode.title }));
     onClose();
-  }, [storyNode, editorInstance, setCursorPosition, setStatusMessage, onClose]);
+  }, [storyNode, editorInstance, setCursorPosition, setStatusMessage, onClose, text]);
 
   /** 打开重命名对话框 */
   const handleOpenRename = useCallback(() => {
@@ -604,11 +638,11 @@ export function GraphContextMenu({
       if (!storyNode) return;
 
       if (graphEditService.updateNode(storyNode, { title: newTitle })) {
-        setStatusMessage(`节点已重命名为: ${newTitle}`);
+        setStatusMessage(text('graphContext.renamedNode', { title: newTitle }));
       }
       setShowRenameDialog(false);
     },
-    [storyNode, setStatusMessage],
+    [storyNode, setStatusMessage, text],
   );
 
   /** 关闭重命名对话框 */
@@ -624,13 +658,13 @@ export function GraphContextMenu({
     }
 
     if (graphEditService.addOption(storyNode, {
-      description: '新选项',
-      targetNodeId: '选择目标节点',
+      description: text('graphContext.newOption'),
+      targetNodeId: text('graphContext.chooseTarget'),
     })) {
-      setStatusMessage(`已为「${storyNode.title}」添加新选项`);
+      setStatusMessage(text('graphContext.addedOption', { title: storyNode.title }));
     }
     onClose();
-  }, [storyNode, setStatusMessage, onClose]);
+  }, [storyNode, setStatusMessage, onClose, text]);
 
   /** 打开删除确认对话框 */
   const handleOpenDelete = useCallback(() => {
@@ -642,23 +676,23 @@ export function GraphContextMenu({
   /** 执行删除：从编辑器文本中移除节点全部行 */
   const handleDeleteConfirm = useCallback(() => {
     if (!storyNode) {
-      setStatusMessage('删除节点失败：未找到对应节点');
+      setStatusMessage(text('graphContext.deleteMissingNode'));
       setShowDeleteDialog(false);
       return;
     }
 
     try {
       if (graphEditService.deleteNode(storyNode)) {
-        setStatusMessage(`节点「${storyNode.title}」已删除`);
+        setStatusMessage(text('graphContext.deletedNode', { title: storyNode.title }));
       } else {
-        setStatusMessage(`删除节点失败：源文本未发生变化（${storyNode.title}）`);
+        setStatusMessage(text('graphContext.deleteUnchanged', { title: storyNode.title }));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setStatusMessage(`删除节点失败：${message}`);
+      setStatusMessage(text('graphContext.deleteFailed', { detail: message }));
     }
     setShowDeleteDialog(false);
-  }, [storyNode, setStatusMessage]);
+  }, [storyNode, setStatusMessage, text]);
 
   /** 关闭删除对话框 */
   const handleDeleteCancel = useCallback(() => {
@@ -672,18 +706,18 @@ export function GraphContextMenu({
   /** 在编辑器末尾插入新节点模板 */
   const handleAddNode = useCallback(() => {
     if (graphEditService.createNode({
-      title: '新节点',
-      body: '新节点的描述内容',
+      title: text('graphContext.newNodeTitle'),
+      body: text('graphContext.newNodeBody'),
     })) {
-      setStatusMessage('已添加新节点');
+      setStatusMessage(text('graphContext.addedNode'));
     }
     onClose();
-  }, [setStatusMessage, onClose]);
+  }, [setStatusMessage, onClose, text]);
 
   /** 重新调用 Dagre 布局 */
   const handleRelayout = useCallback(() => {
     if (graphNodes.length === 0) {
-      setStatusMessage('没有需要布局的节点');
+      setStatusMessage(text('graphContext.noLayoutNodes'));
       onClose();
       return;
     }
@@ -691,14 +725,14 @@ export function GraphContextMenu({
       .then((result) => {
         if (result.stale) return;
         setNodes(result.nodes);
-        setStatusMessage('Layout complete');
+        setStatusMessage(text('graphContext.layoutComplete'));
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         setStatusMessage(message);
       });
     onClose();
-  }, [graphNodes, graphEdges, setNodes, setStatusMessage, onClose]);
+  }, [graphNodes, graphEdges, setNodes, setStatusMessage, onClose, text]);
 
   // ==========================================================================
   // 事件处理器：连线右键菜单 (V02-015)
@@ -739,7 +773,7 @@ export function GraphContextMenu({
 
     if (edgeStoryIds.optionIndex === NEXT_EDGE_OPTION_INDEX) {
       if (graphEditService.connectNextTarget(sourceNode, null)) {
-        setStatusMessage(`连线已删除: ${sourceNode.title} → 下一步`);
+        setStatusMessage(text('graphContext.deletedNextEdge', { title: sourceNode.title }));
       }
       onClose();
       return;
@@ -749,10 +783,13 @@ export function GraphContextMenu({
     if (!option) { onClose(); return; }
 
     if (graphEditService.connectOption(option, null)) {
-      setStatusMessage(`连线已删除: ${sourceNode.title} → 选项 ${edgeStoryIds.optionIndex + 1}`);
+      setStatusMessage(text('graphContext.deletedOptionEdge', {
+        title: sourceNode.title,
+        index: edgeStoryIds.optionIndex + 1,
+      }));
     }
     onClose();
-  }, [edgeStoryIds, plotFlowData, getNodeByFullId, setStatusMessage, onClose]);
+  }, [edgeStoryIds, plotFlowData, getNodeByFullId, setStatusMessage, onClose, text]);
 
   /** 连线 → 跳转到源节点 */
   const handleEdgeJumpToSource = useCallback(() => {
@@ -763,10 +800,10 @@ export function GraphContextMenu({
       editorInstance.setPosition({ lineNumber: sourceNode.lineNumber, column: 1 });
       editorInstance.focus();
       setCursorPosition(sourceNode.lineNumber, 1);
-      setStatusMessage(`已跳转到源节点: ${sourceNode.title}`);
+      setStatusMessage(text('graphContext.jumpedToSource', { title: sourceNode.title }));
     }
     onClose();
-  }, [edgeStoryIds, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+  }, [edgeStoryIds, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose, text]);
 
   /** 连线 → 跳转到目标节点 */
   const handleEdgeJumpToTarget = useCallback(() => {
@@ -777,10 +814,10 @@ export function GraphContextMenu({
       editorInstance.setPosition({ lineNumber: targetNode.lineNumber, column: 1 });
       editorInstance.focus();
       setCursorPosition(targetNode.lineNumber, 1);
-      setStatusMessage(`已跳转到目标节点: ${targetNode.title}`);
+      setStatusMessage(text('graphContext.jumpedToTarget', { title: targetNode.title }));
     }
     onClose();
-  }, [edgeStoryIds, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose]);
+  }, [edgeStoryIds, editorInstance, getNodeByFullId, setCursorPosition, setStatusMessage, onClose, text]);
 
   // ==========================================================================
   // 菜单位置微调：防止溢出视口边缘
@@ -833,26 +870,26 @@ export function GraphContextMenu({
       ? [
           {
             key: 'jump',
-            label: '跳转到编辑器',
+            label: text('graphContext.jumpToEditor'),
             shortcut: 'Enter',
             disabled: isNodeActionDisabled,
             onClick: handleJumpToEditor,
           },
           {
             key: 'rename',
-            label: '重命名',
+            label: text('graphContext.rename'),
             disabled: isNodeActionDisabled,
             onClick: handleOpenRename,
           },
           {
             key: 'addOption',
-            label: '添加选项',
+            label: text('graphContext.addOption'),
             disabled: isNodeActionDisabled,
             onClick: handleAddOption,
           },
           {
             key: 'delete',
-            label: '删除节点',
+            label: text('graphContext.deleteNode'),
             danger: true,
             disabled: isNodeActionDisabled,
             onClick: handleOpenDelete,
@@ -863,28 +900,28 @@ export function GraphContextMenu({
         ? [
             {
               key: 'editCondition',
-              label: '编辑条件',
-              shortcut: '双击',
+              label: text('graphContext.editCondition'),
+              shortcut: text('graphContext.doubleClick'),
               disabled: !edgeStoryIds || !edgeStoryIds.sourceFullId || edgeStoryIds.optionIndex === NEXT_EDGE_OPTION_INDEX,
               onClick: handleEdgeEditCondition,
             },
             {
               key: 'deleteEdge',
-              label: '删除连线',
-              shortcut: 'Alt+点击',
+              label: text('graphContext.deleteEdge'),
+              shortcut: text('graphContext.altClick'),
               danger: true,
               disabled: !edgeStoryIds,
               onClick: handleEdgeDelete,
             },
             {
               key: 'jumpToSource',
-              label: '跳转到源节点',
+              label: text('graphContext.jumpToSource'),
               disabled: !edgeStoryIds || !editorInstance,
               onClick: handleEdgeJumpToSource,
             },
             {
               key: 'jumpToTarget',
-              label: '跳转到目标节点',
+              label: text('graphContext.jumpToTarget'),
               disabled: !edgeStoryIds || !editorInstance,
               onClick: handleEdgeJumpToTarget,
             },
@@ -892,12 +929,12 @@ export function GraphContextMenu({
         : [
             {
               key: 'addNode',
-              label: '添加节点',
+              label: text('graphContext.addNode'),
               onClick: handleAddNode,
             },
             {
               key: 'relayout',
-              label: '重新布局',
+              label: text('graphContext.relayout'),
               disabled: graphNodes.length === 0,
               onClick: handleRelayout,
             },
@@ -913,9 +950,10 @@ export function GraphContextMenu({
       <div
         ref={menuRef}
         role="menu"
+        onKeyDown={handleMenuKeyDown}
         style={{
           position: 'fixed',
-          zIndex: 'var(--z-dropdown, 900)',
+          zIndex: 'var(--z-dropdown)',
           top: adjustedPosition.y,
           left: adjustedPosition.x,
           width: MENU_WIDTH,
@@ -927,7 +965,7 @@ export function GraphContextMenu({
           overflow: 'hidden',
         }}
       >
-        {menuItems.map((item) => (
+        {menuItems.map((item, index) => (
           <React.Fragment key={item.key}>
             {item.showDividerBefore && (
               <div
@@ -939,6 +977,7 @@ export function GraphContextMenu({
               />
             )}
             <MenuItem
+              ref={(element) => { itemRefs.current[index] = element; }}
               label={item.label}
               shortcut={item.shortcut}
               danger={item.danger}
@@ -961,10 +1000,10 @@ export function GraphContextMenu({
       {/* 删除确认对话框 */}
       {showDeleteDialog && storyNode && (
         <ConfirmDialog
-          title="删除节点"
-          message={`确定要删除节点「${storyNode.title}」吗？\n此操作将通过编辑器文本删除节点所有内容，不可直接撤销。`}
-          confirmLabel="删除"
-          cancelLabel="取消"
+          title={text('graphContext.deleteNode')}
+          message={text('graphContext.deleteNodeMessage', { title: storyNode.title })}
+          confirmLabel={text('graphContext.delete')}
+          cancelLabel={text('common.cancel')}
           danger
           onConfirm={handleDeleteConfirm}
           onCancel={handleDeleteCancel}

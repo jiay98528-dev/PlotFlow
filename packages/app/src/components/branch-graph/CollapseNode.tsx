@@ -15,6 +15,7 @@ import React, { useCallback } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { CollapseNodeData } from './layout';
 import { useGraphStore } from '../../stores/graphStore';
+import { useAppText } from '../../i18n/appI18n';
 
 // ============================================================================
 // 类型定义
@@ -41,6 +42,7 @@ export interface CollapseNodeProps extends NodeProps<Node<CollapseNodeData>> {
  */
 export const CollapseNode: React.FC<CollapseNodeProps> = ({ data }) => {
   const toggleGroupCollapse = useGraphStore((s) => s.toggleGroupCollapse);
+  const text = useAppText();
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -54,7 +56,7 @@ export const CollapseNode: React.FC<CollapseNodeProps> = ({ data }) => {
     <div
       className="collapse-node-card"
       onClick={handleClick}
-      title={`点击展开 ${data.collapsedCount} 个隐藏节点`}
+      title={text('themeNode.expandCollapsedNodes', { count: data.collapsedCount })}
     >
       {/* 目标端口（顶部，接收来自父节点的连线） */}
       <Handle
@@ -74,7 +76,7 @@ export const CollapseNode: React.FC<CollapseNodeProps> = ({ data }) => {
 
       {/* 计数文字 */}
       <span className="collapse-node-label">
-        {data.collapsedCount} 个节点已折叠
+        {text('themeNode.collapsedNodes', { count: data.collapsedCount })}
       </span>
 
       {/* 底部端口（用于连线到后续节点） */}

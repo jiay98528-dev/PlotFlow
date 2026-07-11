@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "id": "plotflow-prism-foundry",
+  "name": {
+    "zh-CN": "棱镜铸造台",
+    "en-US": "Prism Foundry",
+    "default": "Prism Foundry"
+  },
+  "tagline": {
+    "zh-CN": "冷白液态玻璃 × 紫罗兰控制 × 青色信号",
+    "en-US": "Cold-white liquid glass, violet control, cyan signal"
+  },
+  "version": "1.0.0",
+  "plotflowVersion": ">=0.1.0",
+  "author": "PlotFlow Team",
+  "license": "Bundled",
+  "defaultMode": "light",
+  "description": "PlotFlow 默认亮色官方主题。它用冷白棱镜、受控液态玻璃与高不透明阅读面组织下一代游戏叙事工作台；玻璃只用于静态结构层，文本、表单、节点正文和源码始终保持清晰稳定。",
+  "capabilities": ["tokens", "visual", "layout", "monaco"],
+  "tokens": {
+    "shared": {
+      "--theme-prism-foundry-shell": "oklch(0.978 0.012 274)",
+      "--theme-prism-foundry-panel": "oklch(0.962 0.018 274 / 0.82)",
+      "--theme-prism-foundry-glass": "oklch(0.99 0.018 274 / 0.64)",
+      "--theme-prism-foundry-glass-strong": "oklch(0.975 0.02 274 / 0.86)",
+      "--theme-prism-foundry-canvas": "oklch(0.946 0.028 264)",
+      "--theme-prism-foundry-grid": "oklch(0.73 0.055 258 / 0.38)",
+      "--theme-prism-foundry-violet": "oklch(0.55 0.2 301)",
+      "--theme-prism-foundry-violet-strong": "oklch(0.47 0.21 300)",
+      "--theme-prism-foundry-cyan": "oklch(0.64 0.13 210)",
+      "--theme-prism-foundry-cyan-bright": "oklch(0.73 0.115 205)",
+      "--theme-prism-foundry-shadow": "0 18px 48px oklch(0.34 0.07 282 / 0.16)",
+      "--theme-prism-foundry-shadow-strong": "0 28px 72px oklch(0.3 0.09 285 / 0.22)",
+      "--theme-prism-foundry-ease": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "--theme-prism-paper": "var(--theme-workbench-paper)",
+      "--theme-prism-panel": "var(--theme-workbench-panel)",
+      "--theme-prism-rail": "var(--theme-workbench-rail)",
+      "--theme-prism-ink": "var(--theme-node-ink)",
+      "--theme-prism-muted": "var(--theme-node-muted)",
+      "--theme-prism-violet": "var(--theme-prism-foundry-violet)",
+      "--theme-prism-signal": "var(--theme-prism-foundry-cyan)",
+      "--theme-workbench-paper-grain": "linear-gradient(135deg, var(--theme-prism-foundry-shell), var(--theme-prism-foundry-canvas))",
+      "--theme-graph-lab-paper": "var(--theme-prism-foundry-canvas)",
+      "--theme-graph-lab-surface": "var(--theme-prism-foundry-glass)",
+      "--theme-panel-surface": "var(--theme-prism-foundry-panel)",
+      "--theme-grid-size": "30px",
+      "--theme-card-radius": "20px",
+      "--theme-graph-node-radius": "10px",
+      "--theme-graph-canvas-grid-opacity": "0.72",
+      "--theme-graph-cable-default": "var(--theme-prism-foundry-cyan)",
+      "--theme-graph-cable-conditional": "var(--theme-prism-foundry-violet)",
+      "--theme-graph-port": "var(--theme-prism-foundry-cyan)",
+      "--theme-port-fill": "var(--theme-prism-foundry-cyan)",
+      "--theme-source-dock-height": "324px",
+      "--theme-workbench-shadow": "var(--theme-prism-foundry-shadow)"
+    },
+    "light": {
+      "--theme-workbench-paper": "oklch(0.978 0.012 274)",
+      "--theme-workbench-paper-warm": "oklch(0.96 0.018 282)",
+      "--theme-workbench-rail": "oklch(0.947 0.025 270 / 0.78)",
+      "--theme-workbench-panel": "oklch(0.975 0.016 274 / 0.88)",
+      "--theme-blueprint-canvas": "oklch(0.946 0.028 264)",
+      "--theme-blueprint-grid": "oklch(0.68 0.07 258)",
+      "--theme-blueprint-cable": "oklch(0.64 0.13 210)",
+      "--theme-node-surface": "oklch(0.99 0.008 278 / 0.96)",
+      "--theme-node-surface-strong": "oklch(0.968 0.025 283 / 0.98)",
+      "--theme-node-border": "oklch(0.77 0.055 278 / 0.72)",
+      "--theme-node-ink": "oklch(0.25 0.045 275)",
+      "--theme-node-muted": "oklch(0.48 0.045 274)",
+      "--theme-effect-line": "oklch(0.55 0.2 301)",
+      "--theme-success-leaf": "oklch(0.57 0.12 160)",
+      "--theme-warning-leaf": "oklch(0.72 0.13 83)",
+      "--theme-danger-leaf": "oklch(0.57 0.17 28)"
+    }
+  },
+  "monacoTheme": {
+    "light": {
+      "base": "vs",
+      "inherit": true,
+      "rules": [
+        { "token": "heading", "foreground": "5636A4", "fontStyle": "bold" },
+        { "token": "keyword", "foreground": "276A88" },
+        { "token": "string", "foreground": "9A4F34" }
+      ],
+      "colors": {
+        "editor.background": "#F8F8FF",
+        "editor.foreground": "#25253F",
+        "editorLineNumber.foreground": "#85839E",
+        "editorCursor.foreground": "#6540B7",
+        "editor.selectionBackground": "#E1DCF8",
+        "editor.inactiveSelectionBackground": "#ECEAF6"
+      }
+    }
+  },
+  "layoutRecipe": {
+    "density": "comfortable",
+    "graphLab": {
+      "paletteWidth": 286,
+      "railWidth": 286,
+      "inspectorWidth": 368,
+      "sourceDock": "bottom",
+      "sourceDockHeight": 324,
+      "nodeCardStyle": "prism-liquid-card",
+      "cableStyle": "cyan-signal-route",
+      "motionIntensity": "expressive"
+    }
+  },
+  "uxRecipe": {
+    "appShell": {
+      "layout": "prism-glass-shell",
+      "padding": "0",
+      "gap": "0"
+    },
+    "home": {
+      "layout": "prism-studio-landing",
+      "inset": "56px 0 28px",
+      "padding": "clamp(var(--space-4), 3vw, var(--space-8))",
+      "gap": "var(--space-5)",
+      "opacity": "1"
+    },
+    "themeCenter": {
+      "layout": "prism-glass-catalog",
+      "width": "min(1180px, 100%)",
+      "height": "min(820px, calc(100vh - var(--space-12)))",
+      "padding": "var(--space-6)",
+      "gap": "var(--space-4)",
+      "opacity": "1",
+      "zIndex": "var(--z-modal)"
+    },
+    "graphLab": {
+      "layout": "prism-canvas-rack",
+      "padding": "var(--space-3)",
+      "gap": "var(--space-3)"
+    },
+    "split": {
+      "layout": "prism-balanced-editor-graph",
+      "gap": "var(--space-3)"
+    },
+    "toolbar": {
+      "height": "62px",
+      "padding": "0 var(--space-4)",
+      "gap": "var(--space-3)"
+    },
+    "panel": {
+      "radius": "20px",
+      "shadow": "var(--theme-prism-foundry-shadow)",
+      "opacity": "0.98"
+    },
+    "dock": {
+      "height": "324px",
+      "position": "bottom"
+    },
+    "node": {
+      "width": "320px",
+      "minHeight": "228px",
+      "padding": "var(--space-3)",
+      "radius": "10px",
+      "opacity": "1"
+    },
+    "edge": {
+      "width": "42px",
+      "opacity": "1"
+    },
+    "typography": {
+      "layout": "precise-system",
+      "gap": "var(--space-2)"
+    }
+  },
+  "entryRecipe": {
+    "graphLabDefaultEntry": "canvasFirst",
+    "sourceDockDefault": "collapsed",
+    "primaryActionLabel": {
+      "zh-CN": "进入铸造台",
+      "en-US": "Enter Foundry"
+    }
+  },
+  "interactionRecipe": {
+    "density": "balanced",
+    "realtimeWirePreview": true,
+    "highlightConnectTargets": true,
+    "prominentPorts": true
+  },
+  "motionRecipe": {
+    "intensity": "expressive",
+    "nodeHoverLift": true,
+    "cableGlow": true,
+    "backgroundDrift": false
+  },
+  "storeMeta": {
+    "availability": "bundled",
+    "priceLabel": "随 PlotFlow 内置",
+    "storeUrl": "https://plotflow.app/themes/plotflow-prism-foundry"
+  },
+  "assets": {
+    "preview": "assets/preview.svg"
+  },
+  "screenshots": ["assets/preview.svg"]
+}

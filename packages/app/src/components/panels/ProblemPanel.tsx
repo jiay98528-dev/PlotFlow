@@ -6,30 +6,11 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useAppText } from '../../i18n/appI18n';
+import { localizeDiagnostic } from '../../i18n/localizeDiagnostic';
 
 type SeverityFilter = 'all' | DiagnosticSeverity;
 type SeverityIcon = typeof AlertCircle;
 type ProblemPanelStyle = React.CSSProperties & { readonly '--theme-problem-panel-height'?: string };
-
-const EN_DIAGNOSTIC_MESSAGES: Readonly<Record<string, string>> = {
-  E001: 'Target node is undefined',
-  E002: 'Variable is not declared in Frontmatter',
-  E003: 'Value is not in the allowed enum list',
-  E004: 'Value type does not match the variable declaration',
-  E005: 'Syntax parsing failed',
-  E006: 'Object nesting exceeds the maximum depth of 3',
-  E007: 'Duplicate node ID',
-  E008: 'Duplicate variable declaration',
-  W001: 'Node has no incoming option target (orphan node)',
-  W002: 'Node has no outgoing options (dead end)',
-  W003: 'Variable is not used in the story',
-  W004: 'Option text duplicates another option at the same level',
-  W005: 'Node body is empty',
-  W006: 'Formatting is not standard',
-  I001: 'All options have conditions and may block progress',
-  I002: 'Node body is too short',
-  I003: 'Node is not assigned to any chapter',
-};
 
 const SEVERITY_ICON: Readonly<Record<DiagnosticSeverity, SeverityIcon>> = {
   error: AlertCircle,
@@ -69,6 +50,9 @@ export function ProblemPanel(): React.ReactElement {
   const [panelHeight, setPanelHeight] = useState(PANEL_DEFAULT_HEIGHT);
   const isResizing = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
 
   const counts = useMemo(() => {
     let errors = 0;
@@ -146,6 +130,28 @@ export function ProblemPanel(): React.ReactElement {
     };
   }, [toggleProblemPanel]);
 
+  useEffect(() => {
+    if (isProblemPanelOpen && !wasOpenRef.current) {
+      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      window.setTimeout(() => closeButtonRef.current?.focus({ preventScroll: true }), 0);
+    } else if (!isProblemPanelOpen && wasOpenRef.current) {
+      const opener = openerRef.current;
+      window.setTimeout(() => opener?.focus({ preventScroll: true }), 0);
+    }
+    wasOpenRef.current = isProblemPanelOpen;
+  }, [isProblemPanelOpen]);
+
+  useEffect(() => {
+    if (!isProblemPanelOpen) return undefined;
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !panelRef.current?.contains(document.activeElement)) return;
+      event.preventDefault();
+      toggleProblemPanel();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isProblemPanelOpen, toggleProblemPanel]);
+
   const handleResizeStart = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
@@ -176,6 +182,23 @@ export function ProblemPanel(): React.ReactElement {
     [panelHeight],
   );
 
+  const handleResizeKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 40 : 10;
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setPanelHeight((current) => Math.min(window.innerHeight - 120, current + step));
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setPanelHeight((current) => Math.max(PANEL_MIN_HEIGHT, current - step));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setPanelHeight(PANEL_MIN_HEIGHT);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setPanelHeight(Math.max(PANEL_MIN_HEIGHT, window.innerHeight - 120));
+    }
+  }, []);
+
   useEffect(() => () => {
     if (isResizing.current) {
       isResizing.current = false;
@@ -196,8 +219,15 @@ export function ProblemPanel(): React.ReactElement {
         <>
           <div
             className="problem-panel__resize-handle"
-            aria-hidden="true"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label={text('problemPanel.resize')}
+            aria-valuemin={PANEL_MIN_HEIGHT}
+            aria-valuemax={Math.max(PANEL_MIN_HEIGHT, window.innerHeight - 120)}
+            aria-valuenow={panelHeight}
+            tabIndex={0}
             onMouseDown={handleResizeStart}
+            onKeyDown={handleResizeKeyDown}
           />
           <header className="problem-panel__header">
             <div className="problem-panel__title">
@@ -206,6 +236,7 @@ export function ProblemPanel(): React.ReactElement {
               <small>{text('problemPanel.shortcut')}</small>
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
               className="icon-button problem-panel__close"
               onClick={toggleProblemPanel}
@@ -243,10 +274,8 @@ export function ProblemPanel(): React.ReactElement {
             ) : (
               filteredDiagnostics.map((diagnostic) => {
                 const Icon = SEVERITY_ICON[diagnostic.severity];
-                const message =
-                  language === 'en-US'
-                    ? EN_DIAGNOSTIC_MESSAGES[diagnostic.code] ?? diagnostic.message
-                    : diagnostic.message;
+                const localized = localizeDiagnostic(diagnostic, language);
+                const message = localized.message;
                 const location = text('problemPanel.location', {
                   line: diagnostic.range.startLine,
                   column: diagnostic.range.startColumn,
@@ -263,7 +292,7 @@ export function ProblemPanel(): React.ReactElement {
                       onClick={() => handleJumpToLine(diagnostic)}
                       title={
                         text('problemPanel.jump', { line: diagnostic.range.startLine }) +
-                        (diagnostic.detail ? `\n${diagnostic.detail}` : '')
+                        (localized.detail ? `\n${localized.detail}` : '')
                       }
                       aria-label={`${severityLabel} ${diagnostic.code}. ${message}. ${location}`}
                     >

@@ -7,13 +7,13 @@ import { clearRecentStory, readRecentStory, rememberOpenedStory } from '../../se
 import { loadSavedStorySession } from '../../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
 import { useAppText } from '../../i18n/appI18n';
+import { requestWorkspaceMode } from '../../services/workspaceModeService';
 
 export function HomeSurface(): React.ReactElement | null {
   const isOpen = useUIStore((state) => state.isHomeSurfaceOpen);
   const openNewFileDialog = useUIStore((state) => state.openNewFileDialog);
   const openThemeCenter = useUIStore((state) => state.openThemeCenter);
   const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
-  const setWorkspaceMode = useUIStore((state) => state.setWorkspaceMode);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const language = useUIStore((state) => state.language);
   const filePath = useEditorStore((state) => state.filePath);
@@ -34,7 +34,7 @@ export function HomeSurface(): React.ReactElement | null {
 
     const recent = readRecentStory();
     if (!recent) {
-      setStatusMessage('No recent saved .mdstory file found.');
+      setStatusMessage(text('home.noRecentFile'));
       setHomeSurfaceOpen(false);
       return;
     }
@@ -59,7 +59,7 @@ export function HomeSurface(): React.ReactElement | null {
     loadStory(normalizedPath, result.content, result.hash, result.modifiedAt);
     setStatusMessage(
       result.hash !== recent.hash
-        ? `Continue editing loaded the current disk version of ${normalizedPath}.`
+        ? text('home.continueLoadedCurrent', { path: normalizedPath })
         : text('status.opened', { path: normalizedPath }),
     );
   }, [filePath, loadStory, setHomeSurfaceOpen, setStatusMessage, text]);
@@ -83,7 +83,7 @@ export function HomeSurface(): React.ReactElement | null {
     <Surface
       heroCopy={(
         <>
-          <p className="home-surface__eyebrow">PlotFlow Official Workbench</p>
+          <p className="home-surface__eyebrow">{text('home.eyebrow')}</p>
           <h2>{text('home.title')}</h2>
           <p>
             {text('home.body')}
@@ -133,7 +133,7 @@ export function HomeSurface(): React.ReactElement | null {
             className="home-action-card"
             data-testid="home-open-graph-lab"
             onClick={() => {
-              setWorkspaceMode('graphLab');
+              requestWorkspaceMode('graphLab');
               setHomeSurfaceOpen(false);
             }}
           >

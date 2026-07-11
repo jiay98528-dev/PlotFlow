@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { registerTheme, getTheme, getThemeOrDefault, DEFAULT_THEME_ID } from '../theme-platform/registry';
+import { resolveMonacoTheme } from '../theme-platform/bridge';
 import { builtinThemes } from './builtin/index';
 import { createInstalledOfficialThemeDescriptor } from './officialRemoteThemes';
 import type { OfficialThemeRuntimeModule, ThemeDescriptor } from '../theme-platform/types';
@@ -12,10 +13,53 @@ function registerAllBuiltin(): void {
 }
 
 describe('builtin theme definitions', () => {
-  it('ships built-in official themes with narrative-workbench as default', () => {
-    expect(builtinThemes.length).toBeGreaterThanOrEqual(2);
-    expect(builtinThemes[0]!.id).toBe('plotflow-narrative-workbench');
-    expect(builtinThemes.map((theme) => theme.id)).toContain('plotflow-engine-telemetry');
+  it('ships Prism Foundry alongside the existing bundled official themes', () => {
+    const ids = builtinThemes.map((theme) => theme.id);
+
+    expect(ids).toEqual(expect.arrayContaining([
+      'plotflow-prism-foundry',
+      'plotflow-narrative-workbench',
+      'plotflow-engine-telemetry',
+    ]));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('provides a complete light Prism Foundry descriptor and Monaco definition', () => {
+    const prismFoundry = builtinThemes.find((theme) => theme.id === 'plotflow-prism-foundry');
+
+    expect(prismFoundry).toBeDefined();
+    expect(prismFoundry).toMatchObject({
+      id: 'plotflow-prism-foundry',
+      defaultMode: 'light',
+      storeMeta: { availability: 'bundled' },
+      layoutRecipe: {
+        graphLab: expect.objectContaining({
+          nodeCardStyle: expect.any(String),
+          cableStyle: expect.any(String),
+        }),
+      },
+      assets: { preview: expect.any(String) },
+    });
+    expect(prismFoundry!.name['zh-CN']).toBeTruthy();
+    expect(prismFoundry!.name['en-US']).toBeTruthy();
+    const prismLightTokens = {
+      ...prismFoundry!.tokens.shared,
+      ...prismFoundry!.tokens.light,
+    };
+    expect(prismLightTokens).toEqual(expect.objectContaining({
+      '--theme-graph-lab-paper': expect.any(String),
+      '--theme-node-ink': expect.any(String),
+      '--theme-graph-cable-default': expect.any(String),
+    }));
+
+    const monaco = resolveMonacoTheme(prismFoundry!, 'light');
+    expect(monaco).toMatchObject({
+      base: 'vs',
+      colors: expect.objectContaining({
+        'editor.background': expect.any(String),
+        'editor.foreground': expect.any(String),
+      }),
+    });
   });
 
   it('provides full production slots and recipes for every builtin theme', () => {
@@ -51,6 +95,7 @@ describe('builtin theme definitions', () => {
   it('runtime registry returns default for unknown theme id', () => {
     registerAllBuiltin();
 
+    expect(getTheme('plotflow-prism-foundry')).toBeTruthy();
     expect(getTheme('plotflow-narrative-workbench')).toBeTruthy();
     expect(getTheme('plotflow-engine-telemetry')).toBeTruthy();
     expect(getTheme('unknown-theme')).toBeUndefined();
@@ -59,8 +104,8 @@ describe('builtin theme definitions', () => {
     expect(fallback.id).toBe(DEFAULT_THEME_ID);
   });
 
-  it('DEFAULT_THEME_ID is narrative workbench', () => {
-    expect(DEFAULT_THEME_ID).toBe('plotflow-narrative-workbench');
+  it('DEFAULT_THEME_ID is Prism Foundry', () => {
+    expect(DEFAULT_THEME_ID).toBe('plotflow-prism-foundry');
   });
 
   it('materializes official remote runtime modules into full descriptors', async () => {

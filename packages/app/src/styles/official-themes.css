@@ -581,6 +581,22 @@ html[data-theme-id] {
   gap: var(--space-2);
 }
 
+.official-graph-node__header {
+  cursor: grab;
+}
+
+.react-flow__node.dragging .official-graph-node__header {
+  cursor: grabbing;
+}
+
+.official-graph-node__drag-affordance {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-node-muted);
+  opacity: 0.68;
+}
+
 .official-graph-node__status,
 .official-graph-node__chapter,
 .official-graph-node__count,
@@ -812,7 +828,7 @@ html[data-theme-id] {
 .graph-live-wire-preview {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-panel, 50) + 4);
+  z-index: calc(var(--z-panel) + 4);
   width: 100vw;
   height: 100vh;
   pointer-events: none;
@@ -1397,7 +1413,7 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-tel
   box-shadow: 0 0 0 2px var(--theme-telemetry-amber-glow);
 }
 
-@media (width <= 1180px) {
+@media (width <= 1179px) {
   html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab,
   html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.graph-lab--source-open {
     grid-template-columns: minmax(232px, 270px) minmax(360px, 1fr) minmax(280px, 330px);
@@ -1488,5 +1504,1276 @@ html[data-theme-id='plotflow-engine-telemetry'] .official-graph-edge--engine-tel
   .theme-center__sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--theme-node-border);
+  }
+}
+
+/*
+ * Prism Foundry / 棱镜铸造台
+ *
+ * The live theme is scoped to its theme id.  The preview below is intentionally
+ * isolated on its own preview element so it stays truthful while another theme
+ * is active in Theme Center.
+ */
+html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] {
+  --theme-graph-lab-paper: oklch(97.8% 0.012 278deg);
+  --theme-graph-lab-surface: oklch(98.9% 0.01 286deg);
+  --theme-panel-surface: oklch(98.1% 0.018 286deg / 94%);
+  --theme-blueprint-canvas: oklch(96.1% 0.018 271deg);
+  --theme-node-surface: oklch(99.2% 0.009 284deg);
+  --theme-node-border: oklch(79.5% 0.034 286deg);
+  --theme-node-ink: oklch(26.5% 0.042 281deg);
+  --theme-node-muted: oklch(47.5% 0.035 276deg);
+  --theme-port-fill: oklch(58.5% 0.19 290deg);
+  --theme-graph-cable-default: oklch(64.5% 0.135 205deg);
+  --theme-graph-cable-conditional: oklch(59.5% 0.17 292deg);
+  --theme-workbench-shadow: 0 14px 34px oklch(36% 0.055 280deg / 16%);
+}
+
+html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview__canvas {
+  background:
+    radial-gradient(circle at 82% 16%, oklch(90% 0.095 284deg / 58%), transparent 31%),
+    linear-gradient(90deg, oklch(64.5% 0.135 205deg / 12%) 1px, transparent 1px),
+    linear-gradient(0deg, oklch(58.5% 0.19 290deg / 10%) 1px, transparent 1px),
+    var(--theme-blueprint-canvas);
+  background-size: auto, 28px 28px, 28px 28px, auto;
+}
+
+html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview__node {
+  border-radius: 14px;
+  border-color: color-mix(in oklch, var(--theme-node-border), var(--theme-port-fill) 18%);
+  background: var(--theme-node-surface);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 74%),
+    var(--theme-workbench-shadow);
+}
+
+html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview-node-main {
+  border-color: color-mix(in oklch, var(--theme-port-fill), var(--theme-node-border) 38%);
+}
+
+html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview-node-leaf {
+  border-color: color-mix(in oklch, var(--theme-graph-cable-default), var(--theme-node-border) 38%);
+}
+
+html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] path {
+  stroke: var(--theme-graph-cable-default);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] {
+  --theme-prism-reader: var(--theme-node-surface, oklch(99.2% 0.009 284deg));
+  --theme-prism-warning: var(--theme-warning-leaf, var(--theme-status-amber, var(--color-warning, oklch(70% 0.15 77deg))));
+  --theme-prism-danger: var(--theme-danger-leaf, var(--theme-danger-signal, var(--color-error, oklch(57% 0.2 28deg))));
+  --theme-prism-separator: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-paper) 82%);
+  --theme-prism-signal-separator: color-mix(in oklch, var(--theme-prism-signal), var(--theme-prism-paper) 72%);
+  --theme-prism-shell-glass: color-mix(in oklch, var(--theme-prism-panel) 88%, var(--theme-prism-paper));
+  --theme-prism-structural-glass: color-mix(in oklch, var(--theme-prism-panel) 90%, var(--theme-prism-rail));
+  --theme-prism-reader-surface: color-mix(in oklch, var(--theme-prism-reader) 96%, var(--theme-prism-paper));
+  --theme-prism-control-surface: color-mix(in oklch, var(--theme-prism-reader) 88%, var(--theme-prism-rail));
+  --theme-prism-warning-ink: color-mix(in oklch, var(--theme-prism-warning), var(--theme-prism-ink) 42%);
+  --theme-prism-danger-ink: color-mix(in oklch, var(--theme-prism-danger), var(--theme-prism-ink) 22%);
+
+  /* 焦点环保持不透明，保证亮色结构面上的 WCAG 3:1 可见性。 */
+  --theme-prism-focus-ring: var(--theme-prism-violet);
+  --theme-prism-violet-glow: color-mix(in oklch, var(--theme-prism-violet), transparent 78%);
+  --theme-prism-signal-glow: color-mix(in oklch, var(--theme-prism-signal), transparent 76%);
+  --theme-prism-shadow:
+    0 20px 54px color-mix(in oklch, var(--theme-prism-ink), transparent 86%),
+    0 2px 7px color-mix(in oklch, var(--theme-prism-violet), transparent 91%);
+  --theme-prism-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --theme-prism-motion-press: 120ms;
+  --theme-prism-motion-fast: 180ms;
+  --theme-prism-motion-base: 240ms;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-shell {
+  color: var(--theme-prism-ink);
+  background:
+    radial-gradient(circle at 4% 0%, color-mix(in oklch, var(--theme-prism-violet), transparent 80%), transparent 32%),
+    radial-gradient(circle at 96% 12%, color-mix(in oklch, var(--theme-prism-signal), transparent 84%), transparent 29%),
+    linear-gradient(148deg, var(--theme-prism-paper), color-mix(in oklch, var(--theme-prism-paper), var(--theme-prism-rail) 28%));
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar {
+  min-height: var(--theme-ux-toolbar-height, 56px);
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  background: var(--theme-prism-shell-glass);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 78%),
+    0 10px 26px color-mix(in oklch, var(--theme-prism-ink), transparent 92%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar__nav,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar__group {
+  gap: var(--space-2);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar__group {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 22%);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-rail) 22%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 66%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-logo {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 56%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 90%);
+  box-shadow: 0 0 0 3px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-title {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-subtitle,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .toolbar-button,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .toolbar-select,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .icon-button {
+  color: var(--theme-prism-muted);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button) {
+  transition:
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar :is(.toolbar-button, .toolbar-select, .icon-button, .button--secondary, .button--ghost):hover {
+  color: var(--theme-prism-ink);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 92%);
+  box-shadow: 0 8px 18px color-mix(in oklch, var(--theme-prism-violet), transparent 91%);
+  transform: translateY(-1px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .toolbar-button.is-active {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 32%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 89%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 58%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .button--primary {
+  border-color: var(--theme-prism-violet);
+  color: var(--color-text-on-accent, oklch(99% 0.008 285deg));
+  background: var(--theme-prism-violet);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 36%),
+    0 10px 22px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .button--primary:hover {
+  background: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-ink) 10%);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 42%),
+    0 14px 28px color-mix(in oklch, var(--theme-prism-violet), transparent 72%);
+  transform: translateY(-1px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button):focus-visible {
+  border-color: var(--theme-prism-violet);
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button):active {
+  transition-duration: var(--theme-prism-motion-press);
+  transform: translateY(1px) scale(0.985);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button):disabled {
+  color: color-mix(in oklch, var(--theme-prism-muted), transparent 44%);
+  box-shadow: none;
+  opacity: 0.62;
+  transform: none;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split {
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--theme-prism-signal), transparent 91%) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in oklch, var(--theme-prism-violet), transparent 93%) 1px, transparent 1px),
+    var(--theme-prism-paper);
+  background-size: 36px 36px, 36px 36px, auto;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split .split-viewbar {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  color: var(--theme-prism-muted);
+  background: var(--theme-prism-shell-glass);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 72%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split__deck {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  background: color-mix(in oklch, var(--theme-prism-paper), var(--theme-prism-rail) 20%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split__deck:has(.graph-pane) {
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(280px, 38%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split__rail {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  background: var(--theme-prism-structural-glass);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split :is(.editor-pane, .outline-panel) {
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split .editor-pane .monaco-editor {
+  background: var(--theme-prism-reader-surface);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split .outline-panel {
+  border-right: 0;
+  background: transparent;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split .graph-pane {
+  border-color: color-mix(in oklch, var(--theme-prism-signal-separator), transparent 8%);
+  background: var(--theme-prism-paper);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-panel-frame,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-dock-frame {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 18%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 66%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-panel-frame {
+  background: var(--theme-prism-structural-glass);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-dock-frame {
+  background: var(--theme-prism-reader-surface);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab {
+  background:
+    radial-gradient(circle at 82% 14%, color-mix(in oklch, var(--theme-prism-violet), transparent 85%), transparent 33%),
+    var(--theme-prism-paper);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__commandbar,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-rail,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-inspector {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  background: var(--theme-prism-structural-glass);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 72%),
+    0 12px 30px color-mix(in oklch, var(--theme-prism-ink), transparent 93%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__canvas {
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--theme-prism-signal), transparent 89%) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in oklch, var(--theme-prism-violet), transparent 93%) 1px, transparent 1px),
+    radial-gradient(circle at 86% 10%, color-mix(in oklch, var(--theme-prism-violet), transparent 89%), transparent 30%),
+    var(--theme-prism-paper);
+  background-size: 36px 36px, 36px 36px, auto, auto;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .react-flow__controls,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .react-flow__minimap {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 22%);
+  background: var(--theme-prism-reader-surface);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 66%),
+    0 10px 22px color-mix(in oklch, var(--theme-prism-ink), transparent 90%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .react-flow__controls-button {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 28%);
+  color: var(--theme-prism-muted);
+  background: var(--theme-prism-reader-surface);
+  transition:
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .react-flow__controls-button:hover,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .react-flow__controls-button:focus-visible {
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 92%);
+  box-shadow: 0 0 0 3px var(--theme-prism-violet-glow);
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 1px;
+  transform: translateY(-1px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__mark {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 56%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 90%);
+  box-shadow: 0 0 0 3px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab__commandbar h2,
+  .graph-lab-panel__header h2,
+  .graph-lab-section h3,
+  .graph-lab-section__title h3,
+  .graph-lab-field,
+  .graph-lab-field-group > span
+) {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab__mode,
+  .graph-lab-panel__eyebrow,
+  .graph-lab-control-hint,
+  .graph-lab-empty,
+  .graph-lab-palette__hint,
+  .graph-lab-rail__current,
+  .graph-lab-workspace-summary,
+  .graph-lab-field-group > span
+) {
+  color: var(--theme-prism-muted);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__chapter-tabs {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 24%);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-rail) 36%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 62%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__chapter-tabs button {
+  color: var(--theme-prism-muted);
+  transition:
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__chapter-tabs button:hover {
+  color: var(--theme-prism-ink);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 94%);
+  transform: translateY(-1px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__chapter-tabs button.is-active {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 36%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 89%);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 66%),
+    0 6px 16px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__chapter-tabs button:focus-visible {
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 2px;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-rail__hero,
+  .graph-lab-workspace-summary,
+  .graph-lab-variable-row,
+  .graph-lab-effect-list,
+  .graph-lab-option
+) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 28%);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 62%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-file,
+  .graph-lab-outline-node,
+  .graph-lab-dock-toggle,
+  .graph-lab-tool,
+  .graph-lab-inline-button,
+  .graph-lab-empty-action
+) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 34%);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-control-surface);
+  transition:
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-file,
+  .graph-lab-outline-node,
+  .graph-lab-dock-toggle,
+  .graph-lab-tool,
+  .graph-lab-inline-button,
+  .graph-lab-empty-action
+):hover {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 42%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 93%);
+  box-shadow: 0 7px 16px color-mix(in oklch, var(--theme-prism-violet), transparent 89%);
+  transform: translateY(-1px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-file,
+  .graph-lab-outline-node,
+  .graph-lab-dock-toggle,
+  .graph-lab-tool,
+  .graph-lab-inline-button,
+  .graph-lab-empty-action
+):focus-visible {
+  border-color: var(--theme-prism-violet);
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-file,
+  .graph-lab-outline-node,
+  .graph-lab-dock-toggle,
+  .graph-lab-tool,
+  .graph-lab-inline-button,
+  .graph-lab-empty-action
+):active {
+  transform: translateY(1px) scale(0.987);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-dock-toggle,
+  .graph-lab-tool,
+  .graph-lab-inline-button,
+  .graph-lab-empty-action
+):disabled {
+  color: color-mix(in oklch, var(--theme-prism-muted), transparent 44%);
+  box-shadow: none;
+  opacity: 0.58;
+  transform: none;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-tool--primary {
+  border-color: var(--theme-prism-violet);
+  color: var(--color-text-on-accent, oklch(99% 0.008 285deg));
+  background: var(--theme-prism-violet);
+  box-shadow: 0 9px 20px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-tool--primary:hover {
+  color: var(--color-text-on-accent, oklch(99% 0.008 285deg));
+  background: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-ink) 10%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-field input,
+  .graph-lab-field textarea,
+  .graph-lab-field select,
+  .graph-lab-condition-builder select,
+  .graph-lab-condition-builder input,
+  .graph-lab-effect-row select,
+  .graph-lab-effect-row input,
+  .graph-lab-effect-builder select,
+  .graph-lab-effect-builder input
+) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 30%);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 64%);
+  transition:
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .graph-lab-field input,
+  .graph-lab-field textarea,
+  .graph-lab-field select,
+  .graph-lab-condition-builder select,
+  .graph-lab-condition-builder input,
+  .graph-lab-effect-row select,
+  .graph-lab-effect-row input,
+  .graph-lab-effect-builder select,
+  .graph-lab-effect-builder input
+):focus {
+  border-color: var(--theme-prism-violet);
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 1px;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 72%),
+    0 0 0 4px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: 0 -12px 34px color-mix(in oklch, var(--theme-prism-ink), transparent 93%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__header,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-toolbar,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-diagnostics {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 18%);
+  color: var(--theme-prism-muted);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-rail) 26%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .source-drawer__slice-toolbar strong,
+  .source-drawer__slice-diagnostics strong,
+  .source-drawer__slice-diagnostics p,
+  .source-drawer__slice-diagnostics em
+) {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-editor {
+  color: var(--theme-prism-ink);
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--theme-prism-signal), transparent 94%) 1px, transparent 1px),
+    var(--theme-prism-reader-surface);
+  background-size: 32px 32px, auto;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .source-drawer__slice-status,
+  .source-drawer__slice-action,
+  .source-drawer__slice-diagnostic-button
+) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 28%);
+  color: var(--theme-prism-muted);
+  background: var(--theme-prism-reader-surface);
+  transition:
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .source-drawer__slice-action,
+  .source-drawer__slice-diagnostic-button
+):hover {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 42%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 93%);
+  box-shadow: 0 7px 16px color-mix(in oklch, var(--theme-prism-violet), transparent 90%);
+  transform: translateY(-1px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+  .source-drawer__slice-action,
+  .source-drawer__slice-diagnostic-button
+):focus-visible {
+  border-color: var(--theme-prism-violet);
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-action-primary {
+  border-color: var(--theme-prism-violet);
+  color: var(--color-text-on-accent, oklch(99% 0.008 285deg));
+  background: var(--theme-prism-violet);
+  box-shadow: 0 9px 18px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-status[data-state='dirty'],
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-status[data-state='warning'] {
+  border-color: color-mix(in oklch, var(--theme-prism-warning), transparent 42%);
+  color: var(--theme-prism-warning-ink);
+  background: color-mix(in oklch, var(--theme-prism-warning), transparent 89%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer__slice-status[data-state='stale'] {
+  border-color: color-mix(in oklch, var(--theme-prism-danger), transparent 38%);
+  color: var(--theme-prism-danger-ink);
+  background: color-mix(in oklch, var(--theme-prism-danger), transparent 90%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: 0 -12px 30px color-mix(in oklch, var(--theme-prism-ink), transparent 94%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__resize-handle::after {
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 36%);
+  box-shadow: 0 0 0 3px var(--theme-prism-signal-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] :is(.problem-panel__header, .problem-panel__filters) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 20%);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-rail) 28%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] :is(
+  .problem-panel__title,
+  .problem-panel__message
+) {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] :is(
+  .problem-panel__title small,
+  .problem-panel__location,
+  .problem-panel__code
+) {
+  color: var(--theme-prism-muted);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] :is(.problem-panel__filter-btn, .problem-panel__code) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 28%);
+  color: var(--theme-prism-muted);
+  background: var(--theme-prism-control-surface);
+  transition:
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__filter-btn:hover,
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__filter-btn:focus-visible,
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__item:hover,
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__item:focus-visible {
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 93%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__filter-btn:focus-visible,
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__item:focus-visible {
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 4px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__filter-btn[aria-pressed='true'] {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 32%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 89%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 64%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__severity[data-severity='error'] {
+  border-color: color-mix(in oklch, var(--theme-prism-danger), transparent 38%);
+  color: var(--theme-prism-danger-ink);
+  background: color-mix(in oklch, var(--theme-prism-danger), transparent 90%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .problem-panel__severity[data-severity='warning'] {
+  border-color: color-mix(in oklch, var(--theme-prism-warning), transparent 38%);
+  color: var(--theme-prism-warning-ink);
+  background: color-mix(in oklch, var(--theme-prism-warning), transparent 89%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .graph-canvas-diagnostic-strip {
+  border-color: color-mix(in oklch, var(--theme-prism-danger), transparent 44%);
+  color: var(--theme-prism-danger-ink);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-danger) 7%);
+  box-shadow: 0 9px 24px color-mix(in oklch, var(--theme-prism-ink), transparent 90%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .graph-canvas-diagnostic-strip__dot {
+  background: var(--theme-prism-danger);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--theme-prism-danger), transparent 82%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home {
+  background:
+    radial-gradient(circle at 82% 12%, color-mix(in oklch, var(--theme-prism-violet), transparent 82%), transparent 30%),
+    radial-gradient(circle at 16% 88%, color-mix(in oklch, var(--theme-prism-signal), transparent 87%), transparent 31%),
+    linear-gradient(145deg, var(--theme-prism-paper), color-mix(in oklch, var(--theme-prism-paper), var(--theme-prism-rail) 32%));
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home__hero {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 12%);
+  background: var(--theme-prism-structural-glass);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 78%),
+    var(--theme-prism-shadow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home :is(.home-surface h2, .home-surface__current strong) {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home :is(.home-surface p, .home-surface__current) {
+  color: var(--theme-prism-muted);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home :is(.home-surface__preview, .home-surface__status) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 24%);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 68%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home .home-action-card {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 26%);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 66%),
+    0 5px 15px color-mix(in oklch, var(--theme-prism-ink), transparent 94%);
+  transition:
+    transform var(--theme-prism-motion-base) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home .home-action-card:hover,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home .home-action-card:focus-visible {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 32%);
+  color: var(--theme-prism-violet);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 94%);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 70%),
+    0 14px 28px color-mix(in oklch, var(--theme-prism-violet), transparent 84%);
+  outline: 2px solid var(--theme-prism-focus-ring);
+  outline-offset: 2px;
+  transform: translateY(-3px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-home .home-action-card:active {
+  transform: translateY(1px) scale(0.987);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center {
+  background: color-mix(in oklch, var(--theme-prism-ink), transparent 54%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center__panel {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 10%);
+  background: var(--theme-prism-shell-glass);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 82%),
+    0 30px 80px color-mix(in oklch, var(--theme-prism-ink), transparent 72%);
+  animation: prism-foundry-surface-reveal var(--theme-prism-motion-base) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center :is(.theme-center__header, .theme-center__footer) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-rail) 23%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .theme-center__sidebar {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 18%);
+  background: var(--theme-prism-structural-glass);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center :is(
+  .theme-center__note,
+  .official-theme-card,
+  .theme-center__empty
+) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 24%);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 64%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .official-theme-card {
+  transition:
+    transform var(--theme-prism-motion-base) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    box-shadow var(--theme-prism-motion-base) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .official-theme-card:hover {
+  border-color: color-mix(in oklch, var(--theme-prism-signal), var(--theme-prism-reader) 40%);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 70%),
+    0 14px 28px color-mix(in oklch, var(--theme-prism-signal), transparent 87%);
+  transform: translateY(-2px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .official-theme-card.is-active {
+  border-color: var(--theme-prism-violet);
+  box-shadow:
+    0 0 0 3px var(--theme-prism-focus-ring),
+    0 16px 30px color-mix(in oklch, var(--theme-prism-violet), transparent 84%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center :is(
+  .theme-center__header h2,
+  .official-theme-card h3,
+  .theme-center__note strong,
+  .theme-center__section-title
+) {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center :is(
+  .theme-center__header p,
+  .theme-center__footer,
+  .official-theme-card p,
+  .theme-center__note p,
+  .official-theme-card__meta dd
+) {
+  color: var(--theme-prism-muted);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .official-theme-card__tagline,
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .official-theme-card__title-row p {
+  color: var(--theme-prism-violet);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry {
+  overflow: hidden;
+  border-color: color-mix(in oklch, var(--theme-prism-separator), var(--theme-prism-reader) 34%);
+  border-radius: var(--theme-ux-node-radius, 10px);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 72%),
+    0 14px 32px color-mix(in oklch, var(--theme-prism-ink), transparent 88%);
+  transition:
+    transform var(--theme-prism-motion-base) var(--theme-prism-ease),
+    color var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry::before {
+  position: absolute;
+  inset: 0 var(--space-3) auto;
+  height: 1px;
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 40%);
+  content: '';
+  opacity: 0.64;
+  transform: scaleX(0.82);
+  transform-origin: center;
+  transition:
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    transform var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry:hover,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry:focus-within {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-reader) 32%);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0deg / 76%),
+    0 20px 40px color-mix(in oklch, var(--theme-prism-violet), transparent 84%);
+  transform: translateY(-2px);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry:hover::before,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry:focus-within::before,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry.is-selected::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry.is-selected {
+  border-color: var(--theme-prism-violet);
+  box-shadow:
+    0 0 0 3px var(--theme-prism-focus-ring),
+    0 20px 42px color-mix(in oklch, var(--theme-prism-violet), transparent 82%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry.official-graph-node--error {
+  border-color: var(--theme-prism-danger);
+  box-shadow:
+    0 0 0 2px color-mix(in oklch, var(--theme-prism-danger), transparent 76%),
+    0 16px 34px color-mix(in oklch, var(--theme-prism-danger), transparent 88%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry.official-graph-node--deadend {
+  border-color: color-mix(in oklch, var(--theme-prism-warning), var(--theme-prism-reader) 24%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  h3,
+  .official-graph-node__option-text,
+  .node-route-preview__label
+) {
+  color: var(--theme-prism-ink);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  .official-graph-node__body,
+  .official-graph-node__chapter,
+  .official-graph-node__telemetry,
+  .official-graph-node__empty
+) {
+  color: var(--theme-prism-muted);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .prism-foundry-node__header {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid color-mix(in oklch, var(--theme-prism-separator), transparent 42%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  .official-graph-node__status,
+  .official-graph-node__count,
+  .official-graph-node__condition,
+  .official-graph-node__telemetry
+) {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 28%);
+  color: var(--theme-prism-muted);
+  background: color-mix(in oklch, var(--theme-prism-reader-surface), var(--theme-prism-rail) 38%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .prism-foundry-node__signal {
+  border-color: color-mix(in oklch, var(--theme-prism-signal), transparent 62%);
+  color: color-mix(in oklch, var(--theme-prism-signal), var(--theme-prism-ink) 20%);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 92%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .story-node-rename-input {
+  border-color: var(--theme-prism-violet);
+  color: var(--theme-prism-ink);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: 0 0 0 3px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .story-node-rename-input:focus {
+  border-color: var(--theme-prism-violet);
+  box-shadow: 0 0 0 4px var(--theme-prism-focus-ring);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry.official-graph-node--error .official-graph-node__status {
+  border-color: color-mix(in oklch, var(--theme-prism-danger), transparent 42%);
+  color: var(--theme-prism-danger-ink);
+  background: color-mix(in oklch, var(--theme-prism-danger), transparent 90%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry.official-graph-node--deadend .official-graph-node__status,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .official-graph-node__condition {
+  border-color: color-mix(in oklch, var(--theme-prism-warning), transparent 40%);
+  color: var(--theme-prism-warning-ink);
+  background: color-mix(in oklch, var(--theme-prism-warning), transparent 89%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .official-graph-node__option,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview__row {
+  border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 34%);
+  background: var(--theme-prism-control-surface);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 60%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--conditional .node-route-preview--requirement {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), transparent 58%);
+  color: color-mix(in oklch, var(--theme-prism-violet), var(--theme-prism-ink) 24%);
+  background: color-mix(in oklch, var(--theme-prism-violet), transparent 91%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--target-linked {
+  border-color: color-mix(in oklch, var(--theme-prism-signal), transparent 52%);
+  color: color-mix(in oklch, var(--theme-prism-signal), var(--theme-prism-ink) 22%);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 91%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--target-missing {
+  border-color: color-mix(in oklch, var(--theme-prism-danger), transparent 40%);
+  color: var(--theme-prism-danger-ink);
+  background: color-mix(in oklch, var(--theme-prism-danger), transparent 90%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--effect {
+  color: var(--theme-prism-muted);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 94%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .official-node-port {
+  border-color: var(--theme-prism-reader);
+  background: var(--theme-prism-signal);
+  box-shadow: 0 0 0 4px var(--theme-prism-signal-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  .official-node-port--target,
+  .official-node-port.story-node-connect-handle
+) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  .official-node-port--target,
+  .official-node-port.story-node-connect-handle
+)::after {
+  border-color: color-mix(in oklch, var(--theme-prism-signal), var(--theme-prism-reader) 14%);
+  background: var(--theme-prism-reader);
+  box-shadow: 0 0 0 3px var(--theme-prism-signal-glow);
+  transition: transform var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  .official-node-port--target,
+  .official-node-port.story-node-connect-handle
+):hover::after,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+  .official-node-port--target,
+  .official-node-port.story-node-connect-handle
+):focus-visible::after {
+  background: var(--theme-prism-signal);
+  box-shadow: 0 0 0 5px var(--theme-prism-signal-glow);
+  transform: translate(-50%, -50%) scale(1.18);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-edge--prism-foundry[data-official-edge-theme='plotflow-prism-foundry'] .official-graph-edge__path {
+  stroke: var(--theme-prism-signal);
+  stroke-width: 2.7px;
+  filter: none;
+  transition:
+    stroke var(--theme-prism-motion-fast) var(--theme-prism-ease),
+    opacity var(--theme-prism-motion-fast) var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-edge--prism-foundry.official-graph-edge--conditional .official-graph-edge__path {
+  stroke: var(--theme-prism-violet);
+  stroke-dasharray: 5 4;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-edge--prism-foundry.is-hovered .official-graph-edge__path,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-edge--prism-foundry.is-selected .official-graph-edge__path {
+  stroke-width: 4.3px;
+  opacity: 0.98;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-edge--prism-foundry .official-graph-edge__label {
+  border-color: color-mix(in oklch, var(--theme-prism-violet), transparent 42%);
+  border-radius: var(--radius-full);
+  color: var(--theme-prism-violet);
+  background: var(--theme-prism-reader-surface);
+  box-shadow: 0 0 0 3px var(--theme-prism-violet-glow);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .graph-live-wire-preview__path {
+  stroke: var(--theme-prism-signal);
+  stroke-dasharray: 6 5;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .graph-canvas-runtime--wire-dragging .official-graph-node--prism-foundry {
+  outline: 2px solid color-mix(in oklch, var(--theme-prism-signal), transparent 38%);
+  outline-offset: 4px;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .graph-canvas-runtime--wire-dragging .official-graph-node--prism-foundry .official-node-port--target {
+  transform: translate(-50%, -50%) scale(1.18);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  html[data-theme-id='plotflow-prism-foundry'] :is(
+    .prism-foundry-toolbar,
+    .prism-foundry-panel-frame,
+    .prism-foundry-home__hero,
+    .prism-foundry-theme-center__panel,
+    .prism-foundry-graph-lab .graph-lab__commandbar,
+    .prism-foundry-graph-lab .graph-lab-rail,
+    .prism-foundry-graph-lab .graph-lab-inspector
+  ) {
+    background: color-mix(in oklch, var(--theme-prism-panel), transparent 22%);
+    backdrop-filter: blur(20px) saturate(138%);
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-theme-center .theme-center__sidebar {
+    background: color-mix(in oklch, var(--theme-prism-rail), transparent 20%);
+    backdrop-filter: blur(18px) saturate(128%);
+  }
+}
+
+@keyframes prism-foundry-surface-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer--open {
+  animation: prism-foundry-surface-reveal 220ms var(--theme-prism-ease);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] :is(
+  .prism-foundry-home .home-action-card,
+  .prism-foundry-theme-center .official-theme-card,
+  .prism-foundry-graph-lab .react-flow__controls-button,
+  .prism-foundry-graph-lab .graph-lab__chapter-tabs button,
+  .prism-foundry-graph-lab :is(.graph-lab-file, .graph-lab-outline-node, .graph-lab-dock-toggle, .graph-lab-tool, .graph-lab-inline-button, .graph-lab-empty-action),
+  .prism-foundry-graph-lab :is(.source-drawer__slice-action, .source-drawer__slice-diagnostic-button)
+):active {
+  transition-duration: var(--theme-prism-motion-press);
+}
+
+@media (width <= 1180px) {
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab,
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab.graph-lab--source-open {
+    grid-template-columns: minmax(232px, 270px) minmax(360px, 1fr) minmax(280px, 330px);
+  }
+}
+
+@media (width <= 900px) {
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split__deck,
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split__deck:has(.graph-pane) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(120px, 0.32fr) minmax(420px, 1fr);
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-split__rail {
+    border-right: 0;
+    border-bottom: 1px solid color-mix(in oklch, var(--theme-prism-separator), transparent 16%);
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab,
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab.graph-lab--source-open {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(420px, 1fr) auto auto;
+    overflow: auto;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab :is(
+    .graph-lab__commandbar,
+    .graph-lab-rail,
+    .graph-lab__canvas,
+    .graph-lab-inspector,
+    .source-drawer
+  ) {
+    grid-column: 1;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__commandbar {
+    grid-row: 1;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-rail {
+    grid-row: 2;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__canvas {
+    grid-row: 3;
+    min-height: 420px;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-inspector {
+    grid-row: 4;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer {
+    grid-row: 5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme-id='plotflow-prism-foundry'] :is(
+    .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button),
+    .prism-foundry-home .home-action-card,
+    .prism-foundry-theme-center__panel,
+    .prism-foundry-theme-center .official-theme-card,
+    .prism-foundry-graph-lab .graph-lab__chapter-tabs button,
+    .prism-foundry-graph-lab .react-flow__controls-button,
+    .prism-foundry-graph-lab :is(.graph-lab-file, .graph-lab-outline-node, .graph-lab-dock-toggle, .graph-lab-tool, .graph-lab-inline-button, .graph-lab-empty-action),
+    .prism-foundry-graph-lab :is(.source-drawer__slice-action, .source-drawer__slice-diagnostic-button),
+    .official-graph-node--prism-foundry,
+    .official-graph-node--prism-foundry::before,
+    .official-graph-node--prism-foundry .official-node-port--target::after,
+    .official-graph-edge--prism-foundry .official-graph-edge__path,
+    .prism-foundry-graph-lab .source-drawer--open
+  ) {
+    animation: none;
+    transition: none;
+  }
+
+  /* Pseudo-elements are listed explicitly: complex selectors inside :is() do
+   * not consistently win over the base React Flow handle rule in Chromium. */
+  html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry :is(
+    .official-node-port--target,
+    .official-node-port.story-node-connect-handle
+  )::after {
+    animation: none;
+    transition: none;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] :is(
+    .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button),
+    .prism-foundry-home .home-action-card,
+    .prism-foundry-theme-center .official-theme-card,
+    .prism-foundry-graph-lab .react-flow__controls-button,
+    .prism-foundry-graph-lab :is(.graph-lab-file, .graph-lab-outline-node, .graph-lab-dock-toggle, .graph-lab-tool, .graph-lab-inline-button, .graph-lab-empty-action),
+    .prism-foundry-graph-lab :is(.source-drawer__slice-action, .source-drawer__slice-diagnostic-button),
+    .official-graph-node--prism-foundry
+  ):hover,
+  html[data-theme-id='plotflow-prism-foundry'] :is(
+    .prism-foundry-toolbar :is(.button, .toolbar-button, .toolbar-select, .icon-button),
+    .prism-foundry-home .home-action-card,
+    .prism-foundry-theme-center .official-theme-card,
+    .prism-foundry-graph-lab .react-flow__controls-button,
+    .prism-foundry-graph-lab :is(.graph-lab-file, .graph-lab-outline-node, .graph-lab-dock-toggle, .graph-lab-tool, .graph-lab-inline-button, .graph-lab-empty-action),
+    .prism-foundry-graph-lab :is(.source-drawer__slice-action, .source-drawer__slice-diagnostic-button),
+    .official-graph-node--prism-foundry
+  ):active,
+  html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry:focus-within {
+    transform: none;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry::before {
+    transform: none;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .graph-canvas-runtime--wire-dragging .official-graph-node--prism-foundry .official-node-port--target {
+    transform: translate(-50%, -50%);
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] :is(
+    .official-graph-node--prism-foundry .official-node-port--target,
+    .official-graph-node--prism-foundry .official-node-port.story-node-connect-handle
+  ):hover::after,
+  html[data-theme-id='plotflow-prism-foundry'] :is(
+    .official-graph-node--prism-foundry .official-node-port--target,
+    .official-graph-node--prism-foundry .official-node-port.story-node-connect-handle
+  ):focus-visible::after {
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Graph Lab 的窄屏结构由基础工作区统一控制；官方主题只保留材质，不重写拓扑。 */
+@media (width <= 900px) {
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab,
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab.graph-lab--source-open,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.graph-lab--source-open {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(320px, 1fr) 42px;
+    overflow: hidden;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab.graph-lab--source-open,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab.graph-lab--source-open {
+    grid-template-rows: auto minmax(240px, 1fr) clamp(220px, 42vh, 320px);
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-rail,
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__canvas,
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab-inspector,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-rail,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__canvas,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab-inspector {
+    grid-row: 2;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .graph-lab__canvas,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .graph-lab__canvas {
+    min-height: 320px;
+  }
+
+  html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-graph-lab .source-drawer,
+  html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-graph-lab .source-drawer {
+    grid-row: 3;
   }
 }

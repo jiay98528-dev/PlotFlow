@@ -688,7 +688,7 @@ const overlayStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   background: 'var(--color-overlay-modal)',
-  zIndex: 1000,
+  zIndex: 'var(--z-modal)',
   backdropFilter: 'blur(2px)',
 };
 
@@ -961,7 +961,7 @@ const confirmOverlayStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   background: 'var(--color-overlay-modal)',
-  zIndex: 1100,
+  zIndex: 'calc(var(--z-modal) + 1)',
 };
 
 const confirmDialogStyle: React.CSSProperties = {
