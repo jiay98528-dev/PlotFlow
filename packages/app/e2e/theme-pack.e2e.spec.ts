@@ -14,6 +14,7 @@ const FONT_ENV_SNAPSHOTS = new Set([
   'narrative-workbench-390x844.png',
   'prism-foundry-source-open-1440x900.png',
   'prism-foundry-diagnostics-1440x900.png',
+  'prism-foundry-390x844.png',
   'engine-telemetry-source-390x844.png',
 ]);
 
@@ -494,7 +495,7 @@ test.describe('Official Theme Center E2E', () => {
       const viewportShot = await graphLab.screenshot();
       expect(viewportShot.length).toBeGreaterThan(5_000);
       const filename = `prism-foundry-${viewport.name}.png`;
-      await expect(graphLab).toHaveScreenshot(filename, {
+      await expect(graphLab).toHaveScreenshot(visualSnapshotName(filename), {
         animations: 'disabled',
         maxDiffPixelRatio: 0.01,
       });
