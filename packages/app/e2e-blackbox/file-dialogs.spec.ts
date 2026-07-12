@@ -71,7 +71,7 @@ test.describe('blackbox native file dialog journeys', () => {
         expect(observation.status, observation.detail).toBe('opened');
         await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
         await expect(page.locator('.split-workspace')).toHaveCount(0);
-        await page.getByTestId('graph-inspector-tab-story').click();
+        await page.getByTestId('graph-global-editor-tab-story').click();
         await expect(page.getByTestId('graph-inspector-meta-title')).toHaveValue('Native Open Graph First');
       } finally {
         await closeBlackboxApp(launched.app);

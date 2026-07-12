@@ -15,7 +15,16 @@
  * @module components/panels/ConditionEditor
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useId,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useStoryStore, useUIStore } from '../../stores';
 import { graphEditService } from '../../services/graphEditService';
 import { useAppText } from '../../i18n/appI18n';
@@ -452,6 +461,154 @@ export function serializeConditionExpression(node: ConditionNode | null): string
 }
 
 // ============================================================================
+// Portal 下拉基础设施
+// ============================================================================
+
+interface DropdownPosition {
+  readonly top: number;
+  readonly left: number;
+  readonly width: number;
+  readonly maxHeight: number;
+  readonly opensUpward: boolean;
+}
+
+interface AnchoredDropdownOptions {
+  readonly isOpen: boolean;
+  readonly onDismiss: () => void;
+}
+
+const DROPDOWN_VIEWPORT_GUTTER = 8;
+const DROPDOWN_OFFSET = 4;
+const DROPDOWN_MAX_HEIGHT = 220;
+const DROPDOWN_MIN_HEIGHT = 48;
+
+/**
+ * 模态编辑器提供 body 直系的专属浮层宿主，并通过 aria-owns 与焦点陷阱
+ * 合并其可访问性边界；Graph Inspector 等内联场景则继续回退到 body。
+ */
+const DropdownPortalHostContext = React.createContext<HTMLElement | null>(null);
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * 将条件编辑器下拉菜单挂到 body，避免 Inspector 与条件树的 overflow 裁切。
+ * 所有关闭事件和位置观察都在菜单关闭时清理，避免长时间编辑时遗留监听器。
+ */
+function useAnchoredDropdown({
+  isOpen,
+  onDismiss,
+}: AnchoredDropdownOptions): {
+  readonly triggerRef: React.RefObject<HTMLButtonElement>;
+  readonly menuRef: React.RefObject<HTMLDivElement>;
+  readonly position: DropdownPosition | null;
+} {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<DropdownPosition | null>(null);
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const maxWidth = Math.max(0, viewportWidth - (DROPDOWN_VIEWPORT_GUTTER * 2));
+    const width = Math.min(Math.max(triggerRect.width, menuRect.width), maxWidth);
+    const availableBelow = viewportHeight - triggerRect.bottom - DROPDOWN_OFFSET - DROPDOWN_VIEWPORT_GUTTER;
+    const availableAbove = triggerRect.top - DROPDOWN_OFFSET - DROPDOWN_VIEWPORT_GUTTER;
+    const measuredHeight = Math.min(Math.max(menuRect.height, DROPDOWN_MIN_HEIGHT), DROPDOWN_MAX_HEIGHT);
+    const opensUpward = availableBelow < measuredHeight && availableAbove > availableBelow;
+    const availableHeight = opensUpward ? availableAbove : availableBelow;
+    const maxHeight = Math.max(
+      DROPDOWN_MIN_HEIGHT,
+      Math.min(DROPDOWN_MAX_HEIGHT, availableHeight),
+    );
+    const renderedHeight = Math.min(measuredHeight, maxHeight);
+    const top = opensUpward
+      ? Math.max(DROPDOWN_VIEWPORT_GUTTER, triggerRect.top - DROPDOWN_OFFSET - renderedHeight)
+      : Math.min(
+        viewportHeight - DROPDOWN_VIEWPORT_GUTTER - renderedHeight,
+        triggerRect.bottom + DROPDOWN_OFFSET,
+      );
+    const left = clamp(
+      triggerRect.left,
+      DROPDOWN_VIEWPORT_GUTTER,
+      Math.max(DROPDOWN_VIEWPORT_GUTTER, viewportWidth - DROPDOWN_VIEWPORT_GUTTER - width),
+    );
+
+    setPosition({ top, left, width, maxHeight, opensUpward });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPosition(null);
+      return;
+    }
+
+    let animationFrame = window.requestAnimationFrame(updatePosition);
+    const schedulePositionUpdate = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(updatePosition);
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target
+        && (triggerRef.current?.contains(target) || menuRef.current?.contains(target))
+      ) {
+        return;
+      }
+      onDismiss();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      onDismiss();
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
+    };
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(schedulePositionUpdate);
+
+    if (triggerRef.current) resizeObserver?.observe(triggerRef.current);
+    if (menuRef.current) resizeObserver?.observe(menuRef.current);
+    window.addEventListener('resize', schedulePositionUpdate);
+    document.addEventListener('scroll', schedulePositionUpdate, true);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', schedulePositionUpdate);
+      document.removeEventListener('scroll', schedulePositionUpdate, true);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [isOpen, onDismiss, updatePosition]);
+
+  return { triggerRef, menuRef, position };
+}
+
+function getDropdownPortalStyle(position: DropdownPosition | null): React.CSSProperties {
+  return {
+    ...dropdownMenuStyle,
+    top: position?.top ?? -10000,
+    left: position?.left ?? -10000,
+    width: position?.width,
+    maxHeight: position?.maxHeight ?? DROPDOWN_MAX_HEIGHT,
+    visibility: position ? 'visible' : 'hidden',
+    transformOrigin: position?.opensUpward ? 'bottom left' : 'top left',
+  };
+}
+
+// ============================================================================
 // 子组件：变量下拉框 (M3-02)
 // ============================================================================
 
@@ -471,22 +628,29 @@ function VariableDropdown({
   const text = useAppText();
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const didFocusMenuRef = useRef(false);
+  const portalHost = useContext(DropdownPortalHostContext);
+  const menuId = useId();
   const options = useMemo(() => flattenVariableOptions(variables), [variables]);
+  const dismissDropdown = useCallback(() => {
+    setIsOpen(false);
+    setSearchText('');
+  }, []);
+  const { triggerRef, menuRef, position } = useAnchoredDropdown({
+    isOpen,
+    onDismiss: dismissDropdown,
+  });
 
-  // 点击外部关闭
   useEffect(() => {
-    if (!isOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setSearchText('');
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isOpen]);
+    if (!isOpen) {
+      didFocusMenuRef.current = false;
+      return;
+    }
+    if (!position || didFocusMenuRef.current) return;
+    didFocusMenuRef.current = true;
+    inputRef.current?.focus();
+  }, [isOpen, position]);
 
   const filtered = useMemo(() => {
     if (!searchText) return options;
@@ -502,16 +666,23 @@ function VariableDropdown({
   const selectedIcon = selectedVar ? VARIABLE_TYPE_ICONS[selectedVar.declaration.type] : '';
 
   return (
-    <div ref={dropdownRef} style={dropdownContainerStyle}>
+    <div style={dropdownContainerStyle}>
       <button
+        ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={menuId}
+        data-testid="condition-variable-dropdown-trigger"
+        data-condition-dropdown="variable"
         style={dropdownButtonStyle}
         onClick={() => {
-          setIsOpen(!isOpen);
-          if (!isOpen) {
-            setTimeout(() => inputRef.current?.focus(), 50);
+          if (isOpen) {
+            dismissDropdown();
+            return;
           }
+          setIsOpen(true);
         }}
       >
         {selectedVar ? (
@@ -530,8 +701,13 @@ function VariableDropdown({
         <span style={chevronStyle}>{isOpen ? '▲' : '▼'}</span>
       </button>
 
-      {isOpen && (
-        <div style={dropdownMenuStyle}>
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          data-testid="condition-variable-dropdown-menu"
+          data-condition-dropdown="variable"
+          style={getDropdownPortalStyle(position)}
+        >
           {/* 搜索框 */}
           <div style={searchContainerStyle}>
             <input
@@ -541,12 +717,19 @@ function VariableDropdown({
               onChange={(e) => setSearchText(e.target.value)}
               placeholder={text('conditionEditor.searchVariable')}
               aria-label={text('conditionEditor.searchVariable')}
+              aria-controls={menuId}
               style={searchInputStyle}
             />
           </div>
 
           {/* 变量列表 */}
-          <div style={dropdownListStyle}>
+          <div
+            id={menuId}
+            role="listbox"
+            aria-label={ariaLabel}
+            data-testid="condition-variable-dropdown-options"
+            style={dropdownListStyle}
+          >
             {filtered.length === 0 ? (
               <div style={emptyOptionStyle}>{text('conditionEditor.noMatchingVariable')}</div>
             ) : (
@@ -554,14 +737,16 @@ function VariableDropdown({
                 <button
                   key={option.name}
                   type="button"
+                  role="option"
+                  aria-selected={option.name === selectedName}
                   style={{
                     ...dropdownItemStyle,
                     ...(option.name === selectedName ? dropdownItemActiveStyle : {}),
                   }}
                   onClick={() => {
                     onSelect(option.name);
-                    setIsOpen(false);
-                    setSearchText('');
+                    dismissDropdown();
+                    window.requestAnimationFrame(() => triggerRef.current?.focus());
                   }}
                 >
                   <span style={typeIconStyle}>{VARIABLE_TYPE_ICONS[option.declaration.type]}</span>
@@ -580,7 +765,8 @@ function VariableDropdown({
               {text('conditionEditor.declareVariableFirst')}
             </div>
           )}
-        </div>
+        </div>,
+        portalHost ?? document.body,
       )}
     </div>
   );
@@ -605,18 +791,30 @@ function OperatorDropdown({
 }: OperatorDropdownProps): React.ReactElement {
   const text = useAppText();
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const didFocusMenuRef = useRef(false);
+  const portalHost = useContext(DropdownPortalHostContext);
+  const menuId = useId();
+  const dismissDropdown = useCallback(() => setIsOpen(false), []);
+  const { triggerRef, menuRef, position } = useAnchoredDropdown({
+    isOpen,
+    onDismiss: dismissDropdown,
+  });
 
   useEffect(() => {
-    if (!isOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isOpen]);
+    if (operators.length === 0 && isOpen) dismissDropdown();
+  }, [dismissDropdown, isOpen, operators.length]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      didFocusMenuRef.current = false;
+      return;
+    }
+    if (!position || didFocusMenuRef.current) return;
+    didFocusMenuRef.current = true;
+    const selectedOption = menuRef.current?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
+    const firstOption = menuRef.current?.querySelector<HTMLElement>('[role="option"]');
+    (selectedOption ?? firstOption)?.focus();
+  }, [isOpen, menuRef, position]);
 
   if (operators.length === 0) {
     return (
@@ -627,12 +825,24 @@ function OperatorDropdown({
   }
 
   return (
-    <div ref={dropdownRef} style={{ ...dropdownContainerStyle, minWidth: 56 }}>
+    <div style={{ ...dropdownContainerStyle, minWidth: 56 }}>
       <button
+        ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={menuId}
+        data-testid="condition-operator-dropdown-trigger"
+        data-condition-dropdown="operator"
         style={dropdownButtonStyle}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (isOpen) {
+            dismissDropdown();
+            return;
+          }
+          setIsOpen(true);
+        }}
       >
         <span style={{ fontWeight: 600 }}>
           {OPERATOR_LABELS[selected] || selected}
@@ -640,19 +850,30 @@ function OperatorDropdown({
         <span style={chevronStyle}>{isOpen ? '▲' : '▼'}</span>
       </button>
 
-      {isOpen && (
-        <div style={dropdownMenuStyle}>
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="listbox"
+          aria-label={ariaLabel}
+          data-testid="condition-operator-dropdown-menu"
+          data-condition-dropdown="operator"
+          style={getDropdownPortalStyle(position)}
+        >
           {operators.map((op) => (
             <button
               key={op}
               type="button"
+              role="option"
+              aria-selected={op === selected}
               style={{
                 ...dropdownItemStyle,
                 ...(op === selected ? dropdownItemActiveStyle : {}),
               }}
               onClick={() => {
                 onSelect(op);
-                setIsOpen(false);
+                dismissDropdown();
+                window.requestAnimationFrame(() => triggerRef.current?.focus());
               }}
             >
               <span style={{ fontWeight: 600 }}>{OPERATOR_LABELS[op]}</span>
@@ -661,7 +882,8 @@ function OperatorDropdown({
               </span>
             </button>
           ))}
-        </div>
+        </div>,
+        portalHost ?? document.body,
       )}
     </div>
   );
@@ -1297,6 +1519,9 @@ export function ConditionEditor({
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const dropdownPortalHostId = useId();
+  const dropdownPortalHostRef = useRef<HTMLDivElement | null>(null);
+  const [dropdownPortalHost, setDropdownPortalHost] = useState<HTMLDivElement | null>(null);
 
   const selectedNode = useMemo(() => {
     if (nodeId === undefined || optionIndex === undefined || !plotFlowData) {
@@ -1405,6 +1630,24 @@ export function ConditionEditor({
     [onClose],
   );
 
+  // 下拉浮层需要逃离 panel 的 transform + overflow 裁切，因此专属宿主必须是 body
+  // 直系子节点；dialog 通过 aria-owns 建立可访问性所有权，焦点陷阱则显式合并两棵 DOM。
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const host = document.createElement('div');
+    host.id = dropdownPortalHostId;
+    host.dataset['testid'] = 'condition-editor-dropdown-portal';
+    document.body.append(host);
+    dropdownPortalHostRef.current = host;
+    setDropdownPortalHost(host);
+
+    return () => {
+      dropdownPortalHostRef.current = null;
+      host.remove();
+      setDropdownPortalHost((current) => (current === host ? null : current));
+    };
+  }, [dropdownPortalHostId, isOpen]);
+
   // 对话框键盘语义、焦点陷阱与关闭后焦点恢复。
   useEffect(() => {
     if (!isOpen) return;
@@ -1412,7 +1655,12 @@ export function ConditionEditor({
       ? document.activeElement
       : null;
     const focusTimer = window.setTimeout(() => {
-      (closeButtonRef.current ?? dialogRef.current)?.focus();
+      const activeElement = document.activeElement;
+      const focusIsAlreadyOwned = activeElement instanceof HTMLElement && (
+        dialogRef.current?.contains(activeElement)
+        || dropdownPortalHostRef.current?.contains(activeElement)
+      );
+      if (!focusIsAlreadyOwned) (closeButtonRef.current ?? dialogRef.current)?.focus();
     }, 0);
 
     const handleKey = (e: KeyboardEvent) => {
@@ -1422,23 +1670,22 @@ export function ConditionEditor({
         return;
       }
       if (e.key !== 'Tab' || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )].filter((element) => !element.hasAttribute('hidden'));
+      const focusSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusable = [dialogRef.current, dropdownPortalHostRef.current]
+        .filter((root): root is HTMLDivElement => root !== null)
+        .flatMap((root) => [...root.querySelectorAll<HTMLElement>(focusSelector)])
+        .filter((element) => !element.hasAttribute('hidden'));
       if (focusable.length === 0) {
         e.preventDefault();
         dialogRef.current.focus();
         return;
       }
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      e.preventDefault();
+      const currentIndex = focusable.findIndex((element) => element === document.activeElement);
+      const nextIndex = e.shiftKey
+        ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+        : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+      focusable[nextIndex]?.focus();
     };
     document.addEventListener('keydown', handleKey);
     return () => {
@@ -1460,7 +1707,7 @@ export function ConditionEditor({
   // ==========================================================================
 
   return (
-    <>
+    <DropdownPortalHostContext.Provider value={dropdownPortalHost}>
       {/* 半透明遮罩层 (M3-01) */}
       <div style={backdropStyle} onClick={handleBackdropClick} aria-hidden="true" />
 
@@ -1471,6 +1718,7 @@ export function ConditionEditor({
         role="dialog"
         aria-modal="true"
         aria-labelledby="condition-editor-title"
+        aria-owns={dropdownPortalHostId}
         tabIndex={-1}
       >
         {/* ================================================================
@@ -1545,8 +1793,9 @@ export function ConditionEditor({
             {text('conditionEditor.apply')}
           </button>
         </div>
+
       </div>
-    </>
+    </DropdownPortalHostContext.Provider>
   );
 }
 
@@ -1869,18 +2118,18 @@ const dropdownButtonStyle: React.CSSProperties = {
 };
 
 const dropdownMenuStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '100%',
-  left: 0,
-  marginTop: '2px',
-  minWidth: '100%',
+  position: 'fixed',
+  margin: 0,
+  minWidth: 0,
   maxHeight: '220px',
   overflowY: 'auto',
   background: 'var(--color-bg-primary)',
   border: '1px solid var(--color-border-default)',
   borderRadius: 'var(--radius-md, 4px)',
   boxShadow: 'var(--shadow-md)',
-  zIndex: 'var(--z-dropdown)',
+  // Portaled menus must remain above the Condition Editor modal panel while
+  // retaining the shared dropdown layer as the semantic baseline.
+  zIndex: 'max(var(--z-dropdown), calc(var(--z-modal) + 2))',
 };
 
 const dropdownListStyle: React.CSSProperties = {

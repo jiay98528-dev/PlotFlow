@@ -454,13 +454,21 @@ function AutoViewportOnGraphChange({
 }): null {
   const { fitView, setCenter } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
+  const appliedLayoutKeyRef = React.useRef<string | null>(null);
+  const viewportRevision = `${isGraphLab ? 'graph-lab' : 'split'}:${layoutKey}`;
 
   useEffect(() => {
     if (!enabled || !nodesInitialized || nodes.length === 0) return;
+    // `displayedNodes` is recreated when selection changes.  Consume every
+    // structural layout revision only once so selecting a Graph Lab node never
+    // repositions the viewport around that selection.
+    if (appliedLayoutKeyRef.current === viewportRevision) return;
+    appliedLayoutKeyRef.current = viewportRevision;
+
     const frame = requestAnimationFrame(() => {
       if (suppressRef.current) return;
       if (isGraphLab) {
-        const focusNode = nodes.find((node) => node.selected) ?? nodes[0];
+        const focusNode = nodes[0];
         if (!focusNode) return;
         setCenter(
           focusNode.position.x + NODE_DIMENSIONS.width / 2,
@@ -472,7 +480,7 @@ function AutoViewportOnGraphChange({
       fitView({ padding: 0.2, duration: 200, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM });
     });
     return () => cancelAnimationFrame(frame);
-  }, [enabled, fitView, isGraphLab, layoutKey, nodes, nodesInitialized, setCenter, suppressRef]);
+  }, [enabled, fitView, isGraphLab, nodes, nodesInitialized, setCenter, suppressRef, viewportRevision]);
 
   return null;
 }

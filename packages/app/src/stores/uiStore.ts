@@ -35,8 +35,6 @@ export type ExportFormat = 'json' | 'html' | 'txt';
 
 export type WorkspaceMode = 'split' | 'graphLab';
 
-export type InspectorTab = 'node' | 'routes' | 'variables' | 'story';
-
 export type CompactGraphPanel = 'palette' | 'inspector' | null;
 
 export interface GraphFocusRequest {
@@ -76,7 +74,6 @@ export interface UIState {
   readonly isProblemPanelOpen: boolean;
   readonly isSourceDrawerOpen: boolean;
   readonly activeChapterId: string | null;
-  readonly inspectorTab: InspectorTab;
   readonly compactGraphPanel: CompactGraphPanel;
   readonly graphFocusRequest: GraphFocusRequest | null;
 
@@ -128,7 +125,6 @@ export interface UIState {
   toggleSourceDrawer: () => void;
   setSourceDrawerOpen: (open: boolean) => void;
   setActiveChapterId: (chapterId: string | null) => void;
-  setInspectorTab: (tab: InspectorTab) => void;
   setCompactGraphPanel: (panel: CompactGraphPanel) => void;
   requestGraphFocus: (fullId: string, behavior?: GraphFocusRequest['behavior']) => void;
   consumeGraphFocus: (requestId: number) => void;
@@ -287,7 +283,6 @@ const initialState = {
   isProblemPanelOpen: false,
   isSourceDrawerOpen: false,
   activeChapterId: null,
-  inspectorTab: 'node' as InspectorTab,
   compactGraphPanel: null as CompactGraphPanel,
   graphFocusRequest: null as GraphFocusRequest | null,
   isExportDialogOpen: false,
@@ -296,7 +291,7 @@ const initialState = {
   isNewFileDialogOpen: false,
   isThemeCenterOpen: false,
   isHomeSurfaceOpen: true,
-} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'setInspectorTab' | 'setCompactGraphPanel' | 'requestGraphFocus' | 'consumeGraphFocus' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
+} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'setCompactGraphPanel' | 'requestGraphFocus' | 'consumeGraphFocus' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
 
 // ============================================================================
 // Store
@@ -435,9 +430,6 @@ export const useUIStore = create<UIState>()(
           false,
           'ui/setActiveChapterId',
         ),
-
-      setInspectorTab: (tab: InspectorTab) =>
-        set({ inspectorTab: tab }, false, 'ui/setInspectorTab'),
 
       setCompactGraphPanel: (panel: CompactGraphPanel) =>
         set(

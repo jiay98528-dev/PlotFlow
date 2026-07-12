@@ -86,7 +86,7 @@ test.describe('blackbox Graph-first user journeys', () => {
 
       await expect(dialog).toBeHidden();
       await expectGraphFirstWorkspace(launched.page);
-      await launched.page.getByTestId('graph-inspector-tab-story').click();
+      await launched.page.getByTestId('graph-global-editor-tab-story').click();
       await expect(launched.page.getByTestId('graph-inspector-meta-title')).toHaveValue('Graph First New Story');
     } finally {
       await closeBlackboxApp(launched.app);
@@ -195,7 +195,6 @@ test.describe('blackbox Graph-first user journeys', () => {
       await missingTargetDiagnostic.click();
       await expect(page.getByTestId('graph-inspector-node-title')).toHaveValue('入口');
 
-      await page.getByTestId('graph-inspector-tab-routes').click();
       const targetSelect = page.getByTestId('graph-inspector-option-target-0');
       const exitOption = targetSelect.locator('option').filter({ hasText: '第一章 / 出口' });
       await expect(exitOption).toHaveCount(1);
@@ -205,7 +204,6 @@ test.describe('blackbox Graph-first user journeys', () => {
       await expect(page.getByTestId('problem-panel-item-E001')).toHaveCount(0, { timeout: 10_000 });
       await expectGraphFirstWorkspace(page);
 
-      await page.getByTestId('graph-inspector-tab-node').click();
       const bodyField = page.getByTestId('graph-inspector-node-body');
       const initialBody = await bodyField.inputValue();
       await bodyField.fill(repairedBody);
@@ -241,7 +239,6 @@ test.describe('blackbox Graph-first user journeys', () => {
       await expectGraphFirstWorkspace(page);
       await waitForGraphNode(page, '入口');
       await page.getByTestId('graph-lab-outline-node').filter({ hasText: '入口' }).click();
-      await page.getByTestId('graph-inspector-tab-node').click();
       await expect(page.getByTestId('graph-inspector-node-body')).toHaveValue(repairedBody);
       await expect(page.getByTestId('graph-lab-undo')).toBeDisabled();
       await expect(page.getByTestId('graph-lab-redo')).toBeDisabled();

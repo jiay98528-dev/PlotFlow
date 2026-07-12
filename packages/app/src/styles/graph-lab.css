@@ -412,9 +412,15 @@
   border-left: 1px solid var(--color-border-light);
 }
 
-.graph-lab-inspector__tabs {
+.graph-lab-global-editor {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.graph-lab-global-editor__tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--color-border-light);
@@ -422,9 +428,9 @@
   background: var(--color-control-group-bg);
 }
 
-.graph-lab-inspector__tab {
+.graph-lab-global-editor__tab {
   min-width: 0;
-  padding: 6px 4px;
+  padding: 6px var(--space-2);
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-sm);
@@ -438,20 +444,31 @@
   cursor: pointer;
 }
 
-.graph-lab-inspector__tab.is-active {
+.graph-lab-global-editor__tab:is(:hover, :focus-visible) {
+  color: var(--color-text-primary);
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+}
+
+.graph-lab-global-editor__tab.is-active {
   color: var(--color-text-primary);
   background: var(--color-control-bg);
   box-shadow: 0 1px 2px color-mix(in oklch, var(--color-text-primary), transparent 92%);
 }
 
-.graph-lab-inspector__tab:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
+.graph-lab-global-editor__panel {
+  min-width: 0;
 }
 
-.graph-lab-inspector__tab:disabled {
-  opacity: 0.42;
-  cursor: default;
+.graph-lab-global-editor__content {
+  display: flex;
+  grid-column: auto;
+  grid-row: auto;
+  gap: var(--space-3);
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .graph-lab__canvas {
@@ -474,6 +491,11 @@
   gap: var(--space-2);
   padding-block: var(--space-3);
   border-top: 1px solid var(--color-border-light);
+}
+
+.graph-lab-global-editor__content .graph-lab-section {
+  padding-block: 0;
+  border-top: 0;
 }
 
 .graph-lab-rail__block:first-child,
@@ -1263,8 +1285,11 @@
 }
 
 .graph-lab-inspector > *,
+.graph-lab-global-editor__content > *,
 .graph-lab-inspector .graph-lab-field-group,
+.graph-lab-global-editor__content .graph-lab-field-group,
 .graph-lab-inspector .graph-lab-variable-fields,
+.graph-lab-global-editor__content .graph-lab-variable-fields,
 .graph-lab-inspector .graph-lab-option {
   min-width: 0;
   max-width: 100%;

@@ -29,7 +29,6 @@ export function resetStoryRuntimeState(options: ResetStoryRuntimeOptions = {}): 
   const ui = useUIStore.getState();
   ui.setActiveChapterId(null);
   ui.setCompactGraphPanel(null);
-  ui.setInspectorTab('node');
   ui.setSourceDrawerOpen(false);
   ui.setProblemPanelOpen(false);
   ui.closeExportDialog();

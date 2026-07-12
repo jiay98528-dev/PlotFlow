@@ -1,5 +1,5 @@
 /**
- * ConditionEditor E2E 测试（6 个测试用例）
+ * ConditionEditor E2E 测试
  *
  * 覆盖场景：
  *   TC-1: 双击连线 -> 验证条件编辑器面板打开
@@ -726,5 +726,57 @@ test.describe('条件编辑器 E2E 测试', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
+  });
+
+  test('TC-8: Portal 下拉保留在模态焦点域并支持键盘选择', async () => {
+    await openConditionEditorViaStore(
+      page,
+      VILLAGE_FIRST_OPTION.nodeId,
+      VILLAGE_FIRST_OPTION.optionIndex,
+    );
+
+    const dialog = page.getByRole('dialog', { name: '条件编辑器' });
+    await expect(dialog).toBeVisible();
+    const portalHost = page.getByTestId('condition-editor-dropdown-portal');
+    await expect(portalHost).toBeAttached();
+    await expect.poll(async () => dialog.getAttribute('aria-owns')).toBe(await portalHost.getAttribute('id'));
+
+    const variableTrigger = dialog.getByTestId('condition-variable-dropdown-trigger').first();
+    await variableTrigger.focus();
+    await page.keyboard.press('Enter');
+
+    const variableMenu = portalHost.getByTestId('condition-variable-dropdown-menu');
+    await expect(variableMenu).toBeVisible();
+    await expect(variableMenu.getByRole('textbox')).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+    await expect.poll(() => dialog.evaluate((element) => (
+      document.activeElement instanceof HTMLElement && element.contains(document.activeElement)
+    ))).toBe(true);
+
+    const variableOptions = variableMenu.getByRole('option');
+    await variableOptions.last().focus();
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('button', { name: '关闭条件编辑器' })).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(variableMenu).toHaveCount(0);
+    await expect(variableTrigger).toBeFocused();
+    await expect(dialog).toBeVisible();
+
+    const operatorTrigger = dialog.getByTestId('condition-operator-dropdown-trigger').first();
+    await operatorTrigger.focus();
+    await page.keyboard.press('Enter');
+
+    const operatorMenu = portalHost.getByTestId('condition-operator-dropdown-menu');
+    await expect(operatorMenu).toBeVisible();
+    const selectedOperator = operatorMenu.locator('[role="option"][aria-selected="true"]');
+    await expect(selectedOperator).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(operatorMenu).toHaveCount(0);
+    await expect(operatorTrigger).toBeFocused();
+    await expect(dialog).toBeVisible();
   });
 });

@@ -686,6 +686,20 @@ html[data-theme-id] {
   padding-left: 38px;
 }
 
+.official-graph-node .node-route-preview--default-next {
+  min-height: 30px;
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--theme-port-fill), transparent 72%);
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-panel-surface), transparent 56%);
+  box-shadow: none;
+}
+
+.official-graph-node .node-route-preview--default-next:hover {
+  border-color: color-mix(in oklch, var(--theme-port-fill), transparent 56%);
+  background: color-mix(in oklch, var(--theme-panel-surface), var(--theme-node-surface) 32%);
+}
+
 .official-graph-node .node-route-preview--overflow {
   min-height: 28px;
   padding-right: 8px;
@@ -725,6 +739,15 @@ html[data-theme-id] {
   border-color: transparent;
   color: var(--theme-node-muted);
   background: color-mix(in oklch, var(--color-success-subtle), transparent 54%);
+}
+
+.official-graph-node .node-route-preview--default-next .node-route-preview__label {
+  color: var(--theme-node-muted);
+}
+
+.official-graph-node .node-route-preview--default-next .node-route-preview__chip {
+  color: var(--theme-node-muted);
+  background: transparent;
 }
 
 .official-node-port {
@@ -2460,6 +2483,24 @@ html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry
   border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 34%);
   background: var(--theme-prism-control-surface);
   box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 60%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--theme-prism-signal), transparent 56%);
+  color: var(--theme-prism-muted);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 94%);
+  box-shadow: none;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next:hover {
+  border-color: color-mix(in oklch, var(--theme-prism-signal), transparent 38%);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 89%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next .node-route-preview__label,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next .node-route-preview__chip {
+  color: var(--theme-prism-muted);
 }
 
 html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--conditional .node-route-preview--requirement {

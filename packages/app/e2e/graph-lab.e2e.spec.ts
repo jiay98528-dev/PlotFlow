@@ -49,6 +49,35 @@ layout:
 [选项] 查看四周
 `;
 
+const VIEWPORT_TARGET_ID = createFullId('第一章', '远端节点');
+
+const NODE_SELECTION_VIEWPORT_STORY = `---
+plotflow: 0.1
+title: Node Selection Viewport E2E
+author: QA
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "${FIRST_START_ID}"
+        x: 80
+        y: 120
+      - id: "${VIEWPORT_TARGET_ID}"
+        x: 380
+        y: 120
+---
+
+# 第一章
+
+## 节点：起点
+
+保持镜头稳定。
+
+## 节点：远端节点
+
+只能由显式搜索聚焦。
+`;
+
 const TWO_CHAPTER_STORY = `${START_STORY}
 
 # 第二章
@@ -647,6 +676,14 @@ async function nodeCenter(page: Page, title: string): Promise<{ x: number; y: nu
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+async function readGraphViewportTransform(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
+    if (!viewport) throw new Error('React Flow viewport is not mounted');
+    return window.getComputedStyle(viewport).transform;
+  });
+}
+
 async function nodeBodyPoint(page: Page, title: string): Promise<{ x: number; y: number }> {
   const node = page.locator('.react-flow__node').filter({ hasText: title }).first();
   await expect(node).toBeVisible({ timeout: 10_000 });
@@ -907,6 +944,26 @@ test.describe('Graph Lab E2E', () => {
     }, { timeout: 10_000 }).toBe(true);
   });
 
+  test('keeps the Graph Lab viewport stable when selecting a node, while search remains explicit navigation', async () => {
+    await setEditorContent(page, NODE_SELECTION_VIEWPORT_STORY);
+    await switchToGraphLab(page);
+
+    const target = page.locator('.react-flow__node').filter({ hasText: '远端节点' }).first();
+    await expect(target).toBeVisible({ timeout: 10_000 });
+    const beforeSelection = await readGraphViewportTransform(page);
+
+    await clickNodeBody(page, '远端节点');
+    await page.waitForTimeout(260);
+    expect(await readGraphViewportTransform(page)).toBe(beforeSelection);
+
+    await page.keyboard.press('Control+K');
+    const search = page.getByPlaceholder(/搜索标题、ID、正文或选项|search title, ID, body, or option/i);
+    await expect(search).toBeFocused();
+    await search.fill('远端节点');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => readGraphViewportTransform(page), { timeout: 5_000 }).not.toBe(beforeSelection);
+  });
+
   test('opens Problems panel from the Graph Lab diagnostics chip', async () => {
     await setEditorContent(page, `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：不存在')}`);
     await switchToGraphLab(page);
@@ -1041,6 +1098,8 @@ author: QA
     const route = node.getByTestId('node-route-preview-next');
     await expect(route).toContainText('下一步');
     await expect(route).toContainText('终端节点');
+    await expect(route).toHaveClass(/node-route-preview--default-next/);
+    await expect(route).not.toHaveClass(/node-route-preview--route-option/);
     await expectEmbeddedNextOutputHandle(node);
     await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-default-next-embedded-node.png');
 
@@ -1077,7 +1136,6 @@ vars:
       (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
     }, createFullId('第一章', '流程节点'));
 
-    await page.getByTestId('graph-inspector-tab-routes').click();
     await page.getByTestId('graph-inspector-next-target').selectOption(createFullId('第一章', '终点'));
     await waitForContent(page, '下一步: 节点：终点');
     await page.getByTestId('graph-inspector-option-effect-variable--1').selectOption('金币');
@@ -1563,6 +1621,37 @@ author: QA
     expect(await getEditorContent(page)).not.toContain('Should Not Replace');
   });
 
+  test('supports roving keyboard navigation in the global editor tabs', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    const storyTab = page.getByTestId('graph-global-editor-tab-story');
+    const variablesTab = page.getByTestId('graph-global-editor-tab-variables');
+    const storyPanelId = await storyTab.getAttribute('aria-controls');
+    const variablesPanelId = await variablesTab.getAttribute('aria-controls');
+
+    expect(storyPanelId).toBeTruthy();
+    expect(variablesPanelId).toBeTruthy();
+    expect(storyPanelId).not.toBe(variablesPanelId);
+    await expect(page.locator(`[id="${storyPanelId}"]`)).toHaveAttribute('aria-labelledby', await storyTab.getAttribute('id') ?? '');
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toHaveAttribute('aria-labelledby', await variablesTab.getAttribute('id') ?? '');
+
+    await storyTab.focus();
+    await storyTab.press('ArrowRight');
+    await expect(variablesTab).toHaveAttribute('aria-selected', 'true');
+    await expect(variablesTab).toBeFocused();
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toBeVisible();
+
+    await variablesTab.press('ArrowLeft');
+    await expect(storyTab).toHaveAttribute('aria-selected', 'true');
+    await expect(storyTab).toBeFocused();
+
+    await storyTab.press('End');
+    await expect(variablesTab).toBeFocused();
+    await variablesTab.press('Home');
+    await expect(storyTab).toBeFocused();
+  });
+
   test('localizes primary UI surfaces in English mode without translating story content', async () => {
     await setEditorContent(page, START_STORY);
     await page.locator('select.language-select').selectOption('en-US');
@@ -1578,8 +1667,8 @@ author: QA
     await expect(page.getByTestId('toolbar-export')).toContainText('Export');
     await expect(page.getByText('Graph Lab · Narrative Workbench')).toBeVisible();
     await expect(page.getByTestId('graph-lab-inspector')).toContainText('No node selected');
-    await page.getByTestId('graph-inspector-tab-story').click();
-    await expect(page.getByTestId('graph-lab-inspector')).toContainText('Story Info');
+    await page.getByTestId('graph-global-editor-tab-story').click();
+    await expect(page.getByTestId('graph-lab-global-editor')).toContainText('Story Info');
 
     await page.getByTestId('graph-lab-diagnostics-button').click();
     await expect(page.locator('.problem-panel')).toContainText('Problems');
@@ -1617,7 +1706,7 @@ author: QA
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
 
-    await page.getByTestId('graph-inspector-tab-story').click();
+    await page.getByTestId('graph-global-editor-tab-story').click();
     await page.getByTestId('graph-inspector-meta-engine').selectOption('godot');
     await waitForContent(page, 'engine: "godot"');
 
@@ -1633,7 +1722,6 @@ author: QA
     await page.evaluate((fullId) => {
       (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
     }, createFullId('第一章', '新节点'));
-    await page.getByTestId('graph-inspector-tab-node').click();
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await expect(titleInput).toHaveValue('新节点', { timeout: 10_000 });
     await titleInput.fill('树林');
@@ -1650,16 +1738,41 @@ author: QA
     await page.evaluate((fullId) => {
       (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
     }, FIRST_START_ID);
-    await page.getByTestId('graph-inspector-tab-routes').click();
     await page.getByTestId('graph-inspector-option-target-0').selectOption(createFullId('第一章', '树林'));
     await waitForContent(page, '-> 第一章/节点：树林');
 
     const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
-    await conditionTree.getByRole('button', { name: /左操作数变量|选择变量/ }).click();
-    await conditionTree.getByRole('button', { name: /金币/ }).click();
-    await conditionTree.getByRole('button', { name: /比较运算符|comparison operator/i }).click();
-    await conditionTree.getByRole('button', { name: /≥/ }).click();
+    const variableTrigger = conditionTree.getByTestId('condition-variable-dropdown-trigger').first();
+    await variableTrigger.click();
+    const variableMenu = page.getByTestId('condition-variable-dropdown-menu');
+    await expect(variableMenu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(variableMenu).toHaveCount(0);
+    await expect(variableTrigger).toBeFocused();
+
+    await variableTrigger.click();
+    await expect(variableMenu).toBeVisible();
+    const menuOutsideConditionTree = await variableMenu.evaluate((menu) => {
+      const tree = document.querySelector('[data-testid="graph-inspector-condition-tree-0"]');
+      return Boolean(tree && !tree.contains(menu));
+    });
+    expect(menuOutsideConditionTree).toBe(true);
+    const variableMenuBox = await variableMenu.boundingBox();
+    expect(variableMenuBox).not.toBeNull();
+    expect(variableMenuBox!.y).toBeGreaterThanOrEqual(0);
+    expect(variableMenuBox!.y + variableMenuBox!.height).toBeLessThanOrEqual(await page.evaluate(() => window.innerHeight));
+    await variableMenu.getByRole('option', { name: /金币/ }).click();
+    await expect(variableMenu).toHaveCount(0);
+
+    await conditionTree.getByTestId('condition-operator-dropdown-trigger').first().click();
+    const operatorMenu = page.getByTestId('condition-operator-dropdown-menu');
+    await expect(operatorMenu).toBeVisible();
+    await operatorMenu.getByRole('option', { name: /≥/ }).click();
     const conditionInput = conditionTree.locator('input[type="number"]');
+    await variableTrigger.click();
+    await expect(variableMenu).toBeVisible();
+    await conditionInput.click();
+    await expect(variableMenu).toHaveCount(0);
     await conditionInput.fill('1');
     await blur(conditionInput);
     await waitForContent(page, '  条件: $金币 >= 1');
@@ -1669,13 +1782,12 @@ author: QA
     await page.getByTestId('graph-inspector-option-effect-add-0').click();
     await waitForContent(page, '  效果: 金币-1');
 
-    await page.getByTestId('graph-inspector-tab-variables').click();
+    await page.getByTestId('graph-global-editor-tab-variables').click();
     await page.getByTestId('graph-inspector-variable-name').fill('日志');
     await page.getByTestId('graph-inspector-variable-type').selectOption('string');
     await page.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  日志:\n    type: string');
 
-    await page.getByTestId('graph-inspector-tab-routes').click();
     await page.getByTestId('graph-inspector-option-effect-variable-0').selectOption('日志');
     await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('append');
     const appendInput = page.getByTestId('graph-inspector-option-effect-value-0');
@@ -1683,7 +1795,7 @@ author: QA
     await appendInput.press('Enter');
     await waitForContent(page, '  效果: 金币-1, 日志←"发现脚印"');
 
-    await page.getByTestId('graph-inspector-tab-variables').click();
+    await page.getByTestId('graph-global-editor-tab-variables').click();
     await page.getByTestId('graph-inspector-variable-name').fill('声望');
     await page.getByTestId('graph-inspector-variable-type').selectOption('float');
     await page.getByTestId('graph-inspector-save-variable').click();
@@ -1814,8 +1926,6 @@ vars:
       (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
       createFullId('第一章', '入口'),
     );
-    await page.getByTestId('graph-inspector-tab-routes').click();
-
     const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
     await expect(conditionTree).toBeVisible({ timeout: 10_000 });
     const leftOperandTypes = conditionTree.getByLabel('左操作数类型');
@@ -2015,6 +2125,9 @@ author: QA
   });
 
   test('supports keyboard chapter tabs and node context menus with focus restoration', async () => {
+    // The preceding Source Drawer guard intentionally leaves a stale local draft.
+    // Reload the renderer so this keyboard contract starts from a clean component session.
+    await reloadRenderer(page);
     await setEditorContent(page, TWO_CHAPTER_STORY);
     await switchToGraphLab(page);
 
@@ -2042,6 +2155,45 @@ author: QA
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(node).toBeFocused();
+
+    const nodePoint = await nodeCenter(page, '起点');
+    const blankPoint = await findBlankCanvasPoint(page, nodePoint);
+    await page.mouse.click(nodePoint.x, nodePoint.y, { button: 'right' });
+    await expect(menu).toBeVisible();
+    await page.mouse.click(blankPoint.x, blankPoint.y);
+    await expect(menu).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (
+      (window as TestWindow).__test_store__?.getUIState().activeNodeId
+    ))).toBeNull();
+
+    await page.mouse.click(blankPoint.x, blankPoint.y, { button: 'right' });
+    await expect(menu).toBeVisible();
+    await page.mouse.click(nodePoint.x, nodePoint.y);
+    await expect(menu).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (
+      (window as TestWindow).__test_store__?.getUIState().activeNodeId
+    ))).toBe(createFullId('第一章', '起点'));
+  });
+
+  test('dismisses an edge context menu with an outside primary click', async () => {
+    await setEditorContent(page, `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：终点')}
+
+## 节点：终点
+
+完成。`);
+    await switchToGraphLab(page);
+
+    const edgePath = page.locator('.react-flow__edge path').first();
+    await expect(edgePath).toBeVisible({ timeout: 10_000 });
+    const edgeBox = await edgePath.boundingBox();
+    expect(edgeBox).not.toBeNull();
+    await page.mouse.click(edgeBox!.x + edgeBox!.width / 2, edgeBox!.y + edgeBox!.height / 2, { button: 'right' });
+
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    const blankPoint = await findBlankCanvasPoint(page, await nodeCenter(page, '起点'));
+    await page.mouse.click(blankPoint.x, blankPoint.y);
+    await expect(menu).toHaveCount(0);
   });
 
   test('drops an in-flight node drag when an external reload replaces the story session', async () => {
@@ -2287,6 +2439,25 @@ author: QA
     await expect(page.getByTestId('graph-lab-palette-toggle')).toBeVisible();
     await page.getByTestId('graph-lab-palette-toggle').click();
     await expect(page.getByTestId('graph-lab-create-node')).toBeInViewport();
+
+    const globalEditor = page.getByTestId('graph-lab-global-editor');
+    await globalEditor.scrollIntoViewIfNeeded();
+    await expect(globalEditor).toBeInViewport();
+    const storyTitle = page.getByTestId('graph-inspector-meta-title');
+    await storyTitle.fill('窄屏全局编辑');
+    await blur(storyTitle);
+    await waitForContent(page, 'title: "窄屏全局编辑"');
+
+    const storyTab = page.getByTestId('graph-global-editor-tab-story');
+    await storyTab.focus();
+    await storyTab.press('ArrowRight');
+    const variableName = page.getByTestId('graph-inspector-variable-name');
+    await variableName.scrollIntoViewIfNeeded();
+    await expect(variableName).toBeInViewport();
+    await variableName.fill('窄屏变量');
+    await page.getByTestId('graph-inspector-save-variable').click();
+    await waitForContent(page, '  窄屏变量:');
+
     await page.getByTestId('graph-lab-inspector-toggle').click();
     await expect(page.getByTestId('graph-lab-inspector')).toBeInViewport();
     await expect(page.getByTestId('graph-lab-create-node')).not.toBeInViewport();

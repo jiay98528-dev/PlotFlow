@@ -539,28 +539,20 @@ export function GraphContextMenu({
   useEffect(() => {
     if (!isOpen) return;
 
-    let cleanupListener: (() => void) | null = null;
-
-    const timerId = setTimeout(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-        const target = e.target as HTMLElement | null;
-        if (
-          menuRef.current &&
-          target &&
-          !menuRef.current.contains(target)
-        ) {
-          onClose(true);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      cleanupListener = () =>
-        document.removeEventListener('mousedown', handleClickOutside);
-    }, 0);
-
-    return () => {
-      clearTimeout(timerId);
-      cleanupListener?.();
+    const handlePointerDownOutside = (event: PointerEvent): void => {
+      // Preserve secondary-click reopening and leave non-primary gestures to
+      // the canvas. A capture listener still observes React Flow events that
+      // stop bubbling while keeping the click itself untouched.
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (!(target instanceof Element) || menuRef.current?.contains(target)) return;
+      // Pointer dismissal should leave focus with the element the user chose,
+      // unlike Escape, which intentionally restores the menu trigger.
+      onClose();
     };
+
+    document.addEventListener('pointerdown', handlePointerDownOutside, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDownOutside, true);
   }, [isOpen, onClose]);
 
   // ==========================================================================
@@ -576,8 +568,8 @@ export function GraphContextMenu({
         onClose(true);
       }
     };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+    document.addEventListener('keydown', handleKey, true);
+    return () => document.removeEventListener('keydown', handleKey, true);
   }, [isOpen, onClose, showRenameDialog, showDeleteDialog]);
 
   // ==========================================================================

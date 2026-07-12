@@ -179,6 +179,23 @@
   background: color-mix(in oklch, var(--color-bg-secondary), var(--color-bg-primary) 36%);
 }
 
+.node-route-preview--default-next {
+  min-height: 30px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--color-accent), transparent 72%);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  background: color-mix(in oklch, var(--color-accent-subtle), transparent 76%);
+  box-shadow: none;
+}
+
+.node-route-preview--default-next:hover {
+  border-color: color-mix(in oklch, var(--color-accent), transparent 58%);
+  background: color-mix(in oklch, var(--color-accent-subtle), transparent 62%);
+}
+
 .node-route-preview--overflow {
   min-height: 26px;
   padding-right: 8px;
@@ -278,6 +295,26 @@
   border-color: transparent;
   color: var(--color-text-secondary);
   background: color-mix(in oklch, var(--color-success-subtle), transparent 50%);
+}
+
+.node-route-preview--default-next .node-route-preview__label {
+  color: var(--color-text-secondary);
+  font-weight: 680;
+}
+
+.node-route-preview--default-next .node-route-preview__meta {
+  gap: 5px;
+}
+
+.node-route-preview--default-next .node-route-preview__chip {
+  min-height: auto;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.node-route-preview--default-next .node-route-preview--requirement {
+  display: none;
 }
 
 /* ── 空节点占位提示 ── */

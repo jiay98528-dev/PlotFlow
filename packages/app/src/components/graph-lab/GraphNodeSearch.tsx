@@ -60,7 +60,6 @@ export function GraphNodeSearch(): React.ReactElement {
   const setActiveNodeId = useEditorStore((state) => state.setActiveNodeId);
   const selectNode = useGraphStore((state) => state.selectNode);
   const setActiveChapterId = useUIStore((state) => state.setActiveChapterId);
-  const setInspectorTab = useUIStore((state) => state.setInspectorTab);
   const setCompactGraphPanel = useUIStore((state) => state.setCompactGraphPanel);
   const requestGraphFocus = useUIStore((state) => state.requestGraphFocus);
   const [isOpen, setIsOpen] = useState(false);
@@ -113,13 +112,12 @@ export function GraphNodeSearch(): React.ReactElement {
     setActiveChapterId(node.chapterId);
     selectNode(node.fullId);
     setActiveNodeId(node.fullId);
-    setInspectorTab('node');
     if (window.matchMedia?.('(width <= 900px)').matches) {
       setCompactGraphPanel('inspector');
     }
     requestGraphFocus(node.fullId, 'center');
     close(false);
-  }, [close, requestGraphFocus, selectNode, setActiveChapterId, setActiveNodeId, setCompactGraphPanel, setInspectorTab]);
+  }, [close, requestGraphFocus, selectNode, setActiveChapterId, setActiveNodeId, setCompactGraphPanel]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {

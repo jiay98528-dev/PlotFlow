@@ -334,6 +334,14 @@ export const appText = {
       workspaceRefreshed: '已刷新工作区: {count} 个故事文件',
       workspaceSelected: '已选择工作区: {count} 个故事文件',
     },
+    globalEditor: {
+      aria: '全局编辑',
+      tabsAria: '全局编辑分类',
+      tabs: {
+        story: '故事',
+        variables: '变量',
+      },
+    },
     inspector: {
       aria: 'Graph Lab Inspector',
       tabsAria: 'Inspector 分类',
@@ -953,6 +961,14 @@ export const appText = {
       relayoutFailed: 'Layout was not saved. Resolve the pending source draft first.',
       workspaceRefreshed: 'Workspace refreshed: {count} story files',
       workspaceSelected: 'Workspace selected: {count} story files',
+    },
+    globalEditor: {
+      aria: 'Global editor',
+      tabsAria: 'Global editor sections',
+      tabs: {
+        story: 'Story',
+        variables: 'Variables',
+      },
     },
     inspector: {
       aria: 'Graph Lab Inspector',

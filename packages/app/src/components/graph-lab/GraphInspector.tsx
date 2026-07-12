@@ -758,15 +758,20 @@ function EffectsEditor({
   );
 }
 
-export function GraphInspector(): React.ReactElement {
+export type GraphInspectorContentMode = 'node' | 'story' | 'variables';
+
+interface GraphInspectorProps {
+  readonly contentMode?: GraphInspectorContentMode;
+  readonly embedded?: boolean;
+}
+
+export function GraphInspector({ contentMode = 'node', embedded = false }: GraphInspectorProps): React.ReactElement {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
   const storySessionId = useEditorStore((state) => state.storySessionId);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const allNodes = useStoryStore((state) => state.getAllNodes());
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
-  const inspectorTab = useUIStore((state) => state.inspectorTab);
-  const setInspectorTab = useUIStore((state) => state.setInspectorTab);
   const compactGraphPanel = useUIStore((state) => state.compactGraphPanel);
   const isCompactGraphLayout = useCompactGraphLayout();
   const [editingVariableName, setEditingVariableName] = useState<string | null>(null);
@@ -900,39 +905,25 @@ export function GraphInspector(): React.ReactElement {
       setStatusMessage(text('inspector.updatedVariable'));
     }
   }, [editingVariableName, resetVariableDraft, setStatusMessage, text]);
+  const rootClassName = embedded
+    ? 'graph-lab-global-editor__content'
+    : `graph-lab-inspector${compactGraphPanel === 'inspector' ? ' is-compact-open' : ''}`;
 
   return (
     <aside
-      className={`graph-lab-inspector${compactGraphPanel === 'inspector' ? ' is-compact-open' : ''}`}
-      aria-label={text('inspector.aria')}
-      data-testid="graph-lab-inspector"
-      {...(isCompactGraphLayout && compactGraphPanel !== 'inspector'
+      className={rootClassName}
+      aria-label={embedded ? text(`globalEditor.tabs.${contentMode}`) : text('inspector.aria')}
+      data-testid={embedded ? 'graph-lab-global-editor-content' : 'graph-lab-inspector'}
+      {...(!embedded && isCompactGraphLayout && compactGraphPanel !== 'inspector'
         ? { 'aria-hidden': true, inert: true }
         : {})}
     >
-      <div className="graph-lab-panel__header">
-        <span className="graph-lab-panel__eyebrow">{text('inspector.aria')}</span>
+      {!embedded && <div className="graph-lab-panel__header">
+        <span className="graph-lab-panel__eyebrow">{text('inspector.node')}</span>
         <h2>{node ? node.title : text('inspector.emptyTitle')}</h2>
-      </div>
+      </div>}
 
-      <div className="graph-lab-inspector__tabs" role="tablist" aria-label={text('inspector.tabsAria')}>
-        {(['node', 'routes', 'variables', 'story'] as const).map((tab) => (
-          <button
-            type="button"
-            role="tab"
-            key={tab}
-            data-testid={`graph-inspector-tab-${tab}`}
-            aria-selected={inspectorTab === tab}
-            className={`graph-lab-inspector__tab${inspectorTab === tab ? ' is-active' : ''}`}
-            disabled={(tab === 'node' || tab === 'routes') && !node}
-            onClick={() => setInspectorTab(tab)}
-          >
-            {text(`inspector.tabs.${tab}`)}
-          </button>
-        ))}
-      </div>
-
-      {inspectorTab === 'story' && <section className="graph-lab-section">
+      {contentMode === 'story' && <section className="graph-lab-section">
         <h3>{text('inspector.storyInfo')}</h3>
         <EditableField
           label={text('inspector.title')}
@@ -977,18 +968,16 @@ export function GraphInspector(): React.ReactElement {
         </div>
       </section>}
 
-      {(inspectorTab === 'node' || inspectorTab === 'routes') && (node ? (
+      {contentMode === 'node' && (node ? (
         <>
           <section className="graph-lab-section">
             <div className="graph-lab-section__title">
-              <h3>{inspectorTab === 'node' ? text('inspector.node') : text('inspector.routes')}</h3>
-              {inspectorTab === 'node' && (
-                <button type="button" className="icon-button" title={text('inspector.deleteNode')} aria-label={text('inspector.deleteNode')} onClick={handleDeleteNode}>
-                  <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
-                </button>
-              )}
+              <h3>{text('inspector.node')}</h3>
+              <button type="button" className="icon-button" title={text('inspector.deleteNode')} aria-label={text('inspector.deleteNode')} onClick={handleDeleteNode}>
+                <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
+              </button>
             </div>
-            {inspectorTab === 'node' && <>
+            <>
             <EditableField
               label={text('inspector.title')}
               testId="graph-inspector-node-title"
@@ -1015,8 +1004,8 @@ export function GraphInspector(): React.ReactElement {
               multiline
               onCommit={(value) => commitNodePatch({ body: value })}
             />
-            </>}
-            {inspectorTab === 'routes' && (node.options.length === 0 || node.nextTarget) && (
+            </>
+            {(node.options.length === 0 || node.nextTarget) && (
               <div className="graph-lab-next-target">
                 <h4>{text('inspector.nextTarget')}</h4>
                 <label className="graph-lab-field">
@@ -1061,7 +1050,7 @@ export function GraphInspector(): React.ReactElement {
             )}
           </section>
 
-          {inspectorTab === 'routes' && <section className="graph-lab-section">
+          <section className="graph-lab-section">
             <div className="graph-lab-section__title">
               <h3>{text('inspector.options')}</h3>
               <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-add-option" onClick={handleAddOption}>
@@ -1168,13 +1157,13 @@ export function GraphInspector(): React.ReactElement {
                 ))}
               </div>
             )}
-          </section>}
+          </section>
         </>
       ) : (
         <p className="graph-lab-empty">{text('inspector.selectHint')}</p>
       ))}
 
-      {inspectorTab === 'variables' && <section className="graph-lab-section">
+      {contentMode === 'variables' && <section className="graph-lab-section">
         <h3>{text('inspector.variables')}</h3>
         {variables.length > 0 ? (
           <div className="graph-lab-variable-list" data-testid="graph-inspector-variable-list">

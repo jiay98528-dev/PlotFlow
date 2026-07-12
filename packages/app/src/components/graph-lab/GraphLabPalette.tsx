@@ -25,6 +25,7 @@ import { loadSavedStorySession } from '../../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
 import { useAppText } from '../../i18n/appI18n';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
+import { GraphLabGlobalEditor } from './GraphLabGlobalEditor';
 
 interface GraphLabPaletteProps {
   readonly onNodeNavigate: (nodeId: string, lineNumber: number, chapterId: string) => void;
@@ -248,6 +249,71 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
         ? { 'aria-hidden': true, inert: true }
         : {})}
     >
+      <section className="graph-lab-rail__block graph-lab-rail__create">
+        <div className="graph-lab-section__title">
+          <h3>{text('palette.create')}</h3>
+          <GitBranchPlus aria-hidden="true" size={15} strokeWidth={2} />
+        </div>
+        <div className="graph-lab-palette__actions">
+          <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-chapter" onClick={handleCreateChapter}>
+            <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
+            <span>{text('palette.chapter')}</span>
+          </button>
+          <button type="button" className="graph-lab-tool graph-lab-tool--primary" data-testid="graph-lab-create-node" onClick={handleCreateNode}>
+            <Plus aria-hidden="true" size={16} strokeWidth={2} />
+            <span>{text('palette.node')}</span>
+          </button>
+          <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-ending" onClick={handleCreateEnding}>
+            <Square aria-hidden="true" size={15} strokeWidth={2} />
+            <span>{text('palette.ending')}</span>
+          </button>
+          <button type="button" className="graph-lab-tool" data-testid="graph-lab-relayout" onClick={handleRelayout}>
+            <LayoutGrid aria-hidden="true" size={16} strokeWidth={2} />
+            <span>{text('palette.relayout')}</span>
+          </button>
+        </div>
+      </section>
+
+      <section className="graph-lab-rail__block">
+        <div className="graph-lab-section__title">
+          <h3>{text('palette.outline')}</h3>
+          <ListTree aria-hidden="true" size={15} strokeWidth={2} />
+        </div>
+        {hasOutline ? (
+          <div className="graph-lab-outline">
+            {plotFlowData!.chapters.map((chapter) => (
+              <div className="graph-lab-outline__chapter" key={chapter.id}>
+                {!chapter.isAnonymous && <div className="graph-lab-outline__chapter-title">{chapter.title}</div>}
+                {chapter.nodes.map((node) => {
+                  const severity = severityByNode.get(node.fullId) ?? 'normal';
+                  const isActive = activeNodeId === node.fullId;
+                  return (
+                    <button
+                      type="button"
+                      key={node.fullId}
+                      className={`graph-lab-outline-node graph-lab-outline-node--${severity}${isActive ? ' graph-lab-outline-node--active' : ''}`}
+                      data-testid="graph-lab-outline-node"
+                      onClick={() => onNodeNavigate(node.fullId, node.lineNumber, node.chapterId)}
+                      title={`${node.title} · ${getNodeSeverityLabel(severity, text)}`}
+                    >
+                      <span className="graph-lab-outline-node__status" aria-hidden="true" />
+                      <span className="graph-lab-outline-node__title">{node.title}</span>
+                      <span className="graph-lab-outline-node__meta">{node.options.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="graph-lab-empty">{text('palette.outlineEmpty')}</p>
+        )}
+      </section>
+
+      <section className="graph-lab-rail__block graph-lab-rail__global-editor" aria-label={text('globalEditor.aria')}>
+        <GraphLabGlobalEditor />
+      </section>
+
       <details className="graph-lab-rail__block graph-lab-rail__workspace" data-testid="graph-lab-workspace-browser">
         <summary className="graph-lab-section__title">
           <h3>{text('palette.contentBrowser')}</h3>
@@ -317,67 +383,6 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
         )}
         {workspaceError && <p className="graph-lab-warning">{workspaceError}</p>}
       </details>
-
-      <section className="graph-lab-rail__block">
-        <div className="graph-lab-section__title">
-          <h3>{text('palette.outline')}</h3>
-          <ListTree aria-hidden="true" size={15} strokeWidth={2} />
-        </div>
-        {hasOutline ? (
-          <div className="graph-lab-outline">
-            {plotFlowData!.chapters.map((chapter) => (
-              <div className="graph-lab-outline__chapter" key={chapter.id}>
-                {!chapter.isAnonymous && <div className="graph-lab-outline__chapter-title">{chapter.title}</div>}
-                {chapter.nodes.map((node) => {
-                  const severity = severityByNode.get(node.fullId) ?? 'normal';
-                  const isActive = activeNodeId === node.fullId;
-                  return (
-                    <button
-                      type="button"
-                      key={node.fullId}
-                      className={`graph-lab-outline-node graph-lab-outline-node--${severity}${isActive ? ' graph-lab-outline-node--active' : ''}`}
-                      data-testid="graph-lab-outline-node"
-                      onClick={() => onNodeNavigate(node.fullId, node.lineNumber, node.chapterId)}
-                      title={`${node.title} · ${getNodeSeverityLabel(severity, text)}`}
-                    >
-                      <span className="graph-lab-outline-node__status" aria-hidden="true" />
-                      <span className="graph-lab-outline-node__title">{node.title}</span>
-                      <span className="graph-lab-outline-node__meta">{node.options.length}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="graph-lab-empty">{text('palette.outlineEmpty')}</p>
-        )}
-      </section>
-
-      <section className="graph-lab-rail__block graph-lab-rail__create">
-        <div className="graph-lab-section__title">
-          <h3>{text('palette.create')}</h3>
-          <GitBranchPlus aria-hidden="true" size={15} strokeWidth={2} />
-        </div>
-        <div className="graph-lab-palette__actions">
-          <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-chapter" onClick={handleCreateChapter}>
-            <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-            <span>{text('palette.chapter')}</span>
-          </button>
-          <button type="button" className="graph-lab-tool graph-lab-tool--primary" data-testid="graph-lab-create-node" onClick={handleCreateNode}>
-            <Plus aria-hidden="true" size={16} strokeWidth={2} />
-            <span>{text('palette.node')}</span>
-          </button>
-          <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-ending" onClick={handleCreateEnding}>
-            <Square aria-hidden="true" size={15} strokeWidth={2} />
-            <span>{text('palette.ending')}</span>
-          </button>
-          <button type="button" className="graph-lab-tool" data-testid="graph-lab-relayout" onClick={handleRelayout}>
-            <LayoutGrid aria-hidden="true" size={16} strokeWidth={2} />
-            <span>{text('palette.relayout')}</span>
-          </button>
-        </div>
-      </section>
     </aside>
   );
 }
