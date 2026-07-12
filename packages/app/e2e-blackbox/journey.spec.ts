@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   closeBlackboxApp,
   getBlackboxTarget,
   launchBlackboxApp,
   switchToSplit,
   waitForGraphNode,
+  waitForStoryOpenObservation,
 } from './helpers/electronBlackbox';
 import {
   createBlackboxWorkspace,
@@ -175,14 +176,15 @@ test.describe('blackbox Graph-first user journeys', () => {
       await expectGraphFirstWorkspace(page);
 
       await home.getByRole('button', { name: /打开文件|Open file/i }).click({ noWaitAfter: true });
-      await completeNativeFileDialog({
+      const dialogResult = await completeNativeFileDialog({
         filePath: storyPath,
         mode: 'open',
         buttonPattern: 'Open|OK|打开|確定',
         timeoutMs: 20_000,
       });
-
-      await expect(home).toBeHidden({ timeout: 20_000 });
+      expect(dialogResult).toMatchObject({ status: 'submitted', valueVerified: true, dialogClosed: true });
+      const openObservation = await waitForStoryOpenObservation(page, basename(storyPath));
+      expect(openObservation.status, openObservation.detail).toBe('opened');
       await expectGraphFirstWorkspace(page);
 
       // Prove the known E001 is visible and navigate through the user-facing

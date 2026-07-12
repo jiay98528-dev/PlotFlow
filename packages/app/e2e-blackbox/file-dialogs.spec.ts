@@ -1,12 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { copyFile, readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   closeBlackboxApp,
   dismissHomeIfVisible,
   getBlackboxTarget,
   launchBlackboxApp,
   PROJECT_ROOT,
+  waitForStoryOpenObservation,
 } from './helpers/electronBlackbox';
 import { createBlackboxWorkspace, writeStory } from './helpers/fixtures';
 import { completeNativeFileDialog } from './helpers/nativeDialog';
@@ -42,32 +44,74 @@ test.describe('blackbox native file dialog journeys', () => {
     }
   });
 
-  test('opens an existing story from Home and lands in Graph Lab through the real open dialog @journey', async () => {
+  test('opens through the real dialog with three fresh profiles and one reused profile @journey', async () => {
     test.skip(getBlackboxTarget() === 'devBuild', 'Native open dialog is a packaged-app blackbox gate.');
     const workspace = await createBlackboxWorkspace('native-open-graph-first');
     const storyPath = join(workspace.storiesDir, 'native-open-graph-first.mdstory');
     await writeStory(storyPath, 3, 'Native Open Graph First');
 
-    const launched = await launchBlackboxApp();
+    const reusedUserDataDir = join(workspace.root, 'reused-user-data');
+    const attempts = [undefined, undefined, reusedUserDataDir, reusedUserDataDir];
+    for (const userDataDir of attempts) {
+      const launched = await launchBlackboxApp({ userDataDir });
+      try {
+        const page = launched.page;
+        const home = page.getByTestId('home-surface');
+        await expect(home).toBeVisible();
+        await home.getByRole('button', { name: /打开文件|Open file/i }).click({ noWaitAfter: true });
+        const dialogResult = await completeNativeFileDialog({
+          filePath: storyPath,
+          mode: 'open',
+          buttonPattern: 'Open|OK|打开|確定',
+          timeoutMs: 20_000,
+        });
+        expect(dialogResult).toMatchObject({ status: 'submitted', valueVerified: true, dialogClosed: true });
+
+        const observation = await waitForStoryOpenObservation(page, basename(storyPath));
+        expect(observation.status, observation.detail).toBe('opened');
+        await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+        await expect(page.locator('.split-workspace')).toHaveCount(0);
+        await page.getByTestId('graph-inspector-tab-story').click();
+        await expect(page.getByTestId('graph-inspector-meta-title')).toHaveValue('Native Open Graph First');
+      } finally {
+        await closeBlackboxApp(launched.app);
+      }
+    }
+  });
+
+  test('runs the exported playable HTML in system Edge and follows a branch @journey', async () => {
+    test.skip(getBlackboxTarget() === 'devBuild', 'HTML runtime is a packaged-app blackbox gate.');
+    const workspace = await createBlackboxWorkspace('native-html-runtime');
+    const storyPath = join(workspace.storiesDir, 'native-html-runtime.mdstory');
+    const exportPath = join(workspace.exportsDir, 'native-html-runtime.html');
+    await copyFile(join(PROJECT_ROOT, 'templates', 'rpg-dialogue.mdstory'), storyPath);
+
+    const launched = await launchBlackboxApp({ storyPath });
     try {
       const page = launched.page;
-      const home = page.getByTestId('home-surface');
-      await expect(home).toBeVisible();
-      await home.getByRole('button', { name: /打开文件|Open file/i }).click({ noWaitAfter: true });
-      await completeNativeFileDialog({
-        filePath: storyPath,
-        mode: 'open',
-        buttonPattern: 'Open|OK|打开|確定',
-        timeoutMs: 20_000,
-      });
-
-      await expect(home).toBeHidden({ timeout: 20_000 });
+      await dismissHomeIfVisible(page);
       await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
-      await expect(page.locator('.split-workspace')).toHaveCount(0);
-      await page.getByTestId('graph-inspector-tab-story').click();
-      await expect(page.getByTestId('graph-inspector-meta-title')).toHaveValue('Native Open Graph First');
+      await page.getByTestId('toolbar-export').click();
+      await page.locator('input[name="export-format"][value="html"]').check({ force: true });
+      await page.getByTestId('export-dialog-submit').click({ noWaitAfter: true });
+      await completeNativeFileDialog({ filePath: exportPath, timeoutMs: 20_000 });
+      await expect.poll(async () => (await stat(exportPath).catch(() => null))?.size ?? 0).toBeGreaterThan(100);
     } finally {
       await closeBlackboxApp(launched.app);
+    }
+
+    const browser = await chromium.launch({ channel: 'msedge', headless: false });
+    try {
+      const page = await browser.newPage();
+      await page.goto(pathToFileURL(exportPath).href);
+      await expect(page.locator('body')).toContainText('村口');
+      const branchButton = page.getByRole('button').first();
+      await expect(branchButton).toBeVisible();
+      const before = await page.locator('body').innerText();
+      await branchButton.click();
+      await expect.poll(async () => page.locator('body').innerText()).not.toBe(before);
+    } finally {
+      await browser.close();
     }
   });
 });

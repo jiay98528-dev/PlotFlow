@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const retainAuthorityEvidence = process.env['PLOTFLOW_REVIEW_EVIDENCE'] === '1';
+
 export default defineConfig({
   testDir: __dirname,
   testMatch: ['**/*.spec.ts'],
@@ -11,13 +13,16 @@ export default defineConfig({
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
   workers: 1,
-  reporter: 'list',
+  reporter: [
+    ['list'],
+    ['json', { outputFile: '../../test-results/e2e-blackbox/results.json' }],
+  ],
   outputDir: '../../test-results/e2e-blackbox',
 
   use: {
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    trace: 'retain-on-failure',
+    screenshot: retainAuthorityEvidence ? 'on' : 'only-on-failure',
+    video: retainAuthorityEvidence ? 'on' : 'retain-on-failure',
+    trace: retainAuthorityEvidence ? 'on' : 'retain-on-failure',
   },
 
   projects: [

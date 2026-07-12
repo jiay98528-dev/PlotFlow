@@ -67,6 +67,9 @@ jobs:
       - name: Engine consumption contracts
         run: pnpm test:engine-contract
 
+      - name: External review evidence contracts
+        run: pnpm test:external-review-contract
+
       - name: Dependency security audit (moderate+)
         run: pnpm audit --audit-level moderate
 

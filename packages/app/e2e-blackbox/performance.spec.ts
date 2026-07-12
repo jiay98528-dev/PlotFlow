@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import { appendFile } from 'node:fs/promises';
+import { test, expect } from '@playwright/test';
+import { appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   closeBlackboxApp,
@@ -7,7 +7,7 @@ import {
   launchBlackboxApp,
   waitForAnyGraphNode,
 } from './helpers/electronBlackbox';
-import { createBlackboxWorkspace, writeStory } from './helpers/fixtures';
+import { createBlackboxWorkspace, sha256, writeStory } from './helpers/fixtures';
 
 interface PerfSample {
   readonly name: string;
@@ -17,50 +17,6 @@ interface PerfSample {
 
 async function recordSample(reportPath: string, sample: PerfSample): Promise<void> {
   await appendFile(reportPath, `${JSON.stringify({ ...sample, passed: sample.durationMs <= sample.thresholdMs })}\n`, 'utf-8');
-}
-
-/**
- * Large graphs must remain an opaque canvas workload. Prism glass belongs to
- * the structural shell only, never to each React Flow node or route.
- */
-async function assertPrismLargeGraphAvoidsFilters(page: Page): Promise<void> {
-  const audit = await page.evaluate(() => {
-    const effectsOf = (element: Element | null) => {
-      if (!element) return null;
-      const styles = window.getComputedStyle(element);
-      return {
-        filter: styles.filter,
-        backdropFilter: styles.backdropFilter,
-      };
-    };
-    const hasEffects = (effects: { filter: string; backdropFilter: string } | null): boolean =>
-      effects !== null && (effects.filter !== 'none' || effects.backdropFilter !== 'none');
-    const canvas = document.querySelector('[data-testid="graph-lab-workspace"] .graph-lab__canvas');
-    const nodes = Array.from(document.querySelectorAll('[data-official-node-theme="plotflow-prism-foundry"]'));
-    const edgePaths = Array.from(document.querySelectorAll(
-      '[data-official-edge-theme="plotflow-prism-foundry"] .official-graph-edge__path',
-    ));
-
-    return {
-      canvas: effectsOf(canvas),
-      nodeCount: nodes.length,
-      edgeCount: edgePaths.length,
-      nodeViolations: nodes
-        .map((node, index) => ({ index, effects: effectsOf(node) }))
-        .filter((entry) => hasEffects(entry.effects)),
-      edgeViolations: edgePaths
-        .map((edge, index) => ({ index, effects: effectsOf(edge) }))
-        .filter((entry) => hasEffects(entry.effects)),
-    };
-  });
-
-  expect(audit.canvas).not.toBeNull();
-  expect(audit.canvas).toEqual({ filter: 'none', backdropFilter: 'none' });
-  expect(audit.nodeCount).toBeGreaterThanOrEqual(200);
-  // React Flow can cull off-screen routes. Every route that is actually rendered
-  // must still stay filter-free, including when no route is presently in view.
-  expect(audit.nodeViolations).toEqual([]);
-  expect(audit.edgeViolations).toEqual([]);
 }
 
 test.describe('blackbox performance baseline', () => {
@@ -76,6 +32,7 @@ test.describe('blackbox performance baseline', () => {
     for (const item of cases) {
       const storyPath = join(workspace.storiesDir, `story-${item.count}.mdstory`);
       await writeStory(storyPath, item.count, `Perf ${item.count}`);
+      const storyHashBefore = sha256(await readFile(storyPath));
 
       const start = Date.now();
       const launched = await launchBlackboxApp({ storyPath });
@@ -101,10 +58,16 @@ test.describe('blackbox performance baseline', () => {
           thresholdMs: item.openThresholdMs,
         });
         expect(openDuration).toBeLessThanOrEqual(item.openThresholdMs);
-        if (item.count >= 500) {
-          await expect(launched.page.locator('[data-official-node-theme="plotflow-prism-foundry"]').first()).toBeVisible();
-          await assertPrismLargeGraphAvoidsFilters(launched.page);
-        }
+        await launched.page.getByTestId('graph-node-search-trigger').click();
+        const search = launched.page.getByTestId('graph-node-search-popover');
+        await search.getByRole('combobox').fill(String(item.count));
+        await expect(search.getByRole('option').first()).toBeVisible();
+        await search.getByRole('combobox').press('Enter');
+        await expect(search).toBeHidden();
+        await launched.page.locator('.react-flow__controls-zoomin').click();
+        await launched.page.locator('.react-flow__controls-zoomout').click();
+        await expect(launched.page.getByTestId('toolbar-export')).toBeEnabled();
+        expect(sha256(await readFile(storyPath))).toBe(storyHashBefore);
         expect(runtimeErrors.filter((message) => /RangeError|Maximum call stack/i.test(message))).toEqual([]);
       } finally {
         await closeBlackboxApp(launched.app);

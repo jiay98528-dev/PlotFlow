@@ -6,6 +6,8 @@ import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
+const launchedTargets = new WeakMap<ElectronApplication, BlackboxLaunchTarget>();
+
 export const APP_ROOT = resolve(__dirname, '..', '..');
 export const PROJECT_ROOT = resolve(APP_ROOT, '..', '..');
 export const MAIN_SCRIPT = join(PROJECT_ROOT, 'out', 'main', 'main.js');
@@ -32,6 +34,9 @@ export interface LaunchBlackboxOptions {
 
 export async function launchBlackboxApp(options: LaunchBlackboxOptions = {}): Promise<LaunchedBlackboxApp> {
   const target = options.target ?? getBlackboxTarget();
+  if (target === 'installedExe') {
+    await assertNoInstalledPlotFlowProcesses('before launch');
+  }
   const executablePath = getBlackboxExecutablePath(target);
   const electronArgs = getBlackboxArgs(target, options.storyPath);
   const userDataDir = await ensureDir(options.userDataDir ?? join(
@@ -59,6 +64,7 @@ export async function launchBlackboxApp(options: LaunchBlackboxOptions = {}): Pr
   };
 
   const app = await electron.launch(launchOptions as Parameters<typeof electron.launch>[0]);
+  launchedTargets.set(app, target);
 
   const page = await app.firstWindow();
   page.setDefaultTimeout(15_000);
@@ -122,6 +128,7 @@ export async function waitForAppReady(page: Page): Promise<void> {
 }
 
 export async function closeBlackboxApp(app: ElectronApplication): Promise<void> {
+  const target = launchedTargets.get(app);
   const isCleanupError = (error: unknown): boolean => {
     const message = error instanceof Error ? error.message : String(error);
     return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(message);
@@ -170,6 +177,7 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
   void closePromise.catch(() => {});
   try {
     await withTimeout(closePromise, 5_000, 'blackbox app.close');
+    if (target === 'installedExe') await waitForNoInstalledPlotFlowProcesses();
     return;
   } catch (error) {
     if (!isCleanupError(error) && !(error instanceof Error && /timed out/.test(error.message))) {
@@ -181,6 +189,56 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
   await forceKillProcessTree(child);
   await waitForProcessExit(child, 3_000);
   await withTimeout(closePromise.catch(() => undefined), 5_000, 'blackbox app.close after kill').catch(() => {});
+  if (target === 'installedExe') await waitForNoInstalledPlotFlowProcesses();
+}
+
+export interface StoryOpenObservation {
+  readonly status: 'opened' | 'error';
+  readonly fileName: string;
+  readonly detail: string;
+}
+
+async function listInstalledPlotFlowProcessIds(): Promise<number[]> {
+  if (process.platform !== 'win32') return [];
+  return new Promise((resolvePromise, reject) => {
+    execFile(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-Command',
+        "$items=@(Get-CimInstance Win32_Process -Filter \"Name='PlotFlow.exe'\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessId); $items -join ','",
+      ],
+      { windowsHide: true },
+      (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const ids = stdout.trim()
+          .split(',')
+          .filter(Boolean)
+          .map((value) => Number.parseInt(value, 10))
+          .filter(Number.isFinite);
+        resolvePromise(ids);
+      },
+    );
+  });
+}
+
+async function assertNoInstalledPlotFlowProcesses(stage: string): Promise<void> {
+  const processIds = await listInstalledPlotFlowProcessIds();
+  if (processIds.length > 0) {
+    throw new Error(`Installed blackbox process isolation failed ${stage}; PlotFlow.exe PIDs: ${processIds.join(', ')}`);
+  }
+}
+
+async function waitForNoInstalledPlotFlowProcesses(): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if ((await listInstalledPlotFlowProcessIds()).length === 0) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+  }
+  await assertNoInstalledPlotFlowProcesses('after close');
 }
 
 export async function ensureDir(path: string): Promise<string> {
@@ -232,4 +290,35 @@ export async function waitForGraphNode(page: Page, text: string | RegExp): Promi
 
 export async function waitForAnyGraphNode(page: Page): Promise<void> {
   await page.locator('.react-flow__node, .official-graph-node').first().waitFor({ state: 'visible' });
+}
+
+export async function waitForStoryOpenObservation(
+  page: Page,
+  fileName: string,
+  timeoutMs = 20_000,
+): Promise<StoryOpenObservation> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const visiblePath = await page.locator('.status-bar__path').textContent().catch(() => '');
+    const homeVisible = await page.getByTestId('home-surface').isVisible().catch(() => false);
+    const graphVisible = await page.getByTestId('graph-lab-workspace').isVisible().catch(() => false);
+    const nodeVisible = await page.locator('.react-flow__node, .official-graph-node').first().isVisible().catch(() => false);
+    if (!homeVisible && graphVisible && nodeVisible && visiblePath?.includes(fileName)) {
+      return { status: 'opened', fileName, detail: visiblePath };
+    }
+
+    const statusMessage = await page.locator('.status-bar__message').textContent().catch(() => '');
+    if (statusMessage && /could not open|无法打开|ENOENT|EACCES|EPERM/i.test(statusMessage)) {
+      return { status: 'error', fileName, detail: statusMessage };
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+  }
+
+  const detail = [
+    `homeVisible=${await page.getByTestId('home-surface').isVisible().catch(() => false)}`,
+    `graphVisible=${await page.getByTestId('graph-lab-workspace').isVisible().catch(() => false)}`,
+    `statusPath=${await page.locator('.status-bar__path').textContent().catch(() => '')}`,
+    `statusMessage=${await page.locator('.status-bar__message').textContent().catch(() => '')}`,
+  ].join('; ');
+  throw new Error(`Story open observation timed out for ${fileName}: ${detail}`);
 }

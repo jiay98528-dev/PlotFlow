@@ -10,7 +10,15 @@ export interface NativeDialogOptions {
   readonly mode?: 'save' | 'open';
 }
 
-export async function completeNativeFileDialog(options: NativeDialogOptions): Promise<void> {
+export interface NativeDialogResult {
+  readonly status: 'submitted';
+  readonly mode: 'save' | 'open';
+  readonly filePath: string;
+  readonly valueVerified: boolean;
+  readonly dialogClosed: boolean;
+}
+
+export async function completeNativeFileDialog(options: NativeDialogOptions): Promise<NativeDialogResult> {
   if (process.platform !== 'win32') {
     throw new Error('Native dialog automation is only implemented for Windows.');
   }
@@ -104,9 +112,9 @@ function Find-FileNameEdit($dialog) {
     [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
     'FileNameControlHost'
   )
-  $host = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
-  if ($host -ne $null) {
-    $hostItems = $host.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+  $fileNameHost = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
+  if ($fileNameHost -ne $null) {
+    $hostItems = $fileNameHost.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($item in $hostItems) {
       if ($item.Current.ClassName -eq 'Edit' -or $item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit) {
         return $item
@@ -172,6 +180,28 @@ function Set-EditText($edit, $text) {
   }
 }
 
+function Get-EditText($edit) {
+  try {
+    $valuePattern = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    if ($valuePattern -ne $null) {
+      return $valuePattern.Current.Value
+    }
+  } catch {
+  }
+  return $null
+}
+
+function Complete-Dialog($path) {
+  [PSCustomObject]@{
+    status = 'submitted'
+    mode = $dialogMode
+    filePath = $path
+    valueVerified = $true
+    dialogClosed = $true
+  } | ConvertTo-Json -Compress
+  exit 0
+}
+
 function Submit-Dialog($dialog, $buttonPattern) {
   $buttons = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
   foreach ($button in $buttons) {
@@ -219,40 +249,6 @@ function Wait-DialogSubmitted($dialog, $path) {
   return $false
 }
 
-function Try-BlindSubmit($path) {
-  Set-ClipboardText $path
-  for ($i = 0; $i -lt 5; $i++) {
-    Start-Sleep -Milliseconds 350
-    $dialog = Find-Dialog
-    if ($dialog -eq $null) {
-      continue
-    }
-    [PlotFlowNativeWindow]::SetForegroundWindow([IntPtr]$dialog.Current.NativeWindowHandle) | Out-Null
-    Start-Sleep -Milliseconds 80
-    [System.Windows.Forms.SendKeys]::SendWait('^a')
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    $submitDeadline = [DateTime]::UtcNow.AddMilliseconds(900)
-    while ([DateTime]::UtcNow -lt $submitDeadline) {
-      if ($dialogMode -eq 'save' -and (Test-Path -LiteralPath $path)) {
-        return $true
-      }
-      if (-not (Test-DialogVisible $dialog)) {
-        return $true
-      }
-      Start-Sleep -Milliseconds 100
-    }
-    if ($dialog -ne $null) {
-      return $false
-    }
-  }
-  return $false
-}
-
-if (Try-BlindSubmit $filePath) {
-  exit 0
-}
-
     while ([DateTime]::UtcNow -lt $deadline) {
       $dialog = Find-Dialog
       if ($dialog -ne $null) {
@@ -265,14 +261,18 @@ if (Try-BlindSubmit $filePath) {
     if (-not (Set-EditText $edit $filePath)) {
       throw 'Unable to set native file dialog path.'
     }
+    $actualValue = Get-EditText $edit
+    if ($actualValue -ne $filePath) {
+      throw ('Native file dialog path verification failed. Expected: ' + $filePath + '; actual: ' + $actualValue + [Environment]::NewLine + (Dump-Windows))
+    }
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
     if (Wait-DialogSubmitted $dialog $filePath) {
-      exit 0
+      Complete-Dialog $filePath
     }
 
         if (Submit-Dialog $dialog $buttonPattern) {
           if (Wait-DialogSubmitted $dialog $filePath) {
-            exit 0
+            Complete-Dialog $filePath
           }
         }
         throw ('Native file dialog did not submit.' + [Environment]::NewLine + (Dump-Windows))
@@ -283,10 +283,21 @@ if (Try-BlindSubmit $filePath) {
 `;
 
   try {
-    await execFileAsync('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-Command', script], {
       timeout: timeoutMs + 5_000,
       windowsHide: true,
     });
+    const result = JSON.parse(stdout.trim()) as NativeDialogResult;
+    if (
+      result.status !== 'submitted'
+      || result.mode !== mode
+      || result.filePath !== options.filePath
+      || !result.valueVerified
+      || !result.dialogClosed
+    ) {
+      throw new Error(`Native file dialog returned an invalid result: ${stdout}`);
+    }
+    return result;
   } catch (error) {
     const detail = error as {
       code?: number | string;
