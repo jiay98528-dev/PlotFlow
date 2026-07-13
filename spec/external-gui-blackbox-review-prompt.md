@@ -4,7 +4,7 @@
 
 ## 执行规则
 
-1. 仅在恢复到未安装、未运行 PlotFlow 的 Windows 11 中文 VM 快照后开始。
+1. 在当前 Windows 11 真机环境执行；记录机器、显示、语言和账号信息。安装完整性与首次运行包开始前，必须确认 PlotFlow 已卸载且用户配置不存在。
 2. 先运行 `scripts/external-review/collect-windows-evidence.ps1`。预检不是 `PASS` 时停止，不得把环境问题写成产品缺陷。
 3. 使用 OBS 全屏录制；Playwright 自动化同时保留 video、trace 和失败截图。
 4. 按下列顺序分别开启五个任务/上下文，每包独立录制、独立报告、独立重试：

@@ -122,7 +122,7 @@ if (-not $fileAssociation.extensionClass) { $blockers += '.mdstory file associat
 if (-not $fileAssociation.icon) { $blockers += '.mdstory file association icon is missing.' }
 if ($screens.Count -eq 0 -or $screens[0].width -le 0) { $blockers += 'Display resolution could not be collected.' }
 if (-not $AllowMissingObs -and -not $obsPath) { $blockers += 'OBS executable is missing.' }
-if (-not $AllowExistingProfile -and $existingProfiles.Count -gt 0) { $blockers += 'PlotFlow user profile already exists; restore the clean VM snapshot.' }
+if (-not $AllowExistingProfile -and $existingProfiles.Count -gt 0) { $blockers += 'PlotFlow user profile already exists; uninstall PlotFlow and clear or archive the profile before first-run evidence.' }
 
 $environment = [ordered]@{
   schemaVersion = 1
