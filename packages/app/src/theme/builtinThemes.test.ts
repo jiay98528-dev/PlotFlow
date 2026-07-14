@@ -74,6 +74,7 @@ describe('builtin theme definitions', () => {
       expect(theme.interactionRecipe.realtimeWirePreview).toBe(true);
       expect(theme.motionRecipe.intensity).toBeTruthy();
       expect(theme.assets.preview).toBeTruthy();
+      expect(theme.assets.preview).not.toMatch(/\.svg(?:$|\?)/u);
       expect(theme.storeMeta.storeUrl).toContain('/themes');
       expect(theme.slots.StoryNodeCard).toBeTypeOf('function');
       expect(theme.slots.StoryEdge).toBeTypeOf('function');
