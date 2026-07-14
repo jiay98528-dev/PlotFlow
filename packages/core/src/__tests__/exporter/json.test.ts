@@ -40,7 +40,7 @@ describe('exportJSON — 基本导出', () => {
     if (!parseResult.ok) return;
 
     const exportResult = exportJSON(parseResult.data);
-    expect(exportResult.ok).toBe(true);
+    expect(exportResult.ok, exportResult.ok ? undefined : JSON.stringify(exportResult.errors)).toBe(true);
     if (!exportResult.ok) return;
 
     const json = JSON.parse(exportResult.data);
@@ -99,20 +99,19 @@ describe('exportJSON — 基本导出', () => {
     expect(node1.options).toEqual([]);
   });
 
-  it('空故事 → 有效 JSON（无章节）', () => {
+  it('空故事 → E009 阻断导出', () => {
     const parseResult = parseStory('');
     expect(parseResult.ok).toBe(true);
     if (!parseResult.ok) return;
 
     const exportResult = exportJSON(parseResult.data);
-    expect(exportResult.ok).toBe(true);
-    if (!exportResult.ok) return;
-
-    const json = JSON.parse(exportResult.data);
-    expect(json.chapters).toEqual([]);
-    expect(json.variables).toEqual({});
-    expect(json.meta.title).toBe('Untitled');
+    expect(exportResult.ok).toBe(false);
+    if (exportResult.ok) return;
+    expect(exportResult.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'E009', severity: 'error' }),
+    ]));
   });
+
 });
 
 // ============================================================================
@@ -181,6 +180,26 @@ vars:
   效果: (拥有钥匙=true)
 
 [选项] 离开 -> 节点：森林入口
+
+## 节点：村庄广场
+
+你回到了村庄。
+
+## 节点：战斗结果
+
+战斗结束。
+
+## 节点：驯服狼
+
+巨狼成为了伙伴。
+
+## 节点：井水效果
+
+井水恢复了你的力量。
+
+## 节点：符文秘密
+
+符文揭示了秘密。
 `;
 
   it('导出 → 解析 → 验证结构与原始 AST 一致', () => {
@@ -237,7 +256,7 @@ vars:
     const chapter = json.chapters[0];
     expect(chapter.id).toBe('第一章：村庄');
     expect(chapter.title).toBe('第一章：村庄');
-    expect(chapter.nodes).toHaveLength(3);
+    expect(chapter.nodes).toHaveLength(8);
 
     // ---- 森林入口 ----
     const forestEntry = chapter.nodes.find((n: Record<string, unknown>) => n['id'] === '森林入口');
@@ -452,6 +471,10 @@ vars:
 
 [选项] 通过 -> 节点：结果
   条件: 5 < $金币
+
+## 节点：结果
+
+完成。
 `;
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
@@ -483,6 +506,10 @@ vars:
 
 [选项] 买 -> 节点：结果
   条件: NOT ($金币>=10)
+
+## 节点：结果
+
+完成。
 `;
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
@@ -516,6 +543,10 @@ vars:
 
 [选项] 通过 -> 节点：结果
   条件: ($等级>=5) OR ($金币>=100)
+
+## 节点：结果
+
+完成。
 `;
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
@@ -551,6 +582,10 @@ vars:
 
 [选项] 通过 -> 节点：结果
   条件: ($a>=1) AND ($b>=2) AND ($c>=3)
+
+## 节点：结果
+
+完成。
 `;
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
@@ -576,7 +611,7 @@ vars:
   });
 
   it('无条件选项 → conditions 为 null', () => {
-    const input = '# 章\n\n## 节点：A\n\n正文。\n\n[选项] 继续 -> 节点：B\n';
+    const input = '# 章\n\n## 节点：A\n\n正文。\n\n[选项] 继续 -> 节点：B\n\n## 节点：B\n\n完成。\n';
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
     if (!parseResult.ok) return;
@@ -612,6 +647,10 @@ vars:
 
 [选项] 交互 -> 节点：结果
   效果: (好感度+3, 金币-5, 日志←'获得了物品', 装备='长剑')
+
+## 节点：结果
+
+完成。
 `;
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
@@ -632,7 +671,7 @@ vars:
   });
 
   it('无效果 → 空数组', () => {
-    const input = '# 章\n\n## 节点：A\n\n正文。\n\n[选项] 继续 -> 节点：B\n';
+    const input = '# 章\n\n## 节点：A\n\n正文。\n\n[选项] 继续 -> 节点：B\n\n## 节点：B\n\n完成。\n';
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
     if (!parseResult.ok) return;
@@ -674,7 +713,7 @@ engine: generic
   });
 
   it('无 engine 声明 → none', () => {
-    const parseResult = parseStory('');
+    const parseResult = parseStory('# Chapter\n## 节点：Start\nBody.\n');
     expect(parseResult.ok).toBe(true);
     if (!parseResult.ok) return;
 
@@ -715,7 +754,7 @@ engine: godot
 
 describe('exportJSON — exportedAt 时间戳', () => {
   it('总是输出 ISO 8601 格式', () => {
-    const parseResult = parseStory('');
+    const parseResult = parseStory('# Chapter\n## 节点：Start\nBody.\n');
     expect(parseResult.ok).toBe(true);
     if (!parseResult.ok) return;
 
@@ -727,6 +766,19 @@ describe('exportJSON — exportedAt 时间戳', () => {
     expect(json.meta.exportedAt).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
     );
+  });
+
+  it('rejects a date-only value that is not RFC 3339 date-time', () => {
+    const parseResult = parseStory('# Chapter\n\n## 节点：Start\n\nBody.\n');
+    expect(parseResult.ok).toBe(true);
+    if (!parseResult.ok) return;
+    const invalidData: PlotFlowData = {
+      ...parseResult.data,
+      meta: { ...parseResult.data.meta, exportedAt: '2026-01-01' },
+    };
+    const exportResult = exportJSON(invalidData);
+    expect(exportResult.ok).toBe(false);
+    if (!exportResult.ok) expect(exportResult.errors[0]?.code).toBe('E009');
   });
 });
 
@@ -759,7 +811,7 @@ describe('exportJSON — 匿名章节', () => {
     expect(json.chapters).toHaveLength(1);
     const ch = json.chapters[0];
     expect(ch.id).toBe('_anonymous');
-    expect(ch.title).toBe(''); // 匿名章节 title 为空字符串
+    expect(ch.title).toBe('_anonymous'); // Schema 0.2 要求导出标题非空
     expect(ch.nodes).toHaveLength(2);
 
     // 匿名节点 fullId 不含前缀
@@ -933,6 +985,10 @@ vars:
 
 [选项] 买 -> 节点：结果
   条件: ($金币>=10)
+
+## 节点：结果
+
+完成。
 `;
     const parseResult = parseStory(input);
     expect(parseResult.ok).toBe(true);
@@ -963,7 +1019,7 @@ author: "Test"
 engine: "godot"
 vars:
   金币: int
-  武器: enum[剑, 弓, 杖]
+  武器: enum[无, 剑, 弓, 杖]
 ---
 
 # 第一章

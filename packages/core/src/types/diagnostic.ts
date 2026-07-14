@@ -4,7 +4,7 @@
  * @packageDocumentation
  * @remarks
  * 定义验证器产出的所有诊断信息结构。
- * 对应 PRD §9.1（17 种诊断类型）和 milestones.md M3。
+ * 对应 PRD §9.1（18 种诊断类型）和 milestones.md M3。
  *
  * @version 0.1.0
  */
@@ -20,7 +20,7 @@ export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 // 诊断代码
 // ============================================================================
 
-/** 错误代码（8 种） */
+/** 错误代码（9 种） */
 export type ErrorCode =
   | 'E001'  // 未定义目标节点
   | 'E002'  // 未声明变量
@@ -29,7 +29,8 @@ export type ErrorCode =
   | 'E005'  // 语法解析失败
   | 'E006'  // 嵌套深度超限
   | 'E007'  // 节点 ID 重名
-  | 'E008'; // 变量重复声明
+  | 'E008'  // 变量重复声明
+  | 'E009'; // 故事结构不可导出
 
 /** 警告代码（6 种） */
 export type WarningCode =
@@ -192,6 +193,7 @@ export const DIAGNOSTIC_MESSAGES: Readonly<Record<DiagnosticCode, string>> = {
   E006: 'Object 嵌套深度超过最大限制（3 层）',
   E007: '节点 ID 重复',
   E008: '变量重复声明',
+  E009: '故事结构不满足导出要求',
   W001: '节点无入口选项指向（孤立节点）',
   W002: '节点无出口选项（死胡同）',
   W003: '变量在故事中未使用',
@@ -207,7 +209,7 @@ export const DIAGNOSTIC_MESSAGES: Readonly<Record<DiagnosticCode, string>> = {
 /** 诊断代码 → 严重级别映射 */
 export const DIAGNOSTIC_SEVERITY: Readonly<Record<DiagnosticCode, DiagnosticSeverity>> = {
   E001: 'error', E002: 'error', E003: 'error', E004: 'error',
-  E005: 'error', E006: 'error', E007: 'error', E008: 'error',
+  E005: 'error', E006: 'error', E007: 'error', E008: 'error', E009: 'error',
   W001: 'warning', W002: 'warning', W003: 'warning',
   W004: 'warning', W005: 'warning', W006: 'warning', W007: 'warning',
   I001: 'info', I002: 'info', I003: 'info',
@@ -223,6 +225,7 @@ export const DIAGNOSTIC_MESSAGE_KEYS: Readonly<Record<DiagnosticCode, Diagnostic
   E006: 'diagnostic.E006.message',
   E007: 'diagnostic.E007.message',
   E008: 'diagnostic.E008.message',
+  E009: 'diagnostic.E009.message',
   W001: 'diagnostic.W001.message',
   W002: 'diagnostic.W002.message',
   W003: 'diagnostic.W003.message',

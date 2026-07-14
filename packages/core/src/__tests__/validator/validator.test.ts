@@ -1,9 +1,9 @@
 /**
- * 验证器单元测试 — E001~E008 错误检测规则
+ * 验证器单元测试 — E001~E009 错误检测规则
  *
  * @packageDocumentation
  * @remarks
- * 覆盖所有 8 种错误诊断类型，验证：
+ * 覆盖所有 9 种错误诊断类型，验证：
  * - 命中规则时产生正确的 DiagnosticCode
  * - Diagnostic 的 code / severity / range / relatedNodeId 正确
  * - 未命中规则时返回空数组
@@ -1076,10 +1076,10 @@ describe('validateErrors - E001~E004 聚合', () => {
 });
 
 // ============================================================================
-// runValidations — E005~E008 聚合
+// runValidations — E005~E009 聚合
 // ============================================================================
 
-describe('runValidations - E005~E008 聚合', () => {
+describe('runValidations - E005~E009 聚合', () => {
   it('同时检测多种后解析错误', () => {
     // E005: 选项无目标无条件
     // E007: 节点 ID 重复
@@ -1116,11 +1116,11 @@ describe('runValidations - E005~E008 聚合', () => {
 });
 
 // ============================================================================
-// checkAllErrors — E001~E008 聚合
+// checkAllErrors — E001~E009 聚合
 // ============================================================================
 
-describe('checkAllErrors - E001~E008 全错误聚合', () => {
-  it('同时检测所有 8 种错误', () => {
+describe('checkAllErrors - E001~E009 全错误聚合', () => {
+  it('同时检测所有 9 种错误', () => {
     // E001: undefined target
     // E002: undeclared variable (condition references undeclared var)
     // E003: invalid enum value
@@ -1129,6 +1129,7 @@ describe('checkAllErrors - E001~E008 全错误聚合', () => {
     // E006: deep nested object (>3 levels)
     // E007: duplicate node ID
     // E008: duplicate variable name
+    // E009: empty chapter
 
     // E001 + E002 + E003 + E004 + E005: node options
     const effectEnum: SideEffect = {
@@ -1208,7 +1209,10 @@ describe('checkAllErrors - E001~E008 全错误聚合', () => {
 
     const data = createMinimalData({
       variables,
-      chapters: [createChapter('ch1', '第一章', [root, orphan, dup1, dup2])],
+      chapters: [
+        createChapter('ch1', '第一章', [root, orphan, dup1, dup2]),
+        createChapter('empty', '空章节', []),
+      ],
     });
 
     const result = checkAllErrors(data);
@@ -1222,6 +1226,7 @@ describe('checkAllErrors - E001~E008 全错误聚合', () => {
     expect(codes.has('E006')).toBe(true);
     expect(codes.has('E007')).toBe(true);
     expect(codes.has('E008')).toBe(true);
+    expect(codes.has('E009')).toBe(true);
 
     // summary: all are errors
     const summary = computeSummary(result);
@@ -1231,10 +1236,10 @@ describe('checkAllErrors - E001~E008 全错误聚合', () => {
 });
 
 // ============================================================================
-// validate — 一站式验证（17 条规则）
+// validate — 一站式验证（18 条规则）
 // ============================================================================
 
-describe('validate - 17 条规则一站式验证', () => {
+describe('validate - 18 条规则一站式验证', () => {
   it('正确分类 error / warning / info', () => {
     const root = createNode('root', '开始', '正文', [
       createOption('去未知', 'non-existent'),

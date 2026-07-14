@@ -137,6 +137,14 @@ const SEPARATOR_RE = /^[ \t]*---[ \t]*$/;
 const DEFAULT_TITLE = 'Untitled';
 const DEFAULT_AUTHOR = 'Unknown';
 
+/**
+ * 用户显式使用匿名章节保留名时，仅用于本次容错 AST 的内部章节前缀。
+ * NUL 前缀不能由 Markdown 标题产生，因此不会与合法章节或真正匿名章节碰撞。
+ */
+function createReservedChapterRecoveryId(lineNumber: number): string {
+  return `\u0000reserved:${ANONYMOUS_CHAPTER_ID}:${lineNumber}`;
+}
+
 interface ParsedTargetReference {
   readonly targetChapterId: string | null;
   readonly targetNodeId: string | null;
@@ -672,8 +680,26 @@ export function parseChaptersAndNodes(
       // 终结当前节点
       finalizeNode();
 
-      // 创建/切换到新章节
-      const chapterId = chapterTitle;
+      // `_anonymous` 是真正匿名章节的内部 sentinel，不能作为显式章节 ID。
+      // 为容错 AST 使用不可由源码产生的内部 ID，保留原始标题和节点内容，
+      // 同时避免与匿名 builder/fullId 合并。源文本本身不会被改写。
+      const usesReservedAnonymousId = chapterTitle === ANONYMOUS_CHAPTER_ID;
+      if (usesReservedAnonymousId) {
+        allErrors.push(createDiagnostic(
+          'E005',
+          'error',
+          absoluteLine,
+          1,
+          trimmed.length,
+          `章节名 "${ANONYMOUS_CHAPTER_ID}" 是系统保留名称`,
+          '请重命名该章节；节点内容已保留，但在修复前故事不可导出。',
+        ));
+      }
+
+      // 创建/切换到新章节。非法保留名使用独立 recovery builder。
+      const chapterId = usesReservedAnonymousId
+        ? createReservedChapterRecoveryId(absoluteLine)
+        : chapterTitle;
       currentChapterId = chapterId;
 
       ensureChapter(chapterId, chapterTitle, false, absoluteLine);

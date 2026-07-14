@@ -127,10 +127,9 @@ vars:
     expect(result.ok).toBe(true);
     if (result.ok) {
       const validation = validate(result.data);
-      // 无节点 → 无 E001/E007，无 W001/W002
-      expect(validation.summary.errors).toBe(0);
-      // 可能有 W003（未使用变量 score），但这不应该是崩溃原因
-      expect(validation.diagnostics.every((d) => d.severity !== 'error')).toBe(true);
+      // 无节点不会崩溃，但 E009 会阻止导出不完整故事。
+      expect(validation.summary.errors).toBe(1);
+      expect(validation.diagnostics.some((d) => d.code === 'E009')).toBe(true);
     }
   });
 });

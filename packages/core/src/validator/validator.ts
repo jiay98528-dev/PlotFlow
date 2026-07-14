@@ -1,5 +1,5 @@
 /**
- * PlotFlow 验证器 — E001~E008 错误检测规则
+ * PlotFlow 验证器 — E001~E009 错误检测规则
  *
  * @packageDocumentation
  * @remarks
@@ -20,7 +20,7 @@ import type { PlotFlowData, VariableDeclaration, ConditionNode, VariableType } f
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
 import { buildStoryAdjacency } from './adjacency.js';
-import { createFullId } from '../fullId.js';
+import { ANONYMOUS_CHAPTER_ID, createFullId } from '../fullId.js';
 
 interface DeclaredVariableInfo {
   readonly type: VariableType;
@@ -644,6 +644,19 @@ export function checkE005(data: PlotFlowData): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
   for (const chapter of data.chapters) {
+    if (!chapter.isAnonymous && (
+      chapter.id === ANONYMOUS_CHAPTER_ID
+      || chapter.title === ANONYMOUS_CHAPTER_ID
+      || chapter.id.startsWith(`\u0000reserved:${ANONYMOUS_CHAPTER_ID}:`)
+    )) {
+      diagnostics.push(
+        createDiagnostic(
+          'E005',
+          rangeAtLine(Math.max(1, chapter.lineNumber)),
+          `章节名 "${ANONYMOUS_CHAPTER_ID}" 是系统保留名称，请重命名该章节。`,
+        ),
+      );
+    }
     for (const node of chapter.nodes) {
       for (const option of node.options) {
         // targetNodeId === null && condition === null 无跳转目标且无执行条件
@@ -826,6 +839,44 @@ export function checkE008(data: PlotFlowData): Diagnostic[] {
 }
 
 // ============================================================================
+// E009 — 故事结构不可导出
+// ============================================================================
+
+/**
+ * E009: 确保故事至少包含一个章节，并且每个章节至少包含一个节点。
+ * 该约束与 JSON Schema 0.2 的 chapters/nodes minItems 合同一致，也作为
+ * HTML/TXT 等其他导出格式共用的结构门禁。
+ */
+export function checkE009(data: PlotFlowData): Diagnostic[] {
+  if (data.chapters.length === 0) {
+    return [{
+      ...createDiagnostic(
+        'E009',
+        rangeAtLine(1),
+        '故事至少需要一个包含节点的章节，当前故事没有章节。',
+      ),
+      detailKey: 'diagnostic.E009.detail',
+      detailParams: { reason: 'noChapters' },
+    }];
+  }
+
+  const diagnostics: Diagnostic[] = [];
+  for (const chapter of data.chapters) {
+    if (chapter.nodes.length > 0) continue;
+    diagnostics.push({
+      ...createDiagnostic(
+        'E009',
+        rangeAtLine(Math.max(1, chapter.lineNumber)),
+        `章节 "${chapter.title || chapter.id}" 不包含节点；每个章节至少需要一个节点。`,
+      ),
+      detailKey: 'diagnostic.E009.detail',
+      detailParams: { reason: 'emptyChapter', chapter: chapter.title || chapter.id },
+    });
+  }
+  return diagnostics;
+}
+
+// ============================================================================
 // 聚合函数
 // ============================================================================
 
@@ -845,7 +896,7 @@ export function validateErrors(data: PlotFlowData): Diagnostic[] {
 }
 
 /**
- * 运行 E005-E008 全部后解析验证规则。
+ * 运行 E005-E009 全部后解析验证规则。
  *
  * @param data - 解析后的 PlotFlowData AST
  * @returns 诊断列表
@@ -856,11 +907,12 @@ export function runValidations(data: PlotFlowData): Diagnostic[] {
     ...checkE006(data),
     ...checkE007(data),
     ...checkE008(data),
+    ...checkE009(data),
   ];
 }
 
 /**
- * 运行 E001-E008 全部错误检测规则。
+ * 运行 E001-E009 全部错误检测规则。
  *
  * @param data - 解析后的 PlotFlowData AST
  * @returns 诊断列表
@@ -896,9 +948,9 @@ import {
 } from './infos.js';
 
 /**
- * 对 PlotFlowData 运行全部 17 条验证规则，返回完整诊断结果。
+ * 对 PlotFlowData 运行全部 18 条验证规则，返回完整诊断结果。
  *
- * 规则清单：E001-E008（8 错误）+ W001-W006（6 警告）+ I001-I003（3 建议）= 17 条
+ * 规则清单：E001-E009（9 错误）+ W001-W006（6 警告）+ I001-I003（3 建议）= 18 条
  *
  * 副作用：更新 data 中每个 StoryNode 的 diagnostics 字段：
  *   - isOrphan: 非根节点且无入口选项指向
@@ -923,7 +975,7 @@ import {
  */
 export function validate(data: PlotFlowData): ValidationResult {
   const diagnostics: Diagnostic[] = [
-    // 错误 E001-E008（8 条规则）
+    // 错误 E001-E009（9 条规则）
     ...checkUndefinedTargetNode(data),
     ...checkUndeclaredVariable(data),
     ...checkInvalidEnumValue(data),
@@ -932,6 +984,7 @@ export function validate(data: PlotFlowData): ValidationResult {
     ...checkE006(data),
     ...checkE007(data),
     ...checkE008(data),
+    ...checkE009(data),
     // 警告 W001-W006（6 条规则）
     ...checkOrphanNodes(data),
     ...checkDeadEndNodes(data),

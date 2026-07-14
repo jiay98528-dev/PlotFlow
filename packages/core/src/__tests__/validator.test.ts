@@ -561,16 +561,16 @@ describe('validateAll - 一站式验证', () => {
 describe('computeSummary', () => {
   it('正确统计各严重级别的数量', () => {
     const result = validateAll(createMinimalData({ chapters: [] }));
-    // 无章节无节点 → 0 诊断
-    expect(result.summary).toEqual({ errors: 0, warnings: 0, infos: 0, total: 0 });
+    // 无章节无节点 → E009 阻止导出
+    expect(result.summary).toEqual({ errors: 1, warnings: 0, infos: 0, total: 1 });
   });
 });
 
 // ============================================================================
-// validate — 主验证函数（17 条规则）
+// validate — 主验证函数（18 条规则）
 // ============================================================================
 
-describe('validate - 17 条规则一站式验证', () => {
+describe('validate - 18 条规则一站式验证', () => {
   it('至少检测出 3 种不同类型的诊断', () => {
     // 构造数据触发多种诊断：
     // E001: 选项指向不存在的节点

@@ -11,7 +11,7 @@ import {
 import { validate } from '../validator/validator.js';
 
 const ALL_CODES = [
-  'E001', 'E002', 'E003', 'E004', 'E005', 'E006', 'E007', 'E008',
+  'E001', 'E002', 'E003', 'E004', 'E005', 'E006', 'E007', 'E008', 'E009',
   'W001', 'W002', 'W003', 'W004', 'W005', 'W006', 'W007',
   'I001', 'I002', 'I003',
 ] as const satisfies readonly DiagnosticCode[];

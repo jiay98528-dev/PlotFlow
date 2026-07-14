@@ -4,7 +4,7 @@
  * @packageDocumentation
  * @remarks
  * 提供针对 PlotFlowData 中间表示的完整验证流程，包括：
- * - 8 种错误检测（E001-E008）
+ * - 9 种错误检测（E001-E009）
  * - 6 种警告检测（W001-W006）
  * - 3 种建议检测（I001-I003）
  *
@@ -42,12 +42,13 @@ import {
   checkE006,
   checkE007,
   checkE008,
+  checkE009,
   validateErrors,
   runValidations,
   checkAllErrors,
 } from './validator.js';
 
-// 主验证函数（17 条规则一站式验证）
+// 主验证函数（18 条规则一站式验证）
 import { validate } from './validator.js';
 
 // ============================================================================
@@ -62,7 +63,7 @@ export type { ValidationResult } from '../types/diagnostic.js';
 // ============================================================================
 
 export {
-  // 错误（E001-E008）
+  // 错误（E001-E009）
   checkUndefinedTargetNode,
   checkUndeclaredVariable,
   checkInvalidEnumValue,
@@ -71,6 +72,7 @@ export {
   checkE006,
   checkE007,
   checkE008,
+  checkE009,
   validateErrors,
   runValidations,
   checkAllErrors,

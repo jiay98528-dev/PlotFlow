@@ -15,6 +15,7 @@
 import type { PlotFlowData, Chapter, StoryNode, Option } from '../types/ast.js';
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
+import { checkExportStructure } from './guard.js';
 
 /** CJK + Japanese character class for variable name matching */
 const CJK_KANA_CHARS = '぀-ゟ゠-ヿ㐀-䶿一-鿿豈-﫿';
@@ -291,6 +292,8 @@ function formatChapter(chapter: Chapter): string {
  */
 export function exportTXT(data: PlotFlowData): ParseResult<string> {
   try {
+    const structuralErrors = checkExportStructure(data);
+    if (structuralErrors.length > 0) return failure(structuralErrors);
     const parts: string[] = [];
 
     // 故事标题（非默认时输出）

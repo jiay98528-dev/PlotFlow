@@ -34,7 +34,56 @@ import type {
   Operand,
   SideEffect,
 } from '../types/ast.js';
-import type { Diagnostic, DiagnosticSeverity } from '../types/diagnostic.js';
+import type { Diagnostic } from '../types/diagnostic.js';
+import validateStorySchema02 from './generated/storySchema02Validator.js';
+import { checkExportStructure } from './guard.js';
+
+interface SchemaError {
+  readonly instancePath?: string;
+  readonly message?: string;
+}
+
+type StorySchemaValidator = ((data: unknown) => boolean) & {
+  readonly errors?: readonly SchemaError[] | null;
+};
+
+const storySchemaValidator = validateStorySchema02 as StorySchemaValidator;
+
+function isRfc3339DateTime(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})[Tt](?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1]!;
+}
+
+function formatSchemaErrors(errors: readonly SchemaError[] | null | undefined): string {
+  return (errors ?? [])
+    .map((error) => `${error.instancePath || '/'} ${error.message ?? '不符合 Schema'}`)
+    .join('; ');
+}
+
+function createExportError(code: 'E005' | 'E009', message: string, detail?: string): Diagnostic {
+  return {
+    id: `${code}@export-json`,
+    code,
+    severity: 'error',
+    message,
+    messageKey: `diagnostic.${code}.message`,
+    messageParams: {},
+    ...(detail ? { detail } : {}),
+    ...(code === 'E009' ? {
+      detailKey: 'diagnostic.E009.detail' as const,
+      detailParams: { reason: 'schemaViolation' },
+    } : {}),
+    range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+  };
+}
 
 // ============================================================================
 // 主入口
@@ -48,32 +97,29 @@ import type { Diagnostic, DiagnosticSeverity } from '../types/diagnostic.js';
  */
 export function exportJSON(data: PlotFlowData): ParseResult<string> {
   try {
-    const totalNodes = data?.chapters?.reduce((sum, ch) => sum + (ch?.nodes?.length ?? 0), 0) ?? 0;
-    const warnings: Diagnostic[] = [];
-    if (totalNodes === 0) {
-      warnings.push({
-        id: 'WARN@export-json-empty',
-        code: 'W004',
-        severity: 'warning' as DiagnosticSeverity,
-        message: '导出无节点故事',
-        detail: '当前故事不包含任何节点。JSON 输出是合法 JSON 但不满足规范要求的 minItems: 1。',
-        range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
-      });
-    }
-
+    const structuralErrors = checkExportStructure(data);
+    if (structuralErrors.length > 0) return failure(structuralErrors);
     const exported = serializeStory(data);
+    if (!storySchemaValidator(exported)) {
+      return failure([createExportError(
+        'E009',
+        '故事结构不满足 JSON Schema 0.2，已阻止导出',
+        formatSchemaErrors(storySchemaValidator.errors),
+      )]);
+    }
+    const exportedAt = (exported['meta'] as Record<string, unknown>)['exportedAt'];
+    if (!isRfc3339DateTime(exportedAt)) {
+      return failure([createExportError(
+        'E009',
+        '故事结构不满足 JSON Schema 0.2，已阻止导出',
+        '/meta/exportedAt must match format "date-time"',
+      )]);
+    }
     const json = JSON.stringify(exported, null, 2) + '\n';
-    return success(json, warnings);
+    return success(json);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const diagnostic: Diagnostic = {
-      id: 'E005-EXPORT',
-      code: 'E005',
-      severity: 'error' as DiagnosticSeverity,
-      message: `JSON 导出失败: ${message}`,
-      range: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-    };
-    return failure([diagnostic]);
+    return failure([createExportError('E005', `JSON 导出失败: ${message}`)]);
   }
 }
 
@@ -162,7 +208,10 @@ function serializeVariableDef(v: VariableDeclaration): Record<string, unknown> {
     type: v.type,
   };
 
-  result['default'] = v.defaultValue;
+  // Validate the exact object that will be emitted.  Keeping an own property
+  // whose value is undefined makes Ajv reject an otherwise optional default,
+  // even though JSON.stringify would later omit that property.
+  if (v.defaultValue !== undefined) result['default'] = v.defaultValue;
   if (v.scope) result['scope'] = v.scope;
   if (v.chapterId !== undefined) result['chapter'] = v.chapterId;
   if (v.description !== undefined) result['description'] = v.description;
@@ -195,7 +244,9 @@ function serializeVariableDef(v: VariableDeclaration): Record<string, unknown> {
 function serializeChapter(chapter: Chapter): Record<string, unknown> {
   return {
     id: chapter.id,
-    title: chapter.title,
+    // 匿名章节在 AST 中没有显示标题；Schema 0.2 要求非空 title，使用其
+    // 稳定 ID 作为导出显示名，避免成功出口产生 Schema 非法 JSON。
+    title: chapter.title || chapter.id,
     nodes: chapter.nodes.map(serializeNode),
   };
 }

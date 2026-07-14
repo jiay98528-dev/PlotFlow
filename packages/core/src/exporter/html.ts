@@ -24,6 +24,7 @@
 import type { PlotFlowData, StoryNode, Option, SideEffect, ConditionNode, VariableDeclaration } from '../types/ast.js';
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
+import { checkExportStructure } from './guard.js';
 
 // ============================================================================
 // 运行时数据结构（嵌入 HTML JSON 的压缩格式）
@@ -339,21 +340,8 @@ function generateJS(): string {
  */
 export function exportHTML(data: PlotFlowData): ParseResult<string> {
   try {
-    // 验证是否有可导出的节点
-    const chapters = data?.chapters ?? [];
-    const totalNodes = chapters.reduce((sum, ch) => sum + (ch?.nodes?.length ?? 0), 0);
-    if (totalNodes === 0) {
-      return failure([
-        {
-          id: 'E005@export-html',
-          code: 'E005',
-          severity: 'error',
-          message: '没有可导出的故事节点',
-          detail: '故事中至少需要包含一个节点才能导出为 HTML。请先添加章节和节点内容。',
-          range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
-        },
-      ]);
-    }
+    const structuralErrors = checkExportStructure(data);
+    if (structuralErrors.length > 0) return failure(structuralErrors);
 
     // 构建运行时 JSON
     const runtimeJson: string = buildRuntimeJson(data);
