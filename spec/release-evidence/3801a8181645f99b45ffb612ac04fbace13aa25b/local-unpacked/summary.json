@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "authority": "LOCAL_PREFLIGHT_ONLY",
+  "candidateCommit": "3801a8181645f99b45ffb612ac04fbace13aa25b",
+  "command": "pnpm.cmd --filter @plotflow/app test:e2e:unpacked",
+  "startedAt": "2026-07-14T17:45:52.466Z",
+  "durationMs": 69895.408,
+  "exitCode": 0,
+  "counters": {
+    "expected": 17,
+    "unexpected": 0,
+    "skipped": 0,
+    "flaky": 0
+  },
+  "rawResult": {
+    "path": "playwright-results.json",
+    "bytes": 26964,
+    "sha256": "a8235eea298e12c998bb3aaf489a8791ab38ef2d7b17f7f01d84d5e098f783fe"
+  },
+  "status": "LOCAL_PASS",
+  "releaseEffect": "Does not replace required independent external-review actors or the installed gate."
+}
