@@ -4,6 +4,7 @@ import { engineTelemetrySurfaces } from './surfaces';
 import raw from './theme.json';
 
 const data = raw as Record<string, unknown>;
+const previewUrl = new URL('./assets/preview.png', import.meta.url).href;
 
 function asRecord<T = Record<string, unknown>>(val: unknown, fallback: T): T {
   if (val && typeof val === 'object') return val as T;
@@ -31,7 +32,7 @@ export const engineTelemetryTheme: ThemeDescriptor = {
   defaultMode: (data['defaultMode'] as 'light' | 'dark') ?? 'dark',
   tokens: asRecord(data['tokens'], { shared: {}, light: {}, dark: {} }),
   monacoTheme: data['monacoTheme'] as Record<string, unknown> | undefined,
-  assets: asRecord(data['assets'], { preview: '' }),
+  assets: { ...asRecord(data['assets'], { preview: previewUrl }), preview: previewUrl },
   layoutRecipe: asRecord(data['layoutRecipe'], { density: 'compact' }),
   uxRecipe: asRecord(data['uxRecipe'], {}),
   entryRecipe: asRecord(data['entryRecipe'], {

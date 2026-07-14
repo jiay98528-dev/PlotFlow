@@ -4,6 +4,7 @@ import { prismFoundrySurfaces } from './surfaces';
 import raw from './theme.json';
 
 const data = raw as Record<string, unknown>;
+const previewUrl = new URL('./assets/preview.png', import.meta.url).href;
 
 function asRecord<T = Record<string, unknown>>(value: unknown, fallback: T): T {
   if (value && typeof value === 'object') return value as T;
@@ -48,7 +49,7 @@ export const prismFoundryTheme: ThemeDescriptor = {
   defaultMode: (data['defaultMode'] as 'light' | 'dark') ?? 'light',
   tokens: asRecord(data['tokens'], { shared: {}, light: {} }),
   monacoTheme: data['monacoTheme'] as Record<string, unknown> | undefined,
-  assets: asRecord(data['assets'], { preview: 'assets/preview.svg' }),
+  assets: { ...asRecord(data['assets'], { preview: previewUrl }), preview: previewUrl },
   layoutRecipe: asRecord(data['layoutRecipe'], { density: 'comfortable' }),
   uxRecipe: asRecord(data['uxRecipe'], {}),
   entryRecipe: asRecord(data['entryRecipe'], {

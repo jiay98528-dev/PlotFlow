@@ -521,7 +521,7 @@ function VariableValueInput({
 
   if (variable?.type === 'bool') {
     return (
-      <select data-testid={testId} value={value || 'true'} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel}>
+      <select data-testid={testId} value={value || 'true'} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel} aria-keyshortcuts={onEnter ? 'Enter' : undefined}>
         <option value="true">true</option>
         <option value="false">false</option>
       </select>
@@ -529,7 +529,7 @@ function VariableValueInput({
   }
   if (variable?.type === 'enum' && variable.enumValues?.length) {
     return (
-      <select data-testid={testId} value={value || variable.enumValues[0]} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel}>
+      <select data-testid={testId} value={value || variable.enumValues[0]} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel} aria-keyshortcuts={onEnter ? 'Enter' : undefined}>
         {variable.enumValues.map((item) => <option key={item} value={item}>{item}</option>)}
       </select>
     );
@@ -545,6 +545,7 @@ function VariableValueInput({
       inputMode={isNumeric ? 'decimal' : undefined}
       placeholder={variable?.type === 'string' ? '' : '0'}
       aria-label={ariaLabel}
+      aria-keyshortcuts={onEnter ? 'Enter' : undefined}
     />
   );
 }
@@ -748,6 +749,7 @@ function EffectsEditor({
           data-testid={`graph-inspector-option-effect-add-${index}`}
           onClick={addEffect}
           disabled={!draftVariable}
+          aria-keyshortcuts="Enter"
         >
           <Plus aria-hidden="true" size={14} strokeWidth={2} />
           <span>{text('inspector.addEffect')}</span>

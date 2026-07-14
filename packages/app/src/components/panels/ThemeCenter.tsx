@@ -5,6 +5,7 @@ import { useThemePlatform } from '../../components/ThemePlatformProvider';
 import { useUIStore } from '../../stores/uiStore';
 import type { OfficialThemeRemoteView } from '../../theme-platform/types';
 import { useAppText } from '../../i18n/appI18n';
+import { ThemeAssetPreview } from '../theme/ThemeAssetPreview';
 
 export function ThemeCenter(): React.ReactElement | null {
   const isOpen = useUIStore((state) => state.isThemeCenterOpen);
@@ -189,15 +190,25 @@ export function ThemeCenter(): React.ReactElement | null {
                   data-theme-card-id={theme.id}
                   data-testid="official-remote-theme-card"
                 >
-                  <div className="official-theme-preview official-theme-preview--remote">
-                    <div className="official-theme-preview__canvas">
-                      <div className="official-theme-preview__node official-theme-preview-node-main">
-                        <span />
-                        <strong>{theme.name[language]}</strong>
-                        <em>{theme.channel}</em>
+                  {installedDescriptor ? (
+                    <ThemeAssetPreview
+                      themeId={installedDescriptor.id}
+                      src={installedDescriptor.assets.preview}
+                      label={`${installedDescriptor.name[language]} Graph Lab`}
+                      active={isActive}
+                    />
+                  ) : (
+                    <div
+                      className="official-theme-preview official-theme-preview--remote"
+                      data-preview-theme-id={theme.id}
+                    >
+                      <div className="official-theme-preview__fallback" role="img" aria-label={theme.name[language]}>
+                        <Download aria-hidden="true" size={22} strokeWidth={1.8} />
+                        <span>{theme.name[language]}</span>
+                        <small>{text('common.notInstalled')}</small>
                       </div>
                     </div>
-                  </div>
+                  )}
                   <div className="official-theme-card__body">
                     <div className="official-theme-card__title-row">
                       <div>

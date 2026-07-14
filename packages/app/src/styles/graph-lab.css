@@ -755,6 +755,11 @@
   align-items: center;
 }
 
+.graph-lab-inspector .graph-lab-effect-row,
+.graph-lab-inspector .graph-lab-effect-builder {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .graph-lab-field-group,
 .graph-lab-effect-editor,
 .graph-lab-effect-list,

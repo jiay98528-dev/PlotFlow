@@ -211,7 +211,7 @@
     "storeUrl": "https://plotflow.app/themes/plotflow-engine-telemetry"
   },
   "assets": {
-    "preview": "assets/preview.svg"
+    "preview": "assets/preview.png"
   },
-  "screenshots": ["assets/preview.svg"]
+  "screenshots": ["assets/preview.png"]
 }

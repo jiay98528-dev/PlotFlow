@@ -176,9 +176,9 @@
     }
   },
   "assets": {
-    "preview": "assets/preview.svg",
+    "preview": "assets/preview.png",
     "workbenchTexture": "assets/workbench-texture.svg",
     "nodeSurface": "assets/node-surface.svg"
   },
-  "screenshots": ["assets/preview.svg"]
+  "screenshots": ["assets/preview.png"]
 }

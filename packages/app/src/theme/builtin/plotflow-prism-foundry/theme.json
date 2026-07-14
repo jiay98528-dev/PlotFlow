@@ -192,7 +192,7 @@
     "storeUrl": "https://plotflow.app/themes/plotflow-prism-foundry"
   },
   "assets": {
-    "preview": "assets/preview.svg"
+    "preview": "assets/preview.png"
   },
-  "screenshots": ["assets/preview.svg"]
+  "screenshots": ["assets/preview.png"]
 }

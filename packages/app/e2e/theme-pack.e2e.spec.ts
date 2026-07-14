@@ -262,7 +262,12 @@ test.describe('Official Theme Center E2E', () => {
 
   test('opens Home and Theme Center without exposing local theme import', async () => {
     await page.getByTestId('toolbar-home').click();
-    await expect(page.getByTestId('home-surface')).toBeVisible();
+    const homeSurface = page.getByTestId('home-surface');
+    await expect(homeSurface).toBeVisible();
+    await expect(homeSurface).toHaveScreenshot(visualSnapshotName('home-rendered-theme-preview-1440x900.png'), {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.01,
+    });
     await page.getByTestId('home-open-theme-center').click();
 
     const themeCenter = page.getByTestId('theme-center');
@@ -272,6 +277,10 @@ test.describe('Official Theme Center E2E', () => {
     await expect(themeCenter.getByText('浏览官方免费主题')).toBeVisible();
     await expect(page.getByText('导入主题包')).toHaveCount(0);
     await expect(page.getByText('.pf-theme')).toHaveCount(0);
+    await expect(themeCenter).toHaveScreenshot(visualSnapshotName('theme-center-rendered-previews-1440x900.png'), {
+      animations: 'disabled',
+      maxDiffPixelRatio: 0.01,
+    });
 
     await themeCenter.getByRole('button', { name: '完成' }).click();
     await page.evaluate(() => window.__test_store__?.setHomeSurfaceOpen(false));
@@ -329,6 +338,30 @@ test.describe('Official Theme Center E2E', () => {
     const telemetryCard = page.locator('[data-theme-card-id="plotflow-engine-telemetry"]');
     await expect(prismCard).toBeVisible({ timeout: 5_000 });
 
+    const readRenderedPreview = async (card: Locator) => {
+      const preview = card.locator('[data-preview-source="rendered-workspace"]');
+      const image = preview.getByTestId('theme-rendered-preview');
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
+      return image.evaluate((element: HTMLImageElement) => ({
+        src: element.currentSrc || element.src,
+        naturalWidth: element.naturalWidth,
+        naturalHeight: element.naturalHeight,
+      }));
+    };
+
+    const [prismPreview, workbenchPreview, telemetryPreview] = await Promise.all([
+      readRenderedPreview(prismCard),
+      readRenderedPreview(workbenchCard),
+      readRenderedPreview(telemetryCard),
+    ]);
+    for (const preview of [prismPreview, workbenchPreview, telemetryPreview]) {
+      expect(preview.src).not.toMatch(/\.svg(?:$|\?)/u);
+      expect(preview.naturalWidth).toBeGreaterThanOrEqual(1_000);
+      expect(preview.naturalHeight).toBeGreaterThanOrEqual(600);
+    }
+    expect(new Set([prismPreview.src, workbenchPreview.src, telemetryPreview.src]).size).toBe(3);
+
     const readPreviewTokens = async (card: Locator) =>
       card.locator('.official-theme-preview').evaluate((element) => {
         const style = getComputedStyle(element);
@@ -361,6 +394,8 @@ test.describe('Official Theme Center E2E', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(prismCard).toHaveClass(/is-active/);
+    expect((await readRenderedPreview(workbenchCard)).src).toBe(workbenchPreview.src);
+    expect((await readRenderedPreview(telemetryCard)).src).toBe(telemetryPreview.src);
 
     const palette = await readPrismContrastPalette(page);
     const paper = opaque(palette.paper, { red: 255, green: 255, blue: 255 });

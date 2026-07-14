@@ -889,7 +889,7 @@ test.describe('Graph Lab E2E', () => {
 
   test('keeps Home hero readable across official themes and viewports', async () => {
     const originalViewport = page.viewportSize() ?? { width: 1440, height: 900 };
-    const themes = ['plotflow-narrative-workbench', 'plotflow-engine-telemetry'];
+    const themes = ['plotflow-prism-foundry', 'plotflow-narrative-workbench', 'plotflow-engine-telemetry'];
     const viewports = [
       { width: 1440, height: 900 },
       { width: 1280, height: 720 },
@@ -905,6 +905,13 @@ test.describe('Graph Lab E2E', () => {
             (window as TestWindow).__test_store__?.setHomeSurfaceOpen(true);
           }, themeId);
           await expect(page.getByTestId('home-surface')).toBeVisible({ timeout: 10_000 });
+          const preview = page.getByTestId('home-surface').locator('[data-preview-source="rendered-workspace"]');
+          await expect(preview).toHaveAttribute('data-preview-theme-id', themeId);
+          const previewImage = preview.getByTestId('theme-rendered-preview');
+          await expect(previewImage).toBeVisible();
+          await expect.poll(() => previewImage.evaluate((element: HTMLImageElement) => (
+            element.complete && element.naturalWidth > 0
+          ))).toBe(true);
           await page.waitForTimeout(150);
           await expectHomeSurfaceHasNoOverlap(page);
         }
@@ -1114,6 +1121,7 @@ author: QA
   });
 
   test('edits a node-level next target and effects entirely in Graph Inspector', async () => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await setEditorContent(page, `---
 plotflow: 0.1
 vars:
@@ -1140,9 +1148,40 @@ vars:
     await waitForContent(page, '下一步: 节点：终点');
     await page.getByTestId('graph-inspector-option-effect-variable--1').selectOption('金币');
     await page.getByTestId('graph-inspector-option-effect-operation--1').selectOption('add');
-    await page.getByTestId('graph-inspector-option-effect-value--1').fill('2');
-    await page.getByTestId('graph-inspector-option-effect-add--1').click();
+    const effectValue = page.getByTestId('graph-inspector-option-effect-value--1');
+    const effectSubmit = page.getByTestId('graph-inspector-option-effect-add--1');
+    await effectValue.fill('2');
+    await expect(effectValue).toHaveAttribute('aria-keyshortcuts', 'Enter');
+    await expect(effectSubmit).toHaveAttribute('aria-keyshortcuts', 'Enter');
+
+    const inspector = page.locator('.graph-lab-inspector');
+    const submitGeometry = await Promise.all([
+      inspector.boundingBox(),
+      effectSubmit.boundingBox(),
+    ]);
+    expect(submitGeometry[0]).not.toBeNull();
+    expect(submitGeometry[1]).not.toBeNull();
+    expect(submitGeometry[1]!.x).toBeGreaterThanOrEqual(submitGeometry[0]!.x);
+    expect(submitGeometry[1]!.x + submitGeometry[1]!.width)
+      .toBeLessThanOrEqual(submitGeometry[0]!.x + submitGeometry[0]!.width);
+
+    await effectValue.press('Enter');
     await waitForContent(page, '下一步: 节点：终点\n  效果: 金币+2');
+
+    const deleteEffect = page
+      .getByTestId('graph-inspector-effect-editor--1')
+      .locator('.graph-lab-effect-row .icon-button')
+      .first();
+    await expect(deleteEffect).toBeVisible();
+    const deleteGeometry = await Promise.all([
+      inspector.boundingBox(),
+      deleteEffect.boundingBox(),
+    ]);
+    expect(deleteGeometry[0]).not.toBeNull();
+    expect(deleteGeometry[1]).not.toBeNull();
+    expect(deleteGeometry[1]!.x).toBeGreaterThanOrEqual(deleteGeometry[0]!.x);
+    expect(deleteGeometry[1]!.x + deleteGeometry[1]!.width)
+      .toBeLessThanOrEqual(deleteGeometry[0]!.x + deleteGeometry[0]!.width);
   });
 
   test('keeps Engine Telemetry default next output handle embedded inside no-option cards', async ({ browserName }, testInfo) => {
