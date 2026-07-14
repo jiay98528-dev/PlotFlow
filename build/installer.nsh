@@ -43,6 +43,7 @@ LangString PlotFlowDeleteUserDataNote 1042 "선택하지 않으면 나중에 다
 !macroend
 
 !macro customInstall
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\74fc8b73-b58d-5573-82e7-75efc9ec526f" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "Software\Classes\PlotFlow Story\shell\open\command" "" "$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" $\"%1$\""
   System::Call 'shell32::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'
 !macroend

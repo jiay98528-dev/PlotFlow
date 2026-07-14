@@ -17,8 +17,9 @@
    - `FAIL` 必须包含完成前置后的稳定复现产品缺陷。
    - 工具停止、录屏缺失、环境不干净、权限不足均为 `BLOCKED`。
    - 未开始或未覆盖为 `NOT_RUN`。
-6. 每包结束填写 `result.json`，运行 `pnpm external-review:finalize -- --evidence-dir <目录>`；没有视频或 revision 不一致时不得生成通过证据。
-7. 五包全部 `PASS` 才能说 GUI 外审门禁通过。installed blackbox、真实引擎 smoke、30 分钟巡检和 Authenticode 仍分别控制 RC/正式发行。
+6. 每包必须覆盖 `spec/external-review/cases/<pack>.json` 的全部 required cases，并填写 v2 `result.json`、不可变 `raw-report.json` 和同一只读执行者复核的 `transcription.json`。skip、零测试、缺 actor/counter/transcript/hash 或开放 P0/P1 均不得 PASS。
+7. 运行 `pnpm external-review:finalize -- --evidence-dir <目录>` 只会生成待提交 manifest，不代表通过。正式小型证据提交到 `spec/external-review/evidence/<candidate>/<pack>/` 后，再运行 `pnpm external-review:verify -- --evidence-dir <tracked目录>` 完成二次核验。
+8. 五包全部由校验器推导为 `PASS` 才能说 GUI 外审门禁通过。installed blackbox、真实引擎 smoke、30 分钟巡检和 Authenticode 仍分别控制 RC/正式发行。
 
 ## 产品缺陷最低证据
 

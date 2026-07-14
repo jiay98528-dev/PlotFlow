@@ -156,7 +156,7 @@ test.describe('blackbox Graph-first user journeys', () => {
     }
   });
 
-  test('completes the packaged Graph-first native open to Schema 0.2 export journey without Split or bridges @journey', async () => {
+  test('completes the packaged Graph-first native open to Schema 0.2 export journey without Split or bridges @journey @packaged', async () => {
     test.skip(process.platform !== 'win32', 'Native open/save dialog automation is Windows-only.');
     test.skip(getBlackboxTarget() === 'devBuild', 'The strict native-dialog journey is a packaged-app gate.');
 

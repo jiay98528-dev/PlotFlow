@@ -10,14 +10,10 @@ on:
         required: true
         default: false
         type: boolean
-      installed_path:
-        description: Absolute path to the freshly installed PlotFlow.exe
-        required: false
-        default: 'D:\PF\PlotFlow\PlotFlow.exe'
-        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: windows-release-validation
@@ -30,6 +26,11 @@ jobs:
     timeout-minutes: 120
     env:
       PLOTFLOW_REVIEW_EVIDENCE: '1'
+    outputs:
+      artifact-id: ${{ steps.release-upload.outputs.artifact-id }}
+      artifact-url: ${{ steps.release-upload.outputs.artifact-url }}
+      artifact-digest: ${{ steps.release-upload.outputs.artifact-digest }}
+      artifact-name: plotflow-windows-${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,6 +80,7 @@ jobs:
           Get-Content -LiteralPath 'release/SHA256SUMS.txt'
 
       - name: Upload package and SHA256 evidence
+        id: release-upload
         uses: actions/upload-artifact@v4
         with:
           name: plotflow-windows-${{ github.sha }}
@@ -111,8 +113,8 @@ jobs:
     environment: windows-installed-release
     timeout-minutes: 90
     env:
-      REQUESTED_INSTALLED_PATH: ${{ inputs.installed_path }}
       PLOTFLOW_REVIEW_EVIDENCE: '1'
+      PLOTFLOW_VALIDATED_RELEASE: ${{ runner.temp }}\plotflow-release-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -135,14 +137,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: plotflow-windows-${{ github.sha }}
-          path: validated-release
+          path: ${{ env.PLOTFLOW_VALIDATED_RELEASE }}
 
-      - name: Verify package hash and installed executable path
+      - name: Verify package hashes and install this workflow's candidate
         shell: pwsh
         run: |
-          $manifestPath = Resolve-Path -LiteralPath 'validated-release/SHA256SUMS.txt'
+          $manifestPath = Resolve-Path -LiteralPath (Join-Path $env:PLOTFLOW_VALIDATED_RELEASE 'SHA256SUMS.txt')
           $manifest = Get-Content -LiteralPath $manifestPath
-          $installer = Get-ChildItem -LiteralPath 'validated-release' -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
+          $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Downloaded installer is missing.' }
           $installerEntry = $manifest | Where-Object { $_ -like "* *$($installer.Name)" } | Select-Object -First 1
           if (-not $installerEntry) { throw 'Installer is missing from SHA256SUMS.txt.' }
@@ -150,35 +152,70 @@ jobs:
           $actualInstallerHash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash
           if ($actualInstallerHash -ne $expectedInstallerHash) { throw 'Installer SHA256 mismatch.' }
 
-          $installed = (Resolve-Path -LiteralPath $env:REQUESTED_INSTALLED_PATH).Path
-          if ([IO.Path]::GetFileName($installed) -ne 'PlotFlow.exe') { throw 'Installed path must resolve to PlotFlow.exe.' }
-          if ($installed.StartsWith($env:GITHUB_WORKSPACE, [StringComparison]::OrdinalIgnoreCase)) {
-            throw 'Installed blackbox cannot target a workspace or unpacked build.'
-          }
           $unpackedEntry = $manifest | Where-Object { $_ -like '* *win-unpacked/PlotFlow.exe' } | Select-Object -First 1
           if (-not $unpackedEntry) { throw 'Unpacked executable is missing from SHA256SUMS.txt.' }
           $expectedExecutableHash = ($unpackedEntry -split ' ')[0]
-          $actualExecutableHash = (Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash
-          if ($actualExecutableHash -ne $expectedExecutableHash) {
-            throw 'Installed executable does not match the freshly packaged executable.'
-          }
+          $installRoot = Join-Path $env:RUNNER_TEMP "PlotFlow-installed-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $receiptPath = Join-Path $env:PLOTFLOW_VALIDATED_RELEASE 'same-run-install-receipt.json'
+          if ($installRoot.StartsWith($env:GITHUB_WORKSPACE, [StringComparison]::OrdinalIgnoreCase)) { throw 'Install root cannot be inside the workspace.' }
+          "PLOTFLOW_INSTALL_ROOT=$installRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $installOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'scripts/external-review/install-release-candidate.ps1' `
+            -Mode Install -InstallerPath $installer.FullName -InstallDir $installRoot -AllowedRoot $env:RUNNER_TEMP `
+            -ExpectedExecutableHash $expectedExecutableHash -ReceiptPath $receiptPath
+          if ($LASTEXITCODE -ne 0) { throw 'Same-run installer failed.' }
+          $installedLine = $installOutput | Where-Object { $_ -like 'INSTALLED_EXE=*' } | Select-Object -Last 1
+          if (-not $installedLine) { throw 'Installer helper did not report the installed executable.' }
+          $installed = $installedLine.Substring('INSTALLED_EXE='.Length)
+          $receiptLine = $installOutput | Where-Object { $_ -like 'INSTALL_RECEIPT=*' } | Select-Object -Last 1
+          $receiptHashLine = $installOutput | Where-Object { $_ -like 'INSTALL_RECEIPT_SHA256=*' } | Select-Object -Last 1
+          if (-not $receiptLine -or -not $receiptHashLine) { throw 'Installer helper did not emit a same-run receipt.' }
           "PLOTFLOW_INSTALLED_EXE=$installed" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PLOTFLOW_INSTALL_RECEIPT=$($receiptLine.Substring('INSTALL_RECEIPT='.Length))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PLOTFLOW_INSTALL_RECEIPT_SHA256=$($receiptHashLine.Substring('INSTALL_RECEIPT_SHA256='.Length))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Collect installed environment and registration evidence
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ARTIFACT_ID: ${{ needs.package-unpacked.outputs.artifact-id }}
+          RELEASE_ARTIFACT_URL: ${{ needs.package-unpacked.outputs.artifact-url }}
+          RELEASE_ARTIFACT_DIGEST: ${{ needs.package-unpacked.outputs.artifact-digest }}
+          RELEASE_ARTIFACT_NAME: ${{ needs.package-unpacked.outputs.artifact-name }}
         run: |
-          $installer = Get-ChildItem -LiteralPath 'validated-release' -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
+          $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Downloaded installer is missing.' }
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json'; 'X-GitHub-Api-Version' = '2022-11-28' }
+          $metadata = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$env:RELEASE_ARTIFACT_ID"
+          if ([string]$metadata.workflow_run.id -ne '${{ github.run_id }}' -or $metadata.name -ne $env:RELEASE_ARTIFACT_NAME) { throw 'Downloaded artifact metadata does not match this workflow run.' }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'scripts/external-review/collect-windows-evidence.ps1' `
             -Pack install-integrity `
             -InstallerPath $installer.FullName `
             -InstalledExePath $env:PLOTFLOW_INSTALLED_EXE `
-            -ReleaseManifestPath 'validated-release/SHA256SUMS.txt' `
+            -ReleaseManifestPath (Join-Path $env:PLOTFLOW_VALIDATED_RELEASE 'SHA256SUMS.txt') `
+            -InstallReceiptPath $env:PLOTFLOW_INSTALL_RECEIPT `
+            -ExpectedReceiptHash $env:PLOTFLOW_INSTALL_RECEIPT_SHA256 `
+            -ReleaseArtifactUrl $env:RELEASE_ARTIFACT_URL `
+            -ReleaseArtifactSha256 ($env:RELEASE_ARTIFACT_DIGEST -replace '^sha256:', '') `
+            -ReleaseArtifactBytes $metadata.size_in_bytes `
+            -ReleaseRunId ${{ github.run_id }} `
+            -ReleaseRunAttempt ${{ github.run_attempt }} `
+            -ReleaseArtifactId $env:RELEASE_ARTIFACT_ID `
+            -ReleaseArtifactName $env:RELEASE_ARTIFACT_NAME `
             -AllowMissingObs `
             -AllowExistingProfile
 
       - name: Run installed blackbox
         run: pnpm --filter @plotflow/app test:e2e:installed
+
+      - name: Silently uninstall and verify cleanup
+        if: always()
+        shell: pwsh
+        run: |
+          if ($env:PLOTFLOW_INSTALL_ROOT) {
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'scripts/external-review/install-release-candidate.ps1' `
+              -Mode Cleanup -InstallDir $env:PLOTFLOW_INSTALL_ROOT -AllowedRoot $env:RUNNER_TEMP `
+              -ReceiptPath $env:PLOTFLOW_INSTALL_RECEIPT -ExpectedReceiptHash $env:PLOTFLOW_INSTALL_RECEIPT_SHA256
+          }
 
       - name: Upload installed-gate failure evidence
         if: failure()

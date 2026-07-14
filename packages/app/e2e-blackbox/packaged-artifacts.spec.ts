@@ -34,7 +34,7 @@ function listAsarFiles(bytes: Buffer): string[] {
 }
 
 test.describe('blackbox packaged artifact checks', () => {
-  test('packaged app resources are present and do not bundle the website @edge', async () => {
+  test('packaged app resources are present and do not bundle the website @edge @packaged', async () => {
     const target = getBlackboxTarget();
     test.skip(target === 'devBuild', 'Packaged artifact check only applies to winUnpacked or installedExe targets.');
 
@@ -60,7 +60,7 @@ test.describe('blackbox packaged artifact checks', () => {
     expect(asarFiles.some((file) => file === 'dist-static' || file.startsWith('dist-static/'))).toBe(false);
   });
 
-  test('release debug metadata records installer language, include, and file association @edge', async () => {
+  test('release debug metadata records installer language, include, and file association @edge @packaged @unpacked', async () => {
     const target = getBlackboxTarget();
     test.skip(target !== 'winUnpacked', 'Builder metadata is checked against the freshly produced release directory.');
 
@@ -75,7 +75,7 @@ test.describe('blackbox packaged artifact checks', () => {
     expect(debug).toContain('file-icon.ico');
   });
 
-  test('installed app registers mdstory file association with an icon @edge', async () => {
+  test('installed app registers mdstory file association with an icon @edge @packaged @installed', async () => {
     const target = getBlackboxTarget();
     test.skip(target !== 'installedExe', 'Registry file association check only applies to installedExe target.');
     test.skip(process.platform !== 'win32', 'Windows registry check only runs on Windows.');

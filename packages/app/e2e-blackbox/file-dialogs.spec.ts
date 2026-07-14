@@ -16,7 +16,7 @@ import { completeNativeFileDialog } from './helpers/nativeDialog';
 test.describe('blackbox native file dialog journeys', () => {
   test.skip(process.platform !== 'win32', 'Native file dialog automation is Windows-only.');
 
-  test('exports JSON through the real save dialog and verifies disk output @journey', async () => {
+  test('exports JSON through the real save dialog and verifies disk output @journey @packaged', async () => {
     test.skip(getBlackboxTarget() === 'devBuild', 'Native save dialog is a packaged-app blackbox gate.');
     const workspace = await createBlackboxWorkspace('native-export');
     const storyPath = join(workspace.storiesDir, 'native-export.mdstory');
@@ -44,7 +44,7 @@ test.describe('blackbox native file dialog journeys', () => {
     }
   });
 
-  test('opens through the real dialog with three fresh profiles and one reused profile @journey', async () => {
+  test('opens through the real dialog with three fresh profiles and one reused profile @journey @packaged', async () => {
     test.skip(getBlackboxTarget() === 'devBuild', 'Native open dialog is a packaged-app blackbox gate.');
     const workspace = await createBlackboxWorkspace('native-open-graph-first');
     const storyPath = join(workspace.storiesDir, 'native-open-graph-first.mdstory');
@@ -79,7 +79,7 @@ test.describe('blackbox native file dialog journeys', () => {
     }
   });
 
-  test('runs the exported playable HTML in system Edge and follows a branch @journey', async () => {
+  test('runs the exported playable HTML in system Edge and follows a branch @journey @packaged', async () => {
     test.skip(getBlackboxTarget() === 'devBuild', 'HTML runtime is a packaged-app blackbox gate.');
     const workspace = await createBlackboxWorkspace('native-html-runtime');
     const storyPath = join(workspace.storiesDir, 'native-html-runtime.mdstory');
