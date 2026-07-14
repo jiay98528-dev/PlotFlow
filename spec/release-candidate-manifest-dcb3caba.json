@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "LOCAL_PREFLIGHT_ONLY",
+  "status": "SUPERSEDED_LOCAL_PREFLIGHT",
   "candidateCommit": "dcb3cabaaa88e98af0a04045bceb83f110f649fc",
   "packagedFromCleanWorktree": true,
   "createdAt": "2026-07-15T01:33:33.8586533+08:00",
@@ -20,5 +20,6 @@
     }
   ],
   "ciArtifactId": null,
-  "releaseDecision": "PENDING_INDEPENDENT_REVIEW"
+  "releaseDecision": "SUPERSEDED",
+  "supersededBy": "3801a8181645f99b45ffb612ac04fbace13aa25b"
 }
