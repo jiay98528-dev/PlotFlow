@@ -6,6 +6,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
+import { isGraphShortcutBlocked } from '../../services/graphKeyboardGuard';
 
 const SEVERITY_RANK: Readonly<Record<DiagnosticSeverity, number>> = {
   info: 1,
@@ -121,6 +122,7 @@ export function GraphNodeSearch(): React.ReactElement {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      if (isGraphShortcutBlocked(event)) return;
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         isOpen ? close() : open();

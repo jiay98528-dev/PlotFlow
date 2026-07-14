@@ -1,7 +1,11 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { appT } from '../i18n/appI18n';
-import { hasCurrentStoryUnsavedChanges, saveOrSaveAs } from './autoSaveService';
+import {
+  hasCurrentStoryUnsavedChanges,
+  prepareCurrentStoryForDestructiveExit,
+  saveOrSaveAs,
+} from './autoSaveService';
 import { getSourceDraftState } from './sourceDraftCoordinator';
 
 export type StoryReplaceReason = 'open' | 'new' | 'workspace';
@@ -37,5 +41,8 @@ export async function confirmBeforeReplacingCurrentStory(reason: StoryReplaceRea
   if (choice === 0) {
     return saveOrSaveAs();
   }
-  return choice === 1;
+  if (choice === 1) {
+    return prepareCurrentStoryForDestructiveExit();
+  }
+  return false;
 }

@@ -1407,7 +1407,7 @@ function ConditionGroupView({
 export interface ConditionTreeEditorProps {
   readonly value: ConditionNode | null;
   readonly variables: readonly VariableDeclaration[];
-  readonly onChange: (value: ConditionNode | null) => void;
+  readonly onChange: (value: ConditionNode | null) => boolean;
   readonly compact?: boolean;
   readonly allowClear?: boolean;
   readonly testId?: string;
@@ -1432,6 +1432,7 @@ export function ConditionTreeEditor({
   const [rootGroup, setRootGroup] = useState<ConditionGroup>(() => (
     value ? conditionNodeToBuilder(value) : createEmptyConditionGroup()
   ));
+  const [commitRejected, setCommitRejected] = useState(false);
   const lastEmittedSignatureRef = useRef<string | null>(null);
   const externalSignature = useMemo(() => serializeConditionExpression(value), [value]);
 
@@ -1440,23 +1441,36 @@ export function ConditionTreeEditor({
       lastEmittedSignatureRef.current = null;
       return;
     }
+    setCommitRejected(false);
     setRootGroup(value ? conditionNodeToBuilder(value) : createEmptyConditionGroup());
   }, [externalSignature, value]);
 
   const handleUpdate = useCallback((nextGroup: ConditionGroup) => {
-    setRootGroup(nextGroup);
     const nextValue = builderToConditionNode(nextGroup, variables);
     // 半成品不是“清除条件”。只有明确点击清除时才向上层发送 null，
     // 避免 Inspector 在用户切换变量、尚未输入值的瞬间删除现有条件。
-    if (!nextValue) return;
+    if (!nextValue) {
+      setCommitRejected(false);
+      setRootGroup(nextGroup);
+      return;
+    }
+    setRootGroup(nextGroup);
+    if (!onChange(nextValue)) {
+      setCommitRejected(true);
+      return;
+    }
+    setCommitRejected(false);
     lastEmittedSignatureRef.current = serializeConditionExpression(nextValue);
-    onChange(nextValue);
   }, [onChange, variables]);
 
   const handleClear = useCallback(() => {
-    setRootGroup(createEmptyConditionGroup());
+    if (!onChange(null)) {
+      setCommitRejected(true);
+      return;
+    }
+    setCommitRejected(false);
     lastEmittedSignatureRef.current = '';
-    onChange(null);
+    setRootGroup(createEmptyConditionGroup());
   }, [onChange]);
 
   return (
@@ -1493,6 +1507,7 @@ export function ConditionTreeEditor({
               {text('conditionEditor.clear')}
             </button>
           )}
+          {commitRejected && <span role="alert" style={maxDepthHintStyle}>{text('conditionEditor.draftBlocked')}</span>}
         </>
       )}
     </div>
@@ -1752,7 +1767,10 @@ export function ConditionEditor({
           <ConditionTreeEditor
             value={draftCondition}
             variables={variables}
-            onChange={setDraftCondition}
+            onChange={(next) => {
+              setDraftCondition(next);
+              return true;
+            }}
             allowClear={false}
             testId="condition-editor-tree"
           />

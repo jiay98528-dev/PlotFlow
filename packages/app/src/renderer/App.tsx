@@ -35,12 +35,14 @@ import {
   applyExternalFileContent,
   hasCurrentStoryUnsavedChanges,
   overwritePendingExternalChange,
+  prepareCurrentStoryForDestructiveExit,
   saveAsCurrentFile,
   saveOrSaveAs,
 } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
 import { loadSavedStorySession, startUnsavedStorySession } from '../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
+import { isGraphShortcutBlocked } from '../services/graphKeyboardGuard';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
 import { requestWorkspaceMode, toggleRequestedWorkspaceMode } from '../services/workspaceModeService';
@@ -64,6 +66,8 @@ window.__getEditorDirtyState__ = () => {
 window.__forceSave__ = async () => {
   return saveOrSaveAs();
 };
+
+window.__prepareDiscard__ = async () => prepareCurrentStoryForDestructiveExit();
 
 function normalizeStoryPath(path: string): string {
   return path.replace(/\\/g, '/');
@@ -219,8 +223,9 @@ function AppContent(): React.ReactElement {
       if (currentFilePath && currentFilePath !== normalizedEvent.filePath) return;
 
       if (!hasCurrentStoryUnsavedChanges()) {
-        applyExternalFileContent(normalizedEvent);
-        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+        if (await applyExternalFileContent(normalizedEvent)) {
+          setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+        }
         return;
       }
 
@@ -237,14 +242,27 @@ function AppContent(): React.ReactElement {
         ],
       });
 
+      const latestPending = useEditorStore.getState().pendingExternalChange;
+      const confirmedEventIsCurrent = latestPending !== null
+        && normalizeStoryPath(latestPending.filePath) === normalizedEvent.filePath
+        && latestPending.content === normalizedEvent.content
+        && latestPending.hash === normalizedEvent.hash
+        && latestPending.modifiedAt === normalizedEvent.modifiedAt;
+      if ((choice === 1 || choice === 2) && !confirmedEventIsCurrent) {
+        setStatusMessage(text('appShell.externalPending'));
+        return;
+      }
+
       if (choice === 0) {
         const saved = await saveAsCurrentFile();
         if (saved) {
           setStatusMessage(text('appShell.copySaved'));
         }
       } else if (choice === 1) {
-        applyExternalFileContent(normalizedEvent);
-        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+        const pending = useEditorStore.getState().pendingExternalChange ?? normalizedEvent;
+        if (await applyExternalFileContent(pending)) {
+          setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+        }
       } else if (choice === 2) {
         void overwritePendingExternalChange();
       } else {
@@ -281,10 +299,13 @@ function AppContent(): React.ReactElement {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') {
+        if (event.defaultPrevented || document.querySelector('[aria-modal="true"], [role="dialog"]')) return;
         event.preventDefault();
         void saveOrSaveAs();
         return;
       }
+
+      if (isGraphShortcutBlocked(event)) return;
 
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'g') {
         event.preventDefault();
@@ -317,7 +338,10 @@ function AppContent(): React.ReactElement {
         parsePipelineNow(content);
       },
       applyExternalFileContent: (event) => {
-        applyExternalFileContent(event);
+        const editor = useEditorStore.getState();
+        editor.setFilePath(event.filePath);
+        editor.setPendingExternalChange(event);
+        return applyExternalFileContent(event);
       },
       openConditionEditor: (nodeId: string, optionIndex: number) => {
         useUIStore.getState().openConditionEditor(nodeId, optionIndex);

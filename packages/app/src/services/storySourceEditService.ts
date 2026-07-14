@@ -49,6 +49,18 @@ interface GraphEditHistoryContext {
   readonly afterActiveChapterId?: string | null;
 }
 
+export interface StableOptionReference {
+  readonly sourceNodeFullId: string;
+  readonly optionIndex: number;
+  readonly signature: string;
+  readonly sourceOptionSignatures: readonly string[];
+}
+
+interface StableVariableReference {
+  readonly originalName: string;
+  readonly signature: string;
+}
+
 export interface GraphLayoutPatch {
   readonly id: string;
   readonly position: GraphPosition;
@@ -88,6 +100,91 @@ export interface VariablePatch {
 export interface NodeNextTargetPatch {
   readonly targetFullId?: string | null;
   readonly effectsRaw?: string | null;
+}
+
+function optionSignature(option: Option): string {
+  return JSON.stringify({
+    description: option.description,
+    targetNodeId: option.targetNodeId,
+    targetChapterId: option.targetChapterId,
+    conditionRaw: option.conditionRaw,
+    effectsRaw: option.effectsRaw,
+  });
+}
+
+function variableSignatureValue(variable: VariableDeclaration): object {
+  return {
+    name: variable.name,
+    type: variable.type,
+    defaultValue: variable.defaultValue,
+    scope: variable.scope,
+    chapterId: variable.chapterId,
+    description: variable.description,
+    enumValues: variable.enumValues,
+    fields: variable.fields?.map(variableSignatureValue),
+  };
+}
+
+function variableSignature(variable: VariableDeclaration): string {
+  return JSON.stringify(variableSignatureValue(variable));
+}
+
+function stableVariableReference(originalName: string | undefined): StableVariableReference | null {
+  if (!originalName) return null;
+  const variable = useStoryStore.getState().plotFlowData?.variables.find((candidate) => candidate.name === originalName);
+  return variable ? { originalName, signature: variableSignature(variable) } : null;
+}
+
+function stableOptionReference(option: Option): StableOptionReference | null {
+  const fallbackMatches: StableOptionReference[] = [];
+  for (const node of useStoryStore.getState().getAllNodes()) {
+    const optionIndex = node.options.indexOf(option);
+    if (optionIndex >= 0) {
+      return {
+        sourceNodeFullId: node.fullId,
+        optionIndex,
+        signature: optionSignature(option),
+        sourceOptionSignatures: node.options.map(optionSignature),
+      };
+    }
+    node.options.forEach((candidate, candidateIndex) => {
+      if (candidate.lineNumber === option.lineNumber && optionSignature(candidate) === optionSignature(option)) {
+        fallbackMatches.push({
+          sourceNodeFullId: node.fullId,
+          optionIndex: candidateIndex,
+          signature: optionSignature(option),
+          sourceOptionSignatures: node.options.map(optionSignature),
+        });
+      }
+    });
+  }
+  return fallbackMatches.length === 1 ? fallbackMatches[0]! : null;
+}
+
+function parsedStoryForEdit(content: string) {
+  const parsed = parseStory(normalizeText(content));
+  return parsed.ok ? parsed.data : null;
+}
+
+function resolveNodeForEdit(content: string, fullId: string): StoryNode | null {
+  const story = parsedStoryForEdit(content);
+  if (!story) return null;
+  return story.chapters.flatMap((chapter) => chapter.nodes).find((node) => node.fullId === fullId) ?? null;
+}
+
+function resolveOptionForEdit(content: string, reference: StableOptionReference): Option | null {
+  const node = resolveNodeForEdit(content, reference.sourceNodeFullId);
+  if (!node) return null;
+  const currentSignatures = node.options.map(optionSignature);
+  const indexed = node.options[reference.optionIndex];
+  if (
+    indexed
+    && optionSignature(indexed) === reference.signature
+    && currentSignatures.length === reference.sourceOptionSignatures.length
+    && currentSignatures.every((signature, index) => signature === reference.sourceOptionSignatures[index])
+  ) return indexed;
+  const matches = node.options.filter((option) => optionSignature(option) === reference.signature);
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 const DEFAULT_CHAPTER_TITLE = '第一章';
@@ -1130,9 +1227,20 @@ export function upsertVariableText(content: string, variable: VariablePatch): Gr
   if (!nextVariable) return { content, changed: false };
   const parsed = parseStory(normalized);
   if (!parsed.ok) return { content, changed: false };
-  const originalName = variable.originalName?.trim() || nextVariable.name;
+  const requestedOriginalName = variable.originalName?.trim();
+  const existingNames = new Set(parsed.data.variables.map((candidate) => candidate.name));
+  if (!requestedOriginalName && existingNames.has(nextVariable.name)) {
+    return { content, changed: false };
+  }
+  if (requestedOriginalName) {
+    if (!existingNames.has(requestedOriginalName)) return { content, changed: false };
+    if (nextVariable.name !== requestedOriginalName && existingNames.has(nextVariable.name)) {
+      return { content, changed: false };
+    }
+  }
+  const originalName = requestedOriginalName ?? nextVariable.name;
   const nextVariables = parsed.data.variables
-    .filter((candidate) => candidate.name !== originalName && candidate.name !== nextVariable.name)
+    .filter((candidate) => candidate.name !== originalName)
     .map(declarationToVariablePatch);
   nextVariables.push(nextVariable);
   return replaceVariablesSection(content, nextVariables);
@@ -1326,17 +1434,18 @@ function selectedNode(): StoryNode | undefined {
   return undefined;
 }
 
-function resolveNextTarget(
+function resolveNextTargetFromContent(
+  content: string,
   sourceNode: StoryNode,
   targetReference: string | null,
 ): { readonly targetNodeId: string | null; readonly targetChapterId: string | null } {
   if (!targetReference) return { targetNodeId: null, targetChapterId: null };
-  const storyState = useStoryStore.getState();
-  const target = storyState.getNodeByFullId(targetReference)
-    ?? storyState.getAllNodes().find((candidate) => (
+  const allNodes = parsedStoryForEdit(content)?.chapters.flatMap((chapter) => chapter.nodes) ?? [];
+  const target = allNodes.find((candidate) => candidate.fullId === targetReference)
+    ?? allNodes.find((candidate) => (
       candidate.id === targetReference && candidate.chapterId === sourceNode.chapterId
     ))
-    ?? storyState.getAllNodes().find((candidate) => candidate.id === targetReference);
+    ?? allNodes.find((candidate) => candidate.id === targetReference);
   if (!target) return { targetNodeId: targetReference, targetChapterId: null };
   return {
     targetNodeId: target.id,
@@ -1354,11 +1463,15 @@ export const graphEditService = {
   },
 
   deleteNode(node: StoryNode): boolean {
+    const nodeFullId = node.fullId;
     const selectedNodeId = useGraphStore.getState().selectedNodeId;
     const deletingSelection = selectedNodeId === node.fullId;
     const changed = runGraphEdit(
       'graph-lab-delete-node',
-      (content) => deleteNodeText(content, node),
+      (content) => {
+        const currentNode = resolveNodeForEdit(content, nodeFullId);
+        return currentNode ? deleteNodeText(content, currentNode) : { content, changed: false };
+      },
       deletingSelection ? { afterSelectedNodeId: null } : undefined,
     );
     if (changed && deletingSelection) {
@@ -1369,6 +1482,7 @@ export const graphEditService = {
   },
 
   updateNode(node: StoryNode, patch: NodePatch): boolean {
+    const nodeFullId = node.fullId;
     const nextChapterId = patch.chapterTitle?.trim() || node.chapterId;
     const nextNodeId = patch.title?.trim() || node.id;
     const nextFullId = fullIdFor(nextChapterId, nextNodeId);
@@ -1384,7 +1498,10 @@ export const graphEditService = {
       : undefined;
     const changed = runGraphEdit(
       'graph-lab-update-node',
-      (content) => updateNodeText(content, node, patch),
+      (content) => {
+        const currentNode = resolveNodeForEdit(content, nodeFullId);
+        return currentNode ? updateNodeText(content, currentNode, patch) : { content, changed: false };
+      },
       historyContext,
     );
     if (changed && selectionMoves) {
@@ -1398,55 +1515,84 @@ export const graphEditService = {
   },
 
   addOption(node: StoryNode, patch?: OptionPatch): boolean {
-    return runGraphEdit('graph-lab-add-option', (content) => addOptionText(content, node, patch));
+    const nodeFullId = node.fullId;
+    return runGraphEdit('graph-lab-add-option', (content) => {
+      const currentNode = resolveNodeForEdit(content, nodeFullId);
+      return currentNode ? addOptionText(content, currentNode, patch) : { content, changed: false };
+    });
   },
 
   updateOption(option: Option, patch: OptionPatch): boolean {
-    return runGraphEdit('graph-lab-update-option', (content) => updateOptionText(content, option, patch));
+    const reference = stableOptionReference(option);
+    if (!reference) return false;
+    return runGraphEdit('graph-lab-update-option', (content) => {
+      const currentOption = resolveOptionForEdit(content, reference);
+      return currentOption ? updateOptionText(content, currentOption, patch) : { content, changed: false };
+    });
   },
 
   deleteOption(option: Option): boolean {
-    return runGraphEdit('graph-lab-delete-option', (content) => deleteOptionText(content, option));
+    const reference = stableOptionReference(option);
+    if (!reference) return false;
+    return runGraphEdit('graph-lab-delete-option', (content) => {
+      const currentOption = resolveOptionForEdit(content, reference);
+      return currentOption ? deleteOptionText(content, currentOption) : { content, changed: false };
+    });
   },
 
   reorderOption(node: StoryNode, fromIndex: number, toIndex: number): boolean {
-    return runGraphEdit('graph-lab-reorder-option', (content) => reorderOptionText(content, node, fromIndex, toIndex));
+    const reference = node.options[fromIndex] ? stableOptionReference(node.options[fromIndex]!) : null;
+    if (!reference) return false;
+    const direction = Math.sign(toIndex - fromIndex);
+    if (direction === 0) return false;
+    return runGraphEdit('graph-lab-reorder-option', (content) => {
+      const currentNode = resolveNodeForEdit(content, reference.sourceNodeFullId);
+      const currentOption = resolveOptionForEdit(content, reference);
+      if (!currentNode || !currentOption) return { content, changed: false };
+      const currentIndex = currentNode.options.indexOf(currentOption);
+      const nextIndex = currentIndex + direction;
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentNode.options.length) return { content, changed: false };
+      return reorderOptionText(content, currentNode, currentIndex, nextIndex);
+    });
   },
 
   connectOption(option: Option, targetFullId: string | null): boolean {
-    const target = targetFullId ? useStoryStore.getState().getNodeByFullId(targetFullId) : undefined;
-    return runGraphEdit('graph-lab-connect-option', (content) => updateOptionText(content, option, {
-      targetNodeId: target?.id ?? targetFullId,
-      targetChapterId: target?.chapterId ?? null,
-    }));
+    const reference = stableOptionReference(option);
+    if (!reference) return false;
+    return runGraphEdit('graph-lab-connect-option', (content) => {
+      const currentOption = resolveOptionForEdit(content, reference);
+      const target = targetFullId ? resolveNodeForEdit(content, targetFullId) : null;
+      return currentOption ? updateOptionText(content, currentOption, {
+        targetNodeId: target?.id ?? targetFullId,
+        targetChapterId: target?.chapterId ?? null,
+      }) : { content, changed: false };
+    });
   },
 
   connectNextTarget(node: StoryNode, targetReference: string | null): boolean {
-    const target = resolveNextTarget(node, targetReference);
-    return runGraphEdit('graph-lab-connect-next-target', (content) => updateNodeNextTargetText(
-      content,
-      node,
-      target.targetNodeId,
-      node.nextTarget?.effectsRaw ?? null,
-      target.targetChapterId,
-    ));
+    const nodeFullId = node.fullId;
+    return runGraphEdit('graph-lab-connect-next-target', (content) => {
+      const currentNode = resolveNodeForEdit(content, nodeFullId);
+      if (!currentNode) return { content, changed: false };
+      const target = resolveNextTargetFromContent(content, currentNode, targetReference);
+      return updateNodeNextTargetText(content, currentNode, target.targetNodeId, currentNode.nextTarget?.effectsRaw ?? null, target.targetChapterId);
+    });
   },
 
   updateNextTarget(node: StoryNode, patch: NodeNextTargetPatch): boolean {
-    const targetReference = patch.targetFullId !== undefined
-      ? patch.targetFullId
-      : node.nextTarget?.targetFullId ?? null;
-    const target = resolveNextTarget(node, targetReference);
-    const effectsRaw = patch.effectsRaw !== undefined
-      ? patch.effectsRaw
-      : node.nextTarget?.effectsRaw ?? null;
-    return runGraphEdit('graph-lab-update-next-target', (content) => updateNodeNextTargetText(
-      content,
-      node,
-      target.targetNodeId,
-      effectsRaw,
-      target.targetChapterId,
-    ));
+    const nodeFullId = node.fullId;
+    return runGraphEdit('graph-lab-update-next-target', (content) => {
+      const currentNode = resolveNodeForEdit(content, nodeFullId);
+      if (!currentNode) return { content, changed: false };
+      const targetReference = patch.targetFullId !== undefined
+        ? patch.targetFullId
+        : currentNode.nextTarget?.targetFullId ?? null;
+      const target = resolveNextTargetFromContent(content, currentNode, targetReference);
+      const effectsRaw = patch.effectsRaw !== undefined
+        ? patch.effectsRaw
+        : currentNode.nextTarget?.effectsRaw ?? null;
+      return updateNodeNextTargetText(content, currentNode, target.targetNodeId, effectsRaw, target.targetChapterId);
+    });
   },
 
   createNodeAndConnect(
@@ -1455,7 +1601,15 @@ export const graphEditService = {
     targetTitle = DEFAULT_NODE_TITLE,
     targetPosition?: GraphPosition,
   ): boolean {
-    return runGraphEdit('graph-lab-create-node-and-connect', (content) => createNodeAndConnectText(content, node, option, targetTitle, targetPosition));
+    const reference = stableOptionReference(option);
+    if (!reference) return false;
+    return runGraphEdit('graph-lab-create-node-and-connect', (content) => {
+      const currentNode = resolveNodeForEdit(content, node.fullId);
+      const currentOption = resolveOptionForEdit(content, reference);
+      return currentNode && currentOption
+        ? createNodeAndConnectText(content, currentNode, currentOption, targetTitle, targetPosition)
+        : { content, changed: false };
+    });
   },
 
   createNodeAndConnectNext(
@@ -1463,7 +1617,13 @@ export const graphEditService = {
     targetTitle = DEFAULT_NODE_TITLE,
     targetPosition?: GraphPosition,
   ): boolean {
-    return runGraphEdit('graph-lab-create-node-and-connect-next', (content) => createNodeAndConnectNextText(content, node, targetTitle, targetPosition));
+    const nodeFullId = node.fullId;
+    return runGraphEdit('graph-lab-create-node-and-connect-next', (content) => {
+      const currentNode = resolveNodeForEdit(content, nodeFullId);
+      return currentNode
+        ? createNodeAndConnectNextText(content, currentNode, targetTitle, targetPosition)
+        : { content, changed: false };
+    });
   },
 
   updateNodePosition(node: StoryNode, position: GraphPosition): boolean {
@@ -1483,11 +1643,28 @@ export const graphEditService = {
   },
 
   upsertVariable(variable: VariablePatch): boolean {
-    return runGraphEdit('graph-lab-upsert-variable', (content) => upsertVariableText(content, variable));
+    const reference = stableVariableReference(variable.originalName);
+    if (variable.originalName && !reference) return false;
+    return runGraphEdit('graph-lab-upsert-variable', (content) => {
+      if (reference) {
+        const parsed = parsedStoryForEdit(content);
+        const current = parsed?.variables.find((candidate) => candidate.name === reference.originalName);
+        if (!current || variableSignature(current) !== reference.signature) return { content, changed: false };
+      }
+      return upsertVariableText(content, variable);
+    });
   },
 
   deleteVariable(variableName: string): boolean {
-    return runGraphEdit('graph-lab-delete-variable', (content) => deleteVariableText(content, variableName));
+    const reference = stableVariableReference(variableName);
+    if (!reference) return false;
+    return runGraphEdit('graph-lab-delete-variable', (content) => {
+      const parsed = parsedStoryForEdit(content);
+      const current = parsed?.variables.find((candidate) => candidate.name === reference.originalName);
+      return current && variableSignature(current) === reference.signature
+        ? deleteVariableText(content, variableName)
+        : { content, changed: false };
+    });
   },
 
   updateSelectedNode(patch: NodePatch): boolean {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createFullId, parseStory, validateAll, type PlotFlowData, type StoryNode } from '@plotflow/core';
 import { BUILTIN_TEMPLATES } from '../templates/builtinTemplates';
 import {
@@ -19,7 +19,13 @@ import {
   updateOptionText,
   upsertGraphLayoutText,
   upsertVariableText,
+  graphEditService,
 } from './graphEditService';
+import { useEditorStore } from '../stores/editorStore';
+import { useStoryStore } from '../stores/storyStore';
+import { parsePipelineNow } from './parsePipeline';
+import { registerSourceDraftController } from './sourceDraftCoordinator';
+import { clearPendingSave } from './autoSaveService';
 
 const BASE_STORY = `---
 plotflow: 0.1
@@ -330,7 +336,7 @@ describe('graphEditService text commands', () => {
     expect(equipment?.fields?.find((field) => field.name === '状态')?.fields
       ?.find((field) => field.name === '增益')?.fields?.[0]).toMatchObject({ name: '火焰', type: 'bool' });
 
-    const replaced = upsertVariableText(withObject.content, { name: '装备', type: 'string' });
+    const replaced = upsertVariableText(withObject.content, { name: '装备', originalName: '装备', type: 'string' });
     expect(replaced.content).not.toContain('      状态:');
     expect(parse(replaced.content).variables.find((variable) => variable.name === '装备')?.type).toBe('string');
 
@@ -358,6 +364,22 @@ describe('graphEditService text commands', () => {
     expect(deleted.changed).toBe(true);
     expect(deleted.content).not.toContain('score: int');
     expect(parse(deleted.content).variables).toHaveLength(0);
+  });
+
+  it('rejects variable creation and rename collisions without altering declarations', () => {
+    const withReputation = upsertVariableText(BASE_STORY, { name: '声望', type: 'int', defaultValue: 7 });
+    const duplicateCreate = upsertVariableText(withReputation.content, { name: '金币', type: 'string', defaultValue: 'lost' });
+    const renameCollision = upsertVariableText(withReputation.content, {
+      name: '金币',
+      originalName: '声望',
+      type: 'float',
+      defaultValue: 1.5,
+    });
+
+    expect(duplicateCreate.changed).toBe(false);
+    expect(renameCollision.changed).toBe(false);
+    expect(parse(duplicateCreate.content).variables).toEqual(parse(withReputation.content).variables);
+    expect(parse(renameCollision.content).variables).toEqual(parse(withReputation.content).variables);
   });
 
   it('upserts, migrates and removes Graph Lab layout nodes in frontmatter', () => {
@@ -405,5 +427,120 @@ describe('graphEditService text commands', () => {
     expect(deleted.changed).toBe(true);
     expect(deleted.content).not.toContain('## 节点：守卫盘问');
     expect(findNode(deleted.content, '侧门').title).toBe('侧门');
+  });
+});
+
+describe('graphEditService stable identities after Source Drawer flush', () => {
+  let unregisterDraftController: (() => void) | null = null;
+  afterEach(() => {
+    unregisterDraftController?.();
+    unregisterDraftController = null;
+    clearPendingSave();
+    useEditorStore.getState().reset();
+  });
+
+  it('re-resolves a node by fullId after the flush shifts its source line', () => {
+    useEditorStore.getState().setContent(BASE_STORY);
+    parsePipelineNow(BASE_STORY);
+    const staleNode = findNode(BASE_STORY, '村口');
+    const shifted = BASE_STORY.replace('# 第一章', '# 第一章\n\n章节导语。');
+    unregisterDraftController = registerSourceDraftController({
+      getState: () => ({ isDirty: true, isStale: false }),
+      flushDraft: () => {
+        useEditorStore.getState().setContent(shifted);
+        parsePipelineNow(shifted);
+        return true;
+      },
+    });
+
+    expect(graphEditService.updateNode(staleNode, { title: '村口广场' })).toBe(true);
+    const result = useEditorStore.getState().content;
+    expect(result).toContain('章节导语。');
+    expect(result).toContain('## 节点：村口广场');
+    expect(result).not.toContain('## 节点：村口\n');
+  });
+
+  it('re-resolves an option by stable node, index and signature after an inserted option', () => {
+    useEditorStore.getState().setContent(BASE_STORY);
+    parsePipelineNow(BASE_STORY);
+    const staleOption = useStoryStore.getState().getAllNodes().find((node) => node.title === '村口')!.options[1]!;
+    const shifted = BASE_STORY.replace('[选项] 去森林', '[选项] 新路线\n[选项] 去森林');
+    unregisterDraftController = registerSourceDraftController({
+      getState: () => ({ isDirty: true, isStale: false }),
+      flushDraft: () => {
+        useEditorStore.getState().setContent(shifted);
+        parsePipelineNow(shifted);
+        return true;
+      },
+    });
+
+    expect(graphEditService.updateOption(staleOption, { description: '原地等待' })).toBe(true);
+    expect(findNode(useEditorStore.getState().content, '村口').options.map((option) => option.description))
+      .toEqual(['新路线', '去森林', '原地等待']);
+  });
+
+  it('rejects an option edit when a flush creates duplicate-signature ambiguity', () => {
+    useEditorStore.getState().setContent(BASE_STORY);
+    parsePipelineNow(BASE_STORY);
+    const staleOption = useStoryStore.getState().getAllNodes().find((node) => node.title === '村口')!.options[1]!;
+    const lines = BASE_STORY.split('\n');
+    const optionLine = lines[staleOption.lineNumber - 1]!;
+    lines.splice(staleOption.lineNumber - 1, 0, optionLine);
+    const ambiguous = lines.join('\n');
+    unregisterDraftController = registerSourceDraftController({
+      getState: () => ({ isDirty: true, isStale: false }),
+      flushDraft: () => {
+        useEditorStore.getState().setContent(ambiguous);
+        parsePipelineNow(ambiguous);
+        return true;
+      },
+    });
+
+    expect(graphEditService.updateOption(staleOption, { description: '不应写入' })).toBe(false);
+    expect(useEditorStore.getState().content).toBe(ambiguous);
+    expect(findNode(ambiguous, '村口').options.filter((option) => option.description === staleOption.description))
+      .toHaveLength(2);
+  });
+
+  it('rejects a stale Inspector variable patch when Source Drawer changed the same declaration', () => {
+    useEditorStore.getState().setContent(BASE_STORY);
+    parsePipelineNow(BASE_STORY);
+    const sourceChanged = upsertVariableText(BASE_STORY, {
+      name: '金币', originalName: '金币', type: 'float', defaultValue: 10,
+    }).content;
+    unregisterDraftController = registerSourceDraftController({
+      getState: () => ({ isDirty: true, isStale: false }),
+      flushDraft: () => {
+        useEditorStore.getState().setContent(sourceChanged);
+        parsePipelineNow(sourceChanged);
+        return true;
+      },
+    });
+
+    expect(graphEditService.upsertVariable({
+      name: '金币', originalName: '金币', type: 'int', defaultValue: 0,
+    })).toBe(false);
+    expect(parse(useEditorStore.getState().content).variables.find((variable) => variable.name === '金币'))
+      .toMatchObject({ type: 'float', defaultValue: 10 });
+  });
+
+  it('rejects a stale variable deletion when Source Drawer changed the declaration', () => {
+    useEditorStore.getState().setContent(BASE_STORY);
+    parsePipelineNow(BASE_STORY);
+    const sourceChanged = upsertVariableText(BASE_STORY, {
+      name: '金币', originalName: '金币', type: 'float', defaultValue: 10,
+    }).content;
+    unregisterDraftController = registerSourceDraftController({
+      getState: () => ({ isDirty: true, isStale: false }),
+      flushDraft: () => {
+        useEditorStore.getState().setContent(sourceChanged);
+        parsePipelineNow(sourceChanged);
+        return true;
+      },
+    });
+
+    expect(graphEditService.deleteVariable('金币')).toBe(false);
+    expect(parse(useEditorStore.getState().content).variables.find((variable) => variable.name === '金币'))
+      .toMatchObject({ type: 'float', defaultValue: 10 });
   });
 });

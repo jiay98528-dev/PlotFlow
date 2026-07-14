@@ -40,11 +40,31 @@ let pendingPath: string | null = null;
 /** 最近一次成功保存的内容（用于双重脏检测） */
 let lastSavedContent: string | null = null;
 
-/** 是否正在执行保存操作（防止并发） */
-let isSaving = false;
+export interface SaveAttemptContext {
+  readonly generation: number;
+  readonly storySessionId: number;
+  readonly normalizedPath: string;
+}
+
+interface ExternalReloadAttemptContext extends SaveAttemptContext {
+  readonly content: string;
+  readonly eventHash: string;
+  readonly editorContent: string;
+  readonly sourceDraftRisk: boolean;
+  readonly pendingAtStart: FileExternalChangeEvent | null;
+}
+
+let saveGeneration = 0;
+const activeSaveAttempts = new Map<symbol, SaveAttemptContext>();
+let activeExternalReloadWrites = 0;
 
 /** 是否已有原生另存为对话框处于打开流程中 */
-let isSaveAsDialogOpen = false;
+const activeSaveAsAttempts = new Map<symbol, SaveAsAttemptContext>();
+const externalReloadWritebacks = new Map<string, {
+  readonly content: string;
+  readonly diskHash: string;
+  readonly diskModifiedAt: number;
+}>();
 
 // ============================================================================
 // 常量
@@ -184,12 +204,207 @@ function prepareContentForSave(content: string): string {
 }
 
 export function resetAutoSaveBaseline(content: string | null): void {
+  saveGeneration += 1;
   clearPendingSave();
+  externalReloadWritebacks.clear();
   lastSavedContent = content;
 }
 
+function isSameExternalEvent(
+  left: FileExternalChangeEvent | null,
+  right: FileExternalChangeEvent,
+): boolean {
+  return left !== null
+    && normalizeSavePath(left.filePath) === normalizeSavePath(right.filePath)
+    && left.content === right.content
+    && left.hash === right.hash
+    && left.modifiedAt === right.modifiedAt;
+}
+
 export function hasPendingSaveWork(): boolean {
-  return pendingContent !== null || saveTimer !== null || isSaving || isSaveAsDialogOpen;
+  return pendingContent !== null || saveTimer !== null || activeExternalReloadWrites > 0
+    || hasActiveSaveForCurrentGeneration()
+    || [...activeSaveAsAttempts.values()].some((attempt) => attempt.generation === saveGeneration);
+}
+
+function normalizeSavePath(path: string): string {
+  return path.replace(/\\/g, '/').toLocaleLowerCase('en-US');
+}
+
+function createSaveAttempt(path: string): SaveAttemptContext {
+  return {
+    generation: saveGeneration,
+    storySessionId: useEditorStore.getState().storySessionId,
+    normalizedPath: normalizeSavePath(path),
+  };
+}
+
+function isSaveAttemptCurrent(attempt: SaveAttemptContext): boolean {
+  const editor = useEditorStore.getState();
+  const currentPath = editor.filePath ?? pendingPath;
+  return attempt.generation === saveGeneration
+    && attempt.storySessionId === editor.storySessionId
+    && currentPath !== null
+    && attempt.normalizedPath === normalizeSavePath(currentPath);
+}
+
+function createExternalReloadAttempt(event: FileExternalChangeEvent): ExternalReloadAttemptContext {
+  const editor = useEditorStore.getState();
+  return {
+    ...createSaveAttempt(event.filePath),
+    content: event.content,
+    eventHash: event.hash,
+    editorContent: editor.editorInstance?.getValue() ?? editor.content,
+    sourceDraftRisk: hasSourceDraftRisk(),
+    pendingAtStart: editor.pendingExternalChange,
+  };
+}
+
+function isExternalReloadAttemptCurrent(attempt: ExternalReloadAttemptContext): boolean {
+  if (!isSaveAttemptCurrent(attempt)) return false;
+  const pending = useEditorStore.getState().pendingExternalChange;
+  const editor = useEditorStore.getState();
+  const currentContent = editor.editorInstance?.getValue() ?? editor.content;
+  const writeback = externalReloadWritebacks.get(attempt.normalizedPath);
+  const pendingIdentityIsCurrent = attempt.pendingAtStart === null
+    ? pending === null
+    : pending !== null
+      && normalizeSavePath(pending.filePath) === attempt.normalizedPath
+      && pending.content === attempt.content
+      && (pending.hash === attempt.eventHash || writeback?.content === attempt.content);
+  return pendingIdentityIsCurrent
+    && currentContent === attempt.editorContent
+    && !attempt.sourceDraftRisk
+    && !hasSourceDraftRisk();
+}
+
+function hasActiveSaveForCurrentGeneration(): boolean {
+  return [...activeSaveAttempts.values()].some((attempt) => attempt.generation === saveGeneration);
+}
+
+function hasActiveSaveForPath(path: string): boolean {
+  const normalizedPath = normalizeSavePath(path);
+  return [...activeSaveAttempts.values()].some((attempt) => attempt.normalizedPath === normalizedPath);
+}
+
+async function restorePendingExternalBeforeSaveAs(
+  pending: FileExternalChangeEvent,
+): Promise<boolean> {
+  const normalizedPath = normalizeSavePath(pending.filePath);
+  if (hasActiveSaveForPath(pending.filePath) || activeExternalReloadWrites > 0) {
+    updateConflictStatus('A disk write is still active; retry Save Copy after it completes.');
+    return false;
+  }
+  const writeback = externalReloadWritebacks.get(normalizedPath);
+  if (!writeback || writeback.content !== pending.content) return true;
+  const attempt = createExternalReloadAttempt(pending);
+  try {
+    activeExternalReloadWrites += 1;
+    let result: FileSaveResult;
+    try {
+      result = await window.plotflow.file.save({
+        path: pending.filePath,
+        content: pending.content,
+        expectedHash: writeback.diskHash,
+      });
+    } finally {
+      activeExternalReloadWrites -= 1;
+    }
+    if (!result.success) {
+      if (result.conflict && isExternalReloadAttemptCurrent(attempt)) {
+        useEditorStore.getState().setPendingExternalChange(normalizeExternalEvent({
+          filePath: result.filePath,
+          content: result.content,
+          hash: result.hash,
+          modifiedAt: result.modifiedAt,
+        }));
+      }
+      updateConflictStatus('The external version could not be restored before Save Copy.');
+      return false;
+    }
+    if (!isExternalReloadAttemptCurrent(attempt)) {
+      const current = useEditorStore.getState();
+      const currentPath = current.filePath ? normalizeSavePath(current.filePath) : null;
+      const newerPending = current.pendingExternalChange;
+      if (currentPath === normalizedPath && newerPending) {
+        if (newerPending.content !== attempt.content || newerPending.hash !== attempt.eventHash) {
+          externalReloadWritebacks.set(normalizedPath, {
+            content: newerPending.content,
+            diskHash: result.hash,
+            diskModifiedAt: result.modifiedAt,
+          });
+        } else {
+          externalReloadWritebacks.delete(normalizedPath);
+        }
+        current.setPendingExternalChange({
+          ...newerPending,
+          hash: result.hash,
+          modifiedAt: result.modifiedAt,
+        });
+      } else if (currentPath === normalizedPath) {
+        const currentContent = current.editorInstance?.getValue() ?? current.content;
+        if (currentContent !== attempt.content) {
+          current.setPendingExternalChange({
+            filePath: pending.filePath,
+            content: attempt.content,
+            hash: result.hash,
+            modifiedAt: result.modifiedAt,
+          });
+        } else {
+          current.setFileBaseline(result.hash, result.modifiedAt);
+        }
+      }
+      updateConflictStatus('Save Copy was cancelled because the original file changed again.');
+      return false;
+    }
+    externalReloadWritebacks.delete(normalizedPath);
+    useEditorStore.getState().setPendingExternalChange({
+      ...pending,
+      hash: result.hash,
+      modifiedAt: result.modifiedAt,
+    });
+    return true;
+  } catch (error) {
+    updateConflictStatus(error instanceof Error ? error.message : String(error));
+    return false;
+  }
+}
+
+/** Restores any captured external disk version before abandoning this story. */
+export async function prepareCurrentStoryForDestructiveExit(): Promise<boolean> {
+  const editor = useEditorStore.getState();
+  const pending = editor.pendingExternalChange;
+  if (activeExternalReloadWrites > 0 || (editor.filePath && hasActiveSaveForPath(editor.filePath))) {
+    updateConflictStatus('A disk write is still active; retry after it completes.');
+    return false;
+  }
+  if (!pending) return true;
+  return restorePendingExternalBeforeSaveAs(pending);
+}
+
+interface SaveAsAttemptContext {
+  readonly generation: number;
+  readonly storySessionId: number;
+  readonly originalPath: string | null;
+  readonly contentSnapshot: string;
+}
+
+function createSaveAsAttempt(contentSnapshot: string): SaveAsAttemptContext {
+  const editor = useEditorStore.getState();
+  return {
+    generation: saveGeneration,
+    storySessionId: editor.storySessionId,
+    originalPath: editor.filePath ? normalizeSavePath(editor.filePath) : null,
+    contentSnapshot,
+  };
+}
+
+function isSaveAsAttemptCurrent(attempt: SaveAsAttemptContext): boolean {
+  const editor = useEditorStore.getState();
+  const currentPath = editor.filePath ? normalizeSavePath(editor.filePath) : null;
+  return attempt.generation === saveGeneration
+    && attempt.storySessionId === editor.storySessionId
+    && attempt.originalPath === currentPath;
 }
 
 export function hasCurrentStoryUnsavedChanges(): boolean {
@@ -205,22 +420,100 @@ export function hasCurrentStoryUnsavedChanges(): boolean {
   );
 }
 
-export function applyExternalFileContent(event: FileExternalChangeEvent): void {
+export async function applyExternalFileContent(event: FileExternalChangeEvent): Promise<boolean> {
   const normalizedEvent = normalizeExternalEvent(event);
+  const normalizedPath = normalizeSavePath(normalizedEvent.filePath);
+  const attempt = createExternalReloadAttempt(normalizedEvent);
+  const writeback = externalReloadWritebacks.get(normalizedPath);
+  let committedEvent = normalizedEvent;
+  if (writeback && writeback.content === normalizedEvent.content) {
+    try {
+      activeExternalReloadWrites += 1;
+      let result: FileSaveResult;
+      try {
+        result = await window.plotflow.file.save({
+          path: normalizedEvent.filePath,
+          content: normalizedEvent.content,
+          expectedHash: writeback.diskHash,
+        });
+      } finally {
+        activeExternalReloadWrites -= 1;
+      }
+      if (!result.success) {
+        if (result.conflict && isExternalReloadAttemptCurrent(attempt)) {
+          useEditorStore.getState().setPendingExternalChange(normalizeExternalEvent({
+            filePath: result.filePath,
+            content: result.content,
+            hash: result.hash,
+            modifiedAt: result.modifiedAt,
+          }));
+        }
+        updateConflictStatus('External reload could not be restored to disk; the conflict remains pending.');
+        return false;
+      }
+      if (!isExternalReloadAttemptCurrent(attempt)) {
+        const current = useEditorStore.getState();
+        const currentPath = current.filePath ? normalizeSavePath(current.filePath) : null;
+        const newerPending = current.pendingExternalChange;
+        if (currentPath === normalizedPath && newerPending) {
+          if (newerPending.content !== attempt.content || newerPending.hash !== attempt.eventHash) {
+            externalReloadWritebacks.set(normalizedPath, {
+              content: newerPending.content,
+              diskHash: result.hash,
+              diskModifiedAt: result.modifiedAt,
+            });
+            updateConflictStatus('A newer external change remains pending after an older reload completed.');
+          } else {
+            externalReloadWritebacks.delete(normalizedPath);
+            updateConflictStatus('Local edits made during reload were preserved; the disk version remains pending.');
+          }
+          current.setPendingExternalChange({
+            ...newerPending,
+            hash: result.hash,
+            modifiedAt: result.modifiedAt,
+          });
+        } else if (currentPath === normalizedPath) {
+          const currentContent = current.editorInstance?.getValue() ?? current.content;
+          if (currentContent !== attempt.content) {
+            current.setPendingExternalChange({
+              filePath: normalizedEvent.filePath,
+              content: attempt.content,
+              hash: result.hash,
+              modifiedAt: result.modifiedAt,
+            });
+            updateConflictStatus('An older reload changed this file on disk; review the conflict before closing.');
+          } else {
+            current.setFileBaseline(result.hash, result.modifiedAt);
+          }
+        }
+        return false;
+      }
+      committedEvent = { ...normalizedEvent, hash: result.hash, modifiedAt: result.modifiedAt };
+      externalReloadWritebacks.delete(normalizedPath);
+    } catch (error) {
+      updateConflictStatus(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+  if (!isExternalReloadAttemptCurrent(attempt)) {
+    updateConflictStatus('The reload target changed while the operation was pending; review the latest conflict.');
+    return false;
+  }
   clearPendingSave();
   resetAutoSaveBaseline(null);
   resetStoryRuntimeState({ closeHome: true });
   const editorState = useEditorStore.getState();
-  editorState.setFilePath(normalizedEvent.filePath);
-  editorState.setFileBaseline(normalizedEvent.hash, normalizedEvent.modifiedAt);
+  editorState.setFilePath(committedEvent.filePath);
+  editorState.setFileBaseline(committedEvent.hash, committedEvent.modifiedAt);
   editorState.clearPendingExternalChange();
   editorState.setDiagnostics([]);
   editorState.setActiveNodeId(null);
-  editorState.setContent(normalizedEvent.content);
+  editorState.setContent(committedEvent.content);
   editorState.markSaved();
-  resetAutoSaveBaseline(normalizedEvent.content);
-  rememberRecentStory(normalizedEvent.filePath, normalizedEvent.hash, normalizedEvent.modifiedAt);
-  parsePipelineNow(normalizedEvent.content);
+  resetAutoSaveBaseline(committedEvent.content);
+  rememberRecentStory(committedEvent.filePath, committedEvent.hash, committedEvent.modifiedAt);
+  parsePipelineNow(committedEvent.content);
+  return true;
 }
 
 /**
@@ -229,9 +522,13 @@ export function applyExternalFileContent(event: FileExternalChangeEvent): void {
 async function performSave(
   content: string,
   path: string,
-  options: { readonly overwriteConflict?: boolean; readonly expectedHash?: string | null } = {},
+  options: {
+    readonly overwriteConflict?: boolean;
+    readonly expectedHash?: string | null;
+    readonly confirmedExternal?: FileExternalChangeEvent | null;
+  } = {},
 ): Promise<boolean> {
-  if (isSaving) return false;
+  if (hasActiveSaveForCurrentGeneration()) return false;
   const pendingBeforeFlush = pendingContent;
   if (!flushSourceDraftBeforeSaveOrReplace('save')) {
     return false;
@@ -263,7 +560,12 @@ async function performSave(
   // 但 lastSavedContent !== saveContent 能兜住这种情况。
   if (!hasConflictContext && saveContent === lastSavedContent && !earlyReturnState.isDirty) return true;
 
-  isSaving = true;
+  const attempt = createSaveAttempt(path);
+  const confirmedExternal = options.overwriteConflict
+    ? (options.confirmedExternal ?? useEditorStore.getState().pendingExternalChange)
+    : null;
+  const attemptId = Symbol('save-attempt');
+  activeSaveAttempts.set(attemptId, attempt);
   updateStatusMessage('saving');
   let succeeded = false;
 
@@ -277,34 +579,91 @@ async function performSave(
     });
 
     if (result.success) {
-      // 标记为已保存，清除脏状态
-      lastSavedContent = saveContent;
-      const freshEditorState = useEditorStore.getState();
-      freshEditorState.setFileBaseline(result.hash, result.modifiedAt);
-      freshEditorState.clearPendingExternalChange();
-      freshEditorState.markSaved();
-      rememberRecentStory(path, result.hash, result.modifiedAt);
-      updateStatusMessage('success');
-      succeeded = true;
+      if (isSaveAttemptCurrent(attempt)) {
+        lastSavedContent = saveContent;
+        const freshEditorState = useEditorStore.getState();
+        freshEditorState.setFileBaseline(result.hash, result.modifiedAt);
+        rememberRecentStory(path, result.hash, result.modifiedAt);
+        const pendingExternal = freshEditorState.pendingExternalChange;
+        const overwriteStillTargetsConfirmedExternal = Boolean(
+          options.overwriteConflict
+          && confirmedExternal
+          && pendingExternal
+          && normalizeSavePath(confirmedExternal.filePath) === attempt.normalizedPath
+          && normalizeSavePath(pendingExternal.filePath) === attempt.normalizedPath
+          && confirmedExternal.content === pendingExternal.content
+          && confirmedExternal.hash === pendingExternal.hash,
+        );
+        if (pendingExternal
+          && !overwriteStillTargetsConfirmedExternal
+          && normalizeSavePath(pendingExternal.filePath) === attempt.normalizedPath) {
+          externalReloadWritebacks.set(attempt.normalizedPath, {
+            content: pendingExternal.content,
+            diskHash: result.hash,
+            diskModifiedAt: result.modifiedAt,
+          });
+          freshEditorState.setPendingExternalChange({
+            ...pendingExternal,
+            hash: result.hash,
+            modifiedAt: result.modifiedAt,
+          });
+          updateConflictStatus('A save completed while an external reload was pending; choose how to resolve it.');
+        } else {
+          externalReloadWritebacks.delete(attempt.normalizedPath);
+          freshEditorState.clearPendingExternalChange();
+          freshEditorState.markSaved();
+          updateStatusMessage('success');
+          succeeded = true;
+        }
+      } else {
+        const current = useEditorStore.getState();
+        const currentPath = current.filePath ? normalizeSavePath(current.filePath) : null;
+        const currentContent = current.editorInstance?.getValue() ?? current.content;
+        if (currentPath === attempt.normalizedPath && currentContent !== saveContent) {
+          const newerPending = current.pendingExternalChange;
+          if (newerPending && normalizeSavePath(newerPending.filePath) === attempt.normalizedPath) {
+            externalReloadWritebacks.set(attempt.normalizedPath, {
+              content: newerPending.content,
+              diskHash: result.hash,
+              diskModifiedAt: result.modifiedAt,
+            });
+            current.setPendingExternalChange({
+              ...newerPending,
+              hash: result.hash,
+              modifiedAt: result.modifiedAt,
+            });
+          } else {
+            current.setPendingExternalChange({
+              filePath: path,
+              content: saveContent,
+              hash: result.hash,
+              modifiedAt: result.modifiedAt,
+            });
+          }
+          updateConflictStatus('A previous session completed a save to this path; review the disk conflict before closing.');
+        }
+      }
     } else if (result.conflict) {
-      useEditorStore.getState().setPendingExternalChange(normalizeExternalEvent({
-        filePath: result.filePath,
-        content: result.content,
-        hash: result.hash,
-        modifiedAt: result.modifiedAt,
-      }));
-      updateConflictStatus('File changed on disk; autosave paused.');
-    } else {
+      if (isSaveAttemptCurrent(attempt)) {
+        useEditorStore.getState().setPendingExternalChange(normalizeExternalEvent({
+          filePath: result.filePath,
+          content: result.content,
+          hash: result.hash,
+          modifiedAt: result.modifiedAt,
+        }));
+        updateConflictStatus('File changed on disk; autosave paused.');
+      }
+    } else if (isSaveAttemptCurrent(attempt)) {
       updateStatusMessage('failed', '文件写入返回异常');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    updateStatusMessage('failed', message);
+    if (isSaveAttemptCurrent(attempt)) updateStatusMessage('failed', message);
   } finally {
-    isSaving = false;
-    clearTransientSelectionState();
+    activeSaveAttempts.delete(attemptId);
+    if (isSaveAttemptCurrent(attempt)) clearTransientSelectionState();
 
-    if (succeeded) {
+    if (succeeded && isSaveAttemptCurrent(attempt)) {
       // P0-2: 保存成功 → 检查期间是否有新内容到达（防竞态数据丢失）
       if (pendingContent !== null && pendingPath !== null && pendingContent !== saveContent) {
         // 级联保存新内容（不丢弃保存期间到达的用户输入）
@@ -381,7 +740,7 @@ export async function forceSave(): Promise<boolean> {
   const MAX_WAIT_MS = 5000;
   const POLL_INTERVAL_MS = 50;
   let waited = 0;
-  while (isSaving && waited < MAX_WAIT_MS) {
+  while (hasActiveSaveForCurrentGeneration() && waited < MAX_WAIT_MS) {
     await new Promise(function(r) { setTimeout(r, POLL_INTERVAL_MS); });
     waited += POLL_INTERVAL_MS;
   }
@@ -435,6 +794,12 @@ async function resolveExternalConflictBeforeSave(): Promise<boolean> {
     buttons: ['Save Copy', 'Reload Disk', 'Overwrite Disk', 'Keep Editing'],
   });
 
+  if ((choice === 1 || choice === 2)
+    && !isSameExternalEvent(useEditorStore.getState().pendingExternalChange, pending)) {
+    updateConflictStatus('The external file changed again while confirmation was open; review the latest version.');
+    return false;
+  }
+
   if (choice === 0) {
     const saved = await saveAsCurrentFile();
     if (!saved) {
@@ -444,15 +809,18 @@ async function resolveExternalConflictBeforeSave(): Promise<boolean> {
   }
 
   if (choice === 1) {
-    applyExternalFileContent(pending);
-    updateConflictStatus('Reloaded external changes.');
-    return true;
+    const reloaded = await applyExternalFileContent(pending);
+    if (reloaded) {
+      updateConflictStatus('Reloaded external changes.');
+    }
+    return reloaded;
   }
 
   if (choice === 2) {
     return performSave(currentContent, editorState.filePath, {
       overwriteConflict: true,
       expectedHash: pending.hash,
+      confirmedExternal: pending,
     });
   }
 
@@ -470,38 +838,51 @@ export async function saveOrSaveAs(): Promise<boolean> {
   }
 
   if (editorState.filePath === null && currentContent.length > 0 && useEditorStore.getState().isDirty) {
-    if (isSaveAsDialogOpen) {
+    if ([...activeSaveAsAttempts.values()].some((attempt) => attempt.generation === saveGeneration)) {
       updateSaveDialogStatus('opening');
       return false;
     }
 
-    isSaveAsDialogOpen = true;
     updateSaveDialogStatus('opening');
+    currentContent = prepareContentForSave(currentContent);
+    const attempt = createSaveAsAttempt(currentContent);
+    const attemptId = Symbol('save-as-attempt');
+    activeSaveAsAttempts.set(attemptId, attempt);
+    let acceptedAttempt = false;
     try {
-      currentContent = prepareContentForSave(currentContent);
       const result = await window.plotflow.file.saveAs(currentContent);
+      if (!isSaveAsAttemptCurrent(attempt)) return false;
+      acceptedAttempt = true;
       if (!result) {
         updateSaveDialogStatus('cancelled');
         return false;
       }
       const newPath = result.filePath.replace(/\\/g, '/');
-      editorState.setFilePath(newPath);
-      editorState.setFileBaseline(result.hash, result.modifiedAt);
-      editorState.clearPendingExternalChange();
-      editorState.markSaved();
+      const currentEditor = useEditorStore.getState();
+      currentEditor.setFilePath(newPath);
+      currentEditor.setFileBaseline(result.hash, result.modifiedAt);
+      currentEditor.clearPendingExternalChange();
       rememberRecentStory(newPath, result.hash, result.modifiedAt);
       pendingPath = newPath;
-      pendingContent = null;
       lastSavedContent = currentContent;
+      const latestContent = syncLatestEditorContent();
+      if (latestContent !== attempt.contentSnapshot) {
+        pendingContent = latestContent;
+        const latestSaved = await performSave(latestContent, newPath);
+        if (!latestSaved) return false;
+      } else {
+        pendingContent = null;
+        currentEditor.markSaved();
+      }
       updateSaveDialogStatus('success', newPath);
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      updateSaveDialogStatus('failed', message);
+      if (isSaveAsAttemptCurrent(attempt)) updateSaveDialogStatus('failed', message);
       return false;
     } finally {
-      isSaveAsDialogOpen = false;
-      clearTransientSelectionState();
+      activeSaveAsAttempts.delete(attemptId);
+      if (acceptedAttempt || isSaveAsAttemptCurrent(attempt)) clearTransientSelectionState();
     }
   }
 
@@ -509,7 +890,7 @@ export async function saveOrSaveAs(): Promise<boolean> {
 }
 
 export async function saveAsCurrentFile(): Promise<boolean> {
-  if (isSaveAsDialogOpen) {
+  if ([...activeSaveAsAttempts.values()].some((attempt) => attempt.generation === saveGeneration)) {
     updateSaveDialogStatus('opening');
     return false;
   }
@@ -517,34 +898,50 @@ export async function saveAsCurrentFile(): Promise<boolean> {
   if (!flushSourceDraftBeforeSaveOrReplace('save')) {
     return false;
   }
+  const pendingExternal = useEditorStore.getState().pendingExternalChange;
+  if (pendingExternal && !await restorePendingExternalBeforeSaveAs(pendingExternal)) {
+    return false;
+  }
   const currentContent = prepareContentForSave(syncLatestEditorContent());
-  const editorState = useEditorStore.getState();
-  isSaveAsDialogOpen = true;
+  const attempt = createSaveAsAttempt(currentContent);
+  const attemptId = Symbol('save-as-attempt');
+  let acceptedAttempt = false;
+  activeSaveAsAttempts.set(attemptId, attempt);
   updateSaveDialogStatus('opening');
   try {
     const result = await window.plotflow.file.saveAs(currentContent);
+    if (!isSaveAsAttemptCurrent(attempt)) return false;
+    acceptedAttempt = true;
     if (!result) {
       updateSaveDialogStatus('cancelled');
       return false;
     }
     const newPath = result.filePath.replace(/\\/g, '/');
-    editorState.setFilePath(newPath);
-    editorState.setFileBaseline(result.hash, result.modifiedAt);
-    editorState.clearPendingExternalChange();
-    editorState.markSaved();
+    const currentEditor = useEditorStore.getState();
+    currentEditor.setFilePath(newPath);
+    currentEditor.setFileBaseline(result.hash, result.modifiedAt);
+    currentEditor.clearPendingExternalChange();
     rememberRecentStory(newPath, result.hash, result.modifiedAt);
     pendingPath = newPath;
-    pendingContent = null;
     lastSavedContent = currentContent;
+    const latestContent = syncLatestEditorContent();
+    if (latestContent !== attempt.contentSnapshot) {
+      pendingContent = latestContent;
+      const latestSaved = await performSave(latestContent, newPath);
+      if (!latestSaved) return false;
+    } else {
+      pendingContent = null;
+      currentEditor.markSaved();
+    }
     updateSaveDialogStatus('success', newPath);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    updateSaveDialogStatus('failed', message);
+    if (isSaveAsAttemptCurrent(attempt)) updateSaveDialogStatus('failed', message);
     return false;
   } finally {
-    isSaveAsDialogOpen = false;
-    clearTransientSelectionState();
+    activeSaveAsAttempts.delete(attemptId);
+    if (acceptedAttempt || isSaveAsAttemptCurrent(attempt)) clearTransientSelectionState();
   }
 }
 
@@ -560,6 +957,7 @@ export async function overwritePendingExternalChange(): Promise<boolean> {
   return performSave(currentContent, editorState.filePath, {
     overwriteConflict: true,
     expectedHash: pending.hash,
+    confirmedExternal: pending,
   });
 }
 

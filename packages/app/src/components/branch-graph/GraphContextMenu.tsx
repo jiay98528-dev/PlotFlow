@@ -175,8 +175,50 @@ const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(function Men
 
 interface RenameDialogProps {
   readonly currentTitle: string;
-  readonly onConfirm: (newTitle: string) => void;
+  readonly onConfirm: (newTitle: string) => boolean;
   readonly onCancel: () => void;
+}
+
+function useModalFocusTrap(
+  dialogRef: React.RefObject<HTMLDivElement | null>,
+  initialFocusRef: React.RefObject<HTMLElement | null>,
+  onCancel: () => void,
+): void {
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => initialFocusRef.current?.focus());
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onCancel();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (focusable.length === 0) return;
+      const current = focusable.indexOf(document.activeElement as HTMLElement);
+      const next = event.shiftKey
+        ? (current <= 0 ? focusable.length - 1 : current - 1)
+        : (current < 0 || current === focusable.length - 1 ? 0 : current + 1);
+      event.preventDefault();
+      focusable[next]?.focus();
+    };
+    document.addEventListener('keydown', handleKey, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKey, true);
+      const opener = openerRef.current;
+      window.setTimeout(() => {
+        if (opener?.isConnected) {
+          opener.focus();
+          return;
+        }
+        document.querySelector<HTMLElement>('.react-flow__node[tabindex], .react-flow[tabindex]')?.focus();
+      }, 0);
+    };
+  }, [dialogRef, initialFocusRef, onCancel]);
 }
 
 /**
@@ -193,24 +235,30 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
   const text = useAppText();
   const [value, setValue] = useState(currentTitle);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  const [commitRejected, setCommitRejected] = useState(false);
+
+  const submit = useCallback(() => {
+    setCommitRejected(!onConfirm(value.trim() || currentTitle));
+  }, [currentTitle, onConfirm, value]);
+
+  useModalFocusTrap(dialogRef, inputRef, onCancel);
 
   // 自动聚焦并选中全部文本
   useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
+    const frame = requestAnimationFrame(() => inputRef.current?.select());
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        onConfirm(value.trim() || currentTitle);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        onCancel();
+        submit();
       }
     },
-    [value, currentTitle, onConfirm, onCancel],
+    [submit],
   );
 
   const handleBackdropClick = useCallback(
@@ -236,6 +284,10 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
       onClick={handleBackdropClick}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -249,6 +301,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
         }}
       >
         <label
+          id={titleId}
           style={{
             fontSize: 'var(--text-sm, 13px)',
             fontWeight: 600,
@@ -261,6 +314,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
         <input
           ref={inputRef}
           type="text"
+          aria-label={text('graphContext.renameNode')}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -302,7 +356,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(value.trim() || currentTitle)}
+            onClick={submit}
             style={{
               padding: '5px 14px',
               borderRadius: 'var(--radius-sm, 4px)',
@@ -319,6 +373,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({
             {text('common.confirm')}
           </button>
         </div>
+        {commitRejected && <small role="alert">{text('inspector.updateRejected')}</small>}
       </div>
     </div>
   );
@@ -344,7 +399,7 @@ interface ConfirmDialogProps {
  * 用于危险操作（如删除节点）前的二次确认。
  * 支持 ESC 快捷键关闭。
  */
-const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   title,
   message,
   confirmLabel,
@@ -356,6 +411,11 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const text = useAppText();
   const resolvedConfirmLabel = confirmLabel ?? text('common.confirm');
   const resolvedCancelLabel = cancelLabel ?? text('common.cancel');
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+  useModalFocusTrap(dialogRef, cancelRef, onCancel);
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
@@ -364,17 +424,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     },
     [onCancel],
   );
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onCancel();
-      }
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onCancel]);
 
   return (
     <div
@@ -390,6 +439,11 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       onClick={handleBackdropClick}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -403,6 +457,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         }}
       >
         <div
+          id={titleId}
           style={{
             fontSize: 'var(--text-sm, 13px)',
             fontWeight: 600,
@@ -415,6 +470,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           {title}
         </div>
         <div
+          id={descriptionId}
           style={{
             fontSize: 'var(--text-sm, 13px)',
             color: 'var(--color-text-primary)',
@@ -434,6 +490,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           }}
         >
           <button
+            ref={cancelRef}
             type="button"
             onClick={onCancel}
             style={{
@@ -520,6 +577,7 @@ export function GraphContextMenu({
 
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [renameNodeSnapshot, setRenameNodeSnapshot] = useState<StoryNode | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -613,13 +671,14 @@ export function GraphContextMenu({
     editorInstance.focus();
     setCursorPosition(storyNode.lineNumber, 1);
     setStatusMessage(text('graphContext.jumpedToNode', { title: storyNode.title }));
-    onClose();
+    onClose(true);
   }, [storyNode, editorInstance, setCursorPosition, setStatusMessage, onClose, text]);
 
   /** 打开重命名对话框 */
   const handleOpenRename = useCallback(() => {
     if (!storyNode) return;
-    onClose();
+    setRenameNodeSnapshot(storyNode);
+    onClose(true);
     // 微延迟确保上下文菜单 DOM 已清理后再显示对话框
     setTimeout(() => setShowRenameDialog(true), 50);
   }, [storyNode, onClose]);
@@ -627,19 +686,23 @@ export function GraphContextMenu({
   /** 执行重命名：替换编辑器文本中的标题行 */
   const handleRenameConfirm = useCallback(
     (newTitle: string) => {
-      if (!storyNode) return;
+      if (!renameNodeSnapshot) return false;
 
-      if (graphEditService.updateNode(storyNode, { title: newTitle })) {
+      if (graphEditService.updateNode(renameNodeSnapshot, { title: newTitle })) {
         setStatusMessage(text('graphContext.renamedNode', { title: newTitle }));
+        setShowRenameDialog(false);
+        setRenameNodeSnapshot(null);
+        return true;
       }
-      setShowRenameDialog(false);
+      return false;
     },
-    [storyNode, setStatusMessage, text],
+    [renameNodeSnapshot, setStatusMessage, text],
   );
 
   /** 关闭重命名对话框 */
   const handleRenameCancel = useCallback(() => {
     setShowRenameDialog(false);
+    setRenameNodeSnapshot(null);
   }, []);
 
   /** 在节点末尾添加新选项行 */
@@ -661,7 +724,7 @@ export function GraphContextMenu({
   /** 打开删除确认对话框 */
   const handleOpenDelete = useCallback(() => {
     if (!storyNode) return;
-    onClose();
+    onClose(true);
     setTimeout(() => setShowDeleteDialog(true), 50);
   }, [storyNode, onClose]);
 
@@ -981,9 +1044,9 @@ export function GraphContextMenu({
       </div>
 
       {/* 重命名对话框 */}
-      {showRenameDialog && storyNode && (
+      {showRenameDialog && renameNodeSnapshot && (
         <RenameDialog
-          currentTitle={storyNode.title}
+          currentTitle={renameNodeSnapshot.title}
           onConfirm={handleRenameConfirm}
           onCancel={handleRenameCancel}
         />

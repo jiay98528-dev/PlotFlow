@@ -1494,6 +1494,22 @@ author: QA
     expect(content).not.toContain('# 第二章');
   });
 
+  test('Ctrl+S commits the focused Inspector field before saving', async () => {
+    await mockCaptureSaveAsIpcHandler(electronApp);
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await page.evaluate((fullId) => (window as TestWindow).__test_store__?.selectNode(fullId), FIRST_START_ID);
+
+    const titleInput = page.getByTestId('graph-inspector-node-title');
+    await titleInput.fill('保存前提交标题');
+    await titleInput.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+
+    await waitForContent(page, '## 节点：保存前提交标题');
+    await expect(page.locator('.status-bar')).toContainText('已保存至', { timeout: 5_000 });
+    const captured = await readCapturedSaveAs(electronApp);
+    expect(captured?.content).toContain('## 节点：保存前提交标题');
+  });
+
   test('blocks chapter switching when the dirty chapter source slice is stale', async () => {
     await setEditorContent(page, TWO_CHAPTER_STORY);
     await switchToGraphLab(page);
@@ -1528,18 +1544,15 @@ author: QA
     await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({ timeout: 10_000 });
     await page.evaluate((fullId) => (window as TestWindow).__test_store__?.selectNode(fullId), FIRST_START_ID);
 
-    let dialogMessage = '';
-    page.once('dialog', async (dialog) => {
-      dialogMessage = dialog.message();
-      await dialog.accept();
-    });
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       window.focus();
     });
     await page.keyboard.press('Delete');
 
-    await expect.poll(() => dialogMessage).toBe('确定要删除节点「起点」吗？');
+    const deleteDialog = page.getByRole('dialog', { name: '删除节点' });
+    await expect(deleteDialog).toContainText('确定要删除节点「起点」吗？');
+    await deleteDialog.getByTestId('graph-confirm-primary').click();
     await expect.poll(() => getEditorContent(page)).not.toContain('## 节点：起点');
   });
 
@@ -1714,11 +1727,15 @@ author: QA
     await expect(page.locator('.problem-panel')).toContainText('All');
     await expect(page.locator('.problem-panel')).toContainText('Syntax parsing failed');
 
-    await page.getByTestId('toolbar-export').click();
+    const exportTrigger = page.getByTestId('toolbar-export');
+    await exportTrigger.click();
     await expect(page.locator('.export-dialog__overlay')).toContainText('Export story');
     await expect(page.locator('.export-dialog__overlay')).toContainText('Export format');
-    await page.keyboard.press('Escape');
+    const exportClose = page.locator('.export-dialog__overlay button[aria-label]').first();
+    await expect(exportClose).toBeFocused();
+    await page.keyboard.press('Control+E');
     await expect(page.locator('.export-dialog__overlay')).toHaveCount(0);
+    await expect(exportTrigger).toBeFocused();
 
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toContainText('Official Theme Center');
@@ -2178,8 +2195,13 @@ author: QA
     await expect.poll(() => page.evaluate(() => (
       (window as TestWindow).__test_store__?.getUIState().activeChapterId
     ))).toBe('第二章');
-    await tabs.nth(1).press('Home');
-    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await tabs.nth(1).focus();
+      await page.keyboard.press('Home');
+      if (await tabs.first().getAttribute('aria-selected') === 'true') break;
+      await page.waitForTimeout(100);
+    }
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
     await expect(tabs.first()).toBeFocused();
 
     const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
@@ -2193,6 +2215,39 @@ author: QA
     await expect(menu.getByRole('menuitem').last()).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
+    await expect(node).toBeFocused();
+
+    await page.keyboard.press('Shift+F10');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    const renameDialog = page.getByRole('dialog', { name: /重命名节点|rename node/i });
+    await expect(renameDialog).toBeVisible();
+    const renameInput = renameDialog.getByRole('textbox');
+    await expect(renameInput).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(renameDialog.getByRole('button', { name: /确定|confirm/i })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(renameDialog).toHaveCount(0);
+    await expect(node).toBeFocused();
+
+    await page.keyboard.press('Shift+F10');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    const deleteDialog = page.getByRole('dialog', { name: /删除节点|delete node/i });
+    await expect(deleteDialog).toBeVisible();
+    const cancelDelete = deleteDialog.getByRole('button', { name: /取消|cancel/i });
+    await expect(cancelDelete).toBeFocused();
+    const beforeModalShortcut = await getEditorContent(page);
+    await page.keyboard.press('Delete');
+    await page.keyboard.press('Control+K');
+    await page.keyboard.press('Control+E');
+    await expect(deleteDialog).toBeVisible();
+    await expect(page.locator('.export-dialog__overlay')).toHaveCount(0);
+    expect(await getEditorContent(page)).toBe(beforeModalShortcut);
+    await page.keyboard.press('Tab');
+    await expect(deleteDialog.getByTestId('graph-confirm-primary')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(deleteDialog).toHaveCount(0);
     await expect(node).toBeFocused();
 
     const nodePoint = await nodeCenter(page, '起点');

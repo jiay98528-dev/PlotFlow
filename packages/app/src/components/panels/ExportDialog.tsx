@@ -151,6 +151,9 @@ export function ExportDialog(): React.ReactElement | null {
 
   // P0-5: 导出成功自动关闭 timer ref（组件卸载时可清理）
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   // ========================================================================
   // 键盘快捷键：Ctrl+E 打开/关闭导出对话框
@@ -158,10 +161,18 @@ export function ExportDialog(): React.ReactElement | null {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const store = useUIStore.getState();
+      const otherModalIsOpen = [...document.querySelectorAll<HTMLElement>('[aria-modal="true"], [role="dialog"]')]
+        .some((element) => !element.classList.contains('export-dialog__overlay'));
+      if (!store.isExportDialogOpen && otherModalIsOpen) return;
+      const target = e.target;
+      if (!store.isExportDialogOpen && target instanceof HTMLElement && (
+        target.isContentEditable || target.matches('input, textarea, select, [contenteditable="true"]')
+      )) return;
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyE') {
         e.preventDefault();
         e.stopPropagation();
-        const store = useUIStore.getState();
         if (store.isExportDialogOpen) {
           store.closeExportDialog();
         } else {
@@ -175,6 +186,38 @@ export function ExportDialog(): React.ReactElement | null {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => closeButtonRef.current?.focus({ preventScroll: true }));
+    const handleModalKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const nextIndex = event.shiftKey
+        ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+        : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+      event.preventDefault();
+      focusable[nextIndex]?.focus();
+    };
+    document.addEventListener('keydown', handleModalKeyDown, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleModalKeyDown, true);
+      const opener = openerRef.current;
+      window.setTimeout(() => {
+        if (opener?.isConnected) opener.focus({ preventScroll: true });
+      }, 0);
+    };
+  }, [isOpen]);
 
   // ========================================================================
   // 重置状态（格式变化或对话框重新打开时）
@@ -350,6 +393,7 @@ export function ExportDialog(): React.ReactElement | null {
 
   return (
     <div
+      ref={dialogRef}
       className="export-dialog__overlay"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
@@ -357,6 +401,7 @@ export function ExportDialog(): React.ReactElement | null {
       role="dialog"
       aria-modal="true"
       aria-label={text('exportDialog.aria')}
+      tabIndex={-1}
     >
       <div className="export-dialog__panel" style={panelStyle}>
         {/* ── 标题栏 ── */}
@@ -364,9 +409,11 @@ export function ExportDialog(): React.ReactElement | null {
           <span style={headerTitleStyle}>{text('exportDialog.title')}</span>
           <span style={shortcutHintStyle}>Ctrl+E</span>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={closeExportDialog}
             title={text('exportDialog.close')}
+            aria-label={text('exportDialog.close')}
             style={closeButtonStyle}
           >
             ✕
@@ -419,6 +466,9 @@ export function ExportDialog(): React.ReactElement | null {
           {/* ── 状态消息 ── */}
           {statusMessage && (
             <div
+              data-testid="export-status-message"
+              role={exportStatus === 'error' ? 'alert' : 'status'}
+              aria-live="polite"
               style={{
                 ...statusStyle,
                 color:

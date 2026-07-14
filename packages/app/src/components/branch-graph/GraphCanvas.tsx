@@ -60,6 +60,7 @@ import { collapseSiblingNodes, COLLAPSE_THRESHOLD, LARGE_GRAPH_LAYOUT_THRESHOLD,
 import type { CollapseNodeData } from './layout';
 import { layoutNodesInWorker } from './graphLayoutClient';
 import { isCurrentStorySession } from '../../services/storyRuntimeResetService';
+import { isGraphShortcutBlocked } from '../../services/graphKeyboardGuard';
 
 // ============================================================================
 // 自定义节点类型注册表
@@ -391,6 +392,7 @@ function ZoomResetShortcut(): null {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isGraphShortcutBlocked(e)) return;
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
         e.preventDefault();
         fitView({ duration: 200 });
@@ -553,6 +555,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    */
   useEffect(() => {
     const handleRenameShortcut = (event: KeyboardEvent): void => {
+      if (isGraphShortcutBlocked(event)) return;
       if (
         event.key !== 'F2' ||
         !canEditGraph ||
@@ -562,14 +565,6 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         event.ctrlKey ||
         event.metaKey ||
         event.shiftKey
-      ) {
-        return;
-      }
-
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest('input, textarea, select, [contenteditable="true"]')
       ) {
         return;
       }
@@ -976,6 +971,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   useEffect(() => {
     if (!canEditGraph) return undefined;
     const handleKeyboardContextMenu = (event: KeyboardEvent): void => {
+      if (isGraphShortcutBlocked(event)) return;
       if (!(event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) return;
       const eventTarget = event.target;
       if (!(eventTarget instanceof Element) || !eventTarget.closest('.react-flow, .react-flow__node')) return;

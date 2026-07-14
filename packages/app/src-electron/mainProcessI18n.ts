@@ -15,6 +15,9 @@ export interface MainProcessMessages {
   readonly unsavedDetail: (filePath: string | null) => string;
   readonly systemOpenFailedMessage: string;
   readonly systemOpenFailedDetail: (filePath: string, code: string) => string;
+  readonly closeFailureMessage: string;
+  readonly closeFailureDetail: (stage: 'query' | 'save' | 'discard', reason: string) => string;
+  readonly closeFailureButtons: readonly [string, string, string];
 }
 
 const messages: Record<AppMenuLanguage, MainProcessMessages> = {
@@ -35,6 +38,9 @@ const messages: Record<AppMenuLanguage, MainProcessMessages> = {
       : '未命名文件有未保存的更改。退出前是否保存？',
     systemOpenFailedMessage: '无法打开故事文件',
     systemOpenFailedDetail: (filePath, code) => `文件：${filePath}\n错误代码：${code}`,
+    closeFailureMessage: '无法安全关闭 PlotFlow',
+    closeFailureDetail: (stage, reason) => `${stage === 'query' ? '读取未保存状态' : stage === 'save' ? '保存故事' : '恢复外部文件后放弃更改'}失败。窗口将保持打开。\n\n${reason}`,
+    closeFailureButtons: ['重试', '强制退出', '取消'],
   },
   'en-US': {
     openStoryTitle: 'Open PlotFlow Story',
@@ -53,6 +59,9 @@ const messages: Record<AppMenuLanguage, MainProcessMessages> = {
       : 'The untitled story has unsaved changes. Save before quitting?',
     systemOpenFailedMessage: 'Could not open story file',
     systemOpenFailedDetail: (filePath, code) => `File: ${filePath}\nError code: ${code}`,
+    closeFailureMessage: 'PlotFlow cannot close safely',
+    closeFailureDetail: (stage, reason) => `${stage === 'query' ? 'Reading the unsaved state' : stage === 'save' ? 'Saving the story' : 'Restoring the external file before discarding changes'} failed. The window will remain open.\n\n${reason}`,
+    closeFailureButtons: ['Retry', 'Force Quit', 'Cancel'],
   },
 };
 

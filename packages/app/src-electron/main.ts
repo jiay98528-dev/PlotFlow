@@ -1,5 +1,5 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
-import type { MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from 'electron';
+import type { Event as ElectronEvent, MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from 'electron';
 import { basename, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
 import { existsSync, watch, type FSWatcher } from 'node:fs';
@@ -9,6 +9,8 @@ import { IPC_CHANNELS } from '../src/shared/ipcChannels';
 import { createOrderedAsyncDispatcher } from '../src/shared/orderedAsyncDispatcher';
 import { getMainProcessMessages } from './mainProcessI18n';
 import { resolvePendingOpenFile } from './pendingOpenFile';
+import { arbitrateClose } from './closeGuard';
+import { assertTrustedIpcSender, developmentRendererUrl, isAllowedExternalUrl, isTrustedRendererUrl, trustedRendererUrls } from './ipcSecurity';
 import {
   assertWritableContent,
   findStoryFileArgument,
@@ -155,6 +157,21 @@ function dispatchSystemOpenFile(filePath: string): void {
 const APP_ID = 'com.plotflow.app';
 const RENDERER_QUERY_TIMEOUT_MS = 5_000;
 const RENDERER_SAVE_TIMEOUT_MS = 15_000;
+const RENDERER_HTML_PATH = join(__dirname, '../renderer/index.html');
+const DEVELOPMENT_RENDERER_URL = developmentRendererUrl(app.isPackaged, process.env['ELECTRON_RENDERER_URL']);
+const TRUSTED_RENDERER_URLS = trustedRendererUrls({
+  rendererHtmlPath: RENDERER_HTML_PATH,
+  developmentUrl: DEVELOPMENT_RENDERER_URL,
+});
+
+function assertTrustedIpc(event: { senderFrame?: { url: string } | null }): void {
+  assertTrustedIpcSender(event, TRUSTED_RENDERER_URLS);
+}
+
+async function openAllowedExternal(url: string): Promise<void> {
+  if (!isAllowedExternalUrl(url)) throw new Error('External URL is not allowlisted.');
+  await shell.openExternal(url);
+}
 
 if (
   process.env['PLOTFLOW_TEST_USER_DATA_DIR']
@@ -367,12 +384,13 @@ async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesR
  * 由渲染进程通过 window.plotflow.file.save({ path, content, expectedHash }) 触发。
  * 对应 TAD.md §4.2 AutoSaveManager 的主进程写文件逻辑。
  */
-ipcMain.handle(IPC_CHANNELS.file.save, async (_event, payload: {
+ipcMain.handle(IPC_CHANNELS.file.save, async (event, payload: {
   path: string;
   content: string;
   expectedHash: string | null;
   overwriteConflict?: boolean;
 }) => {
+  assertTrustedIpc(event);
   try {
     const rawPath = payload?.path;
     const content = payload?.content;
@@ -437,7 +455,8 @@ ipcMain.handle(IPC_CHANNELS.file.save, async (_event, payload: {
  * file:open 鈥?鎵撳紑鏂囦欢瀵硅瘽妗?+ 璇诲彇鍐呭
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.open() 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_OPEN 閫氶亾銆? */
-ipcMain.handle(IPC_CHANNELS.file.open, async () => {
+ipcMain.handle(IPC_CHANNELS.file.open, async (event) => {
+  assertTrustedIpc(event);
   try {
     focusNativeDialogOwner();
     const openOptions: OpenDialogOptions = {
@@ -466,7 +485,8 @@ ipcMain.handle(IPC_CHANNELS.file.open, async () => {
  * file:saveAs 鈥?鍙﹀瓨涓哄璇濇 + 鍐欏叆鏂囦欢
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveAs(content) 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_SAVE_AS 閫氶亾銆? */
-ipcMain.handle(IPC_CHANNELS.file.saveAs, async (_event, payload: { content: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: string }) => {
+  assertTrustedIpc(event);
   try {
     assertWritableContent(payload?.content);
     focusNativeDialogOwner();
@@ -501,12 +521,13 @@ ipcMain.handle(IPC_CHANNELS.file.saveAs, async (_event, payload: { content: stri
  * file:export 鈥?瀵煎嚭鏂囦欢瀵硅瘽妗?+ 鍐欏叆鏂囦欢
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveExport(options) 瑙﹀彂銆? * 鏀寔鎸囧畾鏂囦欢绫诲瀷杩囨护鍣紙濡?.json / .html / .txt锛夊拰寤鸿鏂囦欢鍚嶃€? * 琚彇娑堟椂杩斿洖 null銆? */
-ipcMain.handle(IPC_CHANNELS.file.export, async (_event, payload: {
+ipcMain.handle(IPC_CHANNELS.file.export, async (event, payload: {
   content: string;
   defaultPath: string;
   filters: Array<{ name: string; extensions: string[] }>;
   format: string;
 }) => {
+  assertTrustedIpc(event);
   try {
     assertWritableContent(payload?.content);
 
@@ -549,7 +570,8 @@ ipcMain.handle(IPC_CHANNELS.file.export, async (_event, payload: {
  * file:getPendingOpenFile 鈥?鑾峰彇绯荤粺鎵撳紑鐨勬枃浠惰矾寰勪笌鍐呭锛圡7-08锛? *
  * 娓叉煋杩涚▼鍦ㄧ獥鍙ｆ寕杞藉悗璋冪敤姝?IPC锛? * 妫€鏌ユ槸鍚︽湁绯荤粺锛堝弻鍑?.mdstory / open-file 浜嬩欢锛変紶閫掔殑鏂囦欢寰呮墦寮€銆? *
  * 杩斿洖 { filePath, content } 鎴?null锛堟棤寰呮墦寮€鏂囦欢锛夈€? * 杩斿洖鍚庢竻闄?pending 鐘舵€侊紝閬垮厤閲嶅鎵撳紑銆? */
-ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async () => {
+ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async (event) => {
+  assertTrustedIpc(event);
   const path = pendingFilePath;
   pendingFilePath = null;
   const result = await resolvePendingOpenFile(path, readStoryFile);
@@ -574,7 +596,8 @@ ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async () => {
  * file:readByPath 鈥?鎸夎矾寰勮鍙栨枃浠跺唴瀹?(M7-08)
  *
  * 娓叉煋杩涚▼鍦ㄦ敹鍒扮郴缁熸枃浠舵墦寮€閫氱煡鍚庤皟鐢ㄦ IPC锛? * 璇诲彇鎸囧畾璺緞鐨?.mdstory 鏂囦欢鍐呭銆? */
-ipcMain.handle(IPC_CHANNELS.file.readByPath, async (_event, payload: { path: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.readByPath, async (event, payload: { path: string }) => {
+  assertTrustedIpc(event);
   try {
     return await readStoryFile(payload.path);
   } catch (error) {
@@ -583,7 +606,8 @@ ipcMain.handle(IPC_CHANNELS.file.readByPath, async (_event, payload: { path: str
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.file.chooseWorkspaceFolder, async () => {
+ipcMain.handle(IPC_CHANNELS.file.chooseWorkspaceFolder, async (event) => {
+  assertTrustedIpc(event);
   try {
     focusNativeDialogOwner();
     const workspaceOptions: OpenDialogOptions = {
@@ -602,7 +626,8 @@ ipcMain.handle(IPC_CHANNELS.file.chooseWorkspaceFolder, async () => {
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.file.listWorkspaceStories, async (_event, payload: { rootPath: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.listWorkspaceStories, async (event, payload: { rootPath: string }) => {
+  assertTrustedIpc(event);
   try {
     return listWorkspaceStories(payload.rootPath);
   } catch (error) {
@@ -610,7 +635,8 @@ ipcMain.handle(IPC_CHANNELS.file.listWorkspaceStories, async (_event, payload: {
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.file.readWorkspaceStory, async (_event, payload: { rootPath: string; filePath: string }) => {
+ipcMain.handle(IPC_CHANNELS.file.readWorkspaceStory, async (event, payload: { rootPath: string; filePath: string }) => {
+  assertTrustedIpc(event);
   try {
     const rootPath = normalize(payload.rootPath);
     const filePath = normalize(payload.filePath);
@@ -626,12 +652,13 @@ ipcMain.handle(IPC_CHANNELS.file.readWorkspaceStory, async (_event, payload: { r
  * dialog:confirm 鈥?浠庢覆鏌撹繘绋嬭皟鐢ㄥ師鐢熸秷鎭璇濇
  *
  * 渚涙覆鏌撹繘绋嬮€氳繃 window.plotflow.dialog.confirm(options) 瑙﹀彂銆? * 杩斿洖鐢ㄦ埛鐐瑰嚮鐨勬寜閽储寮曪紙0-based锛夛紝dialog 鍏抽棴鏃惰繑鍥?-1銆? */
-ipcMain.handle(IPC_CHANNELS.dialog.confirm, async (_event, options: {
+ipcMain.handle(IPC_CHANNELS.dialog.confirm, async (event, options: {
   type?: 'none' | 'info' | 'error' | 'question' | 'warning';
   message: string;
   detail: string;
   buttons: string[];
 }) => {
+  assertTrustedIpc(event);
   const owner = focusNativeDialogOwner();
   const messageBoxOptions: MessageBoxOptions = {
     title: 'PlotFlow',
@@ -648,27 +675,33 @@ ipcMain.handle(IPC_CHANNELS.dialog.confirm, async (_event, options: {
   return result.response;
 });
 
-ipcMain.handle(IPC_CHANNELS.theme.listOfficialInstalled, async () => {
+ipcMain.handle(IPC_CHANNELS.theme.listOfficialInstalled, async (event) => {
+  assertTrustedIpc(event);
   return listInstalledOfficialThemes();
 });
 
-ipcMain.handle(IPC_CHANNELS.theme.listOfficialRemote, async () => {
+ipcMain.handle(IPC_CHANNELS.theme.listOfficialRemote, async (event) => {
+  assertTrustedIpc(event);
   return listOfficialRemoteThemeViews();
 });
 
-ipcMain.handle(IPC_CHANNELS.theme.downloadOfficialTheme, async (_event, themeId: string) => {
+ipcMain.handle(IPC_CHANNELS.theme.downloadOfficialTheme, async (event, themeId: string) => {
+  assertTrustedIpc(event);
   return downloadOfficialTheme(themeId);
 });
 
-ipcMain.handle(IPC_CHANNELS.theme.openThemeMarket, async () => {
-  await shell.openExternal('https://plotflow.app/themes');
+ipcMain.handle(IPC_CHANNELS.theme.openThemeMarket, async (event) => {
+  assertTrustedIpc(event);
+  await openAllowedExternal('https://plotflow.app/themes');
 });
 
-ipcMain.handle(IPC_CHANNELS.theme.openOfficialThemeStore, async () => {
-  await shell.openExternal('https://plotflow.app/themes');
+ipcMain.handle(IPC_CHANNELS.theme.openOfficialThemeStore, async (event) => {
+  assertTrustedIpc(event);
+  await openAllowedExternal('https://plotflow.app/themes');
 });
 
-ipcMain.on(IPC_CHANNELS.menu.setLanguage, (_event, language: AppMenuLanguage) => {
+ipcMain.on(IPC_CHANNELS.menu.setLanguage, (event, language: AppMenuLanguage) => {
+  assertTrustedIpc(event);
   const nextLanguage = language === 'en-US' ? 'en-US' : 'zh-CN';
   currentMenuLanguage = nextLanguage;
   Menu.setApplicationMenu(buildMenu(nextLanguage));
@@ -680,6 +713,7 @@ ipcMain.on(IPC_CHANNELS.menu.setLanguage, (_event, language: AppMenuLanguage) =>
 
 function createWindow(): void {
   forceQuitting = false;
+  let closeArbitrationPending = false;
   const windowIcon = resolveWindowIconPath();
 
   mainWindow = new BrowserWindow({
@@ -707,13 +741,19 @@ function createWindow(): void {
     pendingFilePath = null;
     if (pending) dispatchSystemOpenFile(pending);
   });
+  const blockUntrustedNavigation = (event: ElectronEvent, url: string): void => {
+    if (!isTrustedRendererUrl(url, TRUSTED_RENDERER_URLS)) event.preventDefault();
+  };
+  mainWindow.webContents.on('will-navigate', blockUntrustedNavigation);
+  mainWindow.webContents.on('will-redirect', blockUntrustedNavigation);
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   // In development, load from Vite dev server
   // eslint-disable-next-line dot-notation
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']!);
+  if (DEVELOPMENT_RENDERER_URL) {
+    mainWindow.loadURL(DEVELOPMENT_RENDERER_URL);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(RENDERER_HTML_PATH);
   }
 
   mainWindow.on('closed', () => {
@@ -750,49 +790,74 @@ function createWindow(): void {
   mainWindow.on('close', async (event) => {
     if (forceQuitting || mainWindow === null) return;
     event.preventDefault();
+    if (closeArbitrationPending) return;
+    closeArbitrationPending = true;
 
+    const target = mainWindow;
+    let authorised = false;
     try {
-      const state = await withTimeout(
-        mainWindow.webContents.executeJavaScript(
-          `(function() {
-            try { return window.__getEditorDirtyState__(); } catch(e) { return null; }
-          })()`,
+      authorised = await arbitrateClose({
+        queryState: async () => withTimeout(
+          target.webContents.executeJavaScript('window.__getEditorDirtyState__()'),
+          RENDERER_QUERY_TIMEOUT_MS,
+          '读取编辑器状态超时',
         ),
-        RENDERER_QUERY_TIMEOUT_MS,
-        '读取编辑器状态超时',
-      );
-
-      if (state && state.isDirty) {
-        const text = getMainProcessMessages(currentMenuLanguage);
-        const result = await dialog.showMessageBox(mainWindow, {
-          type: 'warning',
-          buttons: [...text.unsavedButtons],
-          defaultId: 0,
-          cancelId: 2,
-          title: 'PlotFlow',
-          message: text.unsavedMessage,
-          detail: text.unsavedDetail(state.filePath),
-        });
-
-        if (result.response === 0) {
-          const saved = await withTimeout(
-            mainWindow.webContents.executeJavaScript(`window.__forceSave__ && window.__forceSave__()`),
-            RENDERER_SAVE_TIMEOUT_MS,
-            '保存操作超时',
-          );
-          if (!saved) {
-            return;
-          }
-        } else if (result.response === 2) {
-          return;
-        }
-      }
-    } catch {
-      // Renderer may already be unavailable; allow closing.
+        save: async () => withTimeout(
+          target.webContents.executeJavaScript('window.__forceSave__ && window.__forceSave__()'),
+          RENDERER_SAVE_TIMEOUT_MS,
+          '保存操作超时',
+        ),
+        discard: async () => withTimeout(
+          target.webContents.executeJavaScript('window.__prepareDiscard__ && window.__prepareDiscard__()'),
+          RENDERER_SAVE_TIMEOUT_MS,
+          '放弃更改前的磁盘恢复超时',
+        ),
+        chooseUnsaved: async (state) => {
+          const text = getMainProcessMessages(currentMenuLanguage);
+          const result = await dialog.showMessageBox(target, {
+            type: 'warning',
+            buttons: [...text.unsavedButtons],
+            defaultId: 0,
+            cancelId: 2,
+            title: 'PlotFlow',
+            message: text.unsavedMessage,
+            detail: text.unsavedDetail(state.filePath),
+          });
+          return result.response === 0 ? 'save' : result.response === 1 ? 'discard' : 'cancel';
+        },
+        chooseFailure: async (stage, error) => {
+          const text = getMainProcessMessages(currentMenuLanguage);
+          const reason = error instanceof Error ? error.message : String(error);
+          // eslint-disable-next-line no-console -- close failures need durable main-process diagnostics
+          console.error(`[PlotFlow] ${stage === 'query' ? '读取关闭状态' : '关闭前保存'}失败`, error);
+          if (target.isDestroyed()) return 'cancel';
+          const result = await dialog.showMessageBox(target, {
+            type: 'error',
+            buttons: [...text.closeFailureButtons],
+            defaultId: 0,
+            cancelId: 2,
+            title: 'PlotFlow',
+            message: text.closeFailureMessage,
+            detail: text.closeFailureDetail(stage, reason),
+          });
+          return result.response === 0 ? 'retry' : result.response === 1 ? 'force-quit' : 'cancel';
+        },
+      });
+    } catch (error) {
+      // Dialog infrastructure itself failed. Keep the window alive; a later
+      // close attempt can retry arbitration.
+      // eslint-disable-next-line no-console -- main-process close failures require durable diagnostics
+      console.error('[PlotFlow] 关闭保护流程失败，窗口保持打开', error);
+      closeArbitrationPending = false;
+      return;
     }
 
+    if (!authorised || target.isDestroyed()) {
+      closeArbitrationPending = false;
+      return;
+    }
     forceQuitting = true;
-    mainWindow.destroy();
+    target.destroy();
   });
 }
 

@@ -718,6 +718,10 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     const close = dialog.getByRole('button', { name: '关闭条件编辑器' });
     await expect(close).toBeFocused();
+    await page.keyboard.press('Control+K');
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+    await expect(page.getByRole('combobox', { name: /搜索节点|search nodes/i })).toHaveCount(0);
     await page.keyboard.press('Shift+Tab');
     await expect(dialog.getByRole('button', { name: '取消' })).toBeFocused();
     await page.keyboard.press('Tab');

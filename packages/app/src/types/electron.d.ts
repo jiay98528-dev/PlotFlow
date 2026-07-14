@@ -266,7 +266,7 @@ export interface TestStoreBridge {
   getGraphZoom: () => number;
   setEditorContent: (content: string) => void;
   setEditorContentPreservingUI: (content: string) => void;
-  applyExternalFileContent: (event: FileExternalChangeEvent) => void;
+  applyExternalFileContent: (event: FileExternalChangeEvent) => Promise<boolean>;
   openConditionEditor: (nodeId: string, optionIndex: number) => void;
   setWorkspaceMode: (mode: 'split' | 'graphLab') => void;
   getUIState: () => {
@@ -307,6 +307,7 @@ declare global {
      * 鐢变富杩涚▼閫氳繃 executeJavaScript 璋冪敤锛岀敤浜庣獥鍙ｅ叧闂椂淇濆瓨鏈繚瀛樺唴瀹广€?
      */
     __forceSave__?: () => Promise<boolean>;
+    __prepareDiscard__?: () => Promise<boolean>;
 
     /**
      * 浠呭湪 Playwright / E2E 娴嬭瘯鐜鏆撮湶鐨勭姸鎬佹ˉ鎺ャ€?

@@ -15,7 +15,7 @@ import {
   Save,
   Undo2,
 } from 'lucide-react';
-import { analyzeStorySource } from '@plotflow/core';
+import { analyzeStorySource, type StoryNode } from '@plotflow/core';
 import { GraphCanvas } from '../branch-graph/GraphCanvas';
 import { GraphLabPalette } from './GraphLabPalette';
 import { GraphInspector } from './GraphInspector';
@@ -32,6 +32,8 @@ import { graphEditService, StorySourceEditService, type TextEdit } from '../../s
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
 import { saveOrSaveAs } from '../../services/autoSaveService';
 import { registerSourceDraftController } from '../../services/sourceDraftCoordinator';
+import { isGraphShortcutBlocked } from '../../services/graphKeyboardGuard';
+import { ConfirmDialog } from '../branch-graph/GraphContextMenu';
 import {
   canRedo,
   canUndo,
@@ -222,20 +224,26 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
     getState: () => {
       const currentBaseline = baselineRef.current;
       const currentDraft = textareaRef.current?.value ?? draftRef.current;
+      if (!useUIStore.getState().isSourceDrawerOpen) {
+        return { isDirty: false, isStale: false };
+      }
+      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
       return {
-        isDirty: currentBaseline ? currentDraft !== currentBaseline.text : false,
-        isStale: isStaleRef.current,
+        isDirty: dirtyNow,
+        // A graph mutation can move the slice before React's synchronization
+        // effect runs. With no user draft, that transient offset change is safe.
+        isStale: isStaleRef.current && dirtyNow,
       };
     },
     flushDraft: () => {
+      const currentBaseline = baselineRef.current;
+      const currentDraft = textareaRef.current?.value ?? draftRef.current;
+      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
+      if (!useUIStore.getState().isSourceDrawerOpen || !dirtyNow) return true;
       if (isStaleRef.current) {
         setStatusMessage(text('sourceDock.switchBlockedStale'));
         return false;
       }
-      const currentBaseline = baselineRef.current;
-      const currentDraft = textareaRef.current?.value ?? draftRef.current;
-      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
-      if (!dirtyNow) return true;
       return commitDraft();
     },
   }), [commitDraft, setStatusMessage, text]);
@@ -372,6 +380,7 @@ export function GraphLabWorkspace(): React.ReactElement {
   const content = useEditorStore((state) => state.content);
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const filePath = useEditorStore((state) => state.filePath);
+  const storySessionId = useEditorStore((state) => state.storySessionId);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const { activeTheme } = useThemePlatform();
@@ -381,8 +390,11 @@ export function GraphLabWorkspace(): React.ReactElement {
   const sourceSliceRef = useRef<ChapterSourceSliceEditorHandle>(null);
   const paletteToggleRef = useRef<HTMLButtonElement>(null);
   const inspectorToggleRef = useRef<HTMLButtonElement>(null);
+  const [pendingDeleteNode, setPendingDeleteNode] = useState<StoryNode | null>(null);
   const canUndoGraph = React.useSyncExternalStore(subscribeGraphHistory, canUndo, canUndo);
   const canRedoGraph = React.useSyncExternalStore(subscribeGraphHistory, canRedo, canRedo);
+
+  useEffect(() => setPendingDeleteNode(null), [storySessionId]);
 
   useEffect(() => {
     if (!isCompactGraphLayout && compactGraphPanel !== null) {
@@ -471,24 +483,21 @@ export function GraphLabWorkspace(): React.ReactElement {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      if (isGraphShortcutBlocked(event)) return;
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
       const selected = useGraphStore.getState().selectedNodeId ?? useEditorStore.getState().activeNodeId;
       if (!selected) return;
       const node = useStoryStore.getState().getNodeByFullId(selected);
       if (!node) return;
-      if (!window.confirm(text('inspector.confirmDeleteNode', { title: node.title }))) return;
       event.preventDefault();
-      graphEditService.deleteNode(node);
-      useGraphStore.getState().selectNode(null);
-      useEditorStore.getState().setActiveNodeId(null);
+      setPendingDeleteNode(node);
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [text]);
 
   return (
+    <>
     <Surface
       isSourceDrawerOpen={isSourceDrawerOpen}
       commandbar={(
@@ -667,5 +676,22 @@ export function GraphLabWorkspace(): React.ReactElement {
         </SourceDrawer>
       )}
     />
+    {pendingDeleteNode && (
+      <ConfirmDialog
+        title={text('graphContext.deleteNode')}
+        message={text('inspector.confirmDeleteNode', { title: pendingDeleteNode.title })}
+        confirmLabel={text('common.delete')}
+        danger
+        onCancel={() => setPendingDeleteNode(null)}
+        onConfirm={() => {
+          if (graphEditService.deleteNode(pendingDeleteNode)) {
+            useGraphStore.getState().selectNode(null);
+            useEditorStore.getState().setActiveNodeId(null);
+          }
+          setPendingDeleteNode(null);
+        }}
+      />
+    )}
+    </>
   );
 }

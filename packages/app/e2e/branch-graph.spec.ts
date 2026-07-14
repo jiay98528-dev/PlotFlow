@@ -390,8 +390,9 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
     await page.waitForTimeout(800);
 
     // 验证连线数量减少
-    const afterDelete = await countGraphElements(page);
-    expect(afterDelete.edges).toBe(initialCounts.edges - 1);
+    await expect.poll(async () => (await countGraphElements(page)).edges, {
+      timeout: 10_000,
+    }).toBe(initialCounts.edges - 1);
 
     // ── 步骤 3: 程序化重连（用文本操作模拟 handle 拖拽到新节点的结果） ──
     const { targetToConnect } = await page.evaluate(() => {

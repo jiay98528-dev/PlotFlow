@@ -1,18 +1,20 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Link2Off, ListPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
-import type {
-  Option,
-  StoryNode,
-  VariableDeclaration,
-  VariableScope,
-  VariableType,
-  VariableValue,
+import {
+  parseEffects,
+  type Option,
+  type StoryNode,
+  type VariableDeclaration,
+  type VariableScope,
+  type VariableType,
+  type VariableValue,
 } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { graphEditService, type VariablePatch } from '../../services/graphEditService';
+import { saveOrSaveAs } from '../../services/autoSaveService';
 import { useAppText } from '../../i18n/appI18n';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
 import {
@@ -58,6 +60,18 @@ function EditableField({ label, value, testId, multiline = false, onCommit }: Fi
   }, []);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      // The app-level save handler runs after React's delegated handler. Commit
+      // the visible Inspector draft first; a rejected draft must not allow the
+      // global handler to report a successful save of the older source text.
+      event.preventDefault();
+      event.stopPropagation();
+      if (!commit(event.currentTarget.value)) return;
+      // Let the source projection observe the committed graph text before the
+      // save guard inspects its stale/dirty state.
+      window.setTimeout(() => { void saveOrSaveAs(); }, 0);
+      return;
+    }
     if ((!multiline && event.key === 'Enter') || (multiline && event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
       event.preventDefault();
       if (commit(event.currentTarget.value)) event.currentTarget.blur();
@@ -451,21 +465,49 @@ function effectOperationLabel(operation: EffectOperation, text: ReturnType<typeo
   return text('inspector.effectOperationSet');
 }
 
-function parseSimpleEffects(raw: string | null | undefined): ParsedEffect[] | null {
-  const value = raw?.trim() ?? '';
-  if (!value) return [];
-  const parsed = value.split(/[,，]/u).map((part): ParsedEffect | null => {
-    const match = /^([\p{L}\p{N}_.]+)\s*(=|\+|-|←)\s*(.+)$/u.exec(part.trim());
-    if (!match) return null;
-    const symbol = match[2] ?? '=';
-    return {
-      variableName: match[1] ?? '',
-      operation: symbol === '+' ? 'add' : symbol === '-' ? 'subtract' : symbol === '←' ? 'append' : 'set',
-      value: match[3]?.trim() ?? '',
-    };
+export function parseEffectsForEditor(
+  raw: string | null | undefined,
+  variables: readonly VariableDeclaration[],
+): ParsedEffect[] | null {
+  const result = parseEffects(raw ?? null, variables);
+  if (!result.ok) return null;
+  return result.data.map((effect) => ({
+    variableName: effect.variableName,
+    operation: effect.operation,
+    value: (() => {
+      if (typeof effect.value === 'object') return JSON.stringify(effect.value);
+      const serialized = String(effect.value);
+      const variable = variables.find((candidate) => candidate.name === effect.variableName);
+      return variable?.type === 'string' || variable?.type === 'enum'
+        ? serialized.replace(/\\(["\\])/gu, '$1')
+        : serialized;
+    })(),
+  }));
+}
+
+function optionDraftSignature(option: Option): string {
+  return JSON.stringify({
+    description: option.description,
+    targetNodeId: option.targetNodeId,
+    targetChapterId: option.targetChapterId,
+    conditionRaw: option.conditionRaw,
+    effectsRaw: option.effectsRaw,
   });
-  if (parsed.some((effect) => effect === null)) return null;
-  return parsed as ParsedEffect[];
+}
+
+export function createOptionDraftIdentity(
+  nodeFullId: string,
+  options: readonly Option[],
+  optionIndex: number,
+): string {
+  const option = options[optionIndex];
+  if (!option) return `${nodeFullId}:option:missing:${optionIndex}`;
+  const signature = optionDraftSignature(option);
+  const occurrence = options
+    .slice(0, optionIndex)
+    .filter((candidate) => optionDraftSignature(candidate) === signature)
+    .length;
+  return `${nodeFullId}:option:${signature}:${occurrence}`;
 }
 
 function serializeEffect(effect: Pick<ParsedEffect, 'variableName' | 'operation' | 'value'>, variables: readonly VariableDeclaration[]): string | null {
@@ -617,13 +659,16 @@ function EffectsEditor({
   readonly onCommit: (raw: string | null) => boolean;
 }): React.ReactElement {
   const text = useAppText();
-  const parsed = parseSimpleEffects(raw);
+  const parsed = parseEffectsForEditor(raw, variables);
   const fallback = parsed === null;
-  const effects = parsed ?? [];
+  const parsedEffects = parsed ?? [];
+  const parsedEffectsSignature = JSON.stringify(parsedEffects);
+  const [effects, setEffects] = useState<ParsedEffect[]>(parsedEffects);
   const firstVariable = variables[0]?.name ?? '';
   const [draftVariable, setDraftVariable] = useState(firstVariable);
   const [draftOperation, setDraftOperation] = useState<EffectOperation>('set');
   const [draftValue, setDraftValue] = useState('');
+  const [commitRejected, setCommitRejected] = useState(false);
   const draftVariableDef = variables.find((item) => item.name === draftVariable);
 
   React.useEffect(() => {
@@ -636,16 +681,23 @@ function EffectsEditor({
     setDraftValue('');
   }, [draftIdentity, firstVariable, storySessionId]);
 
+  React.useEffect(() => {
+    setEffects(parsedEffects);
+    setCommitRejected(false);
+  }, [draftIdentity, parsedEffectsSignature, storySessionId]);
+
   const updateEffect = useCallback((effectIndex: number, patch: Partial<ParsedEffect>) => {
     const nextEffects = effects.map((effect, itemIndex) =>
       itemIndex === effectIndex ? { ...effect, ...patch } : effect,
     );
-    onCommit(serializeEffects(nextEffects, variables));
+    setEffects(nextEffects);
+    setCommitRejected(!onCommit(serializeEffects(nextEffects, variables)));
   }, [effects, onCommit, variables]);
 
   const removeEffect = useCallback((effectIndex: number) => {
     const nextEffects = effects.filter((_, itemIndex) => itemIndex !== effectIndex);
-    onCommit(serializeEffects(nextEffects, variables));
+    setEffects(nextEffects);
+    setCommitRejected(!onCommit(serializeEffects(nextEffects, variables)));
   }, [effects, onCommit, variables]);
 
   const addEffect = useCallback(() => {
@@ -655,7 +707,13 @@ function EffectsEditor({
       operation: draftOperation,
       value: draftValue || variableDefaultValue(draftVariableDef),
     };
-    onCommit(serializeEffects([...effects, nextEffect], variables));
+    const nextEffects = [...effects, nextEffect];
+    setEffects(nextEffects);
+    if (!onCommit(serializeEffects(nextEffects, variables))) {
+      setCommitRejected(true);
+      return;
+    }
+    setCommitRejected(false);
     setDraftValue('');
   }, [draftOperation, draftValue, draftVariable, draftVariableDef, effects, onCommit, variables]);
 
@@ -755,6 +813,7 @@ function EffectsEditor({
           <span>{text('inspector.addEffect')}</span>
         </button>
         {variables.length === 0 && <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>}
+        {commitRejected && <p className="graph-lab-control-hint" role="alert">{text('inspector.updateRejected')}</p>}
       </div>
     </div>
   );
@@ -859,7 +918,12 @@ export function GraphInspector({ contentMode = 'node', embedded = false }: Graph
     variableEnumValues,
     variableFields,
   );
+  const normalizedVariableName = variableName.trim();
+  const variableNameConflict = variables.some((variable) => (
+    variable.name === normalizedVariableName && variable.name !== editingVariableName
+  ));
   const canSaveVariable = variableNameIsValid(variableName)
+    && !variableNameConflict
     && (variableType !== 'enum' || (rootEnumValues.length > 0 && new Set(rootEnumValues).size === rootEnumValues.length))
     && (variableType !== 'object' || fieldsDraftIsValid(variableFields))
     && parsedRootDefault !== null
@@ -878,7 +942,10 @@ export function GraphInspector({ contentMode = 'node', embedded = false }: Graph
       ...(variableType === 'enum' ? { enumValues: enumValuesFromDraft(variableEnumValues) } : {}),
       ...(variableType === 'object' ? { fields: variableFields.map(fieldDraftToPatch) } : {}),
     });
-    if (!committed) return;
+    if (!committed) {
+      setStatusMessage(text('inspector.updateRejected'));
+      return;
+    }
     resetVariableDraft();
     setStatusMessage(text('inspector.updatedVariable'));
   }, [canSaveVariable, editingVariableName, parsedRootDefault, resetVariableDraft, setStatusMessage, text, variableChapterId, variableDescription, variableEnumValues, variableFields, variableName, variableScope, variableType]);
@@ -1064,8 +1131,10 @@ export function GraphInspector({ contentMode = 'node', embedded = false }: Graph
               <p className="graph-lab-empty">{text('inspector.noOptions')}</p>
             ) : (
               <div className="graph-lab-options">
-                {node.options.map((option, index) => (
-                  <div className="graph-lab-option" key={`${option.lineNumber}-${index}`}>
+                {node.options.map((option, index) => {
+                  const draftIdentity = createOptionDraftIdentity(node.fullId, node.options, index);
+                  return (
+                  <div className="graph-lab-option" key={draftIdentity}>
                     <EditableField
                       label={text('inspector.optionLabel', { index: index + 1 })}
                       testId={`graph-inspector-option-description-${index}`}
@@ -1110,7 +1179,7 @@ export function GraphInspector({ contentMode = 'node', embedded = false }: Graph
                         variables={nodeVariables}
                         raw={option.effectsRaw ?? null}
                         index={index}
-                        draftIdentity={`${node.fullId}:option:${option.lineNumber}:${index}`}
+                        draftIdentity={draftIdentity}
                         storySessionId={storySessionId}
                         onCommit={(value) => commitOptionPatch(option, { effectsRaw: value })}
                       />
@@ -1156,7 +1225,8 @@ export function GraphInspector({ contentMode = 'node', embedded = false }: Graph
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -1313,7 +1383,9 @@ export function GraphInspector({ contentMode = 'node', embedded = false }: Graph
           />
         </label>
         {variableName.trim() && !canSaveVariable && (
-          <p className="graph-lab-control-hint">{text('inspector.variableDraftInvalid')}</p>
+          <p className="graph-lab-control-hint" role={variableNameConflict ? 'alert' : undefined}>
+            {variableNameConflict ? text('inspector.variableNameConflict') : text('inspector.variableDraftInvalid')}
+          </p>
         )}
         <div className="graph-lab-variable-form__actions">
           <button
