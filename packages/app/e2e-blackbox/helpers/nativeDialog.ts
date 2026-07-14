@@ -5,8 +5,8 @@ const execFileAsync = promisify(execFile);
 
 export interface NativeDialogOptions {
   readonly filePath: string;
+  readonly ownerProcessId: number | undefined;
   readonly timeoutMs?: number;
-  readonly buttonPattern?: string;
   readonly mode?: 'save' | 'open';
 }
 
@@ -32,6 +32,10 @@ export async function completeNativeFileDialog(options: NativeDialogOptions): Pr
 
   const timeoutMs = options.timeoutMs ?? 15_000;
   const mode = options.mode ?? 'save';
+  const ownerProcessId = options.ownerProcessId;
+  if (!Number.isInteger(ownerProcessId) || (ownerProcessId ?? 0) <= 0) {
+    throw new Error('Native dialog automation requires the launched Electron owner process ID.');
+  }
   const filePathBase64 = Buffer.from(options.filePath, 'utf16le').toString('base64');
   const script = `
 Add-Type @'
@@ -53,7 +57,23 @@ public static class PlotFlowNativeDialog {
   private const uint WM_GETTEXTLENGTH = 0x000E;
   private const uint BM_CLICK = 0x00F5;
   private const uint SMTO_ABORTIFHUNG = 0x0002;
+  private const uint TH32CS_SNAPPROCESS = 0x00000002;
   private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  private struct PROCESSENTRY32 {
+    public uint dwSize;
+    public uint cntUsage;
+    public uint th32ProcessID;
+    public IntPtr th32DefaultHeapID;
+    public uint th32ModuleID;
+    public uint cntThreads;
+    public uint th32ParentProcessID;
+    public int pcPriClassBase;
+    public uint dwFlags;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+    public string szExeFile;
+  }
 
   [DllImport("user32.dll")]
   private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
@@ -75,6 +95,14 @@ public static class PlotFlowNativeDialog {
   private static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")]
   private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("kernel32.dll", SetLastError = true)]
+  private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  private static extern bool Process32FirstW(IntPtr snapshot, ref PROCESSENTRY32 entry);
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  private static extern bool Process32NextW(IntPtr snapshot, ref PROCESSENTRY32 entry);
+  [DllImport("kernel32.dll")]
+  private static extern bool CloseHandle(IntPtr handle);
   [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageTimeoutW")]
   private static extern IntPtr SendTextMessageTimeout(
     IntPtr hWnd,
@@ -115,7 +143,31 @@ public static class PlotFlowNativeDialog {
     return value.ToString();
   }
 
-  public static PlotFlowDialogInfo[] FindDialogs() {
+  private static bool IsProcessInTree(uint processId, uint rootProcessId) {
+    if (processId == rootProcessId) return true;
+    var snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == new IntPtr(-1)) return false;
+    try {
+      var parents = new Dictionary<uint, uint>();
+      var entry = new PROCESSENTRY32 { dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32)) };
+      if (Process32FirstW(snapshot, ref entry)) {
+        do {
+          parents[entry.th32ProcessID] = entry.th32ParentProcessID;
+          entry.dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32));
+        } while (Process32NextW(snapshot, ref entry));
+      }
+      var seen = new HashSet<uint>();
+      var cursor = processId;
+      while (cursor != 0 && seen.Add(cursor) && parents.TryGetValue(cursor, out cursor)) {
+        if (cursor == rootProcessId) return true;
+      }
+      return false;
+    } finally {
+      CloseHandle(snapshot);
+    }
+  }
+
+  public static PlotFlowDialogInfo[] FindDialogs(int ownerProcessId) {
     var dialogs = new List<PlotFlowDialogInfo>();
     EnumWindows((hWnd, _) => {
       if (!IsWindowVisible(hWnd) || ReadClass(hWnd) != "#32770") return true;
@@ -123,6 +175,7 @@ public static class PlotFlowNativeDialog {
       if (submitButton == IntPtr.Zero || FindFileNameEdit(hWnd.ToInt64()) == 0) return true;
       uint processId;
       GetWindowThreadProcessId(hWnd, out processId);
+      if (!IsProcessInTree(processId, (uint)ownerProcessId)) return true;
       dialogs.Add(new PlotFlowDialogInfo {
         Handle = hWnd.ToInt64(),
         Title = ReadText(hWnd),
@@ -204,10 +257,15 @@ $filePath = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${fi
 $dialogMode = '${mode}'
 $lastStage = 'waiting-for-dialog'
 $lastCandidates = @()
+$openPattern = 'Open|打开|開啟|開く|열기'
+$savePattern = 'Save|保存|另存|儲存|저장|Export|导出|匯出|エクスポート'
 
 while ([DateTime]::UtcNow -lt $deadline) {
-  $candidates = @([PlotFlowNativeDialog]::FindDialogs() | Where-Object {
-    $_.Title -notmatch 'Rename|重命名'
+  $candidates = @([PlotFlowNativeDialog]::FindDialogs(${ownerProcessId}) | Where-Object {
+    $_.Title -notmatch 'Rename|重命名' -and (
+      ($dialogMode -eq 'open' -and ($_.Title -match $openPattern -or $_.ButtonTitle -match $openPattern)) -or
+      ($dialogMode -eq 'save' -and ($_.Title -match $savePattern -or $_.ButtonTitle -match $savePattern))
+    )
   })
   $lastCandidates = @($candidates | ForEach-Object {
     [PSCustomObject]@{ title = $_.Title; button = $_.ButtonTitle; processId = $_.ProcessId }
@@ -217,15 +275,7 @@ while ([DateTime]::UtcNow -lt $deadline) {
     continue
   }
 
-  $ranked = @($candidates | Sort-Object -Descending -Property @{
-    Expression = {
-      $score = 0
-      if ($_.Title -match 'PlotFlow') { $score += 100 }
-      if ($dialogMode -eq 'open' -and ($_.Title -match 'Open|打开|開く' -or $_.ButtonTitle -match 'Open|打开|開く')) { $score += 50 }
-      if ($dialogMode -eq 'save' -and ($_.Title -match 'Save|保存|另存|Export|导出' -or $_.ButtonTitle -match 'Save|保存|Export|导出')) { $score += 50 }
-      $score
-    }
-  })
+  $ranked = @($candidates | Sort-Object -Descending -Property @{ Expression = { if ($_.Title -match 'PlotFlow') { 1 } else { 0 } } })
   $dialog = $ranked[0]
   $lastStage = 'finding-filename-edit'
   $editHandle = [PlotFlowNativeDialog]::FindFileNameEdit($dialog.Handle)
@@ -251,8 +301,13 @@ while ([DateTime]::UtcNow -lt $deadline) {
 
   $lastStage = 'waiting-for-close'
   $closeDeadline = [DateTime]::UtcNow.AddMilliseconds(5000)
+  if ($closeDeadline -gt $deadline) { $closeDeadline = $deadline }
   while ([DateTime]::UtcNow -lt $closeDeadline) {
     if (-not [PlotFlowNativeDialog]::Exists($dialog.Handle)) {
+      if ($dialogMode -eq 'save' -and -not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
+        Start-Sleep -Milliseconds 100
+        continue
+      }
       [PSCustomObject]@{
         status = 'submitted'
         mode = $dialogMode
@@ -285,6 +340,10 @@ throw ('Native file dialog automation deadline expired at stage: ' + $lastStage 
       || result.filePath !== options.filePath
       || !result.valueVerified
       || !result.dialogClosed
+      || typeof result.dialogTitle !== 'string'
+      || !result.dialogTitle.trim()
+      || !Number.isInteger(result.processId)
+      || result.processId <= 0
     ) {
       throw new Error(`Native file dialog returned an invalid result: ${stdout}`);
     }

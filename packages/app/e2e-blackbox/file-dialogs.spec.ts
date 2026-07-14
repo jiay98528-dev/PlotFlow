@@ -33,7 +33,11 @@ test.describe('blackbox native file dialog journeys', () => {
       await expect(page.locator('.export-dialog__overlay')).toBeVisible({ timeout: 10_000 });
 
       await page.getByTestId('export-dialog-submit').click({ noWaitAfter: true });
-      await completeNativeFileDialog({ filePath: exportPath, timeoutMs: 20_000 });
+      await completeNativeFileDialog({
+        filePath: exportPath,
+        ownerProcessId: launched.app.process().pid,
+        timeoutMs: 20_000,
+      });
 
       await expect.poll(async () => (await stat(exportPath).catch(() => null))?.size ?? 0).toBeGreaterThan(20);
       const exported = await readFile(exportPath, 'utf-8');
@@ -61,8 +65,8 @@ test.describe('blackbox native file dialog journeys', () => {
         await home.getByRole('button', { name: /打开文件|Open file/i }).click({ noWaitAfter: true });
         const dialogResult = await completeNativeFileDialog({
           filePath: storyPath,
+          ownerProcessId: launched.app.process().pid,
           mode: 'open',
-          buttonPattern: 'Open|OK|打开|確定',
           timeoutMs: 20_000,
         });
         expect(dialogResult).toMatchObject({ status: 'submitted', valueVerified: true, dialogClosed: true });
@@ -94,7 +98,11 @@ test.describe('blackbox native file dialog journeys', () => {
       await page.getByTestId('toolbar-export').click();
       await page.locator('input[name="export-format"][value="html"]').check({ force: true });
       await page.getByTestId('export-dialog-submit').click({ noWaitAfter: true });
-      await completeNativeFileDialog({ filePath: exportPath, timeoutMs: 20_000 });
+      await completeNativeFileDialog({
+        filePath: exportPath,
+        ownerProcessId: launched.app.process().pid,
+        timeoutMs: 20_000,
+      });
       await expect.poll(async () => (await stat(exportPath).catch(() => null))?.size ?? 0).toBeGreaterThan(100);
     } finally {
       await closeBlackboxApp(launched.app);
