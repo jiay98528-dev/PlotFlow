@@ -16,277 +16,268 @@ export interface NativeDialogResult {
   readonly filePath: string;
   readonly valueVerified: boolean;
   readonly dialogClosed: boolean;
+  readonly dialogTitle: string;
+  readonly processId: number;
 }
 
+/**
+ * Drives the Windows common file dialog without inspecting or modifying the
+ * Electron renderer. Win32 control IDs are used deliberately: broad UIA tree
+ * scans can block indefinitely and can select unrelated Explorer dialogs.
+ */
 export async function completeNativeFileDialog(options: NativeDialogOptions): Promise<NativeDialogResult> {
   if (process.platform !== 'win32') {
     throw new Error('Native dialog automation is only implemented for Windows.');
   }
 
   const timeoutMs = options.timeoutMs ?? 15_000;
-  const buttonPattern = options.buttonPattern
-    ?? 'Save|Open|Select|Export|OK|\u4fdd\u5b58|\u6253\u5f00|\u9009\u62e9|\u5bfc\u51fa|\u78ba\u5b9a|\u4fdd\u5b58\u3059\u308b|\uc800\uc7a5';
   const mode = options.mode ?? 'save';
-const script = `
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
-Add-Type -AssemblyName System.Windows.Forms
+  const filePathBase64 = Buffer.from(options.filePath, 'utf16le').toString('base64');
+  const script = `
 Add-Type @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
-public static class PlotFlowNativeWindow {
+using System.Text;
+
+public sealed class PlotFlowDialogInfo {
+  public long Handle { get; set; }
+  public string Title { get; set; }
+  public string ButtonTitle { get; set; }
+  public int ProcessId { get; set; }
+}
+
+public static class PlotFlowNativeDialog {
+  private const uint WM_SETTEXT = 0x000C;
+  private const uint WM_GETTEXT = 0x000D;
+  private const uint WM_GETTEXTLENGTH = 0x000E;
+  private const uint BM_CLICK = 0x00F5;
+  private const uint SMTO_ABORTIFHUNG = 0x0002;
+  private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
   [DllImport("user32.dll")]
-  public static extern bool SetForegroundWindow(IntPtr hWnd);
+  private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+  [DllImport("user32.dll")]
+  private static extern bool EnumChildWindows(IntPtr parent, EnumWindowsProc callback, IntPtr lParam);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  private static extern int GetClassName(IntPtr hWnd, StringBuilder value, int count);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  private static extern int GetWindowText(IntPtr hWnd, StringBuilder value, int count);
+  [DllImport("user32.dll")]
+  private static extern IntPtr GetDlgItem(IntPtr hWnd, int controlId);
+  [DllImport("user32.dll")]
+  private static extern int GetDlgCtrlID(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  private static extern bool IsWindow(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  private static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  private static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")]
+  private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageTimeoutW")]
+  private static extern IntPtr SendTextMessageTimeout(
+    IntPtr hWnd,
+    uint message,
+    IntPtr wParam,
+    string lParam,
+    uint flags,
+    uint timeout,
+    out IntPtr result);
+  [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW")]
+  private static extern IntPtr SendPointerMessageTimeout(
+    IntPtr hWnd,
+    uint message,
+    IntPtr wParam,
+    IntPtr lParam,
+    uint flags,
+    uint timeout,
+    out IntPtr result);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageTimeoutW")]
+  private static extern IntPtr SendBufferMessageTimeout(
+    IntPtr hWnd,
+    uint message,
+    IntPtr wParam,
+    StringBuilder lParam,
+    uint flags,
+    uint timeout,
+    out IntPtr result);
+
+  private static string ReadText(IntPtr hWnd) {
+    var value = new StringBuilder(4096);
+    GetWindowText(hWnd, value, value.Capacity);
+    return value.ToString();
+  }
+
+  private static string ReadClass(IntPtr hWnd) {
+    var value = new StringBuilder(256);
+    GetClassName(hWnd, value, value.Capacity);
+    return value.ToString();
+  }
+
+  public static PlotFlowDialogInfo[] FindDialogs() {
+    var dialogs = new List<PlotFlowDialogInfo>();
+    EnumWindows((hWnd, _) => {
+      if (!IsWindowVisible(hWnd) || ReadClass(hWnd) != "#32770") return true;
+      var submitButton = GetDlgItem(hWnd, 1);
+      if (submitButton == IntPtr.Zero || FindFileNameEdit(hWnd.ToInt64()) == 0) return true;
+      uint processId;
+      GetWindowThreadProcessId(hWnd, out processId);
+      dialogs.Add(new PlotFlowDialogInfo {
+        Handle = hWnd.ToInt64(),
+        Title = ReadText(hWnd),
+        ButtonTitle = ReadText(submitButton),
+        ProcessId = (int)processId,
+      });
+      return true;
+    }, IntPtr.Zero);
+    return dialogs.ToArray();
+  }
+
+  public static long FindFileNameEdit(long dialogHandle) {
+    var dialog = new IntPtr(dialogHandle);
+    var host = GetDlgItem(dialog, 1148);
+    IntPtr match = IntPtr.Zero;
+    if (host != IntPtr.Zero) {
+      EnumChildWindows(host, (child, _) => {
+        if (ReadClass(child) == "Edit") {
+          match = child;
+          return false;
+        }
+        return true;
+      }, IntPtr.Zero);
+    }
+    if (match == IntPtr.Zero) {
+      EnumChildWindows(dialog, (child, _) => {
+        var controlId = GetDlgCtrlID(child);
+        if (IsWindowVisible(child) && ReadClass(child) == "Edit" && (controlId == 1001 || controlId == 1148)) {
+          match = child;
+          return false;
+        }
+        return true;
+      }, IntPtr.Zero);
+    }
+    return match.ToInt64();
+  }
+
+  public static bool SetText(long editHandle, string value) {
+    IntPtr result;
+    return SendTextMessageTimeout(
+      new IntPtr(editHandle), WM_SETTEXT, IntPtr.Zero, value,
+      SMTO_ABORTIFHUNG, 1000, out result) != IntPtr.Zero;
+  }
+
+  public static string GetText(long editHandle) {
+    var edit = new IntPtr(editHandle);
+    IntPtr length;
+    if (SendPointerMessageTimeout(
+      edit, WM_GETTEXTLENGTH, IntPtr.Zero, IntPtr.Zero,
+      SMTO_ABORTIFHUNG, 1000, out length) == IntPtr.Zero) return null;
+    var capacity = Math.Max(length.ToInt32() + 1, 2);
+    var value = new StringBuilder(capacity);
+    IntPtr copied;
+    if (SendBufferMessageTimeout(
+      edit, WM_GETTEXT, new IntPtr(capacity), value,
+      SMTO_ABORTIFHUNG, 1000, out copied) == IntPtr.Zero) return null;
+    return value.ToString();
+  }
+
+  public static bool Submit(long dialogHandle) {
+    var dialog = new IntPtr(dialogHandle);
+    var button = GetDlgItem(dialog, 1);
+    if (button == IntPtr.Zero) return false;
+    SetForegroundWindow(dialog);
+    IntPtr result;
+    return SendPointerMessageTimeout(
+      button, BM_CLICK, IntPtr.Zero, IntPtr.Zero,
+      SMTO_ABORTIFHUNG, 1000, out result) != IntPtr.Zero;
+  }
+
+  public static bool Exists(long handle) {
+    return IsWindow(new IntPtr(handle));
+  }
 }
 '@
+
 $deadline = [DateTime]::UtcNow.AddMilliseconds(${timeoutMs})
-$filePath = @'
-${options.filePath}
-'@
-$buttonPattern = '${buttonPattern}'
+$filePath = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('${filePathBase64}'))
 $dialogMode = '${mode}'
+$lastStage = 'waiting-for-dialog'
+$lastCandidates = @()
 
-function Find-Dialog {
-  $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $fileNameHostCondition = New-Object System.Windows.Automation.PropertyCondition(
-    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
-    'FileNameControlHost'
-  )
-  $editCondition = New-Object System.Windows.Automation.PropertyCondition(
-    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-    [System.Windows.Automation.ControlType]::Edit
-  )
-
-  $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
-  foreach ($window in $windows) {
-    if ($window.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) {
-      continue
-    }
-    if ($window.Current.ClassName -ne '#32770' -and $window.Current.Name -notmatch 'Save|Open|Select|Export') {
-      continue
-    }
-    $fileNameHost = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
-    $edit = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
-    if ($fileNameHost -ne $null -or $edit -ne $null) {
-      return $window
-    }
-  }
-  return $null
-}
-
-function Dump-Windows {
-  $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
-  $lines = @()
-  $count = 0
-  foreach ($window in $all) {
-    if ($window.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) {
-      continue
-    }
-    $lines += ($window.Current.Name + ' | ' + $window.Current.ClassName + ' | ' + $window.Current.AutomationId + ' | ' + $window.Current.ControlType.ProgrammaticName + ' | offscreen=' + $window.Current.IsOffscreen + ' | handle=' + $window.Current.NativeWindowHandle)
-    $count++
-    if ($window.Current.ClassName -eq '#32770' -or $window.Current.Name -match 'Save|Open|Select|Export|PlotFlow') {
-      $children = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-      $childCount = 0
-      foreach ($item in $children) {
-        if ($item.Current.ClassName -eq '#32770' -or $item.Current.ControlType.ProgrammaticName -match 'Button|Edit|ComboBox|Text') {
-          $lines += ('  - ' + $item.Current.Name + ' | ' + $item.Current.ClassName + ' | ' + $item.Current.AutomationId + ' | ' + $item.Current.ControlType.ProgrammaticName + ' | offscreen=' + $item.Current.IsOffscreen)
-          $childCount++
-          if ($childCount -ge 80) {
-            $lines += '  - ... child dump truncated'
-            break
-          }
-        }
-      }
-    }
-    if ($count -ge 80) {
-      $lines += '... top-level window dump truncated'
-      break
-    }
-  }
-  return ($lines -join [Environment]::NewLine)
-}
-
-function Find-FileNameEdit($dialog) {
-  $fileNameHostCondition = New-Object System.Windows.Automation.PropertyCondition(
-    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
-    'FileNameControlHost'
-  )
-  $fileNameHost = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $fileNameHostCondition)
-  if ($fileNameHost -ne $null) {
-    $hostItems = $fileNameHost.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-    foreach ($item in $hostItems) {
-      if ($item.Current.ClassName -eq 'Edit' -or $item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit) {
-        return $item
-      }
-    }
+while ([DateTime]::UtcNow -lt $deadline) {
+  $candidates = @([PlotFlowNativeDialog]::FindDialogs() | Where-Object {
+    $_.Title -notmatch 'Rename|重命名'
+  })
+  $lastCandidates = @($candidates | ForEach-Object {
+    [PSCustomObject]@{ title = $_.Title; button = $_.ButtonTitle; processId = $_.ProcessId }
+  })
+  if ($candidates.Count -eq 0) {
+    Start-Sleep -Milliseconds 100
+    continue
   }
 
-  $edits = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-  $candidates = @()
-  foreach ($edit in $edits) {
-    if ($edit.Current.ClassName -eq 'Edit' -or $edit.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit) {
-      $rect = $edit.Current.BoundingRectangle
-      if ($rect.Width -gt 80 -and $rect.Height -gt 10) {
-        $candidates += [PSCustomObject]@{
-          Element = $edit
-          Top = $rect.Top
-          Left = $rect.Left
-          Width = $rect.Width
-          Name = $edit.Current.Name
-          AutomationId = $edit.Current.AutomationId
-        }
-      }
+  $ranked = @($candidates | Sort-Object -Descending -Property @{
+    Expression = {
+      $score = 0
+      if ($_.Title -match 'PlotFlow') { $score += 100 }
+      if ($dialogMode -eq 'open' -and ($_.Title -match 'Open|打开|開く' -or $_.ButtonTitle -match 'Open|打开|開く')) { $score += 50 }
+      if ($dialogMode -eq 'save' -and ($_.Title -match 'Save|保存|另存|Export|导出' -or $_.ButtonTitle -match 'Save|保存|Export|导出')) { $score += 50 }
+      $score
     }
-  }
-  $candidate = $candidates | Sort-Object -Property Top, Width -Descending | Select-Object -First 1
-  if ($candidate -eq $null) {
-    return $null
-  }
-  return $candidate.Element
-}
-
-function Set-ClipboardText($text) {
-  for ($i = 0; $i -lt 10; $i++) {
-    try {
-      [System.Windows.Forms.Clipboard]::SetText($text)
-      return
-    } catch {
-      Start-Sleep -Milliseconds 100
-    }
-  }
-  throw 'Unable to set clipboard text for native dialog.'
-}
-
-function Set-EditText($edit, $text) {
-  try {
-    $valuePattern = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-    if ($valuePattern -ne $null) {
-      $valuePattern.SetValue($text)
-      return $true
-    }
-  } catch {
+  })
+  $dialog = $ranked[0]
+  $lastStage = 'finding-filename-edit'
+  $editHandle = [PlotFlowNativeDialog]::FindFileNameEdit($dialog.Handle)
+  if ($editHandle -eq 0) {
+    Start-Sleep -Milliseconds 100
+    continue
   }
 
-  try {
-    $edit.SetFocus()
-    Set-ClipboardText $text
-    Start-Sleep -Milliseconds 80
-    [System.Windows.Forms.SendKeys]::SendWait('^a')
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    return $true
-  } catch {
-    return $false
+  $lastStage = 'setting-filename'
+  if (-not [PlotFlowNativeDialog]::SetText($editHandle, $filePath)) {
+    throw 'WM_SETTEXT timed out or failed.'
   }
-}
-
-function Get-EditText($edit) {
-  try {
-    $valuePattern = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-    if ($valuePattern -ne $null) {
-      return $valuePattern.Current.Value
-    }
-  } catch {
+  Start-Sleep -Milliseconds 100
+  $actual = [PlotFlowNativeDialog]::GetText($editHandle)
+  if ($actual -ne $filePath) {
+    throw ('Filename verification failed. Expected: ' + $filePath + '; actual: ' + $actual)
   }
-  return $null
-}
 
-function Complete-Dialog($path) {
-  [PSCustomObject]@{
-    status = 'submitted'
-    mode = $dialogMode
-    filePath = $path
-    valueVerified = $true
-    dialogClosed = $true
-  } | ConvertTo-Json -Compress
-  exit 0
-}
-
-function Submit-Dialog($dialog, $buttonPattern) {
-  $buttons = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-  foreach ($button in $buttons) {
-    if ($button.Current.AutomationId -eq '1' -or ($button.Current.ClassName -eq 'Button' -and $button.Current.Name -match $buttonPattern)) {
-      try {
-        $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        if ($invokePattern -ne $null) {
-          $invokePattern.Invoke()
-          return $true
-        }
-      } catch {
-      }
-
-      try {
-        $button.SetFocus()
-        [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-        return $true
-      } catch {
-      }
-    }
+  $lastStage = 'submitting-dialog'
+  if (-not [PlotFlowNativeDialog]::Submit($dialog.Handle)) {
+    throw 'BM_CLICK timed out or failed.'
   }
-  return $false
-}
 
-function Test-DialogVisible($dialog) {
-  try {
-    $null = $dialog.Current.Name
-    return ($dialog.Current.IsOffscreen -eq $false)
-  } catch {
-    return $false
-  }
-}
-
-function Wait-DialogSubmitted($dialog, $path) {
-  $submitDeadline = [DateTime]::UtcNow.AddMilliseconds(5000)
-  while ([DateTime]::UtcNow -lt $submitDeadline) {
-    if ($dialogMode -eq 'save' -and (Test-Path -LiteralPath $path)) {
-      return $true
-    }
-    if (-not (Test-DialogVisible $dialog)) {
-      return $true
+  $lastStage = 'waiting-for-close'
+  $closeDeadline = [DateTime]::UtcNow.AddMilliseconds(5000)
+  while ([DateTime]::UtcNow -lt $closeDeadline) {
+    if (-not [PlotFlowNativeDialog]::Exists($dialog.Handle)) {
+      [PSCustomObject]@{
+        status = 'submitted'
+        mode = $dialogMode
+        filePath = $filePath
+        valueVerified = $true
+        dialogClosed = $true
+        dialogTitle = $dialog.Title
+        processId = $dialog.ProcessId
+      } | ConvertTo-Json -Compress
+      exit 0
     }
     Start-Sleep -Milliseconds 100
   }
-  return $false
+  throw 'Native file dialog accepted BM_CLICK but did not close.'
 }
 
-    while ([DateTime]::UtcNow -lt $deadline) {
-      $dialog = Find-Dialog
-      if ($dialog -ne $null) {
-        $edit = Find-FileNameEdit $dialog
-        if ($edit -eq $null) {
-          Start-Sleep -Milliseconds 150
-          continue
-        }
-        [PlotFlowNativeWindow]::SetForegroundWindow([IntPtr]$dialog.Current.NativeWindowHandle) | Out-Null
-    if (-not (Set-EditText $edit $filePath)) {
-      throw 'Unable to set native file dialog path.'
-    }
-    $actualValue = Get-EditText $edit
-    if ($actualValue -ne $filePath) {
-      throw ('Native file dialog path verification failed. Expected: ' + $filePath + '; actual: ' + $actualValue + [Environment]::NewLine + (Dump-Windows))
-    }
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    if (Wait-DialogSubmitted $dialog $filePath) {
-      Complete-Dialog $filePath
-    }
-
-        if (Submit-Dialog $dialog $buttonPattern) {
-          if (Wait-DialogSubmitted $dialog $filePath) {
-            Complete-Dialog $filePath
-          }
-        }
-        throw ('Native file dialog did not submit.' + [Environment]::NewLine + (Dump-Windows))
-      }
-      Start-Sleep -Milliseconds 150
-    }
-    throw ('Native file dialog not found.' + [Environment]::NewLine + (Dump-Windows))
+throw ('Native file dialog automation deadline expired at stage: ' + $lastStage + '; candidates: ' + ($lastCandidates | ConvertTo-Json -Compress))
 `;
 
   try {
-    const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-Command', script], {
-      timeout: timeoutMs + 5_000,
-      windowsHide: true,
-    });
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { timeout: timeoutMs + 5_000, windowsHide: true },
+    );
     const result = JSON.parse(stdout.trim()) as NativeDialogResult;
     if (
       result.status !== 'submitted'
