@@ -1,0 +1,845 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\VibeCoding\\PlotFlow\\packages\\app\\node_modules\\playwright\\cli.js",
+      "test",
+      "--config",
+      "e2e-blackbox/playwright.config.ts",
+      "--workers=1",
+      "--grep-invert",
+      "@unpacked"
+    ],
+    "configFile": "D:\\VibeCoding\\PlotFlow\\packages\\app\\e2e-blackbox\\playwright.config.ts",
+    "rootDir": "D:/VibeCoding/PlotFlow/packages/app/e2e-blackbox",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "D:/VibeCoding/PlotFlow/packages/test-results/e2e-blackbox",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "electron-blackbox",
+        "name": "electron-blackbox",
+        "testDir": "D:/VibeCoding/PlotFlow/packages/app/e2e-blackbox",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 180000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../../test-results/e2e-blackbox/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "blackbox-contract.spec.ts",
+      "file": "blackbox-contract.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "blackbox suite does not use internal test bridges or IPC mocks @edge",
+          "ok": true,
+          "tags": [
+            "edge"
+          ],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "electron-blackbox",
+              "projectName": "electron-blackbox",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-07-15T01:06:39.971Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fa9811a656832993008e-714f30981bac5a4d144a",
+          "file": "blackbox-contract.spec.ts",
+          "line": 30,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "edge-cases.spec.ts",
+      "file": "edge-cases.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox edge conditions",
+          "file": "edge-cases.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "opens Unicode path and empty/frontmatter-only stories without blank screen @edge",
+              "ok": true,
+              "tags": [
+                "edge"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3500,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:06:40.038Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "db200a91ff2226597e25-1f0d29f8b645760d49b7",
+              "file": "edge-cases.spec.ts",
+              "line": 7,
+              "column": 7
+            },
+            {
+              "title": "handles rapid workspace and theme-center switching without white screen @edge",
+              "ok": true,
+              "tags": [
+                "edge"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5413,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:06:43.545Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "db200a91ff2226597e25-f1f662ea0c1edf2dde09",
+              "file": "edge-cases.spec.ts",
+              "line": 23,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "file-dialogs.spec.ts",
+      "file": "file-dialogs.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox native file dialog journeys",
+          "file": "file-dialogs.spec.ts",
+          "line": 16,
+          "column": 6,
+          "specs": [
+            {
+              "title": "exports JSON through the real save dialog and verifies disk output @journey @packaged",
+              "ok": true,
+              "tags": [
+                "journey",
+                "packaged"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4023,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:06:48.974Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2d188012e63df19df35a-9d0507faa6ee10f41123",
+              "file": "file-dialogs.spec.ts",
+              "line": 19,
+              "column": 7
+            },
+            {
+              "title": "opens through the real dialog with three fresh profiles and one reused profile @journey @packaged",
+              "ok": true,
+              "tags": [
+                "journey",
+                "packaged"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 14786,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:06:53.004Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2d188012e63df19df35a-9720868bcb13e7acdb58",
+              "file": "file-dialogs.spec.ts",
+              "line": 51,
+              "column": 7
+            },
+            {
+              "title": "runs the exported playable HTML in system Edge and follows a branch @journey @packaged",
+              "ok": true,
+              "tags": [
+                "journey",
+                "packaged"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6034,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:07.804Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2d188012e63df19df35a-678d46f23a3996a875b9",
+              "file": "file-dialogs.spec.ts",
+              "line": 86,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "graph-lab-risk.spec.ts",
+      "file": "graph-lab-risk.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox Graph Lab high-risk GUI behavior",
+          "file": "graph-lab-risk.spec.ts",
+          "line": 151,
+          "column": 6,
+          "specs": [
+            {
+              "title": "wire drop menu closes, live wire is visible, Source Dock does not trap the workspace, and layout stays stable @journey",
+              "ok": true,
+              "tags": [
+                "journey"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5157,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:13.854Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4c23e3ee769bb8b4b4a5-a6424daa9ea6d2b3ed3f",
+              "file": "graph-lab-risk.spec.ts",
+              "line": 152,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "journey.spec.ts",
+      "file": "journey.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox Graph-first user journeys",
+          "file": "journey.spec.ts",
+          "line": 45,
+          "column": 6,
+          "specs": [
+            {
+              "title": "uses Graph Lab for a fresh profile and preserves a later explicit Split preference @journey",
+              "ok": true,
+              "tags": [
+                "journey"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 10972,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:19.088Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bf222bad70f76648f722-b22189594584a420525b",
+              "file": "journey.spec.ts",
+              "line": 46,
+              "column": 7
+            },
+            {
+              "title": "creates a new story from Home into Graph Lab without exposing Split @journey",
+              "ok": true,
+              "tags": [
+                "journey"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8629,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:30.065Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bf222bad70f76648f722-b6fe5b908107ef14cc0b",
+              "file": "journey.spec.ts",
+              "line": 75,
+              "column": 7
+            },
+            {
+              "title": "edits, undoes, redoes, saves, and reopens a real file entirely through visible Graph Lab controls @journey",
+              "ok": true,
+              "tags": [
+                "journey"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7622,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:38.700Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bf222bad70f76648f722-1a5d572c87931de14b90",
+              "file": "journey.spec.ts",
+              "line": 96,
+              "column": 7
+            },
+            {
+              "title": "completes the packaged Graph-first native open to Schema 0.2 export journey without Split or bridges @journey @packaged",
+              "ok": true,
+              "tags": [
+                "journey",
+                "packaged"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 9043,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:46.327Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "bf222bad70f76648f722-ddb58652e24a8b5f83aa",
+              "file": "journey.spec.ts",
+              "line": 159,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "packaged-artifacts.spec.ts",
+      "file": "packaged-artifacts.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox packaged artifact checks",
+          "file": "packaged-artifacts.spec.ts",
+          "line": 36,
+          "column": 6,
+          "specs": [
+            {
+              "title": "packaged app resources are present and do not bundle the website @edge @packaged",
+              "ok": true,
+              "tags": [
+                "edge",
+                "packaged"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 10,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:55.380Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c3dd3193b192d7223fa7-f3142485a6c4c173a732",
+              "file": "packaged-artifacts.spec.ts",
+              "line": 37,
+              "column": 7
+            },
+            {
+              "title": "installed app registers mdstory file association with an icon @edge @packaged @installed",
+              "ok": true,
+              "tags": [
+                "edge",
+                "packaged",
+                "installed"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 289,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:55.395Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c3dd3193b192d7223fa7-827972ce5fc26c506aee",
+              "file": "packaged-artifacts.spec.ts",
+              "line": 78,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "performance.spec.ts",
+      "file": "performance.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox performance baseline",
+          "file": "performance.spec.ts",
+          "line": 22,
+          "column": 6,
+          "specs": [
+            {
+              "title": "opens 100/500/1000 node stories directly into the default Graph Lab within desktop thresholds @perf",
+              "ok": true,
+              "tags": [
+                "perf"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12605,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:07:55.695Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b15d6361b2fc38288977-68a0461591fdac2643f7",
+              "file": "performance.spec.ts",
+              "line": 23,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "remote-theme.spec.ts",
+      "file": "remote-theme.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox official remote themes",
+          "file": "remote-theme.spec.ts",
+          "line": 7,
+          "column": 6,
+          "specs": [
+            {
+              "title": "downloads and applies an official remote ZIP theme through visible Theme Center UI @journey",
+              "ok": true,
+              "tags": [
+                "journey"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4584,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:08:08.309Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9ebda21789ed8f8d18f4-e255d6071d453f977e6c",
+              "file": "remote-theme.spec.ts",
+              "line": 17,
+              "column": 7
+            },
+            {
+              "title": "keeps builtin theme active when remote ZIP hash does not match @edge",
+              "ok": true,
+              "tags": [
+                "edge"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3970,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:08:12.899Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9ebda21789ed8f8d18f4-b2aeb8924300bb0cb681",
+              "file": "remote-theme.spec.ts",
+              "line": 49,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "visual-risk.spec.ts",
+      "file": "visual-risk.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "blackbox visual and theme risk checks",
+          "file": "visual-risk.spec.ts",
+          "line": 24,
+          "column": 6,
+          "specs": [
+            {
+              "title": "captures key viewports and verifies official theme renderers actually change @edge",
+              "ok": true,
+              "tags": [
+                "edge"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "electron-blackbox",
+                  "projectName": "electron-blackbox",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6394,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T01:08:16.884Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f6abff75f617d56a6952-df4e70c3d2d0badd4230",
+              "file": "visual-risk.spec.ts",
+              "line": 25,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-15T01:06:39.347Z",
+    "duration": 103989.459,
+    "expected": 17,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

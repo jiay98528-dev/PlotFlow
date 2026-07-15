@@ -20,11 +20,20 @@
     }
   ],
   "localPreflightEvidence": {
-    "summary": "spec/release-evidence/3801a8181645f99b45ffb612ac04fbace13aa25b/local-unpacked/summary.json",
-    "playwrightResultsSha256": "a8235eea298e12c998bb3aaf489a8791ab38ef2d7b17f7f01d84d5e098f783fe",
-    "expected": 17,
-    "unexpected": 0,
-    "skipped": 0
+    "unpacked": {
+      "summary": "spec/release-evidence/3801a8181645f99b45ffb612ac04fbace13aa25b/local-unpacked/summary.json",
+      "playwrightResultsSha256": "a8235eea298e12c998bb3aaf489a8791ab38ef2d7b17f7f01d84d5e098f783fe",
+      "expected": 17,
+      "unexpected": 0,
+      "skipped": 0
+    },
+    "installed": {
+      "summary": "spec/release-evidence/3801a8181645f99b45ffb612ac04fbace13aa25b/local-installed/summary.json",
+      "playwrightResultsSha256": "db5c895e63791ef3c679f82690610bc7f4b453c8ad4795cc767accadd6477c3f",
+      "expected": 17,
+      "unexpected": 0,
+      "skipped": 0
+    }
   },
   "ciArtifactId": null,
   "releaseDecision": "PENDING_INDEPENDENT_REVIEW"
