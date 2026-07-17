@@ -114,10 +114,15 @@ jobs:
     timeout-minutes: 90
     env:
       PLOTFLOW_REVIEW_EVIDENCE: '1'
-      PLOTFLOW_VALIDATED_RELEASE: ${{ runner.temp }}\plotflow-release-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
+
+      - name: Initialize isolated release path
+        shell: powershell
+        run: |
+          $releasePath = Join-Path $env:RUNNER_TEMP "plotflow-release-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          "PLOTFLOW_VALIDATED_RELEASE=$releasePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup pnpm 11.5.1
         uses: pnpm/action-setup@v4
