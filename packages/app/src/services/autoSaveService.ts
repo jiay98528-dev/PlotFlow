@@ -790,7 +790,7 @@ async function resolveExternalConflictBeforeSave(): Promise<boolean> {
   const choice = await window.plotflow.dialog.confirm({
     type: 'warning',
     message: 'File changed on disk',
-    detail: `${pending.filePath}\n\nThe file was modified outside PlotFlow. Save a copy, reload the disk version, overwrite the disk version, or keep editing without saving.`,
+    detail: `${pending.filePath}\n\nThe file was modified outside Fablevia. Save a copy, reload the disk version, overwrite the disk version, or keep editing without saving.`,
     buttons: ['Save Copy', 'Reload Disk', 'Overwrite Disk', 'Keep Editing'],
   });
 

@@ -111,7 +111,7 @@ $obsCandidates = @(
 ) | Where-Object { $_ }
 $obsPath = $obsCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
 $profileCandidates = @(
-  (Join-Path $env:APPDATA 'PlotFlow'),
+  (Join-Path $env:APPDATA 'PlotFlow'), # brand-compat: Fablevia intentionally reuses the legacy userData directory
   (Join-Path $env:APPDATA 'plotflow')
 ) | Select-Object -Unique
 $existingProfiles = @($profileCandidates | Where-Object { Test-Path -LiteralPath $_ })
@@ -120,8 +120,8 @@ $installerEvidence = Get-FileEvidence $installer
 $installedEvidence = Get-FileEvidence $installedExe
 $releaseManifestEvidence = Get-FileEvidence $releaseManifest
 $manifestLines = Get-Content -LiteralPath $releaseManifest
-$installerEntry = $manifestLines | Where-Object { $_ -match '^[0-9A-Fa-f]{64} \*?PlotFlow Setup .+\.exe$' } | Select-Object -First 1
-$unpackedExpected = Get-ManifestHash 'win-unpacked/PlotFlow.exe'
+$installerEntry = $manifestLines | Where-Object { $_ -match '^[0-9A-Fa-f]{64} \*?Fablevia Setup .+\.exe$' } | Select-Object -First 1
+$unpackedExpected = Get-ManifestHash 'win-unpacked/Fablevia.exe'
 $installerExpected = if ($installerEntry) { ($installerEntry -split ' ')[0].ToUpperInvariant() } else { $null }
 
 $uninstallRoots = @(
@@ -131,7 +131,7 @@ $uninstallRoots = @(
 )
 $uninstallEntries = @(foreach ($root in $uninstallRoots) {
   Get-ItemProperty $root -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -eq 'PlotFlow' } |
+    Where-Object { $_.DisplayName -eq 'Fablevia' } |
     ForEach-Object {
       [ordered]@{
         registrationId = $_.PSChildName
@@ -160,7 +160,7 @@ $matchingUninstallEntries = @($uninstallEntries | Where-Object {
     -and $location -and $location.Equals($installedDirectory, [StringComparison]::OrdinalIgnoreCase) `
     -and $quietExecutable `
     -and $quietExecutable.StartsWith("$installedDirectory\", [StringComparison]::OrdinalIgnoreCase) `
-    -and [IO.Path]::GetFileName($quietExecutable) -eq 'Uninstall PlotFlow.exe' `
+    -and [IO.Path]::GetFileName($quietExecutable) -eq 'Uninstall Fablevia.exe' `
     -and (Test-Path -LiteralPath $quietExecutable -PathType Leaf) `
     -and (((Get-Item -LiteralPath $quietExecutable -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)
 })
@@ -170,6 +170,7 @@ $uninstallerEvidence = if ($matchingUninstallEntries.Count -eq 1) {
 $associationExecutable = Get-CommandExecutable $fileAssociation.openCommand
 $iconExecutable = Get-RegisteredFilePath $fileAssociation.icon
 $registrationValid = $matchingUninstallEntries.Count -eq 1 `
+  -and $extensionClass -eq 'Fablevia.Story' `
   -and $associationExecutable `
   -and $associationExecutable.Equals($installedExe, [StringComparison]::OrdinalIgnoreCase) `
   -and $iconExecutable `
@@ -181,9 +182,9 @@ $blockers = @()
 if ($gitStatus.Count -gt 0) { $blockers += 'Git worktree is not clean.' }
 if (-not $installerExpected) { $blockers += 'Installer is missing from SHA256SUMS.txt.' }
 elseif ($installerExpected -ne $installerEvidence.sha256) { $blockers += 'Installer SHA256 does not match SHA256SUMS.txt.' }
-if (-not $unpackedExpected) { $blockers += 'win-unpacked/PlotFlow.exe is missing from SHA256SUMS.txt.' }
+if (-not $unpackedExpected) { $blockers += 'win-unpacked/Fablevia.exe is missing from SHA256SUMS.txt.' }
 elseif ($unpackedExpected -ne $installedEvidence.sha256) { $blockers += 'Installed executable does not match the packaged executable.' }
-if (-not $registrationValid) { $blockers += 'PlotFlow registration is not uniquely bound to the exact installed executable, quiet uninstaller, association and icon.' }
+if (-not $registrationValid) { $blockers += 'Fablevia registration is not uniquely bound to the exact installed executable, quiet uninstaller, association and icon.' }
 if ($receiptDocument.schemaVersion -ne 2 `
   -or -not ([string]$receiptDocument.installRoot).Equals($installedDirectory, [StringComparison]::OrdinalIgnoreCase) `
   -or $receiptDocument.executableSha256 -ne $installedEvidence.sha256 `
@@ -197,7 +198,7 @@ if (($ReleaseArtifactBytes -le 0) -or ($ReleaseArtifactSha256 -notmatch '^[0-9A-
 }
 if ($screens.Count -eq 0 -or $screens[0].width -le 0) { $blockers += 'Display resolution could not be collected.' }
 if (-not $AllowMissingObs -and -not $obsPath) { $blockers += 'OBS executable is missing.' }
-if (-not $AllowExistingProfile -and $existingProfiles.Count -gt 0) { $blockers += 'PlotFlow user profile already exists; uninstall PlotFlow and clear or archive the profile before first-run evidence.' }
+if (-not $AllowExistingProfile -and $existingProfiles.Count -gt 0) { $blockers += 'Fablevia user profile already exists; uninstall Fablevia and clear or archive the profile before first-run evidence.' }
 
 $environment = [ordered]@{
   schemaVersion = 2
@@ -272,7 +273,7 @@ $jsonPath = Join-Path $evidenceDir 'environment.json'
 $markdownPath = Join-Path $evidenceDir 'environment.md'
 $environment | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $jsonPath -Encoding utf8
 @"
-# PlotFlow External Review Environment
+# Fablevia External Review Environment
 
 - Pack: $Pack
 - Revision: $revision

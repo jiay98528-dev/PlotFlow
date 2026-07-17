@@ -107,7 +107,7 @@ function buildRuntimeJson(data: PlotFlowData): string {
   const initialVars = buildInitialVariables(data.variables);
 
   const runtime: RuntimeData = {
-    title: data.meta.title || 'PlotFlow Story',
+    title: data.meta.title || 'Fablevia Story',
     rootId,
     vars: initialVars,
     nodes,
@@ -369,7 +369,7 @@ export function exportHTML(data: PlotFlowData): ParseResult<string> {
  * 组装完整的 HTML 文档字符串。
  */
 function generateHTML(title: string, runtimeJson: string): string {
-  const escapedTitle = escapeHtml(title || 'PlotFlow Story');
+  const escapedTitle = escapeHtml(title || 'Fablevia Story');
   const css = generateCSS();
   const js = generateJS();
 

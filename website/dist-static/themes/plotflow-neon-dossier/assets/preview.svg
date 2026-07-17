@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
   <title id="title">Neon Dossier Preview</title>
-  <desc id="desc">A high contrast dossier style PlotFlow theme preview.</desc>
+  <desc id="desc">A high contrast dossier style Fablevia theme preview.</desc>
   <defs>
     <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
       <stop offset="0" stop-color="#25214f" />

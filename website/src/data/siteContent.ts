@@ -20,7 +20,7 @@ export const landing = {
     eyebrow: '本地优先的叙事分支工作台',
     title: '在画布上编排剧情分支，再把干净数据交给引擎。',
     subtitle:
-      'PlotFlow 面向独立游戏团队，默认用 Graph Lab 完成图形化创作，同时把所有内容可靠保存为开放的 .mdstory 纯文本。',
+      '维叙（Fablevia）面向独立游戏团队，默认用 Graph Lab 完成图形化创作，同时把所有内容可靠保存为开放的 .mdstory 纯文本。',
     primaryCta: '阅读使用说明',
     secondaryCta: '查看开发进度',
     status: 'Graph-first 源码态与全新 Windows 解包态自动门禁已通过；安装态、真实引擎 smoke、人工巡检和发行签名待完成。',
@@ -44,7 +44,7 @@ export const landing = {
     eyebrow: 'A local-first branching narrative workspace',
     title: 'Shape branches on the canvas, then ship clean data to your engine.',
     subtitle:
-      'PlotFlow defaults to a complete Graph Lab workflow while saving every story to an open, local .mdstory text file.',
+      'Fablevia defaults to a complete Graph Lab workflow while saving every story to an open, local .mdstory text file.',
     primaryCta: 'Read the guide',
     secondaryCta: 'See development',
     status: 'Graph-first source and fresh Windows unpacked automation pass; installed-app, real engine smoke, manual patrol, and signing remain.',
@@ -70,7 +70,7 @@ export const officialThemes = {
   zh: {
     eyebrow: '官方免费主题',
     title: '官方免费主题库',
-    intro: 'PlotFlow 只支持官方发布的代码主题。主题可以控制颜色、布局、尺寸、透明度、节点、连线、面板、动效和 Monaco 配色。',
+    intro: '维叙（Fablevia）只支持官方发布的代码主题。主题可以控制颜色、布局、尺寸、透明度、节点、连线、面板、动效和 Monaco 配色。',
     storeCta: '浏览官方免费主题',
     note: '当前主题均标注为免费主题；不提供本地导入或非官方来源。',
     items: [
@@ -94,7 +94,7 @@ export const officialThemes = {
     eyebrow: 'Official Free Themes',
     title: 'Official free theme library',
     intro:
-      'PlotFlow only supports official code themes. A theme may control color, layout, size, opacity, nodes, edges, panels, motion, and Monaco colors.',
+      'Fablevia only supports official code themes. A theme may control color, layout, size, opacity, nodes, edges, panels, motion, and Monaco colors.',
     storeCta: 'Browse official free themes',
     note: 'All current themes are labeled free themes; local import and non-official sources are not exposed.',
     items: [
@@ -141,26 +141,26 @@ const enGuideSections = [
 export const guide = {
   zh: {
     eyebrow: '使用说明',
-    title: 'PlotFlow 使用说明',
+    title: '维叙（Fablevia）使用说明',
     intro: '这份指南按默认 Graph-first 工作流组织：创建文件、画布编排、修复问题、保存并导出交付。',
     sections: zhGuideSections.map(([id, title, body]) => ({
       id,
       title,
       body,
-      steps: ['打开 PlotFlow', '完成当前步骤', '确认诊断面板没有阻断错误'],
+      steps: ['打开维叙（Fablevia）', '完成当前步骤', '确认诊断面板没有阻断错误'],
       code: '',
       tip: '所有故事内容仍保存在 .mdstory 文本文件中。',
     })),
   },
   en: {
     eyebrow: 'User guide',
-    title: 'PlotFlow guide',
+    title: 'Fablevia guide',
     intro: 'The guide follows the default Graph-first workflow: create, shape on the canvas, fix, save, and export.',
     sections: enGuideSections.map(([id, title, body]) => ({
       id,
       title,
       body,
-      steps: ['Open PlotFlow', 'Complete the step', 'Confirm there are no blocking diagnostics'],
+      steps: ['Open Fablevia', 'Complete the step', 'Confirm there are no blocking diagnostics'],
       code: '',
       tip: 'Story content remains in the .mdstory text file.',
     })),

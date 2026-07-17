@@ -1,8 +1,8 @@
 {
   "name": "plotflow",
   "version": "0.1.0",
-  "description": "面向独立游戏开发者的叙事分支管理工具",
-  "author": "PlotFlow Team",
+  "description": "Fablevia（维叙）——面向独立游戏开发者的叙事分支管理工具",
+  "author": "Fablevia Team",
   "license": "Proprietary",
   "private": true,
   "main": "./out/main/main.js",
@@ -26,6 +26,7 @@
     "lint:layers": "node scripts/check-ui-layer-tokens.mjs",
     "lint:bundle": "node scripts/check-renderer-bundle-budget.mjs",
     "lint:ui-literals": "node scripts/check-ui-literals.mjs",
+    "lint:brand": "node scripts/check-brand-visibility.mjs",
     "lint:docs": "node scripts/check-doc-mojibake.mjs",
     "generate:schema-validator": "node packages/core/scripts/generate-story-schema-validator.mjs",
     "check:schema-validator": "node packages/core/scripts/generate-story-schema-validator.mjs --check",

@@ -83,8 +83,8 @@ async function verifyRemoteArtifact(artifact, revision, execution) {
 async function verifyReleaseEnvironment(environment) {
   const entries = await fetchVerifiedRemoteArtifact(environment.releaseArtifact, environment.revision);
   const manifestEntry = entries.find((entry) => entry.name.endsWith('/SHA256SUMS.txt') || entry.name === 'SHA256SUMS.txt');
-  const installerEntry = entries.find((entry) => /(?:^|\/)PlotFlow Setup .+\.exe$/.test(entry.name));
-  const executableEntry = entries.find((entry) => entry.name.endsWith('win-unpacked/PlotFlow.exe'));
+  const installerEntry = entries.find((entry) => /(?:^|\/)Fablevia Setup .+\.exe$/.test(entry.name));
+  const executableEntry = entries.find((entry) => entry.name.endsWith('win-unpacked/Fablevia.exe'));
   if (!manifestEntry || !installerEntry || !executableEntry) throw new Error('Official release artifact lacks installer, executable, or SHA256 manifest.');
   const manifestBytes = manifestEntry.data;
   const installerBytes = installerEntry.data;

@@ -58,6 +58,9 @@ jobs:
       - name: Graph primary-path UI literal scan
         run: pnpm lint:ui-literals
 
+      - name: Visible brand boundary scan
+        run: pnpm lint:brand
+
       - name: Documentation UTF-8 mojibake gate
         run: pnpm lint:docs
 

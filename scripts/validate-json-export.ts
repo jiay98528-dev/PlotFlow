@@ -1,7 +1,7 @@
 /**
- * PlotFlow → Godot 跨工具流程 — JSON 导出验证脚本
+ * Fablevia → Godot 跨工具流程 — JSON 导出验证脚本
  *
- * 场景: "开发者从PlotFlow导出JSON，导入Godot项目"
+ * 场景: "开发者从 Fablevia 导出 JSON，导入 Godot 项目"
  *
  * 检查点:
  * (1) 导出复杂故事 JSON
@@ -25,7 +25,7 @@ import type { PlotFlowData } from '../packages/core/src/types/ast.js';
 const COMPLEX_STORY = `---
 plotflow: "0.1"
 title: "暗夜森林·试玩版"
-author: "PlotFlow Team"
+author: "Fablevia Team"
 engine: "godot"
 vars:
   好感度: int
@@ -161,9 +161,9 @@ function addReport(cp: string, status: 'PASS' | 'FAIL' | 'WARN', detail: string,
 // ============================================================================
 
 console.log('='.repeat(70));
-console.log('  PlotFlow → Godot 跨工具流程 — JSON 导出验证报告');
+console.log('  Fablevia → Godot 跨工具流程 — JSON 导出验证报告');
 console.log('='.repeat(70));
-console.log(`  场景: 开发者从 PlotFlow 导出 JSON，导入 Godot 项目`);
+console.log(`  场景: 开发者从 Fablevia 导出 JSON，导入 Godot 项目`);
 console.log(`  测试数据: PRD §4.6 完整示例 + 7 个额外节点 (共 10 节点)`);
 console.log('='.repeat(70));
 console.log();
@@ -765,7 +765,7 @@ if (warnings.length > 0) {
 // 打印摘要 JSON（供脚本解析）
 console.log('--- SUMMARY_JSON ---');
 console.log(JSON.stringify({
-  scenario: 'PlotFlow → Godot 跨工具流程',
+  scenario: 'Fablevia → Godot 跨工具流程',
   test_data: 'PRD §4.6 完整示例 + 7个额外节点',
   total_nodes: totalNodes,
   total_options: totalOptions,

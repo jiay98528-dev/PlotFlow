@@ -27,8 +27,8 @@ const readJson = async (filePath) => {
 const status = await readJson(path.join(distDir, 'data', 'project-status.json'));
 
 const assertions = [
-  [html.includes('PlotFlow -'), 'index.html should include the PlotFlow title'],
-  [js.includes('PlotFlow'), 'static app should include the product name'],
+  [html.includes('维叙（Fablevia）'), 'index.html should include the localized Fablevia title'],
+  [js.includes('Fablevia'), 'static app should include the product name'],
   [js.includes('.mdstory'), 'static app should include the source file extension'],
   [js.includes('Graph Lab'), 'static app should include Graph Lab'],
   [js.includes('Windows'), 'static app should include Windows'],

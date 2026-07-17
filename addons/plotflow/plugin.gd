@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-const PlotFlowDock = preload("PlotFlowDock.gd")
+const PlotFlowDock = preload("PlotFlowDock.gd") # brand-compat: stable plugin script/class path
 
 var dock: Control = null
 
@@ -9,9 +9,9 @@ var dock: Control = null
 func _enter_tree() -> void:
 	dock = PlotFlowDock.new()
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, dock)
-	add_tool_menu_item("PlotFlow — Export Story", _on_export_menu_clicked)
-	add_tool_menu_item("PlotFlow — Sync Variables", _on_sync_menu_clicked)
-	print("PlotFlow plugin loaded.")
+	add_tool_menu_item("Fablevia — Export Story", _on_export_menu_clicked)
+	add_tool_menu_item("Fablevia — Sync Variables", _on_sync_menu_clicked)
+	print("Fablevia plugin loaded.")
 
 
 func _exit_tree() -> void:
@@ -20,9 +20,9 @@ func _exit_tree() -> void:
 		dock.queue_free()
 		dock = null
 
-	remove_tool_menu_item("PlotFlow — Export Story")
-	remove_tool_menu_item("PlotFlow — Sync Variables")
-	print("PlotFlow plugin unloaded.")
+	remove_tool_menu_item("Fablevia — Export Story")
+	remove_tool_menu_item("Fablevia — Sync Variables")
+	print("Fablevia plugin unloaded.")
 
 
 func _on_export_menu_clicked(ud: Variant = null) -> void:

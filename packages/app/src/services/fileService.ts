@@ -105,7 +105,7 @@ export class FileService implements IFileService {
     const api = window.plotflow;
     if (!api || !api.file) {
       throw new Error(
-        'PlotFlow IPC API 不可用。请确认 preload 脚本已正确加载。',
+        'Fablevia IPC API 不可用。请确认 preload 脚本已正确加载。',
       );
     }
     return api;

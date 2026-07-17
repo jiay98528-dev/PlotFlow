@@ -18,6 +18,16 @@ describe('appI18n', () => {
     expect(enKeys).toEqual(zhKeys);
   });
 
+  it('uses the localized brand presentation without duplicating the product name in dictionaries', () => {
+    expect(JSON.stringify(appText)).not.toContain('Fablevia');
+    expect(JSON.stringify(appText)).not.toContain('PlotFlow');
+    expect(appT('menu.about', undefined, 'zh-CN')).toContain('维叙（Fablevia）');
+    expect(appT('menu.about', undefined, 'en-US')).toContain('Fablevia');
+    expect(appT('menu.about', undefined, 'en-US')).not.toContain('维叙');
+    expect(appT('appShell.minimap', undefined, 'zh-CN')).toBe('维叙（Fablevia） 缩略图');
+    expect(appT('appShell.minimap', undefined, 'en-US')).toBe('Fablevia minimap');
+  });
+
   it('covers the manual blackbox feedback surfaces in English', () => {
     expect(appT('home.title', undefined, 'en-US')).toContain('interactive stories');
     expect(appT('parse.graphIncomplete', { count: 2 }, 'en-US')).toBe('Graph view has 2 blocking errors');

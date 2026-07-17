@@ -8,9 +8,9 @@
   },
   "version": "1.0.0",
   "plotflowVersion": ">=0.1.0",
-  "author": "PlotFlow Team",
+  "author": "Fablevia Team",
   "license": "Bundled",
-  "description": "PlotFlow 官方默认主题。以纸张工作台、蓝图线缆、清晰节点层级和克制动效服务长时间叙事设计。",
+  "description": "维叙（Fablevia）官方默认主题。以纸张工作台、蓝图线缆、清晰节点层级和克制动效服务长时间叙事设计。",
   "capabilities": ["tokens", "visual", "layout", "monaco"],
   "tokens": {
     "shared": {

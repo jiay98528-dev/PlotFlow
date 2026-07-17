@@ -78,7 +78,7 @@ func set_global_var(name: String, value: Variant) -> void:
 func set_chapter_var(name: String, value: Variant, chapter_id: String = "") -> void:
 	var resolved_chapter := chapter_id if not chapter_id.is_empty() else current_chapter_id
 	if _definitions.has(name) and _scopes.get(name, "global") != "chapter":
-		push_warning("PlotFlow VariableStore: cannot write global variable '%s' into a chapter namespace" % name)
+		push_warning("Fablevia VariableStore: cannot write global variable '%s' into a chapter namespace" % name)
 		return
 	if _scopes.get(name, "global") == "chapter" and not _can_access_chapter_var(name, resolved_chapter):
 		_warn_unauthorized(name, resolved_chapter, "set")
@@ -209,7 +209,7 @@ func _can_access_chapter_var(name: String, chapter_id: String) -> bool:
 
 func _warn_unauthorized(name: String, chapter_id: String, operation: String) -> void:
 	push_warning(
-		"PlotFlow VariableStore: cannot %s chapter variable '%s' from chapter '%s' (owner: '%s')"
+		"Fablevia VariableStore: cannot %s chapter variable '%s' from chapter '%s' (owner: '%s')"
 		% [operation, name, chapter_id, str(_chapter_owners.get(name, ""))]
 	)
 
@@ -255,5 +255,5 @@ func _apply_operation(current: Variant, operation: String, value: Variant) -> Va
 		"append":
 			return str(current) + str(value)
 		_:
-			push_warning("PlotFlow VariableStore: unknown effect operation '%s'" % operation)
+			push_warning("Fablevia VariableStore: unknown effect operation '%s'" % operation)
 			return current

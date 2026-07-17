@@ -1,5 +1,5 @@
 /**
- * PlotFlow Performance Baseline Benchmark (Fast version)
+ * Fablevia Performance Baseline Benchmark (Fast version)
  *
  * Reduces layout iterations to avoid long waits (Dagre is O(|V|*|E|)).
  * Runs all other metrics at full iterations.

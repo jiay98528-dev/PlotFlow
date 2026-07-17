@@ -12,10 +12,10 @@
   },
   "version": "1.0.0",
   "plotflowVersion": ">=0.1.0",
-  "author": "PlotFlow Team",
+  "author": "Fablevia Team",
   "license": "Bundled",
   "defaultMode": "light",
-  "description": "PlotFlow 默认亮色官方主题。它用冷白棱镜、受控液态玻璃与高不透明阅读面组织下一代游戏叙事工作台；玻璃只用于静态结构层，文本、表单、节点正文和源码始终保持清晰稳定。",
+  "description": "维叙（Fablevia）默认亮色官方主题。它用冷白棱镜、受控液态玻璃与高不透明阅读面组织下一代游戏叙事工作台；玻璃只用于静态结构层，文本、表单、节点正文和源码始终保持清晰稳定。",
   "capabilities": ["tokens", "visual", "layout", "monaco"],
   "tokens": {
     "shared": {
@@ -188,7 +188,7 @@
   },
   "storeMeta": {
     "availability": "bundled",
-    "priceLabel": "随 PlotFlow 内置",
+    "priceLabel": "随维叙（Fablevia）内置",
     "storeUrl": "https://plotflow.app/themes/plotflow-prism-foundry"
   },
   "assets": {

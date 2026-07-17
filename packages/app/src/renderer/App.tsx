@@ -48,6 +48,7 @@ import { useAppText } from '../i18n/appI18n';
 import { requestWorkspaceMode, toggleRequestedWorkspaceMode } from '../services/workspaceModeService';
 import type { PendingOpenFileResult } from '../types/electron';
 import { createOrderedAsyncDispatcher } from '../shared/orderedAsyncDispatcher';
+import { BrandLockup } from '../components/brand/BrandLockup';
 
 // ============================================================================
 // P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
@@ -401,13 +402,8 @@ function AppContent(): React.ReactElement {
               data-testid="toolbar-home"
               onClick={() => setHomeSurfaceOpen(true)}
             >
-              <span className="app-logo" aria-hidden="true">
-                {text('appShell.brandMark')}
-              </span>
-              <div>
-                <h1 className="app-title">{text('appShell.version')}</h1>
-                <p className="app-subtitle">{text('toolbar.phase')}</p>
-              </div>
+              <BrandLockup variant="compact" />
+              <span className="app-subtitle">{text('toolbar.phase')}</span>
               <Home aria-hidden="true" size={15} strokeWidth={2} />
             </button>
           )}

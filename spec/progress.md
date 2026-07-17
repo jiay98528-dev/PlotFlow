@@ -1,9 +1,11 @@
-# PlotFlow 实时进度跟踪
+# Fablevia（维叙）实时进度跟踪
 
 > **版本**：V0.3 | **创建日期**：2026-06-12 | **更新**：2026-07-12 Graph Lab 外审测试环境修复 — M0-M7 实际 132/142 (92.96%)
 > **关联**：`spec/milestones.md`（任务定义来源，已归档为历史规划）| `CLAUDE.md`（开发规范）
 
-> **Current Gate Snapshot（Ready for Code Review）**：代码 revision `6faf4801a4f0d2d9a0d15fd2de46f092a2b918b0` 在 `dirty=false` 状态完成本地外审门禁：`lint`（0 error / 9 个既有 warning）、`typecheck`、unit（72 files / 1385 tests）、`build`、CSS/token/layer/bundle/UI literal/文档乱码/Schema/engine/website/audit、App E2E（82/82）、source blackbox（11 passed / 6 target-specific skipped）、fresh Windows package 与 unpacked blackbox（16 passed / 1 installed-only skipped）均通过。安装包 SHA256 为 `65FA5E72BA31DB8232A7C39880D2F8796AC1766B44A45DD0F18B9C9D32A835C8`，unpacked EXE SHA256 为 `3C29B1CF0B03C981D6636331BA7246704FC0968A6626B7D390DAB591FB2B95BB`，两者均为 `NotSigned`。远程代码 revision `15c6c754245d283e7595091d5ca4392bfc2394ad` 的 [PR CI run 29148547758](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758) 已通过 Ubuntu quality gates、Windows App/visual/source-blackbox E2E 与 Placeholder scan；满足 Ready for Code Review。installed blackbox、真实引擎 smoke、30 分钟巡检与 Authenticode 仍阻断 RC 和公共正式发行。
+> **Current Gate Snapshot（品牌迁移工作树 / NO-GO）**：Fablevia（维叙）品牌迁移已使此前 PlotFlow 候选 commit、截图、安装包哈希和 installed 证据失效。当前未提交工作树已实际通过 lint（0 error / 9 个既有 warning）、typecheck、unit、build、CSS/token/layer/bundle/UI literal/brand/docs/Schema/engine/website/audit、App E2E 87/87、source blackbox 11/11、fresh Windows package、unpacked blackbox 17/17 和 installed blackbox 17/17；已将旧 PlotFlow 0.1.0 在 `D:\\Test\\PlotFlow` 原位升级为 Fablevia 0.1.0，新卸载项、`Fablevia.Story` 文件关联和安装 EXE 哈希均通过验证。最终重建的安装包 SHA256 为 `1FCEAD25845BA511E57AAB2A4557F1992232819CA42D0AD34720A75CE71DAFC4`，installed/unpacked `Fablevia.exe` SHA256 为 `5CC8416450709BB24F195C1111F7553863664969001B4D457E3AC94D12EF5083`，均为 `NotSigned`。由于工作树尚未形成精确候选 commit，以上仍是本地工作树验证，不构成 Ready/RC 证据；提交后仍需 clean-tree 重跑并绑定证据。真实引擎 smoke、30 分钟巡检和 Authenticode 继续阻断 RC 与公共正式发行。
+
+> **Previous Gate Snapshot（历史、已被 ADR-015 supersede）**：代码 revision `6faf4801a4f0d2d9a0d15fd2de46f092a2b918b0` 在 `dirty=false` 状态完成当时的本地外审门禁：`lint`（0 error / 9 个既有 warning）、`typecheck`、unit（72 files / 1385 tests）、`build`、CSS/token/layer/bundle/UI literal/文档乱码/Schema/engine/website/audit、App E2E（82/82）、source blackbox（11 passed / 6 target-specific skipped）、fresh Windows package 与 unpacked blackbox（16 passed / 1 installed-only skipped）均通过。安装包 SHA256 为 `65FA5E72BA31DB8232A7C39880D2F8796AC1766B44A45DD0F18B9C9D32A835C8`，unpacked EXE SHA256 为 `3C29B1CF0B03C981D6636331BA7246704FC0968A6626B7D390DAB591FB2B95BB`，两者均为 `NotSigned`。远程代码 revision `15c6c754245d283e7595091d5ca4392bfc2394ad` 的 [PR CI run 29148547758](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758) 已通过当时的检查；该证据不覆盖 Fablevia 品牌迁移后的代码或二进制。
 
 > **External-review Environment Snapshot（2026-07-12）**：测试基础设施 revision `956c2777a3a4052694c5841399cf1238350c5722` 已将 installed 黑盒修复为 17 passed / 1 unpacked-only skipped；原生 Open 覆盖 fresh profile 3/3 与复用 profile 1/1，系统 Edge 验证导出 HTML 的可见交互，100/500/1000 节点性能旅程确认故事文本不变。App E2E 82/82、source blackbox 11 passed / 7 packaged-only skipped。被测安装包 SHA256 为 `CB8C7253C87CF61D5302EAEBF6979D703EF93AC1CDCBFE337D43E57FE5D2D456`，installed EXE SHA256 为 `C90B405F071B31BA1AAAC06EC343322874C7878FBDE7244FB13B016371D3B443`，签名仍为 `NotSigned`。权威外审已拆分为五个独立证据包；当前开发主机因不是干净 Windows 11 VM 快照且缺少 OBS，只能作为非权威复现环境，五包人工证据仍为 `NOT_RUN/BLOCKED`，不得据此宣称 RC 或公共正式发行。
 
@@ -67,7 +69,7 @@
 
 ## M1 核心解析与编辑
 
-**目标**：Monaco 编辑器具备 PlotFlow 语法高亮，.mdstory 文件可完整解析为中间表示，大纲视图可导航。
+**目标**：Monaco 编辑器具备 Fablevia 语法高亮，.mdstory 文件可完整解析为中间表示，大纲视图可导航。
 
 ### 解析器
 

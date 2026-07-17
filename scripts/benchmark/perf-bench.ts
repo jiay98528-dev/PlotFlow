@@ -1,5 +1,5 @@
 /**
- * PlotFlow Performance Baseline Benchmark
+ * Fablevia Performance Baseline Benchmark
  *
  * Measures:
  *   1. 200-node .mdstory file parse time
@@ -103,7 +103,7 @@ function timeWithLabel(label: string, fn: () => void, iterations: number = 100, 
 // ============================================================================
 
 async function main() {
-  console.log(' PlotFlow Performance Baseline Benchmark');
+  console.log(' Fablevia Performance Baseline Benchmark');
   console.log('='.repeat(60) + '\n');
 
   // Load test file

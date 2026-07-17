@@ -1557,7 +1557,7 @@ html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-logo {
   box-shadow: 0 0 0 3px var(--theme-prism-violet-glow);
 }
 
-html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-title {
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .brand-lockup__primary {
   color: var(--theme-prism-ink);
 }
 

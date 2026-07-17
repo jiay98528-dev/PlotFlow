@@ -12,10 +12,10 @@
   },
   "version": "1.0.0",
   "plotflowVersion": ">=0.1.0",
-  "author": "PlotFlow Team",
+  "author": "Fablevia Team",
   "license": "Bundled",
   "defaultMode": "dark",
-  "description": "PlotFlow 官方内置主题。以石墨暗面、青绿信号线、琥珀状态光和红色错误提示构成游戏引擎遥测台，让画布成为主工作区，同时保持 .mdstory 源码持续可见。",
+  "description": "维叙（Fablevia）官方内置主题。以石墨暗面、青绿信号线、琥珀状态光和红色错误提示构成游戏引擎遥测台，让画布成为主工作区，同时保持 .mdstory 源码持续可见。",
   "capabilities": ["tokens", "visual", "layout", "monaco"],
   "tokens": {
     "shared": {
@@ -207,7 +207,7 @@
   },
   "storeMeta": {
     "availability": "bundled",
-    "priceLabel": "已随 PlotFlow 内置",
+    "priceLabel": "已随维叙（Fablevia）内置",
     "storeUrl": "https://plotflow.app/themes/plotflow-engine-telemetry"
   },
   "assets": {

@@ -71,7 +71,7 @@ export const prismFoundryTheme: ThemeDescriptor = {
   }),
   storeMeta: asRecord(data['storeMeta'], {
     availability: 'bundled',
-    priceLabel: '随 PlotFlow 内置',
+    priceLabel: '随维叙（Fablevia）内置',
     storeUrl: 'https://plotflow.app/themes/plotflow-prism-foundry',
   }),
   slots: prismFoundrySlots,

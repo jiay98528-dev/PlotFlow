@@ -49,7 +49,7 @@ export function WhiteboardPreview({ locale }: WhiteboardPreviewProps) {
         };
 
   return (
-    <div className="whiteboard" aria-label={locale === 'zh' ? 'PlotFlow 界面预览' : 'PlotFlow interface preview'}>
+    <div className="whiteboard" aria-label={locale === 'zh' ? '维叙（Fablevia）界面预览' : 'Fablevia interface preview'}>
       <div className="whiteboard__rail">
         <span />
         <span />

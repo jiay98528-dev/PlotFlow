@@ -3,7 +3,7 @@
  *
  * @packageDocumentation
  * @remarks
- * 将原始 .txt 文本文件处理为 PlotFlow 补全引擎可用的压缩 JSON 语料格式。
+ * 将原始 .txt 文本文件处理为 Fablevia 补全引擎可用的压缩 JSON 语料格式。
  *
  * ## 工作流程
  * ```
@@ -458,7 +458,7 @@ function parseArgs(): CliOptions {
  */
 function printHelp(): void {
   console.log(`
-PlotFlow 语料预处理脚本 (M5-02)
+Fablevia（维叙）语料预处理脚本 (M5-02)
 
 用法:
   npx tsx scripts/preprocess-corpus.ts [选项]

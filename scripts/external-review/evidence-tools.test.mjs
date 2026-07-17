@@ -85,9 +85,9 @@ async function fixture() {
   await writeFile(path.join(root, 'raw-report.json'), raw);
   await writeFile(path.join(root, 'result.json'), JSON.stringify(result));
   const receiptBytes = Buffer.from(JSON.stringify({
-    schemaVersion: 2, createdAt: time, registrationId: '74fc8b73-b58d-5573-82e7-75efc9ec526f', installRoot: 'D:/Test/PlotFlow',
-    executablePath: 'D:/Test/PlotFlow/PlotFlow.exe', executableSha256: hash('executable'),
-    uninstallerPath: 'D:/Test/PlotFlow/Uninstall PlotFlow.exe', uninstallerSha256: hash('uninstaller'),
+    schemaVersion: 2, createdAt: time, registrationId: '74fc8b73-b58d-5573-82e7-75efc9ec526f', installRoot: 'D:/Test/Fablevia',
+    executablePath: 'D:/Test/Fablevia/Fablevia.exe', executableSha256: hash('executable'),
+    uninstallerPath: 'D:/Test/Fablevia/Uninstall Fablevia.exe', uninstallerSha256: hash('uninstaller'),
   }));
   await writeFile(path.join(root, 'install-receipt.json'), receiptBytes);
   await writeFile(path.join(root, 'environment.json'), JSON.stringify({
@@ -96,11 +96,11 @@ async function fixture() {
     windows: { caption: 'Windows 11', version: '10.0.26100', build: '26100', uiCulture: 'zh-CN', userLanguages: ['zh-CN'], dpi: 96, scalePercent: 100, screens: [{ deviceName: 'DISPLAY1', width: 1920, height: 1080 }] },
     host: { manufacturer: 'Microsoft', model: 'Virtual Machine', hypervisorPresent: true, user: 'reviewer' },
     installer: { path: 'installer.exe', sha256: hash('installer'), bytes: 1, fileVersion: '0.1.0', productVersion: '0.1.0', authenticode: 'NotSigned' },
-    installedExecutable: { path: 'D:/Test/PlotFlow/PlotFlow.exe', sha256: hash('executable'), bytes: 1, fileVersion: '0.1.0', productVersion: '0.1.0', authenticode: 'NotSigned' },
+    installedExecutable: { path: 'D:/Test/Fablevia/Fablevia.exe', sha256: hash('executable'), bytes: 1, fileVersion: '0.1.0', productVersion: '0.1.0', authenticode: 'NotSigned' },
     releaseManifest: { path: 'SHA256SUMS.txt', sha256: hash('manifest'), bytes: 1, installerExpected: hash('installer'), executableExpected: hash('executable') },
     releaseArtifact: { kind: 'release-binaries', url: 'https://github.com/jiay98528-dev/PlotFlow/actions/runs/123/artifacts/456', sha256: hash('archive'), bytes: 10, provenance: { provider: 'github-actions', repository: 'jiay98528-dev/PlotFlow', workflowPath: '.github/workflows/release-validation.yml', runId: 123, runAttempt: 1, artifactId: 456, artifactName: `plotflow-windows-${revision}` } },
     installReceipt: { path: 'install-receipt.json', sha256: hash(receiptBytes), bytes: receiptBytes.length },
-    registration: { valid: true, installedDirectory: 'D:/Test/PlotFlow', matchingUninstallEntries: [{ registrationId: '74fc8b73-b58d-5573-82e7-75efc9ec526f', installLocation: 'D:/Test/PlotFlow', quietUninstallString: '"D:\\Test\\PlotFlow\\Uninstall PlotFlow.exe" /S' }], associationExecutable: 'D:/Test/PlotFlow/PlotFlow.exe', iconExecutable: 'D:/Test/PlotFlow/file.ico', uninstaller: { path: 'D:/Test/PlotFlow/Uninstall PlotFlow.exe', sha256: hash('uninstaller'), bytes: 1 }, receiptSha256: hash(receiptBytes), receipt: { installRoot: 'D:/Test/PlotFlow', executableSha256: hash('executable'), uninstallerSha256: hash('uninstaller') } },
+    registration: { valid: true, extensionClass: 'Fablevia.Story', installedDirectory: 'D:/Test/Fablevia', matchingUninstallEntries: [{ registrationId: '74fc8b73-b58d-5573-82e7-75efc9ec526f', installLocation: 'D:/Test/Fablevia', quietUninstallString: '"D:\\Test\\Fablevia\\Uninstall Fablevia.exe" /S' }], associationExecutable: 'D:/Test/Fablevia/Fablevia.exe', iconExecutable: 'D:/Test/Fablevia/file.ico', uninstaller: { path: 'D:/Test/Fablevia/Uninstall Fablevia.exe', sha256: hash('uninstaller'), bytes: 1 }, receiptSha256: hash(receiptBytes), receipt: { installRoot: 'D:/Test/Fablevia', executableSha256: hash('executable'), uninstallerSha256: hash('uninstaller') } },
     cleanProfile: { required: false, existingPaths: [] },
   }));
   await writeFile(path.join(root, 'transcription.json'), JSON.stringify({
@@ -173,13 +173,13 @@ test('tracked verifier re-derives conservation and compares committed Git blobs'
 test('installed helper refuses pre-existing state and cleans only with a same-run hash receipt', async () => {
   const source = await readFile(path.join(toolRoot, 'install-release-candidate.ps1'), 'utf8');
   assert.match(source, /74fc8b73-b58d-5573-82e7-75efc9ec526f/);
-  assert.match(source, /Refusing an unknown PlotFlow uninstall registration/);
-  assert.match(source, /Refusing to terminate an unverified PlotFlow process/);
+  assert.match(source, /Refusing an unknown Fablevia uninstall registration/);
+  assert.match(source, /Refusing to terminate an unverified Fablevia process/);
   assert.match(source, /RequireInstallLocation/);
-  assert.match(source, /Install mode refuses all pre-existing PlotFlow uninstall registrations/);
+  assert.match(source, /Install mode refuses all pre-existing Fablevia or legacy uninstall registrations/);
   assert.match(source, /Install receipt hash mismatch/);
   assert.match(source, /Registered uninstaller does not match the same-run receipt/);
-  assert.doesNotMatch(source, /Get-Process -Name PlotFlow[^\r\n]*\| Stop-Process/);
+  assert.doesNotMatch(source, /Get-Process -Name Fablevia[^\r\n]*\| Stop-Process/);
 });
 
 test('release workflow carries upload provenance and same-run receipt into cleanup', async () => {

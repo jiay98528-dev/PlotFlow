@@ -42,7 +42,7 @@ export const prismFoundrySurfaces: ThemeSurfaces = {
         {brand}
         <nav
           className="app-toolbar prism-foundry-toolbar__nav"
-          aria-label="PlotFlow Prism Foundry command bar"
+          aria-label="Fablevia Prism Foundry command bar"
         >
           <div className="toolbar-group prism-foundry-toolbar__group" role="group">
             {fileControls}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useUIStore, type Language } from '../stores/uiStore';
+import { FABLEVIA_BRAND, resolveBrandPresentation } from '../branding/brand';
 
 type Primitive = string;
 type TranslationTree = {
@@ -42,7 +43,6 @@ export const appText = {
       graphIncomplete: '编辑器中有 {count} 个语法错误，分支图可能不完整',
     },
     home: {
-      eyebrow: 'PlotFlow Official Workbench',
       title: '用流程图和文本双投影编排互动叙事',
       body: '从 .mdstory 文件进入 Split 或 Graph Lab。故事内容仍是纯文本，官方主题决定工作台的节点、连线、面板、布局和动效表现。',
       currentTheme: '当前官方主题',
@@ -99,8 +99,8 @@ export const appText = {
       saveAsError: '另存为失败',
       graphShown: '分支图已显示',
       graphHidden: '分支图已隐藏',
-      about: 'PlotFlow V0.1 - 叙事分支管理工具',
-      docs: '帮助文档 - 请访问 PlotFlow GitHub 仓库',
+      about: '{brand} V0.1 - 叙事分支管理工具',
+      docs: '帮助文档 - 请访问 {brand} GitHub 仓库',
     },
     graphLab: {
       unsavedStory: '未保存故事',
@@ -248,15 +248,14 @@ export const appText = {
       empty: '打开 .mdstory 文件以查看大纲',
     },
     appShell: {
-      brandMark: 'Pf',
-      version: 'PlotFlow V0.1',
+      version: 'V0.1',
       languageChinese: '中文',
       languageEnglish: 'English',
       splitControls: 'Split 工作区控件',
-      minimap: 'PlotFlow 缩略图',
+      minimap: '{brand} 缩略图',
       externalReloaded: '已重新载入外部修改：{path}',
       externalChangeTitle: '文件已在磁盘上更改',
-      externalChangeDetail: '{path}\n\n此文件已在 PlotFlow 外部修改。你可以另存当前编辑、重新载入磁盘版本、覆盖磁盘版本，或保留当前编辑且暂不载入。',
+      externalChangeDetail: '{path}\n\n此文件已在 {brand} 外部修改。你可以另存当前编辑、重新载入磁盘版本、覆盖磁盘版本，或保留当前编辑且暂不载入。',
       saveCopy: '另存副本',
       reloadDisk: '重新载入磁盘版本',
       overwriteDisk: '覆盖磁盘版本',
@@ -525,7 +524,7 @@ export const appText = {
       jumpedToLine: '已定位到第 {line} 行',
     },
     statusBar: {
-      aria: 'PlotFlow 状态栏',
+      aria: '{brand} 状态栏',
       unsaved: '未保存',
       nodes: '节点 {count}',
       options: '选项 {count}',
@@ -622,7 +621,7 @@ export const appText = {
     themeCenter: {
       eyebrow: 'Official Free Themes',
       title: '官方主题中心',
-      intro: 'PlotFlow 只支持官方主题。免费主题可远程下载、更新并立即生效，不会修改 .mdstory 内容。',
+      intro: '{brand} 只支持官方主题。免费主题可远程下载、更新并立即生效，不会修改 .mdstory 内容。',
       close: '关闭主题中心',
       officialFreeThemes: '官方免费主题',
       note: '官方主题可以控制节点、连线、面板、UX 布局、Monaco 配色、透明度、尺寸和动效。',
@@ -633,6 +632,8 @@ export const appText = {
       installed: '已安装官方主题',
       remote: '官方免费主题库',
       price: '状态',
+      bundled: '随 {brand} 内置',
+      free: '免费主题',
       remoteVersion: '远程版本',
       localVersion: '本地版本',
       emptyRemoteLoading: '正在读取官方主题库...',
@@ -675,7 +676,6 @@ export const appText = {
       graphIncomplete: 'Graph view has {count} blocking errors',
     },
     home: {
-      eyebrow: 'PlotFlow Official Workbench',
       title: 'Edit interactive stories through graph and text projections',
       body: 'Start from a .mdstory file in Split or Graph Lab. The story remains plain text while official themes shape nodes, cables, panels, layout, and motion.',
       currentTheme: 'Current official theme',
@@ -732,8 +732,8 @@ export const appText = {
       saveAsError: 'Save As failed',
       graphShown: 'Branch graph shown',
       graphHidden: 'Branch graph hidden',
-      about: 'PlotFlow V0.1 - Narrative branch management tool',
-      docs: 'Help docs - visit the PlotFlow GitHub repository',
+      about: '{brand} V0.1 - Narrative branch management tool',
+      docs: 'Help docs - visit the {brand} GitHub repository',
     },
     graphLab: {
       unsavedStory: 'Unsaved story',
@@ -881,15 +881,14 @@ export const appText = {
       empty: 'Open a .mdstory file to view its outline',
     },
     appShell: {
-      brandMark: 'Pf',
-      version: 'PlotFlow V0.1',
+      version: 'V0.1',
       languageChinese: '中文',
       languageEnglish: 'English',
       splitControls: 'Split workspace controls',
-      minimap: 'PlotFlow minimap',
+      minimap: '{brand} minimap',
       externalReloaded: 'Reloaded external changes: {path}',
       externalChangeTitle: 'File changed on disk',
-      externalChangeDetail: '{path}\n\nThis file was modified outside PlotFlow. Save a copy of your edits, reload the disk version, overwrite the disk version, or keep editing without reloading.',
+      externalChangeDetail: '{path}\n\nThis file was modified outside {brand}. Save a copy of your edits, reload the disk version, overwrite the disk version, or keep editing without reloading.',
       saveCopy: 'Save Copy',
       reloadDisk: 'Reload Disk',
       overwriteDisk: 'Overwrite Disk',
@@ -1158,7 +1157,7 @@ export const appText = {
       jumpedToLine: 'Focused line {line}',
     },
     statusBar: {
-      aria: 'PlotFlow status',
+      aria: '{brand} status',
       unsaved: 'Unsaved',
       nodes: 'Nodes {count}',
       options: 'Options {count}',
@@ -1255,7 +1254,7 @@ export const appText = {
     themeCenter: {
       eyebrow: 'Official Free Themes',
       title: 'Official Theme Center',
-      intro: 'PlotFlow only supports official themes. Free themes can be downloaded, updated, and applied immediately without changing .mdstory content.',
+      intro: '{brand} only supports official themes. Free themes can be downloaded, updated, and applied immediately without changing .mdstory content.',
       close: 'Close Theme Center',
       officialFreeThemes: 'Official free themes',
       note: 'Official themes can control nodes, cables, panels, UX layout, Monaco colors, opacity, sizing, and motion.',
@@ -1266,6 +1265,8 @@ export const appText = {
       installed: 'Installed official themes',
       remote: 'Official free theme catalog',
       price: 'Status',
+      bundled: 'Bundled with {brand}',
+      free: 'Free theme',
       remoteVersion: 'Remote version',
       localVersion: 'Local version',
       emptyRemoteLoading: 'Reading official theme catalog...',
@@ -1299,9 +1300,13 @@ export function appT(
     resolveValue(appText['en-US'], key) ??
     key;
 
-  if (!params) return template;
+  const replacements: Readonly<Record<string, string | number>> = {
+    brand: resolveBrandPresentation(language).plainTextName,
+    englishBrand: FABLEVIA_BRAND.englishName,
+    ...params,
+  };
   return template.replace(/\{(\w+)}/g, (match, name: string) => {
-    const value = params[name];
+    const value = replacements[name];
     return value === undefined ? match : String(value);
   });
 }

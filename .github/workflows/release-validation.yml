@@ -66,8 +66,8 @@ jobs:
         run: |
           $releaseRoot = (Resolve-Path -LiteralPath 'release').Path
           $files = @(
-            Get-ChildItem -LiteralPath 'release' -File -Filter 'PlotFlow Setup *.exe'
-            Get-ChildItem -LiteralPath 'release/win-unpacked' -File -Filter 'PlotFlow.exe'
+            Get-ChildItem -LiteralPath 'release' -File -Filter 'Fablevia Setup *.exe'
+            Get-ChildItem -LiteralPath 'release/win-unpacked' -File -Filter 'Fablevia.exe'
           ) | Sort-Object FullName
           if ($files.Count -ne 2) {
             throw "Expected one installer and one unpacked executable, found $($files.Count)."
@@ -87,9 +87,9 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           path: |
-            release/PlotFlow Setup *.exe
-            release/PlotFlow Setup *.exe.blockmap
-            release/win-unpacked/PlotFlow.exe
+            release/Fablevia Setup *.exe
+            release/Fablevia Setup *.exe.blockmap
+            release/win-unpacked/Fablevia.exe
             release/SHA256SUMS.txt
 
       - name: Upload Playwright failure evidence
@@ -144,7 +144,7 @@ jobs:
         run: |
           $manifestPath = Resolve-Path -LiteralPath (Join-Path $env:PLOTFLOW_VALIDATED_RELEASE 'SHA256SUMS.txt')
           $manifest = Get-Content -LiteralPath $manifestPath
-          $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
+          $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'Fablevia Setup *.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Downloaded installer is missing.' }
           $installerEntry = $manifest | Where-Object { $_ -like "* *$($installer.Name)" } | Select-Object -First 1
           if (-not $installerEntry) { throw 'Installer is missing from SHA256SUMS.txt.' }
@@ -152,7 +152,7 @@ jobs:
           $actualInstallerHash = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash
           if ($actualInstallerHash -ne $expectedInstallerHash) { throw 'Installer SHA256 mismatch.' }
 
-          $unpackedEntry = $manifest | Where-Object { $_ -like '* *win-unpacked/PlotFlow.exe' } | Select-Object -First 1
+          $unpackedEntry = $manifest | Where-Object { $_ -like '* *win-unpacked/Fablevia.exe' } | Select-Object -First 1
           if (-not $unpackedEntry) { throw 'Unpacked executable is missing from SHA256SUMS.txt.' }
           $expectedExecutableHash = ($unpackedEntry -split ' ')[0]
           $installRoot = Join-Path $env:RUNNER_TEMP "PlotFlow-installed-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
@@ -182,7 +182,7 @@ jobs:
           RELEASE_ARTIFACT_DIGEST: ${{ needs.package-unpacked.outputs.artifact-digest }}
           RELEASE_ARTIFACT_NAME: ${{ needs.package-unpacked.outputs.artifact-name }}
         run: |
-          $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'PlotFlow Setup *.exe' | Select-Object -First 1
+          $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'Fablevia Setup *.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Downloaded installer is missing.' }
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json'; 'X-GitHub-Api-Version' = '2022-11-28' }
           $metadata = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$env:RELEASE_ARTIFACT_ID"

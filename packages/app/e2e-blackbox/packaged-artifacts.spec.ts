@@ -45,7 +45,7 @@ test.describe('blackbox packaged artifact checks', () => {
 
     const executable = target === 'installedExe'
       ? process.env['PLOTFLOW_INSTALLED_EXE']
-      : join(artifactRoot, 'PlotFlow.exe');
+      : join(artifactRoot, 'Fablevia.exe');
     expect(executable && existsSync(executable)).toBeTruthy();
 
     const resourcesDir = join(artifactRoot, 'resources');
@@ -96,7 +96,7 @@ if ($assoc.Length -gt 0) {
       timeout: 10_000,
     });
     const [association = '', icon = ''] = stdout.split(/\r?\n/).map((line) => line.trim());
-    expect(association).not.toBe('');
+    expect(association).toBe('Fablevia.Story');
     expect(icon.toLowerCase()).toContain('file-icon.ico');
   });
 });

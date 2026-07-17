@@ -364,12 +364,13 @@ export function validateEnvironment(environment) {
     || typeof registrationEntry?.quietUninstallString !== 'string' || registrationEntry.quietUninstallString.length === 0
     || typeof environment.registration.associationExecutable !== 'string'
     || typeof environment.registration.iconExecutable !== 'string'
+    || environment.registration.extensionClass !== 'Fablevia.Story'
     || !sameWindowsPath(environment.registration.installedDirectory, path.win32.dirname(environment.installedExecutable?.path ?? ''))
     || !sameWindowsPath(registrationEntry?.installLocation, environment.registration.installedDirectory)
     || !sameWindowsPath(environment.registration.associationExecutable, environment.installedExecutable?.path)
     || !windowsPathInside(environment.registration.iconExecutable, environment.registration.installedDirectory)
     || !windowsPathInside(quietExecutable, environment.registration.installedDirectory)
-    || path.win32.basename(quietExecutable ?? '').toLowerCase() !== 'uninstall plotflow.exe'
+    || path.win32.basename(quietExecutable ?? '').toLowerCase() !== 'uninstall fablevia.exe'
     || !sameWindowsPath(environment.registration.uninstaller?.path, quietExecutable)
     || !SHA256.test(environment.registration.uninstaller?.sha256 ?? '')
     || !Number.isInteger(environment.registration.uninstaller?.bytes) || environment.registration.uninstaller.bytes <= 0
@@ -389,7 +390,7 @@ export function validateEnvironment(environment) {
     || typeof environment?.host?.hypervisorPresent !== 'boolean' || typeof environment?.host?.user !== 'string') {
     blockers.push('Windows host evidence is incomplete.');
   }
-  if (environment?.cleanProfile?.required && environment.cleanProfile.existingPaths?.length > 0) blockers.push('PlotFlow user profile already exists.');
+  if (environment?.cleanProfile?.required && environment.cleanProfile.existingPaths?.length > 0) blockers.push('Fablevia user profile already exists.');
   return blockers;
 }
 

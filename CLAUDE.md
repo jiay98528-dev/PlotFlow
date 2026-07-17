@@ -1,4 +1,6 @@
-# PlotFlow 项目开发工作流
+# Fablevia（维叙）项目开发工作流
+
+> 对外产品品牌为 Fablevia（维叙）；中文 UI 主显示“维叙”并用小字辅助 `Fablevia`，英文 UI 只显示 `Fablevia`。项目路径和 `plotflow` 技术命名空间为兼容合同，不随品牌机械改名。
 
 > 版本：V0.3 | 日期：2026-06-23 | 基于 MarkLuck 实战工作流模板构建
 > 适用于：单人 + AI 协作的独立游戏开发工具项目
@@ -9,13 +11,13 @@
 
 **本项目工作目录**: `D:\VibeCoding\PlotFlow`
 
-禁止访问与 PlotFlow 开发无关的系统目录和文件。所有操作限定在本工作目录内。如需参考 MarkLuck 项目的工作流与代码，先读取 `MARKLUCK_REFERENCE.md` 了解可复用范围。
+禁止访问与 Fablevia（维叙）开发无关的系统目录和文件。所有操作限定在本工作目录内。如需参考 MarkLuck 项目的工作流与代码，先读取 `MARKLUCK_REFERENCE.md` 了解可复用范围。
 
 ---
 
 ## 一、项目身份
 
-**PlotFlow** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并保留顶栏并列的 Split 完整源码投影，以多格式导出为目标。
+**Fablevia（维叙）** — 面向独立游戏开发者的叙事分支管理工具。以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并保留顶栏并列的 Split 完整源码投影，以多格式导出为目标。
 
 **一句话**：让叙事设计师用 Markdown 或流程图管理分支剧情，程序拿干净 JSON 直接跑。不锁死数据，不强制联网，$29 买断。
 
@@ -127,7 +129,7 @@
 
 | 模块 | 内容 |
 |------|------|
-| 编辑器 | Monaco 编辑器 + PlotFlow 语法高亮 + 大纲视图 + 自动保存 |
+| 编辑器 | Monaco 编辑器 + Fablevia 语法高亮 + 大纲视图 + 自动保存 |
 | 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线，点击跳转，小地图） |
 | Graph Lab Core | 图优先正式入口：全屏画布、节点 palette、Inspector、Source Drawer，支持完整 GUI 操控并序列化回 `.mdstory` |
 | 条件编辑 | 内联图形化条件编辑器（Airtable 风格），双向文本同步 |
@@ -177,7 +179,7 @@
 
 ### 🎨 UX 设计权威来源
 
-`spec/design-brief-editor-ux.md` 是 PlotFlow 编辑器所有 UI/UX 设计的**唯一真相源（Single Source of Truth）**。
+`spec/design-brief-editor-ux.md` 是 Fablevia（维叙）编辑器所有 UI/UX 设计的**唯一真相源（Single Source of Truth）**。
 
 - 所有 UI 组件实现必须对照此文档中的设计决策
 - 任何视觉变更、交互调整、布局修改必须先更新此文档，再改代码
@@ -275,7 +277,7 @@ PlotFlowData AST (中间表示)
 ### 6.6 主题开发约束（强制）
 
 - 任何新增主题、修改主题 API、扩展 Surface/Slot、扩展官方远程主题 loader，必须先遵循并同步 `doc/standards-theme-development.md`
-- PlotFlow 当前只支持官方主题：内置官方主题和官方远程免费主题；不开放第三方、社区上传、本地导入、购买或授权
+- Fablevia（维叙）当前只支持官方主题：内置官方主题和官方远程免费主题；不开放第三方、社区上传、本地导入、购买或授权
 - 官方远程主题必须通过 registry → ZIP 下载 → `sha256` 校验 → 安全解包 → `plotflow-theme://` 动态加载链路，不得直接执行 HTTPS JS
 - 主题可以控制 UX/视觉/布局/Surface/Slot/Monaco/assets，但不得改变 `.mdstory` 语义、parser/exporter、保存流程或 Graph Lab 命令层
 
@@ -557,4 +559,4 @@ ESLint `no-restricted-syntax` 规则拦截 TSX 中的裸 hex 色值：
 
 ---
 
-*本文件是 PlotFlow 项目的唯一元指令来源。所有 AI 协作编码必须遵循本文件定义的架构、工作流和约束。*
+*本文件是 Fablevia（维叙）项目的唯一元指令来源。所有 AI 协作编码必须遵循本文件定义的架构、工作流和约束。*

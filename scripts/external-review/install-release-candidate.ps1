@@ -44,13 +44,13 @@ function Assert-NoReparsePoint([string]$Candidate) {
   }
 }
 
-function Get-PlotFlowUninstallEntries {
+function Get-FableviaUninstallEntries {
   @(
     'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
     'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
     'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
   ) | ForEach-Object {
-    Get-ItemProperty $_ -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -eq 'PlotFlow' }
+    Get-ItemProperty $_ -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -in @('Fablevia', 'PlotFlow') } # brand-compat: reject legacy installs too
   }
 }
 
@@ -62,7 +62,7 @@ function Split-NativeCommand([string]$Command) {
 
 function Resolve-ValidatedUninstallEntry($Entry, [switch]$RequireInstallLocation) {
   if ($Entry.PSChildName -notin @($expectedProductGuid, "${expectedProductGuid}_is1")) {
-    throw "Refusing an unknown PlotFlow uninstall registration: $($Entry.PSPath)"
+    throw "Refusing an unknown Fablevia uninstall registration: $($Entry.PSPath)"
   }
   $command = if ($Entry.QuietUninstallString) { $Entry.QuietUninstallString } else { $Entry.UninstallString }
   $parts = Split-NativeCommand $command
@@ -71,7 +71,7 @@ function Resolve-ValidatedUninstallEntry($Entry, [switch]$RequireInstallLocation
       [string]::IsNullOrWhiteSpace($Entry.InstallLocation) -or
       -not [IO.Path]::IsPathRooted($Entry.InstallLocation)
     )) {
-    throw 'PlotFlow uninstall registration has no absolute InstallLocation.'
+    throw 'Fablevia uninstall registration has no absolute InstallLocation.'
   }
   $registeredRoot = if ([string]::IsNullOrWhiteSpace($Entry.InstallLocation)) {
     [IO.Path]::GetDirectoryName($uninstaller)
@@ -83,7 +83,7 @@ function Resolve-ValidatedUninstallEntry($Entry, [switch]$RequireInstallLocation
     -not (Test-Path -LiteralPath $uninstaller -PathType Leaf) -or
     [IO.Path]::GetFileName($uninstaller) -notmatch '^Uninstall.*\.exe$'
   ) {
-    throw 'PlotFlow uninstall command is not bound to its registered installation.'
+    throw 'Fablevia uninstall command is not bound to its registered installation.'
   }
   return [PSCustomObject]@{ Root = $registeredRoot; Executable = $uninstaller; Arguments = $parts[1] }
 }
@@ -92,7 +92,7 @@ function Invoke-UninstallEntry($ValidatedEntry) {
   $arguments = $ValidatedEntry.Arguments
   if ($arguments -notmatch '(^|\s)/S($|\s)') { $arguments = "$arguments /S".Trim() }
   $process = Start-Process -FilePath $ValidatedEntry.Executable -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
-  if ($process.ExitCode -ne 0) { throw "PlotFlow uninstaller exited with $($process.ExitCode)." }
+  if ($process.ExitCode -ne 0) { throw "Fablevia uninstaller exited with $($process.ExitCode)." }
 }
 
 if ($Mode -eq 'Cleanup') {
@@ -106,9 +106,9 @@ if ($Mode -eq 'Cleanup') {
   if ($receipt.schemaVersion -ne 2 -or -not $receipt.installRoot.Equals($installRoot, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Install receipt does not belong to this InstallDir.'
   }
-  $registeredEntries = @(Get-PlotFlowUninstallEntries | ForEach-Object { Resolve-ValidatedUninstallEntry $_ -RequireInstallLocation })
+  $registeredEntries = @(Get-FableviaUninstallEntries | ForEach-Object { Resolve-ValidatedUninstallEntry $_ -RequireInstallLocation })
   if ($registeredEntries.Count -ne 1 -or -not $registeredEntries[0].Root.Equals($installRoot, [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Cleanup requires one exact same-run PlotFlow registration.'
+    throw 'Cleanup requires one exact same-run Fablevia registration.'
   }
   $entry = $registeredEntries[0]
   Assert-NoReparsePoint $entry.Root
@@ -118,24 +118,24 @@ if ($Mode -eq 'Cleanup') {
     ($currentUninstallerHash -ne $receipt.uninstallerSha256)) {
     throw 'Registered uninstaller does not match the same-run receipt.'
   }
-  $installedExe = Join-Path $installRoot 'PlotFlow.exe'
+  $installedExe = Join-Path $installRoot 'Fablevia.exe'
   $installedExists = Test-Path -LiteralPath $installedExe -PathType Leaf
   $currentExecutableHash = if ($installedExists) { (Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash } else { $null }
   if ((-not $installedExists) -or ($currentExecutableHash -ne $receipt.executableSha256)) {
     throw 'Installed executable does not match the same-run receipt.'
   }
-  foreach ($running in @(Get-Process -Name PlotFlow -ErrorAction SilentlyContinue)) {
+  foreach ($running in @(Get-Process -Name Fablevia -ErrorAction SilentlyContinue)) {
     if (-not $running.Path -or -not (Test-PathInside $running.Path $installRoot)) {
-      throw "Refusing to terminate an unverified PlotFlow process: PID $($running.Id)"
+      throw "Refusing to terminate an unverified Fablevia process: PID $($running.Id)"
     }
     Stop-Process -Id $running.Id -Force
   }
   Invoke-UninstallEntry $entry
   $deadline = (Get-Date).AddSeconds(30)
-  while (((Get-PlotFlowUninstallEntries).Count -gt 0 -or (Test-Path -LiteralPath $installRoot)) -and (Get-Date) -lt $deadline) {
+  while (((Get-FableviaUninstallEntries).Count -gt 0 -or (Test-Path -LiteralPath $installRoot)) -and (Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 250
   }
-  if ((Get-PlotFlowUninstallEntries).Count -gt 0) { throw 'Stale PlotFlow uninstall registration remains after silent uninstall.' }
+  if ((Get-FableviaUninstallEntries).Count -gt 0) { throw 'Stale Fablevia uninstall registration remains after silent uninstall.' }
   if (Test-Path -LiteralPath $installRoot) { throw "Installed files remain after cleanup: $installRoot" }
   $class = (Get-ItemProperty 'Registry::HKEY_CLASSES_ROOT\.mdstory' -ErrorAction SilentlyContinue).'(default)'
   if ($class) { throw '.mdstory file association remains after cleanup.' }
@@ -144,8 +144,9 @@ if ($Mode -eq 'Cleanup') {
 }
 
 if (-not $InstallerPath -or -not $ReceiptPath) { throw 'InstallerPath and ReceiptPath are required for Install mode.' }
-if (@(Get-PlotFlowUninstallEntries).Count -gt 0) { throw 'Install mode refuses all pre-existing PlotFlow uninstall registrations.' }
-if (@(Get-Process -Name PlotFlow -ErrorAction SilentlyContinue).Count -gt 0) { throw 'Install mode refuses all pre-existing PlotFlow processes.' }
+if (@(Get-FableviaUninstallEntries).Count -gt 0) { throw 'Install mode refuses all pre-existing Fablevia or legacy uninstall registrations.' }
+if (@(Get-Process -Name Fablevia -ErrorAction SilentlyContinue).Count -gt 0) { throw 'Install mode refuses all pre-existing Fablevia processes.' }
+if (@(Get-Process -Name PlotFlow -ErrorAction SilentlyContinue).Count -gt 0) { throw 'Install mode refuses all pre-existing legacy processes.' } # brand-compat
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $receiptFile = [IO.Path]::GetFullPath($ReceiptPath)
 if (-not (Test-PathInside $receiptFile $allowedRootPath) -or (Test-PathInside $receiptFile $installRoot)) {
@@ -156,14 +157,14 @@ Assert-NoReparsePoint $installRoot
 Assert-NoReparsePoint ([IO.Path]::GetDirectoryName($receiptFile))
 if (Test-Path -LiteralPath $installRoot) { Remove-Item -LiteralPath $installRoot -Recurse -Force }
 $process = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru -WindowStyle Hidden
-if ($process.ExitCode -ne 0) { throw "PlotFlow installer exited with $($process.ExitCode)." }
-$installedExe = Join-Path $installRoot 'PlotFlow.exe'
+if ($process.ExitCode -ne 0) { throw "Fablevia installer exited with $($process.ExitCode)." }
+$installedExe = Join-Path $installRoot 'Fablevia.exe'
 if (-not (Test-Path -LiteralPath $installedExe -PathType Leaf)) { throw "Installer did not create $installedExe" }
 $actualHash = (Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash
 if ($ExpectedExecutableHash -and $actualHash -ne $ExpectedExecutableHash.ToUpperInvariant()) {
   throw 'Installed executable does not match the same-run packaged executable.'
 }
-$installedEntries = @(Get-PlotFlowUninstallEntries | ForEach-Object { Resolve-ValidatedUninstallEntry $_ -RequireInstallLocation })
+$installedEntries = @(Get-FableviaUninstallEntries | ForEach-Object { Resolve-ValidatedUninstallEntry $_ -RequireInstallLocation })
 if ($installedEntries.Count -ne 1 -or -not $installedEntries[0].Root.Equals($installRoot, [StringComparison]::OrdinalIgnoreCase)) {
   throw 'Installed registration is not uniquely bound to the requested installation directory.'
 }

@@ -139,11 +139,11 @@ test('environment requires clean hashes and exact installed registration', () =>
     host: { manufacturer: 'Microsoft', model: 'Virtual Machine', hypervisorPresent: true, user: 'reviewer' },
     repository: { dirty: false, status: [] },
     installer: { path: 'installer.exe', sha256: hash, bytes: 1, fileVersion: '0.1.0', productVersion: '0.1.0', authenticode: 'NotSigned' },
-    installedExecutable: { path: 'PlotFlow.exe', sha256: hash, bytes: 1, fileVersion: '0.1.0', productVersion: '0.1.0', authenticode: 'NotSigned' },
+    installedExecutable: { path: 'Fablevia.exe', sha256: hash, bytes: 1, fileVersion: '0.1.0', productVersion: '0.1.0', authenticode: 'NotSigned' },
     releaseManifest: { path: 'SHA256SUMS.txt', sha256: hash, bytes: 1, installerExpected: hash, executableExpected: hash },
     releaseArtifact: { kind: 'release-binaries', url: `https://github.com/jiay98528-dev/PlotFlow/actions/runs/123/artifacts/456`, sha256: hash, bytes: 1, provenance: { provider: 'github-actions', repository: 'jiay98528-dev/PlotFlow', workflowPath: '.github/workflows/release-validation.yml', runId: 123, runAttempt: 1, artifactId: 456, artifactName: `plotflow-windows-${revision}` } },
     installReceipt: { path: 'install-receipt.json', sha256: hash, bytes: 1 },
-    registration: { valid: false, receiptSha256: hash, installedDirectory: 'D:/Test/PlotFlow', matchingUninstallEntries: [], associationExecutable: 'D:/Test/PlotFlow/PlotFlow.exe', iconExecutable: 'D:/Test/PlotFlow/file.ico' },
+    registration: { valid: false, receiptSha256: hash, installedDirectory: 'D:/Test/Fablevia', matchingUninstallEntries: [], associationExecutable: 'D:/Test/Fablevia/Fablevia.exe', iconExecutable: 'D:/Test/Fablevia/file.ico' },
     cleanProfile: { required: false, existingPaths: [] },
   });
   assert.deepEqual(blockers, ['Installed registration is not bound to the exact executable.']);

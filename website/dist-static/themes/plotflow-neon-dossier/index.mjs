@@ -79,7 +79,7 @@ export function createTheme(host) {
         h('div', { className: 'neon-dossier-toolbar__brand' }, brand),
         h(
           'nav',
-          { className: 'app-toolbar neon-dossier-toolbar__commands', 'aria-label': 'PlotFlow toolbar' },
+          { className: 'app-toolbar neon-dossier-toolbar__commands', 'aria-label': 'Fablevia toolbar' },
           h('div', { className: 'toolbar-group neon-dossier-toolbar__group', role: 'group' }, fileControls),
           h('div', { className: 'toolbar-group neon-dossier-toolbar__group', role: 'group' }, viewControls),
           h('div', { className: 'toolbar-group neon-dossier-toolbar__group', role: 'group' }, preferenceControls),

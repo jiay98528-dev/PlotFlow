@@ -149,12 +149,14 @@ const systemOpenDispatcher = createOrderedAsyncDispatcher<string>(async (filePat
 function dispatchSystemOpenFile(filePath: string): void {
   void systemOpenDispatcher.enqueue(filePath).catch((error: unknown) => {
     // eslint-disable-next-line no-console -- main-process system-open failures require durable diagnostics
-    console.error('[PlotFlow] 系统打开文件分发失败', error);
+    console.error('[Fablevia] 系统打开文件分发失败', error);
     pendingFilePath = filePath;
   });
 }
 
 const APP_ID = 'com.plotflow.app';
+const PRODUCT_NAME = 'Fablevia';
+const LEGACY_USER_DATA_DIRECTORY = 'PlotFlow'; // brand-compat: preserve the established user profile directory
 const RENDERER_QUERY_TIMEOUT_MS = 5_000;
 const RENDERER_SAVE_TIMEOUT_MS = 15_000;
 const RENDERER_HTML_PATH = join(__dirname, '../renderer/index.html');
@@ -178,7 +180,13 @@ if (
   && (process.env['NODE_ENV'] === 'test' || process.env['PLOTFLOW_BLACKBOX_E2E'] === '1')
 ) {
   app.setPath('userData', normalize(process.env['PLOTFLOW_TEST_USER_DATA_DIR']));
+} else {
+  // Product branding changed in 0.1 without changing the persisted application
+  // identity. Keep the established directory so upgrades preserve preferences,
+  // recent files, installed themes and the local completion corpus.
+  app.setPath('userData', join(app.getPath('appData'), LEGACY_USER_DATA_DIRECTORY));
 }
+app.setName(PRODUCT_NAME);
 
 function resolveWindowIconPath(): string | undefined {
   const packagedIconPath = join(process.resourcesPath, 'icon.png');
@@ -363,12 +371,12 @@ async function collectWorkspaceStories(
 async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesResult> {
   const normalizedRoot = normalize(rootPath);
   if (isBlockedSystemPath(normalizedRoot)) {
-    throw new Error('不允许把系统目录作为 PlotFlow 工作区');
+    throw new Error('不允许把系统目录作为维叙（Fablevia）工作区');
   }
 
   const rootStat = await stat(normalizedRoot);
   if (!rootStat.isDirectory()) {
-    throw new Error('请选择文件夹作为 PlotFlow 工作区');
+    throw new Error('请选择文件夹作为维叙（Fablevia）工作区');
   }
 
   const files: WorkspaceStoryFile[] = [];
@@ -462,7 +470,7 @@ ipcMain.handle(IPC_CHANNELS.file.open, async (event) => {
     const openOptions: OpenDialogOptions = {
       title: getMainProcessMessages(currentMenuLanguage).openStoryTitle,
       filters: [
-        { name: 'PlotFlow Story', extensions: ['mdstory'] },
+        { name: getMainProcessMessages(currentMenuLanguage).storyFileType, extensions: ['mdstory'] },
         { name: getMainProcessMessages(currentMenuLanguage).allFiles, extensions: ['*'] },
       ],
       properties: ['openFile'],
@@ -492,7 +500,7 @@ ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: strin
     focusNativeDialogOwner();
     const saveOptions: SaveDialogOptions = {
       title: getMainProcessMessages(currentMenuLanguage).saveStoryTitle,
-      filters: [{ name: 'PlotFlow Story', extensions: ['mdstory'] }],
+      filters: [{ name: getMainProcessMessages(currentMenuLanguage).storyFileType, extensions: ['mdstory'] }],
       defaultPath: 'untitled.mdstory',
     };
     const result = await dialog.showSaveDialog(saveOptions);
@@ -576,11 +584,11 @@ ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async (event) => {
   pendingFilePath = null;
   const result = await resolvePendingOpenFile(path, readStoryFile);
   if (result.status === 'error') {
-    console.error(`[PlotFlow] 读取系统打开文件失败: ${result.path} (${result.code})`);
+    console.error(`[Fablevia] 读取系统打开文件失败: ${result.path} (${result.code})`);
     const text = getMainProcessMessages(currentMenuLanguage);
     const options: MessageBoxOptions = {
       type: 'error',
-      title: 'PlotFlow',
+      title: text.productName,
       message: text.systemOpenFailedMessage,
       detail: text.systemOpenFailedDetail(result.path, result.code),
       buttons: [text.okButton],
@@ -601,7 +609,7 @@ ipcMain.handle(IPC_CHANNELS.file.readByPath, async (event, payload: { path: stri
   try {
     return await readStoryFile(payload.path);
   } catch (error) {
-    console.error(`[PlotFlow] 读取文件失败: ${payload.path}`, error);
+    console.error(`[Fablevia] 读取文件失败: ${payload.path}`, error);
     return null;
   }
 });
@@ -643,7 +651,7 @@ ipcMain.handle(IPC_CHANNELS.file.readWorkspaceStory, async (event, payload: { ro
     assertWorkspacePathInside(rootPath, filePath);
     return readStoryFile(filePath);
   } catch (error) {
-    console.error(`[PlotFlow] 读取工作区文件失败: ${payload.filePath}`, error);
+    console.error(`[Fablevia] 读取工作区文件失败: ${payload.filePath}`, error);
     return null;
   }
 });
@@ -661,7 +669,7 @@ ipcMain.handle(IPC_CHANNELS.dialog.confirm, async (event, options: {
   assertTrustedIpc(event);
   const owner = focusNativeDialogOwner();
   const messageBoxOptions: MessageBoxOptions = {
-    title: 'PlotFlow',
+    title: getMainProcessMessages(currentMenuLanguage).productName,
     type: options.type ?? 'warning',
     message: options.message,
     detail: options.detail,
@@ -721,7 +729,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'PlotFlow',
+    title: PRODUCT_NAME,
     ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
@@ -764,14 +772,14 @@ function createWindow(): void {
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     rendererReadyForSystemOpen = false;
-    console.error('[PlotFlow] 渲染进程退出', details.reason, details.exitCode);
+    console.error('[Fablevia] 渲染进程退出', details.reason, details.exitCode);
     if (details.reason === 'clean-exit' || mainWindow === null) return;
 
     const affectedWindow = mainWindow;
     const text = getMainProcessMessages(currentMenuLanguage);
     void dialog.showMessageBox(affectedWindow, {
       type: 'error',
-      title: 'PlotFlow',
+      title: text.productName,
       message: text.rendererCrashMessage,
       detail: text.rendererCrashDetail,
       buttons: [...text.rendererCrashButtons],
@@ -819,7 +827,7 @@ function createWindow(): void {
             buttons: [...text.unsavedButtons],
             defaultId: 0,
             cancelId: 2,
-            title: 'PlotFlow',
+            title: text.productName,
             message: text.unsavedMessage,
             detail: text.unsavedDetail(state.filePath),
           });
@@ -829,14 +837,14 @@ function createWindow(): void {
           const text = getMainProcessMessages(currentMenuLanguage);
           const reason = error instanceof Error ? error.message : String(error);
           // eslint-disable-next-line no-console -- close failures need durable main-process diagnostics
-          console.error(`[PlotFlow] ${stage === 'query' ? '读取关闭状态' : '关闭前保存'}失败`, error);
+          console.error(`[Fablevia] ${stage === 'query' ? '读取关闭状态' : '关闭前保存'}失败`, error);
           if (target.isDestroyed()) return 'cancel';
           const result = await dialog.showMessageBox(target, {
             type: 'error',
             buttons: [...text.closeFailureButtons],
             defaultId: 0,
             cancelId: 2,
-            title: 'PlotFlow',
+            title: text.productName,
             message: text.closeFailureMessage,
             detail: text.closeFailureDetail(stage, reason),
           });
@@ -847,7 +855,7 @@ function createWindow(): void {
       // Dialog infrastructure itself failed. Keep the window alive; a later
       // close attempt can retry arbitration.
       // eslint-disable-next-line no-console -- main-process close failures require durable diagnostics
-      console.error('[PlotFlow] 关闭保护流程失败，窗口保持打开', error);
+      console.error('[Fablevia] 关闭保护流程失败，窗口保持打开', error);
       closeArbitrationPending = false;
       return;
     }
@@ -876,7 +884,7 @@ app.on('open-file', (event, path) => {
     return;
   }
 
-  console.log(`[PlotFlow] macOS open-file: ${path}`);
+  console.log(`[Fablevia] macOS open-file: ${path}`);
 
   if (rendererReadyForSystemOpen && mainWindow && !mainWindow.isDestroyed()) dispatchSystemOpenFile(path);
   else pendingFilePath = path;
@@ -891,7 +899,7 @@ function checkCommandLineArgs(args: readonly string[] = process.argv): boolean {
   const storyPath = findStoryFileArgument(args);
   if (storyPath && existsSync(storyPath)) {
     pendingFilePath = storyPath;
-    console.log(`[PlotFlow] 命令行参数文件: ${storyPath}`);
+    console.log(`[Fablevia] 命令行参数文件: ${storyPath}`);
     return true;
   }
   return false;
@@ -940,11 +948,11 @@ if (!hasSingleInstanceLock) {
 }
 
 process.on('uncaughtException', (error) => {
-  console.error('[PlotFlow] 主进程未捕获异常:', error);
+  console.error('[Fablevia] 主进程未捕获异常:', error);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[PlotFlow] 主进程未处理 Promise 拒绝:', reason);
+  console.error('[Fablevia] 主进程未处理 Promise 拒绝:', reason);
 });
 
 app.on('window-all-closed', () => {

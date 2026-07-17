@@ -11,7 +11,7 @@ const launchedTargets = new WeakMap<ElectronApplication, BlackboxLaunchTarget>()
 export const APP_ROOT = resolve(__dirname, '..', '..');
 export const PROJECT_ROOT = resolve(APP_ROOT, '..', '..');
 export const MAIN_SCRIPT = join(PROJECT_ROOT, 'out', 'main', 'main.js');
-export const WIN_UNPACKED_EXE = join(PROJECT_ROOT, 'release', 'win-unpacked', 'PlotFlow.exe');
+export const WIN_UNPACKED_EXE = join(PROJECT_ROOT, 'release', 'win-unpacked', 'Fablevia.exe');
 
 export type BlackboxLaunchTarget = 'devBuild' | 'winUnpacked' | 'installedExe';
 
@@ -35,7 +35,7 @@ export interface LaunchBlackboxOptions {
 export async function launchBlackboxApp(options: LaunchBlackboxOptions = {}): Promise<LaunchedBlackboxApp> {
   const target = options.target ?? getBlackboxTarget();
   if (target === 'installedExe') {
-    await assertNoInstalledPlotFlowProcesses('before launch');
+    await assertNoInstalledFableviaProcesses('before launch');
   }
   const executablePath = getBlackboxExecutablePath(target);
   const electronArgs = getBlackboxArgs(target, options.storyPath);
@@ -104,7 +104,7 @@ export function getBlackboxArgs(target: BlackboxLaunchTarget, storyPath?: string
 export function resolveInstalledExecutablePath(): string {
   const configured = process.env['PLOTFLOW_INSTALLED_EXE'];
   if (!configured) {
-    throw new Error('PLOTFLOW_INSTALLED_EXE must point to the installed PlotFlow.exe when PLOTFLOW_BLACKBOX_TARGET=installedExe.');
+    throw new Error('PLOTFLOW_INSTALLED_EXE must point to the installed Fablevia.exe when PLOTFLOW_BLACKBOX_TARGET=installedExe.');
   }
   return resolve(configured);
 }
@@ -177,7 +177,7 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
   void closePromise.catch(() => {});
   try {
     await withTimeout(closePromise, 5_000, 'blackbox app.close');
-    if (target === 'installedExe') await waitForNoInstalledPlotFlowProcesses();
+    if (target === 'installedExe') await waitForNoInstalledFableviaProcesses();
     return;
   } catch (error) {
     if (!isCleanupError(error) && !(error instanceof Error && /timed out/.test(error.message))) {
@@ -189,7 +189,7 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
   await forceKillProcessTree(child);
   await waitForProcessExit(child, 3_000);
   await withTimeout(closePromise.catch(() => undefined), 5_000, 'blackbox app.close after kill').catch(() => {});
-  if (target === 'installedExe') await waitForNoInstalledPlotFlowProcesses();
+  if (target === 'installedExe') await waitForNoInstalledFableviaProcesses();
 }
 
 export interface StoryOpenObservation {
@@ -198,7 +198,7 @@ export interface StoryOpenObservation {
   readonly detail: string;
 }
 
-async function listInstalledPlotFlowProcessIds(): Promise<number[]> {
+async function listInstalledFableviaProcessIds(): Promise<number[]> {
   if (process.platform !== 'win32') return [];
   return new Promise((resolvePromise, reject) => {
     execFile(
@@ -206,7 +206,7 @@ async function listInstalledPlotFlowProcessIds(): Promise<number[]> {
       [
         '-NoProfile',
         '-Command',
-        "$items=@(Get-CimInstance Win32_Process -Filter \"Name='PlotFlow.exe'\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessId); $items -join ','",
+        "$items=@(Get-CimInstance Win32_Process -Filter \"Name='Fablevia.exe'\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessId); $items -join ','",
       ],
       { windowsHide: true },
       (error, stdout) => {
@@ -225,20 +225,20 @@ async function listInstalledPlotFlowProcessIds(): Promise<number[]> {
   });
 }
 
-async function assertNoInstalledPlotFlowProcesses(stage: string): Promise<void> {
-  const processIds = await listInstalledPlotFlowProcessIds();
+async function assertNoInstalledFableviaProcesses(stage: string): Promise<void> {
+  const processIds = await listInstalledFableviaProcessIds();
   if (processIds.length > 0) {
-    throw new Error(`Installed blackbox process isolation failed ${stage}; PlotFlow.exe PIDs: ${processIds.join(', ')}`);
+    throw new Error(`Installed blackbox process isolation failed ${stage}; Fablevia.exe PIDs: ${processIds.join(', ')}`);
   }
 }
 
-async function waitForNoInstalledPlotFlowProcesses(): Promise<void> {
+async function waitForNoInstalledFableviaProcesses(): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
-    if ((await listInstalledPlotFlowProcessIds()).length === 0) return;
+    if ((await listInstalledFableviaProcessIds()).length === 0) return;
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
   }
-  await assertNoInstalledPlotFlowProcesses('after close');
+  await assertNoInstalledFableviaProcesses('after close');
 }
 
 export async function ensureDir(path: string): Promise<string> {

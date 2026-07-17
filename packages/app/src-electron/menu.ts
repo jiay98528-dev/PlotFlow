@@ -66,7 +66,7 @@ const labels: Record<AppMenuLanguage, {
     exportHtml: '导出 HTML',
     exportTxt: '导出 TXT',
     help: '帮助',
-    about: '关于 PlotFlow',
+    about: '关于维叙（Fablevia）',
     docs: '文档',
   },
   'en-US': {
@@ -95,7 +95,7 @@ const labels: Record<AppMenuLanguage, {
     exportHtml: 'Export HTML',
     exportTxt: 'Export TXT',
     help: 'Help',
-    about: 'About PlotFlow',
+    about: 'About Fablevia',
     docs: 'Documentation',
   },
 };

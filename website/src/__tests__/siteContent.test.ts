@@ -40,7 +40,7 @@ describe('site content', () => {
       development: developmentCopy.zh,
       officialThemes: officialThemes.zh,
     }).join('\n');
-    expect(zhSource).toMatch(/PlotFlow/);
+    expect(zhSource).toMatch(/维叙（Fablevia）/);
     expect(zhSource).toMatch(/\.mdstory/);
     expect(zhSource).toMatch(/Windows/);
     expect(zhSource).toMatch(/Graph Lab/);

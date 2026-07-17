@@ -2,7 +2,7 @@
 class_name PlotFlowStoryNode
 extends RefCounted
 
-## Represents a single narrative node loaded from a PlotFlow JSON export.
+## Represents a single narrative node loaded from a Fablevia JSON export.
 ##
 ## Each node has a unique id, a title, body text, and a list of options
 ## that lead to other nodes.  Options may carry conditions evaluated by
@@ -13,7 +13,7 @@ extends RefCounted
 var id: String = ""
 ## Owning chapter id. This is metadata only and must not be used to derive full_id.
 var chapter_id: String = ""
-## Opaque, globally unique identifier emitted by PlotFlow.
+## Opaque, globally unique identifier emitted by Fablevia.
 var full_id: String = ""
 ## Human-readable title.
 var title: String = ""

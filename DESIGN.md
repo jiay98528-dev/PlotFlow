@@ -1,12 +1,14 @@
-# PlotFlow Design Context
+# Fablevia（维叙）Design Context
+
+> 品牌锁定区：中文 UI 主显示“维叙”、小字辅助 `Fablevia`；英文 UI 只显示 `Fablevia`。不再使用 `PF` 文字标记，沿用现有软件图标。
 
 ## Source of Truth
 
-`spec/design-brief-editor-ux.md` 是 PlotFlow 编辑器 UI/UX 的唯一真相源。本文仅为 Impeccable 上下文入口，不能与该简报、主题开发标准或现有 token 体系竞争或覆盖。
+`spec/design-brief-editor-ux.md` 是 Fablevia（维叙）编辑器 UI/UX 的唯一真相源。本文仅为设计上下文入口，不能与该简报、主题开发标准或现有 token 体系竞争或覆盖。
 
 ## Product Surface
 
-PlotFlow 是本地优先的桌面叙事编辑器。Graph Lab 是主要且默认的创作工作区；Split 在顶栏并列保留，作为辅助与高级的完整源码投影。产品由 Home、Toolbar、Graph Lab、Split、Source Drawer、Theme Center 和诊断面板组成，默认语言为中文，并需完整覆盖英文主路径。
+Fablevia（维叙）是本地优先的桌面叙事编辑器。Graph Lab 是主要且默认的创作工作区；Split 在顶栏并列保留，作为辅助与高级的完整源码投影。产品由 Home、Toolbar、Graph Lab、Split、Source Drawer、Theme Center 和诊断面板组成，默认语言为中文，并需完整覆盖英文主路径。
 
 ## Visual System
 

@@ -145,7 +145,11 @@ export function ThemeCenter(): React.ReactElement | null {
                     </div>
                     <div>
                       <dt>{text('common.status')}</dt>
-                      <dd>{theme.storeMeta.priceLabel}</dd>
+                      <dd>
+                        {theme.storeMeta.availability === 'bundled'
+                          ? text('themeCenter.bundled')
+                          : text('themeCenter.free')}
+                      </dd>
                     </div>
                   </dl>
                   <button
@@ -215,7 +219,7 @@ export function ThemeCenter(): React.ReactElement | null {
                         <h3>{theme.name[language]}</h3>
                         <p>{theme.name['en-US']}</p>
                       </div>
-                      <span className="official-theme-card__active">{theme.priceLabel}</span>
+                      <span className="official-theme-card__active">{text('themeCenter.free')}</span>
                     </div>
                     <p className="official-theme-card__description">{theme.changelog}</p>
                     <dl className="official-theme-card__meta">

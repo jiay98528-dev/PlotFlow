@@ -8,6 +8,7 @@ import { loadSavedStorySession } from '../../services/storySessionService';
 import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
 import { useAppText } from '../../i18n/appI18n';
 import { requestWorkspaceMode } from '../../services/workspaceModeService';
+import { BrandLockup } from '../brand/BrandLockup';
 
 export function HomeSurface(): React.ReactElement | null {
   const isOpen = useUIStore((state) => state.isHomeSurfaceOpen);
@@ -83,7 +84,7 @@ export function HomeSurface(): React.ReactElement | null {
     <Surface
       heroCopy={(
         <>
-          <p className="home-surface__eyebrow">{text('home.eyebrow')}</p>
+          <BrandLockup variant="hero" />
           <h2>{text('home.title')}</h2>
           <p>
             {text('home.body')}

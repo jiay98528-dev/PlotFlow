@@ -19,7 +19,7 @@ export const defaultThemeSurfaces: ThemeSurfaces = {
     return (
       <header className="app-topbar" data-theme-surface="toolbar">
         {brand}
-        <nav className="app-toolbar" aria-label="PlotFlow toolbar">
+        <nav className="app-toolbar" aria-label="Fablevia toolbar">
           <div className="toolbar-group" role="group">
             {fileControls}
           </div>

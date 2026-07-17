@@ -193,7 +193,7 @@ export function createInlineDecorations(
       diagnostic.range.endColumn,
     ),
     options: {
-      description: `PlotFlow: ${diagnostic.code}`,
+      description: `Fablevia: ${diagnostic.code}`,
       className: SEVERITY_TO_UNDERLINE_CLASS[diagnostic.severity] ?? '',
       hoverMessage: formatHoverMessage(diagnostic),
       // 更高的 zIndex 确保 hover 优先响应
@@ -223,7 +223,7 @@ export function createGlyphDecorations(
       1,
     ),
     options: {
-      description: `PlotFlow Glyph: ${diagnostic.code}`,
+      description: `Fablevia Glyph: ${diagnostic.code}`,
       isWholeLine: true,
       glyphMarginClassName: SEVERITY_TO_GLYPH_CLASS[diagnostic.severity] ?? '',
       glyphMarginHoverMessage: formatHoverMessage(diagnostic),
