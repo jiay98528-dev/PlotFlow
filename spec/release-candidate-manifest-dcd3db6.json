@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "status": "LOCAL_PREFLIGHT_BLOCKED_INSTALLER_REVALIDATION",
+  "candidateCommit": "dcd3db6e2aa1191a3fbd15724882f46cf7885df4",
+  "packagedFromCleanWorktree": true,
+  "createdAt": "2026-07-17T20:56:55+08:00",
+  "version": "0.1.0",
+  "artifacts": [
+    {
+      "path": "release/Fablevia Setup 0.1.0.exe",
+      "sha256": "796BBA4780338A949956FD9ED4C2C6F2AB84065231F00F84BE3F717F6E9546CC",
+      "bytes": 103976890,
+      "authenticode": "NotSigned"
+    },
+    {
+      "path": "release/win-unpacked/Fablevia.exe",
+      "sha256": "5CC8416450709BB24F195C1111F7553863664969001B4D457E3AC94D12EF5083",
+      "bytes": 232393216,
+      "authenticode": "NotSigned"
+    }
+  ],
+  "verification": {
+    "appE2E": "87/87",
+    "sourceBlackbox": "11/11",
+    "unpackedBlackbox": "17/17",
+    "installedBlackbox": "17/17",
+    "installedExecutableHashMatchesCandidate": true,
+    "cleanCandidateInstallerInstalled": false,
+    "cleanCandidateInstallerBlocker": "UAC_CANCELED"
+  },
+  "ciArtifactId": null,
+  "releaseDecision": "NO_GO"
+}
