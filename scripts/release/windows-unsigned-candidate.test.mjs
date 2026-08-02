@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import path from 'node:path';
 import test from 'node:test';
 import {
+  currentPnpmInvocation,
   parseCliOptions,
   sha256File,
   verifyCandidate,
@@ -14,6 +15,19 @@ const COMMIT = 'a'.repeat(40);
 const fakeAuthenticode = async () => 'NotSigned';
 const fakeEmbeddedVersion = async () => '0.1.1';
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+
+test('runs packaging through the active pnpm CLI without spawning a Windows .cmd shim', () => {
+  const pnpmEntry = path.resolve(WORKSPACE_ROOT, '.tmp', 'fixture-pnpm.cjs');
+  assert.deepEqual(currentPnpmInvocation({ npm_execpath: pnpmEntry }), {
+    executable: process.execPath,
+    prefixArgs: [pnpmEntry],
+  });
+  assert.throws(() => currentPnpmInvocation({}), /must run through pnpm/u);
+  assert.throws(
+    () => currentPnpmInvocation({ npm_execpath: 'pnpm.cmd' }),
+    /must run through pnpm/u,
+  );
+});
 
 async function fixture() {
   const base = path.join(WORKSPACE_ROOT, '.tmp', 'release-candidate-tests');

@@ -32,6 +32,16 @@ function git(args) {
   return command('git', args);
 }
 
+export function currentPnpmInvocation(environment = process.env) {
+  const pnpmEntry = environment.npm_execpath;
+  if (typeof pnpmEntry !== 'string' || !path.isAbsolute(pnpmEntry)) {
+    throw new Error(
+      'Candidate creation must run through pnpm so npm_execpath identifies the active pnpm CLI.',
+    );
+  }
+  return { executable: process.execPath, prefixArgs: [pnpmEntry] };
+}
+
 function assertCleanWorktree() {
   const status = git(['status', '--porcelain', '--untracked-files=all']);
   if (status) throw new Error(`Candidate creation requires a clean worktree:\n${status}`);
@@ -467,8 +477,8 @@ async function createCandidate(args) {
   await assertNoWorkspaceLinkEscape(candidateDirectory, 'candidate directory');
   const candidateId = `${identity.version}/${commit}/${utcRun}`;
 
-  const packageCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  command(packageCommand, ['package:win'], {
+  const packageManager = currentPnpmInvocation();
+  command(packageManager.executable, [...packageManager.prefixArgs, 'package:win'], {
     cwd: WORKSPACE_ROOT,
     env: { ...process.env, PLOTFLOW_RELEASE_OUTPUT: candidateDirectory },
     stdio: 'inherit',
