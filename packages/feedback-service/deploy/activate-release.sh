@@ -27,9 +27,9 @@ fi
 NEXT_LINK="$BASE/.current-next-$$"
 ln -s "$TARGET" "$NEXT_LINK"
 mv -Tf "$NEXT_LINK" "$CURRENT"
-systemctl restart fablevia-feedback.service
 
-if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:18081/healthz >/dev/null; then
+if systemctl restart fablevia-feedback.service \
+  && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:18081/healthz >/dev/null; then
   exit 0
 fi
 
@@ -39,5 +39,8 @@ if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
   ln -s "$PREVIOUS" "$ROLLBACK_LINK"
   mv -Tf "$ROLLBACK_LINK" "$CURRENT"
   systemctl restart fablevia-feedback.service
+else
+  rm -f "$CURRENT"
+  systemctl stop fablevia-feedback.service || true
 fi
 exit 1
