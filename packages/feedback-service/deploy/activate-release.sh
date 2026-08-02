@@ -28,9 +28,15 @@ NEXT_LINK="$BASE/.current-next-$$"
 ln -s "$TARGET" "$NEXT_LINK"
 mv -Tf "$NEXT_LINK" "$CURRENT"
 
-if systemctl restart fablevia-feedback.service \
-  && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:18081/healthz >/dev/null; then
-  exit 0
+if systemctl restart fablevia-feedback.service; then
+  ATTEMPT=0
+  while [ "$ATTEMPT" -lt 10 ]; do
+    if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:18081/healthz >/dev/null; then
+      exit 0
+    fi
+    ATTEMPT=$((ATTEMPT + 1))
+    sleep 1
+  done
 fi
 
 echo "health check failed; rolling back" >&2

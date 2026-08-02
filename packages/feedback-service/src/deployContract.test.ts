@@ -7,12 +7,12 @@ const activationScript = fileURLToPath(
 );
 
 describe('atomic deployment contract', () => {
-  it('rolls back restart failures and removes a broken first-deploy link', async () => {
+  it('waits for startup and rolls back a failed first deployment', async () => {
     const source = await readFile(activationScript, 'utf8');
 
-    expect(source).toMatch(
-      /if systemctl restart fablevia-feedback\.service \\\n+  && curl --fail[\s\S]+healthz/u,
-    );
+    expect(source).toContain('if systemctl restart fablevia-feedback.service; then');
+    expect(source).toContain('while [ "$ATTEMPT" -lt 10 ]; do');
+    expect(source).toMatch(/curl --fail[\s\S]+healthz/u);
     expect(source).toMatch(/mv -Tf "\$ROLLBACK_LINK" "\$CURRENT"/u);
     expect(source).toMatch(/else\s+rm -f "\$CURRENT"\s+systemctl stop/u);
   });
