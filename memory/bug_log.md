@@ -719,9 +719,11 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 - ESLint：跨会话竞态和焦点时序无法由纯语法规则可靠预防；继续以 strict TypeScript 约束穷尽联合类型。
 - CI 扫描：品牌模板字符串、HTML、反馈服务、CSP、远程主题运行时代码、依赖漏洞与候选身份合同均进入静态门禁。
 - Smoke/E2E：覆盖隐藏 draft 保存/导出、stale、逆序读取、Help 反馈结果映射、恶意预置主题不执行、键盘连续操作和候选篡改反例。
-- L4：公网 HTTPS、真实邮件到达、installed、30 分钟人工巡检、真实引擎 smoke 与 Authenticode 仍须在对应阶段独立验证。
+- L4：installed、30 分钟人工巡检、真实引擎 smoke 与 Authenticode 仍须在对应阶段独立验证。
 
 **Verification**
 - 提交前源码回归通过：lint 0 errors / 9 existing warnings、typecheck、87 files / 1474 unit tests、build、CSS/token/layer/bundle/UI literal/brand/docs/Schema/engine/external-review/release-tool/website gates。
-- 反馈服务 31/31，生产与完整 moderate audit 均为零；Integration E2E 91/91、source blackbox 11/11。
-- 新候选 unpacked blackbox 与最终 verify 只在 clean commit 固化并完成公网反馈部署后执行，不从源码门禁外推。
+- 反馈服务 32/32，生产与完整 moderate audit 均为零；Integration E2E 91/91、source blackbox 11/11。
+- 香港服务以 `fablevia-feedback` 非 root 用户监听 `127.0.0.1:18081`；Nginx 配置备份、`nginx -t`、loopback health、公开 400/403、每 IP 429、重启后 requestId 去重和无正文日志检查均通过。
+- 真实公网报告返回 202，report ID `FB-ac3e36b9-c217-40e8-ad3a-27d45154ff98`，并通过目标企业邮箱 IMAP 只读核对实际到达。
+- 新候选 unpacked blackbox 与最终 verify 只在上述部署记录进入 clean commit 后执行，不从旧候选外推。
