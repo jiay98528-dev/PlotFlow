@@ -2,12 +2,14 @@
 
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const root = resolve(import.meta.dirname, '..');
 const targets = [
   'package.json',
   'electron-builder.config.js',
+  'packages/app/index.html',
   'packages/app/src/i18n',
   'packages/app/src/renderer',
   'packages/app/src/components',
@@ -21,9 +23,7 @@ const targets = [
   'plugins/unreal',
 ];
 
-const supportedExtensions = new Set([
-  '.cs', '.gd', '.h', '.html', '.js', '.json', '.ts', '.tsx',
-]);
+const supportedExtensions = new Set(['.cs', '.gd', '.h', '.html', '.js', '.json', '.ts', '.tsx']);
 
 async function collect(path) {
   const absolute = resolve(root, path);
@@ -52,16 +52,25 @@ function lineHasCompatibilityMarker(source, position) {
   return source.slice(start, end < 0 ? source.length : end).includes('brand-compat');
 }
 
-function scanTypeScript(file, source) {
+export function scanTypeScript(file, source) {
   const kind = extname(file) === '.tsx' ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind);
   const findings = [];
+  function record(value, position) {
+    if (value.includes('PlotFlow') && !lineHasCompatibilityMarker(source, position)) {
+      findings.push(`${location(file, source, position)} ${JSON.stringify(value.trim())}`);
+    }
+  }
   function inspect(node) {
-    let value;
-    if (ts.isStringLiteralLike(node)) value = node.text;
-    if (ts.isJsxText(node)) value = node.getText(sourceFile);
-    if (value?.includes('PlotFlow') && !lineHasCompatibilityMarker(source, node.getStart(sourceFile))) {
-      findings.push(`${location(file, source, node.getStart(sourceFile))} ${JSON.stringify(value.trim())}`);
+    if (ts.isTemplateExpression(node)) {
+      record(node.head.text, node.head.getStart(sourceFile));
+      for (const span of node.templateSpans) {
+        record(span.literal.text, span.literal.getStart(sourceFile));
+      }
+    } else if (ts.isStringLiteralLike(node)) {
+      record(node.text, node.getStart(sourceFile));
+    } else if (ts.isJsxText(node)) {
+      record(node.getText(sourceFile), node.getStart(sourceFile));
     }
     ts.forEachChild(node, inspect);
   }
@@ -69,7 +78,7 @@ function scanTypeScript(file, source) {
   return findings;
 }
 
-function scanText(file, source) {
+export function scanText(file, source) {
   const findings = [];
   const lines = source.split(/\r?\n/u);
   for (let index = 0; index < lines.length; index += 1) {
@@ -79,7 +88,9 @@ function scanText(file, source) {
       if (/cref="PlotFlow|#include\s+"PlotFlow|PlotFlowDataTypes\.generated\.h/u.test(line)) {
         continue;
       }
-      const quoted = [...line.matchAll(/(['"])(.*?)\1/gu)].some((match) => match[2].includes('PlotFlow'));
+      const quoted = [...line.matchAll(/(['"])(.*?)\1/gu)].some((match) =>
+        match[2].includes('PlotFlow'),
+      );
       if (!quoted) continue;
     }
     findings.push(`${relative(root, file).replaceAll('\\', '/')}:${index + 1} ${line.trim()}`);
@@ -87,25 +98,36 @@ function scanText(file, source) {
   return findings;
 }
 
-const files = (await Promise.all(targets.map(collect)))
-  .flat()
-  .filter((file) => supportedExtensions.has(extname(file)) || file.endsWith('plugin.cfg'))
-  .sort();
-const findings = [];
-for (const file of files) {
-  const source = await readFile(file, 'utf8');
-  findings.push(
-    ...(extname(file) === '.ts' || extname(file) === '.tsx'
-      ? scanTypeScript(file, source)
-      : scanText(file, source)),
-  );
+export async function runBrandVisibilityScan() {
+  const files = (await Promise.all(targets.map(collect)))
+    .flat()
+    .filter((file) => supportedExtensions.has(extname(file)) || file.endsWith('plugin.cfg'))
+    .sort();
+  const findings = [];
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    findings.push(
+      ...(extname(file) === '.ts' || extname(file) === '.tsx'
+        ? scanTypeScript(file, source)
+        : scanText(file, source)),
+    );
+  }
+  return { files, findings };
 }
 
-if (findings.length > 0) {
-  console.error('Legacy PlotFlow branding remains in user-visible source literals:');
-  for (const finding of findings) console.error(`- ${finding}`);
-  console.error('Rename visible copy or annotate a required compatibility literal with brand-compat.');
-  process.exitCode = 1;
-} else {
-  console.log(`Brand visibility scan passed (${files.length} source files).`);
+async function main() {
+  const { files, findings } = await runBrandVisibilityScan();
+  if (findings.length > 0) {
+    console.error('Legacy PlotFlow branding remains in user-visible source literals:');
+    for (const finding of findings) console.error(`- ${finding}`);
+    console.error(
+      'Rename visible copy or annotate a required compatibility literal with brand-compat.',
+    );
+    process.exitCode = 1;
+  } else {
+    console.log(`Brand visibility scan passed (${files.length} source files).`);
+  }
 }
+
+const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null;
+if (invokedPath === import.meta.url) await main();

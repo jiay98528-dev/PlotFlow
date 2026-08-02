@@ -1,6 +1,7 @@
 ﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 import { IPC_CHANNELS } from '../src/shared/ipcChannels';
+import type { FeedbackSubmitRequest, FeedbackSubmitResult } from '../src/shared/feedback';
 import { createBufferedResultListener } from './systemOpenBuffer';
 import type {
   DialogConfirmOptions,
@@ -48,15 +49,27 @@ const plotflowApi = {
       ipcRenderer.invoke(IPC_CHANNELS.dialog.confirm, options),
   },
 
+  feedback: {
+    send: (request: FeedbackSubmitRequest): Promise<FeedbackSubmitResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.feedback.send, request),
+  },
+
   // 鈹€鈹€ 鏂囦欢鎿嶄綔 鈥?M1-13 鈹€鈹€
   file: {
     open: (): Promise<FileOpenResult | null> => ipcRenderer.invoke(IPC_CHANNELS.file.open),
-    save: (request: { path: string; content: string; expectedHash: string | null; overwriteConflict?: boolean }) =>
-      ipcRenderer.invoke(IPC_CHANNELS.file.save, request),
-    saveAs: (content: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.file.saveAs, { content }),
-    saveExport: (options: { content: string; defaultPath: string; filters: Array<{ name: string; extensions: string[] }>; format: string }) =>
-      ipcRenderer.invoke(IPC_CHANNELS.file.export, options),
+    save: (request: {
+      path: string;
+      content: string;
+      expectedHash: string | null;
+      overwriteConflict?: boolean;
+    }) => ipcRenderer.invoke(IPC_CHANNELS.file.save, request),
+    saveAs: (content: string) => ipcRenderer.invoke(IPC_CHANNELS.file.saveAs, { content }),
+    saveExport: (options: {
+      content: string;
+      defaultPath: string;
+      filters: Array<{ name: string; extensions: string[] }>;
+      format: string;
+    }) => ipcRenderer.invoke(IPC_CHANNELS.file.export, options),
 
     // 鈹€鈹€ 绯荤粺鏂囦欢鎵撳紑 (M7-08) 鈹€鈹€
     /**
@@ -76,7 +89,10 @@ const plotflowApi = {
     },
 
     onExternalChange: (callback: (event: FileExternalChangeEvent) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, payload: FileExternalChangeEvent): void => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: FileExternalChangeEvent,
+      ): void => {
         callback(payload);
       };
       ipcRenderer.on(IPC_CHANNELS.file.externalChange, listener);
@@ -89,13 +105,18 @@ const plotflowApi = {
      * 鎸夎矾寰勮鍙?.mdstory 鏂囦欢鍐呭銆?
      * 鐢ㄤ簬杩愯鏃剁郴缁熸枃浠舵墦寮€閫氱煡鍚庡姞杞芥枃浠跺唴瀹广€?
      */
-    readByPath: (path: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
+    readByPath: (
+      path: string,
+    ): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
       ipcRenderer.invoke(IPC_CHANNELS.file.readByPath, { path }),
     chooseWorkspaceFolder: (): Promise<WorkspaceStoriesResult | null> =>
       ipcRenderer.invoke(IPC_CHANNELS.file.chooseWorkspaceFolder),
     listWorkspaceStories: (rootPath: string): Promise<WorkspaceStoriesResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.file.listWorkspaceStories, { rootPath }),
-    readWorkspaceStory: (rootPath: string, filePath: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
+    readWorkspaceStory: (
+      rootPath: string,
+      filePath: string,
+    ): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number } | null> =>
       ipcRenderer.invoke(IPC_CHANNELS.file.readWorkspaceStory, { rootPath, filePath }),
   },
 
@@ -156,20 +177,6 @@ const plotflowApi = {
       ipcRenderer.send(IPC_CHANNELS.menu.setLanguage, language);
     },
   },
-
-  theme: {
-    listOfficialInstalled: () =>
-      ipcRenderer.invoke(IPC_CHANNELS.theme.listOfficialInstalled),
-    listOfficialRemote: () =>
-      ipcRenderer.invoke(IPC_CHANNELS.theme.listOfficialRemote),
-    downloadOfficialTheme: (themeId: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.theme.downloadOfficialTheme, themeId),
-    openThemeMarket: () =>
-      ipcRenderer.invoke(IPC_CHANNELS.theme.openThemeMarket),
-    openOfficialThemeStore: () =>
-      ipcRenderer.invoke(IPC_CHANNELS.theme.openOfficialThemeStore),
-  },
 } satisfies PlotFlowAPI;
 
 contextBridge.exposeInMainWorld('plotflow', plotflowApi);
-

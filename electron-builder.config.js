@@ -5,12 +5,16 @@
  * bundled into the desktop app. Keep `files` as an allowlist.
  */
 
+const path = require('node:path');
+
+const releaseOutput = process.env.PLOTFLOW_RELEASE_OUTPUT?.trim();
+
 module.exports = {
   appId: 'com.plotflow.app',
   productName: 'Fablevia',
 
   directories: {
-    output: 'release',
+    output: releaseOutput ? path.resolve(releaseOutput) : 'release',
     buildResources: 'build',
   },
 
@@ -21,10 +25,7 @@ module.exports = {
   npmRebuild: false,
   asar: true,
 
-  files: [
-    'out/**/*',
-    'package.json',
-  ],
+  files: ['out/**/*', 'package.json'],
 
   extraResources: [
     {

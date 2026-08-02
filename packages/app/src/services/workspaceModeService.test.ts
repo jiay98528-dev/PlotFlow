@@ -24,8 +24,23 @@ describe('requestWorkspaceMode', () => {
     });
 
     expect(requestWorkspaceMode('split')).toBe(true);
-    expect(flushDraft).toHaveBeenCalledWith('replace');
+    expect(flushDraft).toHaveBeenCalledWith('workspace');
     expect(useUIStore.getState().workspaceMode).toBe('split');
+  });
+
+  it('checks a clean controller before unmounting Graph Lab', () => {
+    const flushDraft = vi.fn(() => ({
+      ok: false as const,
+      reason: 'graph-edit-active' as const,
+    }));
+    unregister = registerSourceDraftController({
+      getState: () => ({ isDirty: false, isStale: false }),
+      flushDraft,
+    });
+
+    expect(requestWorkspaceMode('split')).toBe(false);
+    expect(flushDraft).toHaveBeenCalledWith('workspace');
+    expect(useUIStore.getState().workspaceMode).toBe('graphLab');
   });
 
   it('blocks Split when the source draft is stale', () => {

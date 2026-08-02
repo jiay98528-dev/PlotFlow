@@ -684,3 +684,44 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 - `pnpm.cmd test` PASS：77 files / 1414 tests（随后新增 1 个稳定变量删除反例，候选收口时需重跑并记录最终数值）。
 - `pnpm.cmd typecheck`、lint、CSS/Token/layer/UI literal/docs/bundle、Schema、engine contract、website gates PASS。
 - App E2E、source/unpacked/installed 与五包独立外审只在候选 commit 固化后计入正式证据。
+
+---
+
+### BUG-017: 0.1.1 预检候选的数据事务、信任边界与产物身份失配
+
+**Date**: 2026-08-02
+
+**Category**: `DATA` / `ELECTRON` / `SECURITY` / `A11Y` / `RELEASE_IDENTITY`
+**Severity**: P0/P1 release gate
+
+**Observed**
+- Source Drawer 折叠会丢弃未提交 draft，保存和导出可能消费旧 AST；异步打开工作区时的新编辑可能被迟到读取覆盖。
+- 固定反馈气泡遮挡核心按钮，桌面端 SMTP 方案在 clean install 中不可用，并把共享凭据放进客户端信任边界。
+- 官方远程主题由同一在线来源同时提供代码和哈希，renderer 随后动态执行已安装的 JavaScript。
+- 节点菜单到重命名/删除对话框依赖定时器和中间关闭态，焦点及背景快捷键存在竞态。
+- 发行文件、声明哈希、版本和 commit 未由同一不可变候选目录绑定，旧 manifest 可能被误当成当前候选。
+
+**Root causes**
+- 故事内容、Source draft、会话与异步替换没有共享 revision/lease 合同，各入口分别读取可变全局状态。
+- 反馈入口、传输协议和凭据部署边界混在 renderer/桌面安装包内。
+- 远程 ZIP 的完整性校验与发布来源处于同一信任域，哈希不能证明发布者身份。
+- 键盘上下文由多个布尔状态、异步聚焦和延迟关闭共同驱动，而不是单一状态机。
+- 候选脚本依赖可覆盖目录和自报版本，没有强制 clean HEAD、嵌入版本、签名状态与全部运行时载荷一致。
+
+**Fixes**
+- 引入故事 identity、结构化 draft flush、不可变导出快照和 replacement lease；折叠只隐藏 draft，stale/graph-edit-active 时 fail closed。
+- 反馈改为原生 Help 菜单打开的标准 modal，经主进程固定 HTTPS 地址发送；SMTP 只存在独立服务端包。
+- 0.1.1 关闭全部远程主题下载、扫描与动态执行，旧远程 ID 回退内置 Prism Foundry，已安装目录保留但不加载。
+- 节点键盘菜单改为 `closed -> menu -> renameDialog/deleteDialog` reducer，并统一 roving focus、最终关闭恢复和背景命令屏蔽。
+- 候选创建/验证固定到 `release/candidates/<version>/<commit>/<utc-run>`，绑定 installer、unpacked EXE、`app.asar`、嵌入版本、SHA256 与 Authenticode 状态。
+
+**Prevention**
+- ESLint：跨会话竞态和焦点时序无法由纯语法规则可靠预防；继续以 strict TypeScript 约束穷尽联合类型。
+- CI 扫描：品牌模板字符串、HTML、反馈服务、CSP、远程主题运行时代码、依赖漏洞与候选身份合同均进入静态门禁。
+- Smoke/E2E：覆盖隐藏 draft 保存/导出、stale、逆序读取、Help 反馈结果映射、恶意预置主题不执行、键盘连续操作和候选篡改反例。
+- L4：公网 HTTPS、真实邮件到达、installed、30 分钟人工巡检、真实引擎 smoke 与 Authenticode 仍须在对应阶段独立验证。
+
+**Verification**
+- 提交前源码回归通过：lint 0 errors / 9 existing warnings、typecheck、87 files / 1474 unit tests、build、CSS/token/layer/bundle/UI literal/brand/docs/Schema/engine/external-review/release-tool/website gates。
+- 反馈服务 31/31，生产与完整 moderate audit 均为零；Integration E2E 91/91、source blackbox 11/11。
+- 新候选 unpacked blackbox 与最终 verify 只在 clean commit 固化并完成公网反馈部署后执行，不从源码门禁外推。

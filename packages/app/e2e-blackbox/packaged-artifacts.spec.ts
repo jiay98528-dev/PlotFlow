@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import {
   getBlackboxArtifactRoot,
+  getBlackboxReleaseRoot,
   getBlackboxTarget,
-  PROJECT_ROOT,
 } from './helpers/electronBlackbox';
 
 const execFileAsync = promisify(execFile);
@@ -36,16 +36,20 @@ function listAsarFiles(bytes: Buffer): string[] {
 test.describe('blackbox packaged artifact checks', () => {
   test('packaged app resources are present and do not bundle the website @edge @packaged', async () => {
     const target = getBlackboxTarget();
-    test.skip(target === 'devBuild', 'Packaged artifact check only applies to winUnpacked or installedExe targets.');
+    test.skip(
+      target === 'devBuild',
+      'Packaged artifact check only applies to winUnpacked or installedExe targets.',
+    );
 
     const artifactRoot = getBlackboxArtifactRoot(target);
     if (!artifactRoot) {
       throw new Error(`No artifact root for ${target}.`);
     }
 
-    const executable = target === 'installedExe'
-      ? process.env['PLOTFLOW_INSTALLED_EXE']
-      : join(artifactRoot, 'Fablevia.exe');
+    const executable =
+      target === 'installedExe'
+        ? process.env['PLOTFLOW_INSTALLED_EXE']
+        : join(artifactRoot, 'Fablevia.exe');
     expect(executable && existsSync(executable)).toBeTruthy();
 
     const resourcesDir = join(artifactRoot, 'resources');
@@ -57,14 +61,21 @@ test.describe('blackbox packaged artifact checks', () => {
 
     const asarFiles = listAsarFiles(await readFile(appAsar));
     expect(asarFiles.some((file) => file === 'website' || file.startsWith('website/'))).toBe(false);
-    expect(asarFiles.some((file) => file === 'dist-static' || file.startsWith('dist-static/'))).toBe(false);
+    expect(
+      asarFiles.some((file) => file === 'dist-static' || file.startsWith('dist-static/')),
+    ).toBe(false);
   });
 
   test('release debug metadata records installer language, include, and file association @edge @packaged @unpacked', async () => {
     const target = getBlackboxTarget();
-    test.skip(target !== 'winUnpacked', 'Builder metadata is checked against the freshly produced release directory.');
+    test.skip(
+      target !== 'winUnpacked',
+      'Builder metadata is checked against the freshly produced release directory.',
+    );
 
-    const debugPath = join(PROJECT_ROOT, 'release', 'builder-debug.yml');
+    const releaseRoot = getBlackboxReleaseRoot(target);
+    if (!releaseRoot) throw new Error('Explicit unpacked candidate root is unavailable.');
+    const debugPath = join(releaseRoot, 'builder-debug.yml');
     expect(existsSync(debugPath)).toBeTruthy();
     const debug = await readFile(debugPath, 'utf-8');
     expect(debug).toContain('MUI_LANGDLL_DISPLAY');
@@ -77,7 +88,10 @@ test.describe('blackbox packaged artifact checks', () => {
 
   test('installed app registers mdstory file association with an icon @edge @packaged @installed', async () => {
     const target = getBlackboxTarget();
-    test.skip(target !== 'installedExe', 'Registry file association check only applies to installedExe target.');
+    test.skip(
+      target !== 'installedExe',
+      'Registry file association check only applies to installedExe target.',
+    );
     test.skip(process.platform !== 'win32', 'Windows registry check only runs on Windows.');
 
     const script = `
@@ -91,10 +105,14 @@ if ($assoc.Length -gt 0) {
 [Console]::Out.WriteLine($assoc)
 [Console]::Out.WriteLine($icon)
 `;
-    const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
-      windowsHide: true,
-      timeout: 10_000,
-    });
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      {
+        windowsHide: true,
+        timeout: 10_000,
+      },
+    );
     const [association = '', icon = ''] = stdout.split(/\r?\n/).map((line) => line.trim());
     expect(association).toBe('Fablevia.Story');
     expect(icon.toLowerCase()).toContain('file-icon.ico');

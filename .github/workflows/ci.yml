@@ -45,6 +45,11 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Feedback service build and runtime import
+        run: |
+          pnpm --dir packages/feedback-service build
+          pnpm --dir packages/feedback-service test:runtime
+
       - name: Production build
         run: pnpm build
 

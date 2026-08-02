@@ -277,13 +277,13 @@
       "zhEvidence": "默认应用集成 E2E 79/79 通过；源码态黑盒 11 项通过、6 项目标专属跳过；全新解包态黑盒 16 项通过、1 项安装专属跳过，并验证磁盘 JSON 符合 Schema 0.2。"
     },
     {
-      "title": "Official theme platform",
-      "zhTitle": "官方主题平台",
+      "title": "Bundled official theme platform",
+      "zhTitle": "内置官方主题平台",
       "status": "pass",
-      "detail": "Builtin themes and official remote ZIP themes are validated, downloaded, installed, and loaded through the official theme runtime.",
-      "zhDetail": "内置主题和官方远程 ZIP 主题已通过目录校验、下载、安装与官方主题运行时加载链路。",
-      "evidence": "official-theme-service unit tests, theme E2E, and blackbox remote-theme E2E pass.",
-      "zhEvidence": "official-theme-service 单测、主题 E2E 与黑盒远程主题 E2E 均通过。"
+      "detail": "Version 0.1.1 ships exactly three compiled builtin themes. Remote registry, download, install, protocol, and executable theme loading are disabled.",
+      "zhDetail": "0.1.1 仅交付三套编译内置主题；远程 registry、下载、安装、协议和可执行主题加载均已停用。",
+      "evidence": "Builtin descriptor tests, remote-boundary regression tests, and bundled-theme E2E cover this release boundary.",
+      "zhEvidence": "内置主题描述符测试、远程边界回归测试和内置主题 E2E 覆盖当前发行边界。"
     },
     {
       "title": "JSON / HTML / TXT export",
@@ -326,11 +326,11 @@
   ],
   "roadmap": [
     {
-      "title": "Stabilize official theme runtime",
-      "zhTitle": "稳定官方主题运行时",
+      "title": "Design non-executable remote theme delivery",
+      "zhTitle": "设计不可执行的远程主题交付",
       "status": "neutral",
-      "detail": "Keep expanding surface contracts only when a real official theme needs them, and keep blackbox coverage in release/nightly.",
-      "zhDetail": "仅在真实官方主题需要时继续扩展 surface 合同，并将黑盒覆盖保留在 release/nightly。"
+      "detail": "Any future remote theme work requires a separately approved, signed, declarative data format that cannot execute JavaScript.",
+      "zhDetail": "未来如恢复远程主题，必须另行批准带签名、声明式且不可执行 JavaScript 的数据格式。"
     },
     {
       "title": "Complete M7 publishing chain",

@@ -40,15 +40,20 @@ import {
   saveOrSaveAs,
 } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
-import { loadSavedStorySession, startUnsavedStorySession } from '../services/storySessionService';
-import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
+import { startUnsavedStorySession } from '../services/storySessionService';
+import { runStoryReplacement } from '../services/storyTransactionService';
+import { requestExportDialog } from '../services/exportSnapshotService';
 import { isGraphShortcutBlocked } from '../services/graphKeyboardGuard';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
-import { requestWorkspaceMode, toggleRequestedWorkspaceMode } from '../services/workspaceModeService';
+import {
+  requestWorkspaceMode,
+  toggleRequestedWorkspaceMode,
+} from '../services/workspaceModeService';
 import type { PendingOpenFileResult } from '../types/electron';
 import { createOrderedAsyncDispatcher } from '../shared/orderedAsyncDispatcher';
 import { BrandLockup } from '../components/brand/BrandLockup';
+import { FeedbackDialogHost } from '../components/feedback/FeedbackDialog';
 
 // ============================================================================
 // P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
@@ -101,7 +106,6 @@ function AppContent(): React.ReactElement {
   const toggleConditionEditor = useUIStore((state) => state.toggleConditionEditor);
   const conditionEditorNodeId = useUIStore((state) => state.conditionEditorNodeId);
   const conditionEditorOptionIndex = useUIStore((state) => state.conditionEditorOptionIndex);
-  const openExportDialog = useUIStore((state) => state.openExportDialog);
   const openCorpusManager = useUIStore((state) => state.openCorpusManager);
   const openThemeCenter = useUIStore((state) => state.openThemeCenter);
   const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
@@ -117,17 +121,17 @@ function AppContent(): React.ReactElement {
   // storyStore 鈫?graphStore 瀹夊叏缃戯紙parsePipeline 宸茬洿鎺ヨ皟鐢?syncFromAST锛?
   // 姝ゅ浠呭鐞嗙洿鎺ヨ皟鐢?setPlotFlowData 鐨勬梺璺矾寰勶級
   useEffect(() => {
-    const unsubscribe = useStoryStore.subscribe(
-      (state, prevState) => {
-        if (state.plotFlowData !== prevState.plotFlowData) {
-          if (!useGraphStore.getState().isEditing) {
-            useGraphStore.getState().syncFromAST(state.plotFlowData);
-          }
+    const unsubscribe = useStoryStore.subscribe((state, prevState) => {
+      if (state.plotFlowData !== prevState.plotFlowData) {
+        if (!useGraphStore.getState().isEditing) {
+          useGraphStore.getState().syncFromAST(state.plotFlowData);
         }
-      },
-    );
+      }
+    });
 
-    return () => { unsubscribe(); };
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // P0-1: graphStore.selectedNodeId 鈫?editorStore 鍗曞悜鍚屾
@@ -183,16 +187,16 @@ function AppContent(): React.ReactElement {
         setStatusMessage(text('file.pendingOpenFailed', { path: result.path, code: result.code }));
         return;
       }
-      const canReplace = await confirmBeforeReplacingCurrentStory('open');
-      if (cancelled || !canReplace) return;
       const normalizedPath = normalizeStoryPath(result.story.filePath);
-      loadSavedStorySession({
+      const replacement = await runStoryReplacement('open', async () => ({
+        kind: 'saved',
         filePath: normalizedPath,
         content: result.story.content,
         hash: result.story.hash,
         modifiedAt: result.story.modifiedAt,
         closeHome: true,
-      });
+      }));
+      if (cancelled || replacement.status !== 'committed') return;
       setHomeSurfaceOpen(false);
       setStatusMessage(text('status.opened', { path: normalizedPath }));
     };
@@ -244,11 +248,12 @@ function AppContent(): React.ReactElement {
       });
 
       const latestPending = useEditorStore.getState().pendingExternalChange;
-      const confirmedEventIsCurrent = latestPending !== null
-        && normalizeStoryPath(latestPending.filePath) === normalizedEvent.filePath
-        && latestPending.content === normalizedEvent.content
-        && latestPending.hash === normalizedEvent.hash
-        && latestPending.modifiedAt === normalizedEvent.modifiedAt;
+      const confirmedEventIsCurrent =
+        latestPending !== null &&
+        normalizeStoryPath(latestPending.filePath) === normalizedEvent.filePath &&
+        latestPending.content === normalizedEvent.content &&
+        latestPending.hash === normalizedEvent.hash &&
+        latestPending.modifiedAt === normalizedEvent.modifiedAt;
       if ((choice === 1 || choice === 2) && !confirmedEventIsCurrent) {
         setStatusMessage(text('appShell.externalPending'));
         return;
@@ -276,10 +281,12 @@ function AppContent(): React.ReactElement {
 
   const handleTemplateSelected = useCallback(
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
-      const canReplace = await confirmBeforeReplacingCurrentStory('new');
-      if (!canReplace) return;
-
-      startUnsavedStorySession({ content: template, closeHome: true });
+      const replacement = await runStoryReplacement('new', async () => ({
+        kind: 'unsaved',
+        content: template,
+        closeHome: true,
+      }));
+      if (replacement.status !== 'committed') return;
       setHomeSurfaceOpen(false);
       setStatusMessage(text('file.created', { title: meta.title }));
     },
@@ -300,7 +307,11 @@ function AppContent(): React.ReactElement {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') {
-        if (event.defaultPrevented || document.querySelector('[aria-modal="true"], [role="dialog"]')) return;
+        if (
+          event.defaultPrevented ||
+          document.querySelector('[aria-modal="true"], [role="dialog"]')
+        )
+          return;
         event.preventDefault();
         void saveOrSaveAs();
         return;
@@ -326,10 +337,11 @@ function AppContent(): React.ReactElement {
     window.__test_store__ = {
       getEditorContent: () => useEditorStore.getState().content,
       getDiagnostics: () => useEditorStore.getState().diagnostics,
-      getGraphNodes: () => useGraphStore.getState().nodes.map((node) => ({
-        id: node.id,
-        position: { ...node.position },
-      })),
+      getGraphNodes: () =>
+        useGraphStore.getState().nodes.map((node) => ({
+          id: node.id,
+          position: { ...node.position },
+        })),
       getGraphZoom: () => useGraphStore.getState().zoomLevel,
       setEditorContent: (content: string) => {
         startUnsavedStorySession({ content, closeHome: true });
@@ -393,157 +405,167 @@ function AppContent(): React.ReactElement {
   const { activeTheme } = useThemePlatform();
   const Surfaces = activeTheme.surfaces;
   return (
-      <Surfaces.AppShell workspaceMode={workspaceMode} topbar={null} overlays={null} statusBar={null}>
-        <Surfaces.Toolbar
-          brand={(
+    <Surfaces.AppShell workspaceMode={workspaceMode} topbar={null} overlays={null} statusBar={null}>
+      <Surfaces.Toolbar
+        brand={
+          <button
+            type="button"
+            className="app-topbar__brand app-topbar-brand-button"
+            data-testid="toolbar-home"
+            onClick={() => setHomeSurfaceOpen(true)}
+          >
+            <BrandLockup variant="compact" />
+            <span className="app-subtitle">{text('toolbar.phase')}</span>
+            <span className="app-version">{text('appShell.version')}</span>
+            <Home aria-hidden="true" size={15} strokeWidth={2} />
+          </button>
+        }
+        fileControls={
+          <>
+            <button type="button" className="button button--primary" onClick={openNewFileDialog}>
+              <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
+              <span>{text('toolbar.newFile')}</span>
+            </button>
             <button
               type="button"
-              className="app-topbar__brand app-topbar-brand-button"
-              data-testid="toolbar-home"
-              onClick={() => setHomeSurfaceOpen(true)}
+              className="toolbar-button"
+              data-testid="toolbar-export"
+              onClick={() => requestExportDialog()}
             >
-              <BrandLockup variant="compact" />
-              <span className="app-subtitle">{text('toolbar.phase')}</span>
-              <Home aria-hidden="true" size={15} strokeWidth={2} />
+              <Download aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('toolbar.export')}</span>
             </button>
-          )}
-          fileControls={(
-            <>
-              <button type="button" className="button button--primary" onClick={openNewFileDialog}>
-                <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-                <span>{text('toolbar.newFile')}</span>
-              </button>
-              <button type="button" className="toolbar-button" data-testid="toolbar-export" onClick={() => openExportDialog()}>
-                <Download aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('toolbar.export')}</span>
-              </button>
-            </>
-          )}
-          viewControls={(
-            <>
-              <button
-                type="button"
-                className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
-                data-testid="workspace-mode-split"
-                onClick={() => {
-                  requestWorkspaceMode('split');
-                  setHomeSurfaceOpen(false);
-                }}
-                aria-pressed={workspaceMode === 'split'}
-              >
-                <FileText aria-hidden="true" size={15} strokeWidth={2} />
-                <span>Split</span>
-              </button>
-              <button
-                type="button"
-                className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
-                data-testid="workspace-mode-graph-lab"
-                onClick={() => {
-                  requestWorkspaceMode('graphLab');
-                  setHomeSurfaceOpen(false);
-                }}
-                aria-pressed={workspaceMode === 'graphLab'}
-              >
-                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-                <span>Graph Lab</span>
-                <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
-              </button>
-              <button type="button" className="toolbar-button" onClick={openCorpusManager}>
-                <Database aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('toolbar.corpus')}</span>
-              </button>
-              <button
-                type="button"
-                className="toolbar-button"
-                data-testid="toolbar-theme-center"
-                onClick={openThemeCenter}
-                title={text('toolbar.themeCenter')}
-              >
-                <Palette aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('toolbar.theme')}</span>
-              </button>
-            </>
-          )}
-          preferenceControls={(
-            <label className="toolbar-select">
-              <Languages aria-hidden="true" size={15} strokeWidth={2} />
-              <span className="visually-hidden">{text('toolbar.language')}</span>
-              <select
-                className="language-select"
-                aria-label={text('toolbar.language')}
-                value={language}
-                onChange={handleLanguageChange}
-              >
-                <option value="zh-CN">{text('appShell.languageChinese')}</option>
-                <option value="en-US">{text('appShell.languageEnglish')}</option>
-              </select>
-            </label>
-          )}
-        />
+          </>
+        }
+        viewControls={
+          <>
+            <button
+              type="button"
+              className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
+              data-testid="workspace-mode-split"
+              onClick={() => {
+                requestWorkspaceMode('split');
+                setHomeSurfaceOpen(false);
+              }}
+              aria-pressed={workspaceMode === 'split'}
+            >
+              <FileText aria-hidden="true" size={15} strokeWidth={2} />
+              <span>Split</span>
+            </button>
+            <button
+              type="button"
+              className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
+              data-testid="workspace-mode-graph-lab"
+              onClick={() => {
+                requestWorkspaceMode('graphLab');
+                setHomeSurfaceOpen(false);
+              }}
+              aria-pressed={workspaceMode === 'graphLab'}
+            >
+              <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+              <span>Graph Lab</span>
+              <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
+            </button>
+            <button type="button" className="toolbar-button" onClick={openCorpusManager}>
+              <Database aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('toolbar.corpus')}</span>
+            </button>
+            <button
+              type="button"
+              className="toolbar-button"
+              data-testid="toolbar-theme-center"
+              onClick={openThemeCenter}
+              title={text('toolbar.themeCenter')}
+            >
+              <Palette aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('toolbar.theme')}</span>
+            </button>
+          </>
+        }
+        preferenceControls={
+          <label className="toolbar-select">
+            <Languages aria-hidden="true" size={15} strokeWidth={2} />
+            <span className="visually-hidden">{text('toolbar.language')}</span>
+            <select
+              className="language-select"
+              aria-label={text('toolbar.language')}
+              value={language}
+              onChange={handleLanguageChange}
+            >
+              <option value="zh-CN">{text('appShell.languageChinese')}</option>
+              <option value="en-US">{text('appShell.languageEnglish')}</option>
+            </select>
+          </label>
+        }
+      />
 
-        <HomeSurface />
-        {workspaceMode === 'graphLab' ? (
-          <GraphLabWorkspace />
-        ) : (
-          <Surfaces.SplitShell
-            viewbar={(
-              <div className="split-viewbar" aria-label={text('appShell.splitControls')}>
-                <div className="split-viewbar__label">
-                  <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-                  <span>{text('toolbar.graph')}</span>
-                </div>
-                <button
-                  type="button"
-                  className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
-                  data-testid="toolbar-graph-view-toggle"
-                  onClick={toggleViewMode}
-                  title={viewMode === 'split' ? text('toolbar.minimap') : text('toolbar.splitGraph')}
-                  aria-pressed={viewMode === 'split'}
-                >
-                  {viewMode === 'split' ? (
-                    <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
-                  ) : (
-                    <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
-                  )}
-                  <span>{text('toolbar.graph')}: {graphModeLabel}</span>
-                </button>
+      <HomeSurface />
+      {workspaceMode === 'graphLab' ? (
+        <GraphLabWorkspace />
+      ) : (
+        <Surfaces.SplitShell
+          viewbar={
+            <div className="split-viewbar" aria-label={text('appShell.splitControls')}>
+              <div className="split-viewbar__label">
+                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                <span>{text('toolbar.graph')}</span>
               </div>
-            )}
-            outline={<OutlinePanel onNodeClick={navigateToNode} />}
-            editor={<MonacoEditor />}
-            graph={showSplitGraph ? (
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
+                data-testid="toolbar-graph-view-toggle"
+                onClick={toggleViewMode}
+                title={viewMode === 'split' ? text('toolbar.minimap') : text('toolbar.splitGraph')}
+                aria-pressed={viewMode === 'split'}
+              >
+                {viewMode === 'split' ? (
+                  <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
+                ) : (
+                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+                )}
+                <span>
+                  {text('toolbar.graph')}: {graphModeLabel}
+                </span>
+              </button>
+            </div>
+          }
+          outline={<OutlinePanel onNodeClick={navigateToNode} />}
+          editor={<MonacoEditor />}
+          graph={
+            showSplitGraph ? (
               <aside className="graph-pane" aria-label={text('toolbar.graph')}>
                 <GraphCanvas viewMode="split" />
               </aside>
-            ) : null}
-            minimap={showMinimap ? (
+            ) : null
+          }
+          minimap={
+            showMinimap ? (
               <div className="minimap-shell" aria-label={text('appShell.minimap')}>
                 <GraphCanvas viewMode="minimap" />
               </div>
-            ) : null}
-          />
-        )}
+            ) : null
+          }
+        />
+      )}
 
-        {isConditionEditorOpen && (
-          <ConditionEditor
-            onClose={toggleConditionEditor}
-            nodeId={conditionEditorNodeId ?? undefined}
-            optionIndex={conditionEditorOptionIndex ?? undefined}
-          />
-        )}
-        <ExportDialog />
-        <ProblemPanel />
-        <CorpusManager />
-        <ThemeCenter />
+      {isConditionEditorOpen && (
+        <ConditionEditor
+          onClose={toggleConditionEditor}
+          nodeId={conditionEditorNodeId ?? undefined}
+          optionIndex={conditionEditorOptionIndex ?? undefined}
+        />
+      )}
+      <ExportDialog />
+      <ProblemPanel />
+      <CorpusManager />
+      <ThemeCenter />
+      <FeedbackDialogHost />
 
-        {isNewFileDialogOpen && (
-          <NewFileDialog
-            onClose={closeNewFileDialog}
-            onTemplateSelected={handleTemplateSelected}
-          />
-        )}
+      {isNewFileDialogOpen && (
+        <NewFileDialog onClose={closeNewFileDialog} onTemplateSelected={handleTemplateSelected} />
+      )}
 
-        <StatusBar />
-      </Surfaces.AppShell>
+      <StatusBar />
+    </Surfaces.AppShell>
   );
 }

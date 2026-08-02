@@ -5,6 +5,7 @@ import { useUIStore } from '../stores/uiStore';
 import { clearGraphHistory } from './graphHistoryService';
 
 interface ResetStoryRuntimeOptions {
+  readonly nextContent: string;
   readonly closeHome?: boolean;
 }
 
@@ -13,11 +14,14 @@ interface ResetStoryRuntimeOptions {
  * Keeping this helper independent from autoSaveService lets external reloads use
  * the same reset path without introducing a circular dependency.
  */
-export function resetStoryRuntimeState(options: ResetStoryRuntimeOptions = {}): void {
+export function resetStoryRuntimeState(options: ResetStoryRuntimeOptions): void {
   clearGraphHistory();
 
   const editor = useEditorStore.getState();
-  editor.beginStorySession();
+  // Session identity and canonical content must change in one Zustand update.
+  // Otherwise mounted Source Drawer controllers can observe a new session with
+  // the old chapter slice and later splice that stale slice into the new story.
+  editor.beginStorySession(options.nextContent);
   editor.setDiagnostics([]);
   editor.setActiveNodeId(null);
   editor.setCursorPosition(1, 1);

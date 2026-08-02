@@ -10,6 +10,8 @@ describe('BrandLockup', () => {
     expect(markup).toContain('brand-lockup__primary">维叙');
     expect(markup).toContain('brand-lockup__secondary">Fablevia');
     expect(markup).toContain('brand-lockup--hero');
+    expect(markup).toContain('src="icon-64.png"');
+    expect(markup).not.toContain('.svg');
   });
 
   it('renders no Chinese or empty supporting-name placeholder in English', () => {

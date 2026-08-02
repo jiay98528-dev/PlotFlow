@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 export interface BlackboxWorkspace {
@@ -107,22 +107,4 @@ export async function writeRaw(path: string, content: string): Promise<void> {
 
 export function sha256(bytes: Buffer | Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
-}
-
-export async function copyRemoteThemeZip(targetDir: string): Promise<string> {
-  const source = resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    'website',
-    'public',
-    'themes',
-    'plotflow-neon-dossier',
-    'plotflow-neon-dossier-1.0.0.pf-official-theme.zip',
-  );
-  const target = join(targetDir, 'plotflow-neon-dossier-1.0.0.pf-official-theme.zip');
-  await cp(source, target);
-  return target;
 }

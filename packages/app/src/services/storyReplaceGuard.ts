@@ -6,7 +6,6 @@ import {
   prepareCurrentStoryForDestructiveExit,
   saveOrSaveAs,
 } from './autoSaveService';
-import { getSourceDraftState } from './sourceDraftCoordinator';
 
 export type StoryReplaceReason = 'open' | 'new' | 'workspace';
 
@@ -16,10 +15,6 @@ function text(key: string, params?: Readonly<Record<string, string | number>>): 
 
 export async function confirmBeforeReplacingCurrentStory(reason: StoryReplaceReason): Promise<boolean> {
   if (!hasCurrentStoryUnsavedChanges()) return true;
-  if (getSourceDraftState().isStale) {
-    useUIStore.getState().setStatusMessage(text('sourceDock.switchBlockedStale'));
-    return false;
-  }
 
   const editor = useEditorStore.getState();
   const isNew = reason === 'new';

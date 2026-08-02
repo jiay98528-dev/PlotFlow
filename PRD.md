@@ -8,6 +8,8 @@
 
 > **V0.3 合同补充（2026-07-11）**：ADR-013 将 canonical FullID 定义为编码组件加单一斜杠的 opaque key，并将当前 JSON 写出合同提升为 Schema 0.2；`.mdstory` 的系统管理 `plotflow` 仍为 0.1。源文件、Inspector 与内部 AST 的 engine 枚举为 `generic | godot | unity | unreal`，JSON 0.2 输出枚举为 `none | godot | unity | unreal`，导出器执行 `generic → none`。P1 源码与严格 unpacked Graph-first/Ajv 旅程已通过；installed、人工巡检、真实引擎工具链 smoke 与签名门禁仍待完成，不得宣称 release-candidate-passed 或公共正式发行。
 
+> **0.1.1 主题安全补充（2026-08-02）**：当前发行只启用 `plotflow-prism-foundry`、`plotflow-narrative-workbench` 与 `plotflow-engine-telemetry` 三套编译内置主题。官方远程 registry、下载、安装、`plotflow-theme://` 协议与 JavaScript 主题运行时全部暂停；历史远程主题 ID 回退并持久化为 Prism Foundry，既有磁盘主题目录保留但不会扫描或执行。详见 ADR-016。
+
 ---
 
 ## 目录
@@ -279,13 +281,13 @@ Fablevia（维叙）V0.1
 
 | 属性 | 规格 |
 |------|------|
-| **默认官方主题** | `plotflow-narrative-workbench`（叙事工作台 / Narrative Workbench），暖纸工作台 + 蓝图线缆 |
-| **第二官方主题** | `plotflow-blueprint-nightwatch`（夜航蓝图 / Blueprint Nightwatch），低光编辑室 + 发光线缆 |
-| **暗色/亮色模式** | 继续保留基础明暗切换；官方主题决定节点、线缆、端口、面板、Monaco 配色和动效 |
+| **默认官方主题** | `plotflow-prism-foundry`（棱镜铸造台 / Prism Foundry），冷白棱镜 + 紫罗兰控制 + 青色信号 |
+| **其他内置主题** | `plotflow-narrative-workbench`（叙事工作台）与 `plotflow-engine-telemetry`（引擎遥测台） |
+| **明暗模式** | 由三套内置主题各自的 `defaultMode`、tokens 与 Monaco 定义控制 |
 | **切换** | 顶部“主题”入口打开官方主题中心；主题启用即时生效，不修改 `.mdstory` |
-| **主题架构** | 官方主题采用编译内置模块热插拔，包含 manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta 与 React slots |
-| **产品边界** | 当前只发行官方主题；社区主题、本地 `.pf-theme.zip` 导入和远程下载暂不开放 |
-| **市场路径** | 首版只提供“购买更多官方主题”外部官网/商店跳转；后续再做授权、下载、主题市场 |
+| **主题架构** | 当前仅注册随应用编译的内置模块，包含 manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta 与 React slots |
+| **产品边界** | 0.1.1 不请求 registry，不提供下载/安装 IPC，不注册主题协议，不扫描或执行磁盘上的 `.mjs`；社区主题和本地导入同样不开放 |
+| **兼容处理** | 历史远程或未知主题 ID 回退并持久化为 Prism Foundry；既有主题目录不删除，只在当前版本中忽略 |
 
 #### F3.5.2 国际化
 
@@ -1463,7 +1465,7 @@ PlotFlow/
 | 导出 | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
 | 插件 | Godot 编辑器插件+运行时库完整实现 |
 | 项目 | 独立单文件模式 + 4个模板 |
-| UI | 官方深度主题中心（叙事工作台 / 夜航蓝图）+ 暗色/亮色模式 + 中英双语 + 自动保存 |
+| UI | 三套编译内置主题（棱镜铸造台 / 叙事工作台 / 引擎遥测台）+ 主题中心 + 中英双语 + 自动保存；远程主题暂停 |
 
 ### V0.2 — 增强（目标：2026年9月）
 
@@ -1509,7 +1511,7 @@ PlotFlow/
 | D014 | 2026-06-10 | 翻译格式仅 TXT（非 Word/PDF） | Word/PDF 并非程序员或翻译工具的主要需求，优先做 JSON+HTML |
 | D015 | 2026-06-10 | 预留方案 B（多文件项目目录）扩展为轻量级视觉小说引擎 | 基于 .mdstory 格式可直接开发 galgame/互动小说运行时 |
 | D016 | 2026-06-23 | Graph-first Dual Projection | `.mdstory` 是磁盘真相源，split 源文本编辑与 Graph Lab GUI 编辑是同一故事数据的双投影；其中“实验入口/不替代 Split 默认”条款已由 D018 覆盖 |
-| D017 | 2026-06-25 | 官方主题采用编译内置模块热插拔 | 当前只发行官方主题，社区主题与本地导入暂不开放；首版购买入口跳转官网，后续再做主题市场与授权 |
+| D017 | 2026-06-25 | 官方主题采用编译内置模块热插拔 | 0.1.1 只启用三套内置主题；远程 registry、下载、安装与代码运行时由 ADR-016 暂停 |
 | D018 | 2026-07-10 | Graph Lab 作为主要且默认工作区 | 首次启动、新建、打开与继续编辑默认进入 Graph Lab；Split 顶栏并列保留为完整源码投影；详见 ADR-012 |
 | D019 | 2026-07-11 | encoded-slash canonical FullID 与 JSON Schema 0.2 | FullID 为 opaque key；旧 layout 仅唯一匹配迁移；章节变量显式归属；详见 ADR-013 |
 

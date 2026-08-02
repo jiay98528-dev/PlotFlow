@@ -19,7 +19,7 @@ import { useStoryStore } from '../stores/storyStore';
 import { useUIStore } from '../stores/uiStore';
 import { parsePipelineNow } from './parsePipeline';
 import { debouncedSave } from './autoSaveService';
-import { flushSourceDraftBeforeSaveOrReplace } from './sourceDraftCoordinator';
+import { flushSourceDraft } from './sourceDraftCoordinator';
 import {
   configureGraphHistoryReplay,
   recordGraphEdit,
@@ -1423,7 +1423,7 @@ function runGraphEdit(
   edit: (content: string) => GraphEditResult,
   historyContext?: GraphEditHistoryContext,
 ): boolean {
-  if (!flushSourceDraftBeforeSaveOrReplace('replace')) return false;
+  if (!flushSourceDraft('graph').ok) return false;
   return commit(edit(currentContent()), source, historyContext);
 }
 

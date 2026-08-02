@@ -25,6 +25,7 @@ export default defineConfig({
   },
   renderer: {
     root: PACKAGES_APP,
+    publicDir: resolve(__dirname, 'build', 'app-icons'),
     plugins: [react()],
     build: {
       chunkSizeWarningLimit: 2500,

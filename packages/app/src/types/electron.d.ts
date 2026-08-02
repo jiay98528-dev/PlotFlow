@@ -8,12 +8,8 @@
  */
 
 import type { Diagnostic } from '@plotflow/core';
-import type {
-  InstalledOfficialThemeSummary,
-  OfficialThemeDownloadResult,
-  OfficialThemeRemoteView,
-} from '../theme-platform/types';
 import type { MenuEventChannel } from '../shared/ipcChannels';
+import type { FeedbackSubmitRequest, FeedbackSubmitResult } from '../shared/feedback';
 
 export type { MenuEventChannel } from '../shared/ipcChannels';
 
@@ -215,12 +211,8 @@ export interface DialogAPI {
   confirm: (options: DialogConfirmOptions) => Promise<number>;
 }
 
-export interface ThemeAPI {
-  listOfficialInstalled: () => Promise<InstalledOfficialThemeSummary[]>;
-  listOfficialRemote: () => Promise<OfficialThemeRemoteView[]>;
-  downloadOfficialTheme: (themeId: string) => Promise<OfficialThemeDownloadResult>;
-  openThemeMarket: () => Promise<void>;
-  openOfficialThemeStore: () => Promise<void>;
+export interface FeedbackAPI {
+  send: (request: FeedbackSubmitRequest) => Promise<FeedbackSubmitResult>;
 }
 
 // ============================================================================
@@ -237,7 +229,7 @@ export interface PlotFlowAPI {
   readonly file: FileAPI;
   readonly menu: MenuAPI;
   readonly dialog: DialogAPI;
-  readonly theme: ThemeAPI;
+  readonly feedback: FeedbackAPI;
 }
 
 // ============================================================================
@@ -316,4 +308,3 @@ declare global {
     __test_store__?: TestStoreBridge;
   }
 }
-

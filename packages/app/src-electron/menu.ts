@@ -1,9 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  Menu,
-  type MenuItemConstructorOptions,
-} from 'electron';
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
 import { IPC_CHANNELS } from '../src/shared/ipcChannels';
 import type { MenuEventChannel } from '../src/shared/ipcChannels';
 
@@ -11,35 +6,39 @@ export type AppMenuLanguage = 'zh-CN' | 'en-US';
 
 const IS_MAC = process.platform === 'darwin';
 
-const labels: Record<AppMenuLanguage, {
-  file: string;
-  new: string;
-  open: string;
-  save: string;
-  saveAs: string;
-  quit: string;
-  edit: string;
-  undo: string;
-  redo: string;
-  cut: string;
-  copy: string;
-  paste: string;
-  selectAll: string;
-  find: string;
-  replace: string;
-  view: string;
-  outline: string;
-  branchGraph: string;
-  problems: string;
-  themeCenter: string;
-  export: string;
-  exportJson: string;
-  exportHtml: string;
-  exportTxt: string;
-  help: string;
-  about: string;
-  docs: string;
-}> = {
+const labels: Record<
+  AppMenuLanguage,
+  {
+    file: string;
+    new: string;
+    open: string;
+    save: string;
+    saveAs: string;
+    quit: string;
+    edit: string;
+    undo: string;
+    redo: string;
+    cut: string;
+    copy: string;
+    paste: string;
+    selectAll: string;
+    find: string;
+    replace: string;
+    view: string;
+    outline: string;
+    branchGraph: string;
+    problems: string;
+    themeCenter: string;
+    export: string;
+    exportJson: string;
+    exportHtml: string;
+    exportTxt: string;
+    help: string;
+    feedback: string;
+    about: string;
+    docs: string;
+  }
+> = {
   'zh-CN': {
     file: '文件',
     new: '新建',
@@ -66,6 +65,7 @@ const labels: Record<AppMenuLanguage, {
     exportHtml: '导出 HTML',
     exportTxt: '导出 TXT',
     help: '帮助',
+    feedback: '报告问题…',
     about: '关于维叙（Fablevia）',
     docs: '文档',
   },
@@ -95,6 +95,7 @@ const labels: Record<AppMenuLanguage, {
     exportHtml: 'Export HTML',
     exportTxt: 'Export TXT',
     help: 'Help',
+    feedback: 'Report an Issue…',
     about: 'About Fablevia',
     docs: 'Documentation',
   },
@@ -242,6 +243,12 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
     {
       label: text.help,
       submenu: [
+        {
+          id: 'help-feedback',
+          label: text.feedback,
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpFeedback),
+        },
+        { type: 'separator' },
         ...(IS_MAC
           ? []
           : [

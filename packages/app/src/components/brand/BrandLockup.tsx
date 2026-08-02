@@ -1,7 +1,8 @@
 import React from 'react';
-import brandIconUrl from '../../assets/fablevia-icon.svg';
 import { resolveBrandPresentation } from '../../branding/brand';
 import { useUIStore, type Language } from '../../stores/uiStore';
+
+const brandIconUrl = 'icon-64.png';
 
 export type BrandLockupVariant = 'default' | 'compact' | 'hero';
 

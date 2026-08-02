@@ -19,7 +19,12 @@
 import * as yaml from 'js-yaml';
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
-import type { StoryLayout, VariableDeclaration, VariableType, VariableValue } from '../types/ast.js';
+import type {
+  StoryLayout,
+  VariableDeclaration,
+  VariableType,
+  VariableValue,
+} from '../types/ast.js';
 import type { Diagnostic, ErrorCode, SourceRange } from '../types/diagnostic.js';
 import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { analyzeStorySource } from './source.js';
@@ -60,9 +65,24 @@ export interface FrontmatterResult {
  * 对应 syntax-formal.md §2.5。
  */
 const RESERVED_WORDS = new Set([
-  'int', 'float', 'bool', 'string', 'enum', 'object',
-  'true', 'false', 'AND', 'OR', 'NOT', 'none',
-  'plotflow', 'title', 'author', 'engine', 'layout', 'vars',
+  'int',
+  'float',
+  'bool',
+  'string',
+  'enum',
+  'object',
+  'true',
+  'false',
+  'AND',
+  'OR',
+  'NOT',
+  'none',
+  'plotflow',
+  'title',
+  'author',
+  'engine',
+  'layout',
+  'vars',
 ]);
 
 /**
@@ -82,6 +102,12 @@ const PRIMITIVE_TYPES = new Set<string>(['int', 'float', 'bool', 'string']);
  * 以最外层 object 为第 1 层计数。
  */
 const MAX_OBJECT_DEPTH = 3;
+
+/**
+ * Frontmatter 的 UTF-8 字节上限。
+ * 对应 syntax-formal.md §8.8 的 64 KB 资源边界，并在进入 YAML 解析器前执行。
+ */
+const MAX_FRONTMATTER_BYTES = 64 * 1024;
 
 /**
  * 枚举类型语法匹配：enum[v1, v2, ...]
@@ -197,6 +223,19 @@ export function parseFrontmatter(raw: string): ParseResult<FrontmatterResult> {
   const fmContent = source.frontmatter.content;
   const fmContentStartLine = source.frontmatter.contentStartLine;
 
+  if (new TextEncoder().encode(fmContent).byteLength > MAX_FRONTMATTER_BYTES) {
+    return failure([
+      createDiagnostic(
+        'E005',
+        fmContentStartLine,
+        1,
+        1,
+        'Frontmatter 超过 64 KB 上限',
+        '请精简 Frontmatter 后重试。故事正文不计入此限制。',
+      ),
+    ]);
+  }
+
   // 步骤 2：分割 Frontmatter 内容为行
   const allFmLines = fmContent.split(/\r?\n|\r/);
 
@@ -204,9 +243,7 @@ export function parseFrontmatter(raw: string): ParseResult<FrontmatterResult> {
   const varsLineIndex = findVarsLineIndex(allFmLines);
 
   // 步骤 4：解析元信息（vars: 之前的行）
-  const metaLines = varsLineIndex >= 0
-    ? allFmLines.slice(0, varsLineIndex)
-    : allFmLines;
+  const metaLines = varsLineIndex >= 0 ? allFmLines.slice(0, varsLineIndex) : allFmLines;
 
   const meta = parseMetaSection(metaLines, fmContentStartLine, errors);
 
@@ -312,13 +349,15 @@ function parseMetaSection(
     if (ENGINE_TARGETS.has(obj['engine'])) {
       meta.engine = obj['engine'];
     } else {
-      errors.push(createDiagnostic(
-        'E005',
-        absoluteStartLine,
-        1,
-        1,
-        `engine "${obj['engine']}" 无效；仅支持 generic、godot、unity、unreal`,
-      ));
+      errors.push(
+        createDiagnostic(
+          'E005',
+          absoluteStartLine,
+          1,
+          1,
+          `engine "${obj['engine']}" 无效；仅支持 generic、godot、unity、unreal`,
+        ),
+      );
     }
   }
   if (typeof obj['plotflow'] === 'string' || typeof obj['plotflow'] === 'number') {
@@ -348,11 +387,12 @@ function parseStoryLayout(value: unknown): StoryLayout | undefined {
   if (!isRecord(graph)) return undefined;
 
   const versionValue = graph['version'];
-  const version = typeof versionValue === 'number'
-    ? versionValue
-    : typeof versionValue === 'string'
-      ? Number(versionValue)
-      : undefined;
+  const version =
+    typeof versionValue === 'number'
+      ? versionValue
+      : typeof versionValue === 'string'
+        ? Number(versionValue)
+        : undefined;
   if (version !== 1) return undefined;
 
   const rawNodes = graph['nodes'];
@@ -424,26 +464,30 @@ function parseStructuredYamlValue(
   try {
     const parsed = yaml.load(yamlText);
     if (!isRecord(parsed) || !HAS_OWN(parsed, variableName)) {
-      errors.push(createDiagnostic(
-        'E005',
-        absoluteLine,
-        1,
-        1 + variableName.length,
-        `变量 "${variableName}" 的结构化 YAML 声明无效`,
-      ));
+      errors.push(
+        createDiagnostic(
+          'E005',
+          absoluteLine,
+          1,
+          1 + variableName.length,
+          `变量 "${variableName}" 的结构化 YAML 声明无效`,
+        ),
+      );
       return undefined;
     }
     return parsed[variableName];
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    errors.push(createDiagnostic(
-      'E005',
-      absoluteLine,
-      1,
-      1 + variableName.length,
-      `变量 "${variableName}" 的 YAML 语法错误: ${message}`,
-      message,
-    ));
+    errors.push(
+      createDiagnostic(
+        'E005',
+        absoluteLine,
+        1,
+        1 + variableName.length,
+        `变量 "${variableName}" 的 YAML 语法错误: ${message}`,
+        message,
+      ),
+    );
     return undefined;
   }
 }
@@ -468,10 +512,11 @@ function parseStructuredPrimitiveDefault(
   let valid = false;
   switch (type) {
     case 'int':
-      valid = typeof rawDefault === 'number'
-        && Number.isInteger(rawDefault)
-        && rawDefault >= -2147483648
-        && rawDefault <= 2147483647;
+      valid =
+        typeof rawDefault === 'number' &&
+        Number.isInteger(rawDefault) &&
+        rawDefault >= -2147483648 &&
+        rawDefault <= 2147483647;
       break;
     case 'float':
       valid = typeof rawDefault === 'number' && Number.isFinite(rawDefault);
@@ -506,10 +551,7 @@ function resolveStructuredDefault(
   errors: Diagnostic[],
 ): VariableValue | undefined {
   if (declaration.type === 'enum') {
-    if (
-      typeof rawDefault !== 'string'
-      || !declaration.enumValues?.includes(rawDefault)
-    ) {
+    if (typeof rawDefault !== 'string' || !declaration.enumValues?.includes(rawDefault)) {
       createStructuredDiagnostic(
         errors,
         'E003',
@@ -563,7 +605,12 @@ function resolveStructuredDefault(
       resolved[field.name] = field.defaultValue;
       continue;
     }
-    const fieldDefault = resolveStructuredDefault(field, rawDefault[field.name], absoluteLine, errors);
+    const fieldDefault = resolveStructuredDefault(
+      field,
+      rawDefault[field.name],
+      absoluteLine,
+      errors,
+    );
     if (fieldDefault === undefined) return undefined;
     resolved[field.name] = fieldDefault;
   }
@@ -620,7 +667,10 @@ function parseStructuredVariable(
   }
 
   const rawType = rawDeclaration['type'];
-  if (typeof rawType !== 'string' || (!PRIMITIVE_TYPES.has(rawType) && rawType !== 'enum' && rawType !== 'object')) {
+  if (
+    typeof rawType !== 'string' ||
+    (!PRIMITIVE_TYPES.has(rawType) && rawType !== 'enum' && rawType !== 'object')
+  ) {
     createStructuredDiagnostic(
       errors,
       'E005',
@@ -645,7 +695,10 @@ function parseStructuredVariable(
   }
 
   const rawChapter = rawDeclaration['chapter'];
-  if (rawChapter !== undefined && (typeof rawChapter !== 'string' || rawChapter.trim().length === 0)) {
+  if (
+    rawChapter !== undefined &&
+    (typeof rawChapter !== 'string' || rawChapter.trim().length === 0)
+  ) {
     createStructuredDiagnostic(
       errors,
       'E005',
@@ -701,9 +754,9 @@ function parseStructuredVariable(
   if (type === 'enum') {
     const rawValues = rawDeclaration['values'];
     if (
-      !Array.isArray(rawValues)
-      || rawValues.length === 0
-      || rawValues.some((value) => typeof value !== 'string' || value.length === 0)
+      !Array.isArray(rawValues) ||
+      rawValues.length === 0 ||
+      rawValues.some((value) => typeof value !== 'string' || value.length === 0)
     ) {
       createStructuredDiagnostic(
         errors,
@@ -726,7 +779,13 @@ function parseStructuredVariable(
       return null;
     }
     if (HAS_OWN(rawDeclaration, 'fields')) {
-      createStructuredDiagnostic(errors, 'E005', absoluteLine, name, `enum 变量 "${name}" 不能声明 fields`);
+      createStructuredDiagnostic(
+        errors,
+        'E005',
+        absoluteLine,
+        name,
+        `enum 变量 "${name}" 不能声明 fields`,
+      );
       return null;
     }
 
@@ -749,18 +808,26 @@ function parseStructuredVariable(
 
   if (type === 'object') {
     if (depth > MAX_OBJECT_DEPTH) {
-      errors.push(createDiagnostic(
-        'E006',
-        absoluteLine,
-        1,
-        1 + name.length,
-        DIAGNOSTIC_MESSAGES['E006'],
-        `变量 "${name}" 的嵌套深度为 ${depth}，超过最大限制 ${MAX_OBJECT_DEPTH} 层`,
-      ));
+      errors.push(
+        createDiagnostic(
+          'E006',
+          absoluteLine,
+          1,
+          1 + name.length,
+          DIAGNOSTIC_MESSAGES['E006'],
+          `变量 "${name}" 的嵌套深度为 ${depth}，超过最大限制 ${MAX_OBJECT_DEPTH} 层`,
+        ),
+      );
       return null;
     }
     if (HAS_OWN(rawDeclaration, 'values')) {
-      createStructuredDiagnostic(errors, 'E005', absoluteLine, name, `object 变量 "${name}" 不能声明 values`);
+      createStructuredDiagnostic(
+        errors,
+        'E005',
+        absoluteLine,
+        name,
+        `object 变量 "${name}" 不能声明 values`,
+      );
       return null;
     }
     const rawFields = rawDeclaration['fields'];
@@ -879,13 +946,11 @@ function parseVarsSection(
     const structuredHeader = /^([^:：]+):[ \t]*(.*)$/.exec(trimmedLine);
     const structuredName = structuredHeader?.[1]?.trim();
     const structuredTail = structuredHeader?.[2]?.trim() ?? '';
-    const isStructuredDeclaration = structuredName !== undefined
-      && (structuredTail === '' || structuredTail.startsWith('{'));
+    const isStructuredDeclaration =
+      structuredName !== undefined && (structuredTail === '' || structuredTail.startsWith('{'));
 
     if (isStructuredDeclaration) {
-      const endIndex = structuredTail === ''
-        ? findStructuredVariableEnd(lines, i, indent)
-        : i + 1;
+      const endIndex = structuredTail === '' ? findStructuredVariableEnd(lines, i, indent) : i + 1;
       const nameError = validateVariableName(structuredName, absoluteLine, seenNames);
       if (nameError) {
         errors.push(nameError);
@@ -958,15 +1023,7 @@ function parseVarsSection(
       i++;
     } else if (typeSpec.startsWith(OBJECT_START_MARKER)) {
       // 对象类型 — 需要解析多行内容
-      const objectResult = parseObjectType(
-        lines,
-        i,
-        varName,
-        absoluteLine,
-        indent,
-        1,
-        errors,
-      );
+      const objectResult = parseObjectType(lines, i, varName, absoluteLine, indent, 1, errors);
       if (objectResult.variable) {
         variables.push(objectResult.variable);
       }
@@ -1056,13 +1113,7 @@ function parseVariableLine(
   if (name.length === 0) {
     return {
       type: 'error',
-      error: createDiagnostic(
-        'E005',
-        absoluteLine,
-        1,
-        colonIdx,
-        '变量名不能为空',
-      ),
+      error: createDiagnostic('E005', absoluteLine, 1, colonIdx, '变量名不能为空'),
     };
   }
 
@@ -1109,7 +1160,14 @@ function validateVariableName(
     } else {
       detail = '变量名必须以字母或中文字符开头，只能包含字母、数字、下划线';
     }
-    return createDiagnostic('E005', absoluteLine, 1, 1 + name.length, `无效的变量名: "${name}"`, detail);
+    return createDiagnostic(
+      'E005',
+      absoluteLine,
+      1,
+      1 + name.length,
+      `无效的变量名: "${name}"`,
+      detail,
+    );
   }
 
   // 检查保留字
@@ -1355,7 +1413,13 @@ function parseObjectType(
     // 验证变量名基本规则
     if (!VAR_NAME_RE.test(fieldName)) {
       errors.push(
-        createDiagnostic('E005', fieldAbsoluteLine, 1, 1 + fieldName.length, `无效的字段名: "${fieldName}"`),
+        createDiagnostic(
+          'E005',
+          fieldAbsoluteLine,
+          1,
+          1 + fieldName.length,
+          `无效的字段名: "${fieldName}"`,
+        ),
       );
       i++;
       continue;
@@ -1363,7 +1427,13 @@ function parseObjectType(
 
     if (RESERVED_WORDS.has(fieldName)) {
       errors.push(
-        createDiagnostic('E005', fieldAbsoluteLine, 1, 1 + fieldName.length, `"${fieldName}" 是保留字，不能用作字段名`),
+        createDiagnostic(
+          'E005',
+          fieldAbsoluteLine,
+          1,
+          1 + fieldName.length,
+          `"${fieldName}" 是保留字，不能用作字段名`,
+        ),
       );
       i++;
       continue;

@@ -84,7 +84,7 @@ export const defaultThemeSurfaces: ThemeSurfaces = {
     );
   },
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+  ThemeCenterSurface({ header, sidebar, installedThemes, footer }) {
     return (
       <section
         className="theme-center"
@@ -100,7 +100,6 @@ export const defaultThemeSurfaces: ThemeSurfaces = {
             {sidebar}
             <div className="theme-center__list">
               {installedThemes}
-              {remoteThemes}
             </div>
           </div>
           {footer}

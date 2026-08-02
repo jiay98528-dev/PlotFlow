@@ -20,7 +20,7 @@ import type { FileExternalChangeEvent, FileSaveResult } from '../types/electron'
 import { appT } from '../i18n/appI18n';
 import { parsePipelineNow } from './parsePipeline';
 import { rememberRecentStory } from './recentFileService';
-import { flushSourceDraftBeforeSaveOrReplace, hasSourceDraftRisk } from './sourceDraftCoordinator';
+import { flushSourceDraft, hasSourceDraftRisk } from './sourceDraftCoordinator';
 import { migrateLegacyGraphLayoutKeys } from './graphLayoutMigration';
 import { resetStoryRuntimeState } from './storyRuntimeResetService';
 
@@ -208,6 +208,10 @@ export function resetAutoSaveBaseline(content: string | null): void {
   clearPendingSave();
   externalReloadWritebacks.clear();
   lastSavedContent = content;
+}
+
+function flushDraftForSave(): boolean {
+  return flushSourceDraft('save').ok;
 }
 
 function isSameExternalEvent(
@@ -501,14 +505,13 @@ export async function applyExternalFileContent(event: FileExternalChangeEvent): 
   }
   clearPendingSave();
   resetAutoSaveBaseline(null);
-  resetStoryRuntimeState({ closeHome: true });
+  resetStoryRuntimeState({ closeHome: true, nextContent: committedEvent.content });
   const editorState = useEditorStore.getState();
   editorState.setFilePath(committedEvent.filePath);
   editorState.setFileBaseline(committedEvent.hash, committedEvent.modifiedAt);
   editorState.clearPendingExternalChange();
   editorState.setDiagnostics([]);
   editorState.setActiveNodeId(null);
-  editorState.setContent(committedEvent.content);
   editorState.markSaved();
   resetAutoSaveBaseline(committedEvent.content);
   rememberRecentStory(committedEvent.filePath, committedEvent.hash, committedEvent.modifiedAt);
@@ -530,7 +533,7 @@ async function performSave(
 ): Promise<boolean> {
   if (hasActiveSaveForCurrentGeneration()) return false;
   const pendingBeforeFlush = pendingContent;
-  if (!flushSourceDraftBeforeSaveOrReplace('save')) {
+  if (!flushDraftForSave()) {
     return false;
   }
 
@@ -745,7 +748,7 @@ export async function forceSave(): Promise<boolean> {
     waited += POLL_INTERVAL_MS;
   }
 
-  if (!flushSourceDraftBeforeSaveOrReplace('save')) {
+  if (!flushDraftForSave()) {
     return false;
   }
   clearSaveTimer();
@@ -781,7 +784,7 @@ export async function forceSave(): Promise<boolean> {
  * 供 Ctrl+S 快捷键和 File > Save 菜单使用。
  */
 async function resolveExternalConflictBeforeSave(): Promise<boolean> {
-  if (!flushSourceDraftBeforeSaveOrReplace('save')) return false;
+  if (!flushDraftForSave()) return false;
   const currentContent = syncLatestEditorContent();
   const editorState = useEditorStore.getState();
   const pending = editorState.pendingExternalChange;
@@ -895,7 +898,7 @@ export async function saveAsCurrentFile(): Promise<boolean> {
     return false;
   }
 
-  if (!flushSourceDraftBeforeSaveOrReplace('save')) {
+  if (!flushDraftForSave()) {
     return false;
   }
   const pendingExternal = useEditorStore.getState().pendingExternalChange;
@@ -946,7 +949,7 @@ export async function saveAsCurrentFile(): Promise<boolean> {
 }
 
 export async function overwritePendingExternalChange(): Promise<boolean> {
-  if (!flushSourceDraftBeforeSaveOrReplace('save')) return false;
+  if (!flushDraftForSave()) return false;
   const currentContent = syncLatestEditorContent();
   const editorState = useEditorStore.getState();
   const pending = editorState.pendingExternalChange;

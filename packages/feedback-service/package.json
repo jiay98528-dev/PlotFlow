@@ -1,0 +1,29 @@
+{
+  "name": "@plotflow/feedback-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./protocol": "./dist/protocol.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test:runtime": "node ./scripts/runtime-smoke.mjs",
+    "start": "node --enable-source-maps dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "nodemailer": "9.0.3"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.1",
+    "typescript": "^5.3.0",
+    "vitest": "^3.2.6"
+  }
+}

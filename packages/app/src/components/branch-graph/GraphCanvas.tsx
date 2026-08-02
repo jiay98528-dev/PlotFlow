@@ -48,25 +48,32 @@ import { useAppText } from '../../i18n/appI18n';
 import { parsePipelineNow } from '../../services/parsePipeline';
 import { graphEditService } from '../../services/graphEditService';
 import { NEXT_EDGE_OPTION_INDEX, parseEdgeId } from '../../stores/edgeStore';
-import {
-  resolveStoryFullIdForFlowNodeId,
-  type StoryFlowNodeData,
-} from './adapter';
+import { resolveStoryFullIdForFlowNodeId, type StoryFlowNodeData } from './adapter';
 import { type StoryEdgeData } from './StoryEdge';
 import { GraphContextMenu } from './GraphContextMenu';
 import type { ContextMenuType } from './GraphContextMenu';
 import { CollapseNode } from './CollapseNode';
-import { collapseSiblingNodes, COLLAPSE_THRESHOLD, LARGE_GRAPH_LAYOUT_THRESHOLD, NODE_DIMENSIONS } from './layout';
+import {
+  collapseSiblingNodes,
+  COLLAPSE_THRESHOLD,
+  LARGE_GRAPH_LAYOUT_THRESHOLD,
+  NODE_DIMENSIONS,
+} from './layout';
 import type { CollapseNodeData } from './layout';
 import { layoutNodesInWorker } from './graphLayoutClient';
 import { isCurrentStorySession } from '../../services/storyRuntimeResetService';
 import { isGraphShortcutBlocked } from '../../services/graphKeyboardGuard';
+import { getCurrentStoryIdentity } from '../../services/sourceDraftCoordinator';
+import { sameCanonicalStoryIdentity } from '../../services/storySnapshot';
 
 // ============================================================================
 // 自定义节点类型注册表
 // ============================================================================
 
-type ScreenToFlowPosition = (position: { readonly x: number; readonly y: number }) => { x: number; y: number };
+type ScreenToFlowPosition = (position: { readonly x: number; readonly y: number }) => {
+  x: number;
+  y: number;
+};
 
 interface WireDropContext {
   readonly mode: 'connect' | 'reconnect';
@@ -101,7 +108,10 @@ function isNextEdgeIndex(optionIndex: number): boolean {
   return optionIndex === NEXT_EDGE_OPTION_INDEX;
 }
 
-function eventToClientPoint(event: globalThis.MouseEvent | globalThis.TouchEvent | unknown): { x: number; y: number } {
+function eventToClientPoint(event: globalThis.MouseEvent | globalThis.TouchEvent | unknown): {
+  x: number;
+  y: number;
+} {
   if (event instanceof MouseEvent) {
     return { x: event.clientX, y: event.clientY };
   }
@@ -141,7 +151,9 @@ function getScreenPointOnPath(path: SVGPathElement, length: number): DOMPoint | 
 
 function findOfficialEdgeIdAtPoint(clientX: number, clientY: number): string | null {
   let best: { edgeId: string; distance: number } | null = null;
-  const paths = document.querySelectorAll<SVGPathElement>('.official-graph-edge__hit-area[data-edge-id]');
+  const paths = document.querySelectorAll<SVGPathElement>(
+    '.official-graph-edge__hit-area[data-edge-id]',
+  );
 
   for (const path of paths) {
     const edgeId = path.dataset['edgeId'];
@@ -167,9 +179,7 @@ function getStoryNodeIdFromPoint(
   graphNodes: readonly Pick<Node, 'id' | 'data'>[],
 ): string | null {
   const element = document.elementFromPoint(point.x, point.y);
-  const nodeElement = element instanceof Element
-    ? element.closest('.react-flow__node')
-    : null;
+  const nodeElement = element instanceof Element ? element.closest('.react-flow__node') : null;
   if (!(nodeElement instanceof HTMLElement)) return null;
 
   const rawId =
@@ -205,7 +215,8 @@ function getWireDragSourceFromTarget(target: EventTarget | null): WireDragSource
     '';
   const optionIndex = Number.parseInt(optionIndexRaw, 10);
 
-  if (!sourceFullId || !Number.isInteger(optionIndex) || optionIndex < NEXT_EDGE_OPTION_INDEX) return null;
+  if (!sourceFullId || !Number.isInteger(optionIndex) || optionIndex < NEXT_EDGE_OPTION_INDEX)
+    return null;
   return { sourceFullId, optionIndex };
 }
 
@@ -248,11 +259,12 @@ function WireDropMenu({
     const normalizedQuery = query.trim().toLowerCase();
     return getAllNodes()
       .filter((node) => node.fullId !== context.sourceFullId)
-      .filter((node) => (
-        normalizedQuery.length === 0 ||
-        node.title.toLowerCase().includes(normalizedQuery) ||
-        node.fullId.toLowerCase().includes(normalizedQuery)
-      ))
+      .filter(
+        (node) =>
+          normalizedQuery.length === 0 ||
+          node.title.toLowerCase().includes(normalizedQuery) ||
+          node.fullId.toLowerCase().includes(normalizedQuery),
+      )
       .slice(0, 6);
   }, [context.sourceFullId, getAllNodes, query]);
 
@@ -320,10 +332,12 @@ function WireDropMenu({
       setStatusMessage(text('graphCanvas.disconnectedNext', { title: sourceNode.title }));
     } else if (option) {
       graphEditService.connectOption(option, null);
-      setStatusMessage(text('graphCanvas.disconnectedOption', {
-        title: sourceNode.title,
-        index: context.optionIndex + 1,
-      }));
+      setStatusMessage(
+        text('graphCanvas.disconnectedOption', {
+          title: sourceNode.title,
+          index: context.optionIndex + 1,
+        }),
+      );
     }
     onClose();
   };
@@ -339,7 +353,11 @@ function WireDropMenu({
       onClick={(event) => event.stopPropagation()}
     >
       <div className="wire-drop-menu__header">
-        {text(context.mode === 'reconnect' ? 'graphCanvas.wireReconnectTitle' : 'graphCanvas.wireConnectTitle')}
+        {text(
+          context.mode === 'reconnect'
+            ? 'graphCanvas.wireReconnectTitle'
+            : 'graphCanvas.wireConnectTitle',
+        )}
       </div>
       <input
         ref={inputRef}
@@ -350,14 +368,29 @@ function WireDropMenu({
         onChange={(event) => setQuery(event.target.value)}
       />
       <div className="wire-drop-menu__section">
-        <button type="button" data-testid="wire-drop-create-node" onClick={() => createAndConnect(text('graphCanvas.newNodeTitle'))}>
+        <button
+          type="button"
+          data-testid="wire-drop-create-node"
+          onClick={() => createAndConnect(text('graphCanvas.newNodeTitle'))}
+        >
           {text('graphCanvas.createNodeAndConnect')}
         </button>
-        <button type="button" data-testid="wire-drop-create-ending" onClick={() => createAndConnect(text('graphCanvas.endingTitle'))}>
+        <button
+          type="button"
+          data-testid="wire-drop-create-ending"
+          onClick={() => createAndConnect(text('graphCanvas.endingTitle'))}
+        >
           {text('graphCanvas.createEndingAndConnect')}
         </button>
-        {(context.mode === 'reconnect' || option?.targetNodeId || (isNextTarget && sourceNode.nextTarget?.targetNodeId)) && (
-          <button type="button" data-testid="wire-drop-disconnect" className="wire-drop-menu__danger" onClick={disconnect}>
+        {(context.mode === 'reconnect' ||
+          option?.targetNodeId ||
+          (isNextTarget && sourceNode.nextTarget?.targetNodeId)) && (
+          <button
+            type="button"
+            data-testid="wire-drop-disconnect"
+            className="wire-drop-menu__danger"
+            onClick={disconnect}
+          >
             {text('graphCanvas.disconnectRoute')}
           </button>
         )}
@@ -423,7 +456,13 @@ function GraphFocusController({ nodes }: { readonly nodes: readonly Node[] }): n
 
     const frame = requestAnimationFrame(() => {
       if (request.behavior === 'fit') {
-        void fitView({ nodes: [target], padding: 0.65, minZoom: 0.9, maxZoom: 1.15, duration: 180 });
+        void fitView({
+          nodes: [target],
+          padding: 0.65,
+          minZoom: 0.9,
+          maxZoom: 1.15,
+          duration: 180,
+        });
       } else {
         const readableZoom = Math.min(1.15, Math.max(0.9, getZoom()));
         void setCenter(
@@ -432,7 +471,9 @@ function GraphFocusController({ nodes }: { readonly nodes: readonly Node[] }): n
           { zoom: readableZoom, duration: 180 },
         );
       }
-      document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(target.id)}"]`)?.focus({ preventScroll: true });
+      document
+        .querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(target.id)}"]`)
+        ?.focus({ preventScroll: true });
       consumeGraphFocus(request.requestId);
     });
     return () => cancelAnimationFrame(frame);
@@ -482,7 +523,16 @@ function AutoViewportOnGraphChange({
       fitView({ padding: 0.2, duration: 200, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM });
     });
     return () => cancelAnimationFrame(frame);
-  }, [enabled, fitView, isGraphLab, nodes, nodesInitialized, setCenter, suppressRef, viewportRevision]);
+  }, [
+    enabled,
+    fitView,
+    isGraphLab,
+    nodes,
+    nodesInitialized,
+    setCenter,
+    suppressRef,
+    viewportRevision,
+  ]);
 
   return null;
 }
@@ -525,7 +575,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
   // StoryStore — 用于查找 AST 节点信息（选项行号、targetNodeId 等）
   const getNodeByFullId = useStoryStore((state) => state.getNodeByFullId);
-  const hasAnyManualLayout = useStoryStore((state) => (state.plotFlowData?.layout?.graph.nodes.length ?? 0) > 0);
+  const hasAnyManualLayout = useStoryStore(
+    (state) => (state.plotFlowData?.layout?.graph.nodes.length ?? 0) > 0,
+  );
 
   // UIStore — 条件编辑器面板控制
   const openConditionEditor = useUIStore((state) => state.openConditionEditor);
@@ -584,7 +636,15 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
     window.addEventListener('keydown', handleRenameShortcut);
     return () => window.removeEventListener('keydown', handleRenameShortcut);
-  }, [canEditGraph, nodes, renamingNodeId, selectedNodeId, setRenamingNodeId, setStatusMessage, text]);
+  }, [
+    canEditGraph,
+    nodes,
+    renamingNodeId,
+    selectedNodeId,
+    setRenamingNodeId,
+    setStatusMessage,
+    text,
+  ]);
 
   const nodeTypes = useMemo(
     () => ({
@@ -606,12 +666,16 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     if (!isGraphLab || !activeChapterId) return { nodes, edges };
     const visibleNodeIds = new Set(
       nodes
-        .filter((node) => (node.data as StoryFlowNodeData | undefined)?.chapterId === activeChapterId)
+        .filter(
+          (node) => (node.data as StoryFlowNodeData | undefined)?.chapterId === activeChapterId,
+        )
         .map((node) => node.id),
     );
     return {
       nodes: nodes.filter((node) => visibleNodeIds.has(node.id)),
-      edges: edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)),
+      edges: edges.filter(
+        (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+      ),
     };
   }, [activeChapterId, edges, isGraphLab, nodes]);
 
@@ -672,7 +736,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const optionIndex = Number.parseInt(
         params.handleId === 'next'
           ? String(NEXT_EDGE_OPTION_INDEX)
-          : params.handleId?.replace('option-', '') ?? '-2',
+          : (params.handleId?.replace('option-', '') ?? '-2'),
         10,
       );
       const sourceNode = sourceFullId ? getNodeByFullId(sourceFullId) : undefined;
@@ -724,7 +788,12 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           const clientPoint = eventToClientPoint(event);
           const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
           const dropTargetFullId = getStoryNodeIdFromPoint(clientPoint, nodes);
-          if (sourceNode && (option || isNextTarget) && dropTargetFullId && dropTargetFullId !== sourceFullId) {
+          if (
+            sourceNode &&
+            (option || isNextTarget) &&
+            dropTargetFullId &&
+            dropTargetFullId !== sourceFullId
+          ) {
             const targetNode = getNodeByFullId(dropTargetFullId);
             if (targetNode) {
               if (isNextTarget) {
@@ -746,13 +815,18 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
           return;
         } catch {
           // eslint-disable-next-line no-console
-          console.warn('[GraphCanvas] reconnect blank drop failed — invalid edge id:', edgeToReconnect.id);
+          console.warn(
+            '[GraphCanvas] reconnect blank drop failed — invalid edge id:',
+            edgeToReconnect.id,
+          );
         }
       }
       reconnectDidSucceed.current = false;
       reconnectEdgeRef.current = null;
       const editor = useEditorStore.getState().editorInstance;
-      if (editor) { parsePipelineNow(editor.getValue()); }
+      if (editor) {
+        parsePipelineNow(editor.getValue());
+      }
     },
     [getNodeByFullId, nodes, setEditing, setStatusMessage, text],
   );
@@ -822,7 +896,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const optionIndex = parseInt(
         connection.sourceHandle === 'next'
           ? String(NEXT_EDGE_OPTION_INDEX)
-          : connection.sourceHandle?.replace('option-', '') ?? '-1',
+          : (connection.sourceHandle?.replace('option-', '') ?? '-1'),
         10,
       );
       if (optionIndex < NEXT_EDGE_OPTION_INDEX) return;
@@ -927,9 +1001,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       event.preventDefault();
       // 操作锁 (M2-08)：内联重命名期间禁用右键菜单
       if (renamingNodeId !== null) return;
-      contextMenuTriggerRef.current = event.target instanceof Element
-        ? event.target.closest<HTMLElement>('.react-flow__node')
-        : null;
+      contextMenuTriggerRef.current =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>('.react-flow__node')
+          : null;
       setContextMenu({
         isOpen: true,
         position: { x: event.clientX, y: event.clientY },
@@ -964,7 +1039,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     setContextMenu((prev) => ({ ...prev, isOpen: false }));
     if (restoreFocus) {
       const trigger = contextMenuTriggerRef.current;
-      requestAnimationFrame(() => trigger?.focus());
+      if (trigger?.isConnected) {
+        trigger.focus({ preventScroll: true });
+      }
     }
   }, []);
 
@@ -974,11 +1051,18 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       if (isGraphShortcutBlocked(event)) return;
       if (!(event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) return;
       const eventTarget = event.target;
-      if (!(eventTarget instanceof Element) || !eventTarget.closest('.react-flow, .react-flow__node')) return;
+      if (
+        !(eventTarget instanceof Element) ||
+        !eventTarget.closest('.react-flow, .react-flow__node')
+      )
+        return;
       if (eventTarget.closest('input, textarea, select, [contenteditable="true"]')) return;
       const current = useGraphStore.getState();
-      const selected = current.nodes.find((candidate) => candidate.id === current.selectedNodeId
-        || (candidate.data as StoryFlowNodeData | undefined)?.fullId === current.selectedNodeId);
+      const selected = current.nodes.find(
+        (candidate) =>
+          candidate.id === current.selectedNodeId ||
+          (candidate.data as StoryFlowNodeData | undefined)?.fullId === current.selectedNodeId,
+      );
       if (!selected || selected.type === 'collapseNode') return;
       const selector = `.react-flow__node[data-id="${CSS.escape(selected.id)}"]`;
       const trigger = document.querySelector<HTMLElement>(selector);
@@ -988,7 +1072,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       contextMenuTriggerRef.current = trigger;
       setContextMenu({
         isOpen: true,
-        position: { x: rect.left + Math.min(24, rect.width / 2), y: rect.top + Math.min(24, rect.height / 2) },
+        position: {
+          x: rect.left + Math.min(24, rect.width / 2),
+          y: rect.top + Math.min(24, rect.height / 2),
+        },
         type: 'node',
         node: selected as Node<StoryFlowNodeData>,
         edge: null,
@@ -1074,7 +1161,8 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const edgeElement = target.closest<HTMLElement>(
         '[data-edge-id].official-graph-edge__hit-area, [data-edge-id].official-graph-edge',
       );
-      const edgeId = edgeElement?.dataset['edgeId'] ?? findOfficialEdgeIdAtPoint(event.clientX, event.clientY);
+      const edgeId =
+        edgeElement?.dataset['edgeId'] ?? findOfficialEdgeIdAtPoint(event.clientX, event.clientY);
       if (!edgeId) return;
 
       event.preventDefault();
@@ -1240,7 +1328,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         connectDidSucceed.current = false;
         connectStartParams.current = null;
         const editor = useEditorStore.getState().editorInstance;
-        if (editor) { parsePipelineNow(editor.getValue()); }
+        if (editor) {
+          parsePipelineNow(editor.getValue());
+        }
         return;
       }
 
@@ -1249,7 +1339,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       const sourceNodeId = startParams?.nodeId;
       const sourceHandle = startParams?.handleId;
       const optionIndex = parseInt(
-        sourceHandle === 'next' ? String(NEXT_EDGE_OPTION_INDEX) : sourceHandle?.replace('option-', '') ?? '-1',
+        sourceHandle === 'next'
+          ? String(NEXT_EDGE_OPTION_INDEX)
+          : (sourceHandle?.replace('option-', '') ?? '-1'),
         10,
       );
       const sourceNode = sourceNodeId ? getNodeByFullId(sourceNodeId) : undefined;
@@ -1348,7 +1440,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       manualWireDragRef.current = null;
       setLiveWirePreview(null);
       setEditing(false);
-      const distance = Math.hypot(clientPoint.x - drag.startPoint.x, clientPoint.y - drag.startPoint.y);
+      const distance = Math.hypot(
+        clientPoint.x - drag.startPoint.x,
+        clientPoint.y - drag.startPoint.y,
+      );
       if (distance < 4) return true;
       suppressNextPaneClickRef.current = true;
 
@@ -1381,7 +1476,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
 
       const flowPosition = screenToFlowPositionRef.current?.(clientPoint) ?? clientPoint;
       setWireDropContext({
-        mode: (option?.targetNodeId || (isNextTarget && sourceNode.nextTarget?.targetNodeId)) ? 'reconnect' : 'connect',
+        mode:
+          option?.targetNodeId || (isNextTarget && sourceNode.nextTarget?.targetNodeId)
+            ? 'reconnect'
+            : 'connect',
         position: clientPoint,
         flowPosition,
         sourceFullId: sourceNode.fullId,
@@ -1423,10 +1521,14 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   useEffect(() => {
     const handleGlobalPointerMove = (event: PointerEvent): void => {
       if (!manualWireDragRef.current) return;
-      setLiveWirePreview((preview) => preview ? {
-        ...preview,
-        currentPoint: { x: event.clientX, y: event.clientY },
-      } : preview);
+      setLiveWirePreview((preview) =>
+        preview
+          ? {
+              ...preview,
+              currentPoint: { x: event.clientX, y: event.clientY },
+            }
+          : preview,
+      );
     };
     const handleGlobalPointerUp = (event: PointerEvent): void => {
       if (!manualWireDragRef.current) return;
@@ -1437,10 +1539,14 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     };
     const handleGlobalMouseMove = (event: MouseEvent): void => {
       if (!manualWireDragRef.current) return;
-      setLiveWirePreview((preview) => preview ? {
-        ...preview,
-        currentPoint: { x: event.clientX, y: event.clientY },
-      } : preview);
+      setLiveWirePreview((preview) =>
+        preview
+          ? {
+              ...preview,
+              currentPoint: { x: event.clientX, y: event.clientY },
+            }
+          : preview,
+      );
     };
     const handleGlobalMouseUp = (event: MouseEvent): void => {
       if (!manualWireDragRef.current) return;
@@ -1483,7 +1589,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const nodeIds = new Set(nodes.map((node) => node.id));
-      const relevantChanges = changes.filter((change) => !('id' in change) || nodeIds.has(change.id));
+      const relevantChanges = changes.filter(
+        (change) => !('id' in change) || nodeIds.has(change.id),
+      );
       if (relevantChanges.length === 0) return;
       setNodes(applyNodeChanges(relevantChanges, nodes));
     },
@@ -1507,12 +1615,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     [renamingNodeId, setEditing, suppressAutoFitForUserViewportChange],
   );
 
-  const handleNodeDrag = useCallback(
-    (_event: MouseEvent | TouchEvent, _node: Node) => {
-      suppressAutoFitRef.current = true;
-    },
-    [],
-  );
+  const handleNodeDrag = useCallback((_event: MouseEvent | TouchEvent, _node: Node) => {
+    suppressAutoFitRef.current = true;
+  }, []);
 
   const handleNodeDragStop = useCallback(
     (_event: MouseEvent | TouchEvent, node: Node) => {
@@ -1523,27 +1628,34 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       if (!drag || drag.flowNodeId !== node.id || node.type === 'collapseNode') return;
       if (!isCurrentStorySession(drag.storySessionId)) return;
 
-      const moved = Math.round(drag.startPosition.x) !== Math.round(node.position.x)
-        || Math.round(drag.startPosition.y) !== Math.round(node.position.y);
+      const moved =
+        Math.round(drag.startPosition.x) !== Math.round(node.position.x) ||
+        Math.round(drag.startPosition.y) !== Math.round(node.position.y);
       if (!moved) return;
 
       const storyNode = getNodeByFullId(drag.fullId);
       if (!storyNode) return;
-      const committed = graphEditService.updateNodePositions([{
-        fullId: drag.fullId,
-        position: node.position,
-      }]);
+      const committed = graphEditService.updateNodePositions([
+        {
+          fullId: drag.fullId,
+          position: node.position,
+        },
+      ]);
       if (committed) {
         setStatusMessage(text('graphCanvas.positionSaved', { title: storyNode.title }));
         return;
       }
 
       const currentNodes = useGraphStore.getState().nodes;
-      useGraphStore.getState().setNodes(currentNodes.map((current) => (
-        current.id === drag.flowNodeId
-          ? { ...current, position: { ...drag.startPosition } }
-          : current
-      )));
+      useGraphStore
+        .getState()
+        .setNodes(
+          currentNodes.map((current) =>
+            current.id === drag.flowNodeId
+              ? { ...current, position: { ...drag.startPosition } }
+              : current,
+          ),
+        );
     },
     [getNodeByFullId, setEditing, setStatusMessage, suppressAutoFitForUserViewportChange, text],
   );
@@ -1556,13 +1668,16 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   const isPerfMode = nodes.length > 200;
 
   /** 性能模式下 fitView 动画时长（更大值 = 更低帧率体感） */
-  const fitViewDuration = isGraphLab ? 0 : (isPerfMode ? 120 : 200);
+  const fitViewDuration = isGraphLab ? 0 : isPerfMode ? 120 : 200;
 
   const hasCompleteManualLayout = useMemo(() => {
-    return nodes.length > 0 && nodes.every((node) => {
-      const data = node.data as StoryFlowNodeData | undefined;
-      return Boolean(data?.persistedPosition);
-    });
+    return (
+      nodes.length > 0 &&
+      nodes.every((node) => {
+        const data = node.data as StoryFlowNodeData | undefined;
+        return Boolean(data?.persistedPosition);
+      })
+    );
   }, [nodes]);
 
   useEffect(() => {
@@ -1580,15 +1695,23 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
     ].join('::');
     if (asyncLayoutSignatureRef.current === signature) return;
     asyncLayoutSignatureRef.current = signature;
+    const layoutIdentity = getCurrentStoryIdentity();
 
     void layoutNodesInWorker(nodes, edges)
       .then((result) => {
-        if (result.stale || asyncLayoutSignatureRef.current !== signature) return;
-        setNodes(result.nodes.map((node) => {
-          const data = node.data as StoryFlowNodeData | undefined;
-          const persisted = data?.persistedPosition;
-          return persisted ? { ...node, position: { ...persisted } } : node;
-        }));
+        if (
+          result.stale ||
+          asyncLayoutSignatureRef.current !== signature ||
+          !sameCanonicalStoryIdentity(layoutIdentity, getCurrentStoryIdentity())
+        )
+          return;
+        setNodes(
+          result.nodes.map((node) => {
+            const data = node.data as StoryFlowNodeData | undefined;
+            const persisted = data?.persistedPosition;
+            return persisted ? { ...node, position: { ...persisted } } : node;
+          }),
+        );
         if (result.layoutMode === 'fallback-grid') {
           setStatusMessage(
             result.errorMessage
@@ -1596,7 +1719,9 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
               : text('graphCanvas.layoutFallbackLarge', { count: nodes.length }),
           );
         } else if (result.elapsedMs > 250) {
-          setStatusMessage(text('graphCanvas.layoutCompleted', { elapsed: Math.round(result.elapsedMs) }));
+          setStatusMessage(
+            text('graphCanvas.layoutCompleted', { elapsed: Math.round(result.elapsedMs) }),
+          );
         }
       })
       .catch((error: unknown) => {
@@ -1615,7 +1740,12 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
    */
   const collapsedResult = useMemo(() => {
     if (visibleGraph.nodes.length === 0) return { nodes: [] as Node[], edges: [] as Edge[] };
-    return collapseSiblingNodes(visibleGraph.nodes, visibleGraph.edges, COLLAPSE_THRESHOLD, collapsedGroups);
+    return collapseSiblingNodes(
+      visibleGraph.nodes,
+      visibleGraph.edges,
+      COLLAPSE_THRESHOLD,
+      collapsedGroups,
+    );
   }, [visibleGraph.nodes, visibleGraph.edges, collapsedGroups]);
 
   /**
@@ -1671,13 +1801,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
         }}
       >
         {/* 简单图标：分支示意 */}
-        <svg
-          width="48"
-          height="48"
-          viewBox="0 0 48 48"
-          fill="none"
-          style={{ opacity: 0.4 }}
-        >
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ opacity: 0.4 }}>
           <circle cx="24" cy="10" r="4" stroke="currentColor" strokeWidth="2" />
           <line x1="24" y1="14" x2="24" y2="22" stroke="currentColor" strokeWidth="2" />
           <circle cx="12" cy="30" r="4" stroke="currentColor" strokeWidth="2" />
@@ -1709,129 +1833,144 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
   // --- 正常渲染：React Flow 画布 ---
   return (
     <>
-    <ReactFlowProvider>
-      <div
-        className={`graph-canvas-runtime${liveWirePreview ? ' graph-canvas-runtime--wire-dragging' : ''}`}
-        style={{ width: '100%', height: '100%', position: 'relative' }}
-        onPointerDownCapture={canEditGraph ? handleManualWirePointerDown : undefined}
-        onPointerUpCapture={canEditGraph ? handleManualWirePointerUp : undefined}
-        onPointerCancelCapture={canEditGraph ? handleManualWirePointerCancel : undefined}
-        onMouseDownCapture={canEditGraph ? handleManualWireMouseDown : undefined}
-        onMouseUpCapture={canEditGraph ? handleManualWireMouseUp : undefined}
-        onWheelCapture={canEditGraph ? suppressAutoFitForUserViewportChange : undefined}
-        onClickCapture={canEditGraph ? handleEdgeHitAreaClickCapture : undefined}
-      >
-        <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
+      <ReactFlowProvider>
+        <div
+          className={`graph-canvas-runtime${liveWirePreview ? ' graph-canvas-runtime--wire-dragging' : ''}`}
+          style={{ width: '100%', height: '100%', position: 'relative' }}
+          onPointerDownCapture={canEditGraph ? handleManualWirePointerDown : undefined}
+          onPointerUpCapture={canEditGraph ? handleManualWirePointerUp : undefined}
+          onPointerCancelCapture={canEditGraph ? handleManualWirePointerCancel : undefined}
+          onMouseDownCapture={canEditGraph ? handleManualWireMouseDown : undefined}
+          onMouseUpCapture={canEditGraph ? handleManualWireMouseUp : undefined}
+          onWheelCapture={canEditGraph ? suppressAutoFitForUserViewportChange : undefined}
+          onClickCapture={canEditGraph ? handleEdgeHitAreaClickCapture : undefined}
+        >
+          <ReactFlowRuntimeBridge projectRef={screenToFlowPositionRef} />
           <ZoomResetShortcut />
           <GraphFocusController nodes={displayedNodes} />
-        <ReactFlow
-          nodes={displayedNodes}
-          edges={displayedEdges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodeClick={canEditGraph ? handleNodeClick : undefined}
-          onNodeDoubleClick={canEditGraph ? handleNodeDoubleClick : undefined}
-          onNodesChange={canEditGraph ? handleNodesChange : undefined}
-          onNodeDrag={canEditGraph ? handleNodeDrag : undefined}
-          onNodeDragStart={canEditGraph ? handleNodeDragStart : undefined}
-          onNodeDragStop={canEditGraph ? handleNodeDragStop : undefined}
-          onNodeContextMenu={canEditGraph ? handleNodeContextMenu : undefined}
-          onPaneClick={canEditGraph ? handlePaneClick : undefined}
-          onPaneContextMenu={canEditGraph ? handlePaneContextMenu : undefined}
-          onEdgeClick={canEditGraph ? handleEdgeClick : undefined}
-          onEdgeDoubleClick={canEditGraph ? handleEdgeDoubleClick : undefined}
-          onEdgeContextMenu={canEditGraph ? handleEdgeContextMenu : undefined}
-          onConnectStart={canEditGraph ? handleConnectStart : undefined}
-          onConnect={canEditGraph ? handleConnectWithTrack : undefined}
-          onConnectEnd={canEditGraph ? handleConnectEndWithCreate : undefined}
-          onReconnectStart={canEditGraph ? handleReconnectStart : undefined}
-          onReconnect={canEditGraph ? handleReconnect : undefined}
-          onReconnectEnd={canEditGraph ? handleReconnectEnd : undefined}
-          isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
-          selectionMode={SelectionMode.Partial}
-          elevateNodesOnSelect={false}
-          fitView={!isGraphLab && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
-          fitViewOptions={{ padding: 0.2, duration: fitViewDuration, maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM }}
-          minZoom={canEditGraph ? 0.1 : 0.05}
-          maxZoom={canEditGraph ? 2.0 : 0.5}
-          onViewportChange={(viewport) => setZoom(viewport.zoom)}
-          attributionPosition="bottom-left"
-          proOptions={{ hideAttribution: true }}
-          connectionLineStyle={{
-            stroke: 'var(--color-accent)',
-            strokeWidth: 2,
-            strokeDasharray: '5,4',
-          }}
-          style={{ background: isGraphLab ? 'transparent' : 'var(--color-bg-secondary)' }}
-        >
-        <AutoViewportOnGraphChange
-          enabled={(isGraphLab || !hasAnyManualLayout) && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
-          isGraphLab={isGraphLab}
-          layoutKey={displayedGraphLayoutKey}
-          nodes={displayedNodes}
-          suppressRef={suppressAutoFitRef}
-        />
-        {/* 网格背景 — 仅 split 模式 */}
-        {canEditGraph && (
-          <Background
-            color="var(--color-border-light)"
-            gap={20}
-            size={1}
-          />
-        )}
-
-        {/* 缩放/适应/锁定控件 — 仅 split 模式 */}
-        {canEditGraph && (
-          <Controls
-            position="bottom-right"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-1, 4px)',
+          <ReactFlow
+            nodes={displayedNodes}
+            edges={displayedEdges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodeClick={canEditGraph ? handleNodeClick : undefined}
+            onNodeDoubleClick={canEditGraph ? handleNodeDoubleClick : undefined}
+            onNodesChange={canEditGraph ? handleNodesChange : undefined}
+            onNodeDrag={canEditGraph ? handleNodeDrag : undefined}
+            onNodeDragStart={canEditGraph ? handleNodeDragStart : undefined}
+            onNodeDragStop={canEditGraph ? handleNodeDragStop : undefined}
+            onNodeContextMenu={canEditGraph ? handleNodeContextMenu : undefined}
+            onPaneClick={canEditGraph ? handlePaneClick : undefined}
+            onPaneContextMenu={canEditGraph ? handlePaneContextMenu : undefined}
+            onEdgeClick={canEditGraph ? handleEdgeClick : undefined}
+            onEdgeDoubleClick={canEditGraph ? handleEdgeDoubleClick : undefined}
+            onEdgeContextMenu={canEditGraph ? handleEdgeContextMenu : undefined}
+            onConnectStart={canEditGraph ? handleConnectStart : undefined}
+            onConnect={canEditGraph ? handleConnectWithTrack : undefined}
+            onConnectEnd={canEditGraph ? handleConnectEndWithCreate : undefined}
+            onReconnectStart={canEditGraph ? handleReconnectStart : undefined}
+            onReconnect={canEditGraph ? handleReconnect : undefined}
+            onReconnectEnd={canEditGraph ? handleReconnectEnd : undefined}
+            isValidConnection={canEditGraph ? handleIsValidConnection : undefined}
+            selectionMode={SelectionMode.Partial}
+            elevateNodesOnSelect={false}
+            fitView={!isGraphLab && displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD}
+            fitViewOptions={{
+              padding: 0.2,
+              duration: fitViewDuration,
+              maxZoom: GRAPH_AUTO_FIT_MAX_ZOOM,
             }}
-          />
-        )}
-
-        {/* 迷你地图 — 仅 split 模式（minimap 下自身就是小地图） */}
-        {isSplit && (
-          <MiniMap
-            position="bottom-left"
-            style={{
-              background: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border-default)',
+            minZoom={canEditGraph ? 0.1 : 0.05}
+            maxZoom={canEditGraph ? 2.0 : 0.5}
+            onViewportChange={(viewport) => setZoom(viewport.zoom)}
+            attributionPosition="bottom-left"
+            proOptions={{ hideAttribution: true }}
+            connectionLineStyle={{
+              stroke: 'var(--color-accent)',
+              strokeWidth: 2,
+              strokeDasharray: '5,4',
             }}
-            maskColor={readCssToken('--color-overlay-subtle')}
-            nodeColor={(node: Node) => {
-              if (node.type === 'collapseNode') return readCssToken('--color-text-muted');
-              const nodeData = node.data as unknown as StoryFlowNodeData | undefined;
-              const status = nodeData?.status;
-              switch (status) {
-                case 'error': return readCssToken('--color-diagnostic-error');
-                case 'orphan': return readCssToken('--color-diagnostic-warning');
-                case 'deadend': return readCssToken('--color-text-muted');
-                case 'root': return readCssToken('--color-accent');
-                default: return readCssToken('--color-success');
+            style={{ background: isGraphLab ? 'transparent' : 'var(--color-bg-secondary)' }}
+          >
+            <AutoViewportOnGraphChange
+              enabled={
+                (isGraphLab || !hasAnyManualLayout) &&
+                displayedNodes.length <= LARGE_GRAPH_LAYOUT_THRESHOLD
               }
-            }}
-          />
-        )}
-      </ReactFlow>
-      {canEditGraph && liveWirePreview && (
-        <svg className="graph-live-wire-preview" data-testid="graph-live-wire-preview" aria-hidden="true">
-          <path
-            className="graph-live-wire-preview__path"
-            d={`M ${liveWirePreview.startPoint.x} ${liveWirePreview.startPoint.y} C ${liveWirePreview.startPoint.x + 120} ${liveWirePreview.startPoint.y}, ${liveWirePreview.currentPoint.x - 120} ${liveWirePreview.currentPoint.y}, ${liveWirePreview.currentPoint.x} ${liveWirePreview.currentPoint.y}`}
-          />
-        </svg>
-      )}
-      {hasParseErrors && canEditGraph && (
-        <div className="graph-canvas-diagnostic-strip" data-severity="error" role="status" aria-live="polite">
-          <span className="graph-canvas-diagnostic-strip__dot" aria-hidden="true" />
-          <span>{text('parse.graphIncomplete', { count: errorDiagnostics.length })}</span>
+              isGraphLab={isGraphLab}
+              layoutKey={displayedGraphLayoutKey}
+              nodes={displayedNodes}
+              suppressRef={suppressAutoFitRef}
+            />
+            {/* 网格背景 — 仅 split 模式 */}
+            {canEditGraph && <Background color="var(--color-border-light)" gap={20} size={1} />}
+
+            {/* 缩放/适应/锁定控件 — 仅 split 模式 */}
+            {canEditGraph && (
+              <Controls
+                position="bottom-right"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-1, 4px)',
+                }}
+              />
+            )}
+
+            {/* 迷你地图 — 仅 split 模式（minimap 下自身就是小地图） */}
+            {isSplit && (
+              <MiniMap
+                position="bottom-left"
+                style={{
+                  background: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border-default)',
+                }}
+                maskColor={readCssToken('--color-overlay-subtle')}
+                nodeColor={(node: Node) => {
+                  if (node.type === 'collapseNode') return readCssToken('--color-text-muted');
+                  const nodeData = node.data as unknown as StoryFlowNodeData | undefined;
+                  const status = nodeData?.status;
+                  switch (status) {
+                    case 'error':
+                      return readCssToken('--color-diagnostic-error');
+                    case 'orphan':
+                      return readCssToken('--color-diagnostic-warning');
+                    case 'deadend':
+                      return readCssToken('--color-text-muted');
+                    case 'root':
+                      return readCssToken('--color-accent');
+                    default:
+                      return readCssToken('--color-success');
+                  }
+                }}
+              />
+            )}
+          </ReactFlow>
+          {canEditGraph && liveWirePreview && (
+            <svg
+              className="graph-live-wire-preview"
+              data-testid="graph-live-wire-preview"
+              aria-hidden="true"
+            >
+              <path
+                className="graph-live-wire-preview__path"
+                d={`M ${liveWirePreview.startPoint.x} ${liveWirePreview.startPoint.y} C ${liveWirePreview.startPoint.x + 120} ${liveWirePreview.startPoint.y}, ${liveWirePreview.currentPoint.x - 120} ${liveWirePreview.currentPoint.y}, ${liveWirePreview.currentPoint.x} ${liveWirePreview.currentPoint.y}`}
+              />
+            </svg>
+          )}
+          {hasParseErrors && canEditGraph && (
+            <div
+              className="graph-canvas-diagnostic-strip"
+              data-severity="error"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="graph-canvas-diagnostic-strip__dot" aria-hidden="true" />
+              <span>{text('parse.graphIncomplete', { count: errorDiagnostics.length })}</span>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-    </ReactFlowProvider>
+      </ReactFlowProvider>
 
       {/* 右键菜单 — 仅 split 模式 */}
       {canEditGraph && (
@@ -1846,10 +1985,7 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
       )}
 
       {canEditGraph && wireDropContext && (
-        <WireDropMenu
-          context={wireDropContext}
-          onClose={() => setWireDropContext(null)}
-        />
+        <WireDropMenu context={wireDropContext} onClose={() => setWireDropContext(null)} />
       )}
     </>
   );

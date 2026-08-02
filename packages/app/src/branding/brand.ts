@@ -1,10 +1,7 @@
 import type { Language } from '../stores/uiStore';
+import { FABLEVIA_BRAND } from '../shared/productIdentity';
 
-export const FABLEVIA_BRAND = {
-  englishName: 'Fablevia',
-  chineseName: '维叙',
-  legacyTechnicalNamespace: 'plotflow',
-} as const;
+export { FABLEVIA_BRAND } from '../shared/productIdentity';
 
 export interface BrandPresentation {
   readonly primaryName: string;

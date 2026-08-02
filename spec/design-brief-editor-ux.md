@@ -292,13 +292,15 @@ Prism Foundry（棱镜铸造台）是内置官方亮色主题与新安装默认�
 
 ## 8. 主题系统
 
-当前只支持官方主题：
+0.1.1 只支持三套随应用编译发布的官方内置主题：
 
-- 内置官方主题随应用发布。
-- 官方远程免费主题通过官方 registry 下载 `.pf-official-theme.zip`，校验后使用 `plotflow-theme://` 加载。
-- 不开放第三方上传、社区市场、本地导入、购买或授权。
-- 主题可以控制视觉、布局 recipe、React surfaces、React slots、Monaco 配色、CSS 和 assets。
-- 主题不得改变 `.mdstory` 语义、保存流程、导出语义、parser、validator 或 Graph Lab 命令层。
+- `plotflow-prism-foundry`（默认）、`plotflow-narrative-workbench` 与 `plotflow-engine-telemetry`。
+- Theme Center 只展示和切换这三套主题，不显示商店、远程目录、下载、更新或安装操作。
+- 启动时不得请求官方 registry，不得扫描已安装主题目录，也不得动态 import 或执行任何磁盘 `.mjs`。
+- renderer/preload/main 不提供主题 registry、下载、安装或商店 IPC；应用 CSP 不允许 `plotflow-theme:` 脚本、样式或图片源。
+- 历史远程或未知持久化主题 ID 必须回退并改写为 Prism Foundry。已有磁盘主题目录不得被迁移过程删除，但当前版本完全忽略其内容。
+- 内置主题可以控制视觉、布局 recipe、React surfaces、React slots、Monaco 配色、CSS 和 assets；不得改变 `.mdstory` 语义、保存流程、导出语义、parser、validator 或 Graph Lab 命令层。
+- 第三方上传、社区市场、本地导入、购买和授权继续不开放。未来远程主题必须先通过独立 ADR 批准带签名、声明式且不可执行 JavaScript 的交付模型。
 
 Engine Telemetry 是官方主题之一。它可以改变 Graph Lab 外观、节点卡、线缆、Inspector 和 Source Drawer 视觉，但必须保留所有功能、i18n 和截图门禁。
 

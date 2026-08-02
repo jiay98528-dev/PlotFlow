@@ -98,7 +98,7 @@ export const engineTelemetrySurfaces: ThemeSurfaces = {
     );
   },
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+  ThemeCenterSurface({ header, sidebar, installedThemes, footer }) {
     return (
       <section
         className="theme-center engine-telemetry-theme-center"
@@ -114,7 +114,6 @@ export const engineTelemetrySurfaces: ThemeSurfaces = {
             {sidebar}
             <div className="theme-center__list engine-telemetry-theme-center__list">
               {installedThemes}
-              {remoteThemes}
             </div>
           </div>
           {footer}

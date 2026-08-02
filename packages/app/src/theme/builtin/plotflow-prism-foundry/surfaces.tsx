@@ -122,7 +122,7 @@ export const prismFoundrySurfaces: ThemeSurfaces = {
     );
   },
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+  ThemeCenterSurface({ header, sidebar, installedThemes, footer }) {
     return (
       <section
         className="theme-center prism-foundry-theme-center"
@@ -139,7 +139,6 @@ export const prismFoundrySurfaces: ThemeSurfaces = {
             {sidebar}
             <div className="theme-center__list prism-foundry-theme-center__list">
               {installedThemes}
-              {remoteThemes}
             </div>
           </div>
           {footer}

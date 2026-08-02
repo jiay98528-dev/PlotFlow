@@ -31,6 +31,13 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore, type ExportFormat } from '../../stores/uiStore';
 import { useAppText } from '../../i18n/appI18n';
+import {
+  clearPreparedExportSnapshot,
+  getPreparedExportSnapshot,
+  refreshPreparedExportSnapshot,
+  requestExportDialog,
+  subscribePreparedExportSnapshot,
+} from '../../services/exportSnapshotService';
 
 // ============================================================================
 // 类型定义
@@ -136,9 +143,16 @@ export function ExportDialog(): React.ReactElement | null {
   const requestedFormat = useUIStore((s) => s.exportDialogFormat);
   const closeExportDialog = useUIStore((s) => s.closeExportDialog);
   const setGlobalStatusMessage = useUIStore((s) => s.setStatusMessage);
-  const storyData = useStoryStore((s) => s.plotFlowData);
+  const storeStoryData = useStoryStore((s) => s.plotFlowData);
   const filePath = useEditorStore((s) => s.filePath);
-  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const storeDiagnostics = useEditorStore((s) => s.diagnostics);
+  const preparedSnapshot = React.useSyncExternalStore(
+    subscribePreparedExportSnapshot,
+    getPreparedExportSnapshot,
+    getPreparedExportSnapshot,
+  );
+  const storyData = preparedSnapshot?.data ?? storeStoryData;
+  const diagnostics = preparedSnapshot?.diagnostics ?? storeDiagnostics;
   const blockingErrorCount = useMemo(
     () => countBlockingExportErrors(diagnostics),
     [diagnostics],
@@ -176,7 +190,7 @@ export function ExportDialog(): React.ReactElement | null {
         if (store.isExportDialogOpen) {
           store.closeExportDialog();
         } else {
-          store.openExportDialog();
+          requestExportDialog();
         }
       }
     };
@@ -225,6 +239,7 @@ export function ExportDialog(): React.ReactElement | null {
 
   useEffect(() => {
     if (isOpen) {
+      if (!getPreparedExportSnapshot()) refreshPreparedExportSnapshot();
       setSelectedFormat(requestedFormat);
       setExportStatus('idle');
       setStatusMessage('');
@@ -233,6 +248,8 @@ export function ExportDialog(): React.ReactElement | null {
         clearTimeout(autoCloseTimerRef.current);
         autoCloseTimerRef.current = undefined;
       }
+    } else {
+      clearPreparedExportSnapshot();
     }
   }, [isOpen, requestedFormat]);
 
@@ -260,25 +277,34 @@ export function ExportDialog(): React.ReactElement | null {
   // ========================================================================
 
   const handleExport = useCallback(async () => {
-    if (!storyData) {
+    const prepared = refreshPreparedExportSnapshot();
+    if (!prepared.ok) {
       setExportStatus('error');
-      setStatusMessage(text('exportDialog.noStory'));
+      setStatusMessage(text(
+        prepared.reason === 'stale'
+          ? 'sourceDock.switchBlockedStale'
+          : 'exportDialog.failed',
+      ));
       return;
     }
 
-    if (blockingErrorCount > 0) {
+    const snapshot = prepared.snapshot;
+    const currentBlockingErrorCount = countBlockingExportErrors(snapshot.diagnostics);
+    if (currentBlockingErrorCount > 0) {
       setExportStatus('error');
-      setStatusMessage(text('exportDialog.blockedByErrors', { count: blockingErrorCount }));
+      setStatusMessage(text('exportDialog.blockedByErrors', { count: currentBlockingErrorCount }));
       return;
     }
 
     setExportStatus('exporting');
     setStatusMessage('');
+    const extension = FORMAT_OPTIONS.find((option) => option.key === selectedFormat)?.extension ?? 'json';
+    const currentDefaultFileName = `${buildExportBaseName(snapshot.data.meta?.title, filePath)}.${extension}`;
 
     try {
       // ── 根据格式调用对应的导出器 ──
       const result = exportContent(
-        storyData,
+        snapshot.data,
         selectedFormat,
         (format) => text('exportDialog.unsupportedFormat', { format }),
       );
@@ -301,7 +327,7 @@ export function ExportDialog(): React.ReactElement | null {
         const blob = new Blob([content], { type: mimeType(selectedFormat) });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = defaultFileName; a.click();
+        a.href = url; a.download = currentDefaultFileName; a.click();
         URL.revokeObjectURL(url);
         setExportStatus('idle');
         closeExportDialog();
@@ -309,7 +335,7 @@ export function ExportDialog(): React.ReactElement | null {
       }
       const saveResult = await plotflow.file.saveExport({
         content,
-        defaultPath: defaultFileName,
+        defaultPath: currentDefaultFileName,
         filters: [{ name: filterName, extensions: [ext] }],
         format: selectedFormat,
       });
@@ -341,7 +367,7 @@ export function ExportDialog(): React.ReactElement | null {
       setExportStatus('error');
       setStatusMessage(text('exportDialog.exception', { message }));
     }
-  }, [blockingErrorCount, storyData, selectedFormat, defaultFileName, closeExportDialog, setGlobalStatusMessage, text]);
+  }, [selectedFormat, filePath, closeExportDialog, setGlobalStatusMessage, text]);
 
   // ========================================================================
   // 点击遮罩层关闭

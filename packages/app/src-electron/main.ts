@@ -1,5 +1,10 @@
-﻿import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
-import type { Event as ElectronEvent, MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from 'electron';
+﻿import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
+import type {
+  Event as ElectronEvent,
+  MessageBoxOptions,
+  OpenDialogOptions,
+  SaveDialogOptions,
+} from 'electron';
 import { basename, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { readFile, stat, readdir } from 'node:fs/promises';
 import { existsSync, watch, type FSWatcher } from 'node:fs';
@@ -7,10 +12,17 @@ import { createHash } from 'node:crypto';
 import { buildMenu, type AppMenuLanguage } from './menu';
 import { IPC_CHANNELS } from '../src/shared/ipcChannels';
 import { createOrderedAsyncDispatcher } from '../src/shared/orderedAsyncDispatcher';
+import type { FeedbackSubmitRequest } from '../src/shared/feedback';
+import { submitFeedbackOverHttps } from './feedbackHttpService';
 import { getMainProcessMessages } from './mainProcessI18n';
 import { resolvePendingOpenFile } from './pendingOpenFile';
 import { arbitrateClose } from './closeGuard';
-import { assertTrustedIpcSender, developmentRendererUrl, isAllowedExternalUrl, isTrustedRendererUrl, trustedRendererUrls } from './ipcSecurity';
+import {
+  assertTrustedIpcSender,
+  developmentRendererUrl,
+  isTrustedRendererUrl,
+  trustedRendererUrls,
+} from './ipcSecurity';
 import {
   assertWritableContent,
   findStoryFileArgument,
@@ -19,13 +31,6 @@ import {
   withTimeout,
   writeTextFileAndVerify,
 } from './mainProcessUtils';
-import {
-  downloadOfficialTheme,
-  listInstalledOfficialThemes,
-  listOfficialRemoteThemeViews,
-  registerOfficialThemeProtocolHandler,
-  registerOfficialThemeProtocolScheme,
-} from './official-theme-service';
 
 // Note: electron-squirrel-startup check is skipped in M0 (dependency not installed).
 // Will be enabled in M7 when electron-builder packaging is set up.
@@ -33,8 +38,6 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 let currentMenuLanguage: AppMenuLanguage = 'zh-CN';
-
-registerOfficialThemeProtocolScheme();
 
 /** 褰撶敤鎴峰湪鑴忔鏌ョ‘璁ゅ悗锛屽己鍒堕€€鍑烘祦绋嬩腑璺宠繃閲嶅纭鐨勬爣璁?*/
 let forceQuitting = false;
@@ -73,7 +76,12 @@ async function notifyExternalStoryChange(filePath: string): Promise<void> {
     const content = await readFile(filePath, 'utf-8');
     const fileStat = await stat(filePath);
     const hash = hashContent(content);
-    if (!watchedStoryFile || watchedStoryFile.path !== filePath || watchedStoryFile.lastHash === hash) return;
+    if (
+      !watchedStoryFile ||
+      watchedStoryFile.path !== filePath ||
+      watchedStoryFile.lastHash === hash
+    )
+      return;
     if (watchedStoryFile.lastNotifiedHash === hash) return;
     watchedStoryFile.lastNotifiedHash = hash;
     mainWindow?.webContents.send(IPC_CHANNELS.file.externalChange, {
@@ -137,13 +145,13 @@ function startWatchingStoryFile(filePath: string, content: string): void {
 let pendingFilePath: string | null = null;
 let rendererReadyForSystemOpen = false;
 const systemOpenDispatcher = createOrderedAsyncDispatcher<string>(async (filePath) => {
-    const result = await resolvePendingOpenFile(filePath, readStoryFile);
-    const target = mainWindow;
-    if (!rendererReadyForSystemOpen || !target || target.isDestroyed()) {
-      pendingFilePath = filePath;
-      return;
-    }
-    target.webContents.send(IPC_CHANNELS.file.systemOpenNotify, result);
+  const result = await resolvePendingOpenFile(filePath, readStoryFile);
+  const target = mainWindow;
+  if (!rendererReadyForSystemOpen || !target || target.isDestroyed()) {
+    pendingFilePath = filePath;
+    return;
+  }
+  target.webContents.send(IPC_CHANNELS.file.systemOpenNotify, result);
 });
 
 function dispatchSystemOpenFile(filePath: string): void {
@@ -160,7 +168,10 @@ const LEGACY_USER_DATA_DIRECTORY = 'PlotFlow'; // brand-compat: preserve the est
 const RENDERER_QUERY_TIMEOUT_MS = 5_000;
 const RENDERER_SAVE_TIMEOUT_MS = 15_000;
 const RENDERER_HTML_PATH = join(__dirname, '../renderer/index.html');
-const DEVELOPMENT_RENDERER_URL = developmentRendererUrl(app.isPackaged, process.env['ELECTRON_RENDERER_URL']);
+const DEVELOPMENT_RENDERER_URL = developmentRendererUrl(
+  app.isPackaged,
+  process.env['ELECTRON_RENDERER_URL'],
+);
 const TRUSTED_RENDERER_URLS = trustedRendererUrls({
   rendererHtmlPath: RENDERER_HTML_PATH,
   developmentUrl: DEVELOPMENT_RENDERER_URL,
@@ -170,14 +181,9 @@ function assertTrustedIpc(event: { senderFrame?: { url: string } | null }): void
   assertTrustedIpcSender(event, TRUSTED_RENDERER_URLS);
 }
 
-async function openAllowedExternal(url: string): Promise<void> {
-  if (!isAllowedExternalUrl(url)) throw new Error('External URL is not allowlisted.');
-  await shell.openExternal(url);
-}
-
 if (
-  process.env['PLOTFLOW_TEST_USER_DATA_DIR']
-  && (process.env['NODE_ENV'] === 'test' || process.env['PLOTFLOW_BLACKBOX_E2E'] === '1')
+  process.env['PLOTFLOW_TEST_USER_DATA_DIR'] &&
+  (process.env['NODE_ENV'] === 'test' || process.env['PLOTFLOW_BLACKBOX_E2E'] === '1')
 ) {
   app.setPath('userData', normalize(process.env['PLOTFLOW_TEST_USER_DATA_DIR']));
 } else {
@@ -203,9 +209,11 @@ function resolveWindowIconPath(): string | undefined {
 }
 
 function focusNativeDialogOwner(): BrowserWindow | undefined {
-  const owner = mainWindow && !mainWindow.isDestroyed()
-    ? mainWindow
-    : (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows().find((win) => !win.isDestroyed()));
+  const owner =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : (BrowserWindow.getFocusedWindow() ??
+        BrowserWindow.getAllWindows().find((win) => !win.isDestroyed()));
 
   if (!owner || owner.isDestroyed()) return undefined;
   if (owner.isMinimized()) owner.restore();
@@ -263,7 +271,6 @@ function isBlockedSystemPath(filePath: string): boolean {
   return false;
 }
 
-
 function assertWorkspacePathInside(root: string, target: string): void {
   const resolvedRoot = resolve(root);
   const resolvedTarget = resolve(target);
@@ -294,7 +301,9 @@ async function assertReadableStoryFile(filePath: string): Promise<string> {
   return normalizedPath;
 }
 
-async function readStoryFile(filePath: string): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number }> {
+async function readStoryFile(
+  filePath: string,
+): Promise<{ filePath: string; content: string; hash: string; modifiedAt: number }> {
   const normalizedPath = await assertReadableStoryFile(filePath);
   const content = await readFile(normalizedPath, 'utf-8');
   const fileStat = await stat(normalizedPath);
@@ -343,7 +352,8 @@ async function collectWorkspaceStories(
     if (entry.isDirectory()) {
       if (depth >= MAX_WORKSPACE_SCAN_DEPTH) continue;
       if (WORKSPACE_IGNORED_DIRS.has(entry.name.toLowerCase())) continue;
-      truncated = (await collectWorkspaceStories(rootPath, entryPath, depth + 1, files)) || truncated;
+      truncated =
+        (await collectWorkspaceStories(rootPath, entryPath, depth + 1, files)) || truncated;
       continue;
     }
 
@@ -392,72 +402,78 @@ async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesR
  * 由渲染进程通过 window.plotflow.file.save({ path, content, expectedHash }) 触发。
  * 对应 TAD.md §4.2 AutoSaveManager 的主进程写文件逻辑。
  */
-ipcMain.handle(IPC_CHANNELS.file.save, async (event, payload: {
-  path: string;
-  content: string;
-  expectedHash: string | null;
-  overwriteConflict?: boolean;
-}) => {
-  assertTrustedIpc(event);
-  try {
-    const rawPath = payload?.path;
-    const content = payload?.content;
-    assertWritableContent(content);
-    // 鈹€鈹€ 璺緞瀹夊叏楠岃瘉锛圥0-4: 涓夊眰闃叉姢锛夆攢鈹€
+ipcMain.handle(
+  IPC_CHANNELS.file.save,
+  async (
+    event,
+    payload: {
+      path: string;
+      content: string;
+      expectedHash: string | null;
+      overwriteConflict?: boolean;
+    },
+  ) => {
+    assertTrustedIpc(event);
+    try {
+      const rawPath = payload?.path;
+      const content = payload?.content;
+      assertWritableContent(content);
+      // 鈹€鈹€ 璺緞瀹夊叏楠岃瘉锛圥0-4: 涓夊眰闃叉姢锛夆攢鈹€
 
-    if (!rawPath || typeof rawPath !== 'string') {
-      throw new Error('无效的文件路径');
-    }
+      if (!rawPath || typeof rawPath !== 'string') {
+        throw new Error('无效的文件路径');
+      }
 
-    if (rawPath.includes('..')) {
-      throw new Error('路径包含非法遍历组件');
-    }
+      if (rawPath.includes('..')) {
+        throw new Error('路径包含非法遍历组件');
+      }
 
-    const normalizedPath = normalize(rawPath);
+      const normalizedPath = normalize(rawPath);
 
-    // 绗?灞傦細鎵╁睍鍚嶇櫧鍚嶅崟
-    if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
-      throw new Error('仅支持保存 .mdstory 文件');
-    }
+      // 绗?灞傦細鎵╁睍鍚嶇櫧鍚嶅崟
+      if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
+        throw new Error('仅支持保存 .mdstory 文件');
+      }
 
-    if (typeof payload.expectedHash === 'string') {
-      try {
-        const preflight = await preflightFileSaveHash({
-          filePath: normalizedPath,
-          expectedHash: payload.expectedHash,
-          overwriteConflict: payload.overwriteConflict,
-          hashContent,
-        });
-        if (!preflight.canWrite) {
+      if (typeof payload.expectedHash === 'string') {
+        try {
+          const preflight = await preflightFileSaveHash({
+            filePath: normalizedPath,
+            expectedHash: payload.expectedHash,
+            overwriteConflict: payload.overwriteConflict,
+            hashContent,
+          });
+          if (!preflight.canWrite) {
+            return {
+              success: false,
+              conflict: true,
+              filePath: normalizedPath,
+              content: preflight.content,
+              hash: preflight.hash,
+              modifiedAt: preflight.modifiedAt,
+            };
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           return {
             success: false,
-            conflict: true,
-            filePath: normalizedPath,
-            content: preflight.content,
-            hash: preflight.hash,
-            modifiedAt: preflight.modifiedAt,
+            conflict: false,
+            timestamp: Date.now(),
+            message: `保存前无法校验磁盘文件: ${message}`,
           };
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          conflict: false,
-          timestamp: Date.now(),
-          message: `保存前无法校验磁盘文件: ${message}`,
-        };
       }
-    }
 
-    await writeTextFileAndVerify(normalizedPath, content);
-    const fileStat = await stat(normalizedPath);
-    const hash = hashContent(content);
-    startWatchingStoryFile(normalizedPath, content);
-    return { success: true, timestamp: Date.now(), hash, modifiedAt: fileStat.mtimeMs };
-  } catch (error) {
-    throw new Error(`无法保存文件: ${(error as Error).message}`);
-  }
-});
+      await writeTextFileAndVerify(normalizedPath, content);
+      const fileStat = await stat(normalizedPath);
+      const hash = hashContent(content);
+      startWatchingStoryFile(normalizedPath, content);
+      return { success: true, timestamp: Date.now(), hash, modifiedAt: fileStat.mtimeMs };
+    } catch (error) {
+      throw new Error(`无法保存文件: ${(error as Error).message}`);
+    }
+  },
+);
 
 /**
  * file:open 鈥?鎵撳紑鏂囦欢瀵硅瘽妗?+ 璇诲彇鍐呭
@@ -470,7 +486,10 @@ ipcMain.handle(IPC_CHANNELS.file.open, async (event) => {
     const openOptions: OpenDialogOptions = {
       title: getMainProcessMessages(currentMenuLanguage).openStoryTitle,
       filters: [
-        { name: getMainProcessMessages(currentMenuLanguage).storyFileType, extensions: ['mdstory'] },
+        {
+          name: getMainProcessMessages(currentMenuLanguage).storyFileType,
+          extensions: ['mdstory'],
+        },
         { name: getMainProcessMessages(currentMenuLanguage).allFiles, extensions: ['*'] },
       ],
       properties: ['openFile'],
@@ -500,7 +519,12 @@ ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: strin
     focusNativeDialogOwner();
     const saveOptions: SaveDialogOptions = {
       title: getMainProcessMessages(currentMenuLanguage).saveStoryTitle,
-      filters: [{ name: getMainProcessMessages(currentMenuLanguage).storyFileType, extensions: ['mdstory'] }],
+      filters: [
+        {
+          name: getMainProcessMessages(currentMenuLanguage).storyFileType,
+          extensions: ['mdstory'],
+        },
+      ],
       defaultPath: 'untitled.mdstory',
     };
     const result = await dialog.showSaveDialog(saveOptions);
@@ -529,50 +553,59 @@ ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: strin
  * file:export 鈥?瀵煎嚭鏂囦欢瀵硅瘽妗?+ 鍐欏叆鏂囦欢
  *
  * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveExport(options) 瑙﹀彂銆? * 鏀寔鎸囧畾鏂囦欢绫诲瀷杩囨护鍣紙濡?.json / .html / .txt锛夊拰寤鸿鏂囦欢鍚嶃€? * 琚彇娑堟椂杩斿洖 null銆? */
-ipcMain.handle(IPC_CHANNELS.file.export, async (event, payload: {
-  content: string;
-  defaultPath: string;
-  filters: Array<{ name: string; extensions: string[] }>;
-  format: string;
-}) => {
-  assertTrustedIpc(event);
-  try {
-    assertWritableContent(payload?.content);
+ipcMain.handle(
+  IPC_CHANNELS.file.export,
+  async (
+    event,
+    payload: {
+      content: string;
+      defaultPath: string;
+      filters: Array<{ name: string; extensions: string[] }>;
+      format: string;
+    },
+  ) => {
+    assertTrustedIpc(event);
+    try {
+      assertWritableContent(payload?.content);
 
-    // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?1锛歠ormat 鐧藉悕鍗?鈹€鈹€
-    if (!payload.format || !(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(payload.format)) {
-      throw new Error(`不支持的导出格式: ${payload.format || '(未指定)'}`);
-    }
+      // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?1锛歠ormat 鐧藉悕鍗?鈹€鈹€
+      if (
+        !payload.format ||
+        !(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(payload.format)
+      ) {
+        throw new Error(`不支持的导出格式: ${payload.format || '(未指定)'}`);
+      }
 
-    // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?2锛歠ilters 鎵╁睍鍚嶇櫧鍚嶅崟 鈹€鈹€
-    if (payload.filters && Array.isArray(payload.filters)) {
-      for (const filter of payload.filters) {
-        for (const ext of filter.extensions) {
-          if (!(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(ext)) {
-            throw new Error(`不支持的导出扩展名: .${ext}`);
+      // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?2锛歠ilters 鎵╁睍鍚嶇櫧鍚嶅崟 鈹€鈹€
+      if (payload.filters && Array.isArray(payload.filters)) {
+        for (const filter of payload.filters) {
+          for (const ext of filter.extensions) {
+            if (!(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(ext)) {
+              throw new Error(`不支持的导出扩展名: .${ext}`);
+            }
           }
         }
       }
+
+      focusNativeDialogOwner();
+      const exportOptions: SaveDialogOptions = {
+        title: getMainProcessMessages(currentMenuLanguage).exportTitle,
+        filters: payload.filters,
+        defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
+      };
+      const result = await dialog.showSaveDialog(exportOptions);
+
+      if (result.canceled || !result.filePath) {
+        return null;
+      }
+
+      await writeTextFileAndVerify(result.filePath, payload.content);
+      return { filePath: result.filePath };
+    } catch (error) {
+      throw new Error(`导出失败: ${(error as Error).message}`);
     }
-
-    focusNativeDialogOwner();
-    const exportOptions: SaveDialogOptions = {
-      title: getMainProcessMessages(currentMenuLanguage).exportTitle,
-      filters: payload.filters,
-      defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
-    };
-    const result = await dialog.showSaveDialog(exportOptions);
-
-    if (result.canceled || !result.filePath) {
-      return null;
-    }
-
-    await writeTextFileAndVerify(result.filePath, payload.content);
-    return { filePath: result.filePath };
-  } catch (error) {
-    throw new Error(`导出失败: ${(error as Error).message}`);
-  }
-});
+  },
+);
 
 /**
  * file:getPendingOpenFile 鈥?鑾峰彇绯荤粺鎵撳紑鐨勬枃浠惰矾寰勪笌鍐呭锛圡7-08锛? *
@@ -634,78 +667,70 @@ ipcMain.handle(IPC_CHANNELS.file.chooseWorkspaceFolder, async (event) => {
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.file.listWorkspaceStories, async (event, payload: { rootPath: string }) => {
-  assertTrustedIpc(event);
-  try {
-    return listWorkspaceStories(payload.rootPath);
-  } catch (error) {
-    throw new Error(`工作区刷新失败: ${(error as Error).message}`);
-  }
-});
+ipcMain.handle(
+  IPC_CHANNELS.file.listWorkspaceStories,
+  async (event, payload: { rootPath: string }) => {
+    assertTrustedIpc(event);
+    try {
+      return listWorkspaceStories(payload.rootPath);
+    } catch (error) {
+      throw new Error(`工作区刷新失败: ${(error as Error).message}`);
+    }
+  },
+);
 
-ipcMain.handle(IPC_CHANNELS.file.readWorkspaceStory, async (event, payload: { rootPath: string; filePath: string }) => {
-  assertTrustedIpc(event);
-  try {
-    const rootPath = normalize(payload.rootPath);
-    const filePath = normalize(payload.filePath);
-    assertWorkspacePathInside(rootPath, filePath);
-    return readStoryFile(filePath);
-  } catch (error) {
-    console.error(`[Fablevia] 读取工作区文件失败: ${payload.filePath}`, error);
-    return null;
-  }
-});
+ipcMain.handle(
+  IPC_CHANNELS.file.readWorkspaceStory,
+  async (event, payload: { rootPath: string; filePath: string }) => {
+    assertTrustedIpc(event);
+    try {
+      const rootPath = normalize(payload.rootPath);
+      const filePath = normalize(payload.filePath);
+      assertWorkspacePathInside(rootPath, filePath);
+      return readStoryFile(filePath);
+    } catch (error) {
+      console.error(`[Fablevia] 读取工作区文件失败: ${payload.filePath}`, error);
+      return null;
+    }
+  },
+);
 
 /**
  * dialog:confirm 鈥?浠庢覆鏌撹繘绋嬭皟鐢ㄥ師鐢熸秷鎭璇濇
  *
  * 渚涙覆鏌撹繘绋嬮€氳繃 window.plotflow.dialog.confirm(options) 瑙﹀彂銆? * 杩斿洖鐢ㄦ埛鐐瑰嚮鐨勬寜閽储寮曪紙0-based锛夛紝dialog 鍏抽棴鏃惰繑鍥?-1銆? */
-ipcMain.handle(IPC_CHANNELS.dialog.confirm, async (event, options: {
-  type?: 'none' | 'info' | 'error' | 'question' | 'warning';
-  message: string;
-  detail: string;
-  buttons: string[];
-}) => {
-  assertTrustedIpc(event);
-  const owner = focusNativeDialogOwner();
-  const messageBoxOptions: MessageBoxOptions = {
-    title: getMainProcessMessages(currentMenuLanguage).productName,
-    type: options.type ?? 'warning',
-    message: options.message,
-    detail: options.detail,
-    buttons: [...options.buttons],
-    defaultId: 0,
-    cancelId: options.buttons.length - 1,
-  };
-  const result = owner
-    ? await dialog.showMessageBox(owner, messageBoxOptions)
-    : await dialog.showMessageBox(messageBoxOptions);
-  return result.response;
-});
+ipcMain.handle(
+  IPC_CHANNELS.dialog.confirm,
+  async (
+    event,
+    options: {
+      type?: 'none' | 'info' | 'error' | 'question' | 'warning';
+      message: string;
+      detail: string;
+      buttons: string[];
+    },
+  ) => {
+    assertTrustedIpc(event);
+    const owner = focusNativeDialogOwner();
+    const messageBoxOptions: MessageBoxOptions = {
+      title: getMainProcessMessages(currentMenuLanguage).productName,
+      type: options.type ?? 'warning',
+      message: options.message,
+      detail: options.detail,
+      buttons: [...options.buttons],
+      defaultId: 0,
+      cancelId: options.buttons.length - 1,
+    };
+    const result = owner
+      ? await dialog.showMessageBox(owner, messageBoxOptions)
+      : await dialog.showMessageBox(messageBoxOptions);
+    return result.response;
+  },
+);
 
-ipcMain.handle(IPC_CHANNELS.theme.listOfficialInstalled, async (event) => {
+ipcMain.handle(IPC_CHANNELS.feedback.send, async (event, payload: FeedbackSubmitRequest) => {
   assertTrustedIpc(event);
-  return listInstalledOfficialThemes();
-});
-
-ipcMain.handle(IPC_CHANNELS.theme.listOfficialRemote, async (event) => {
-  assertTrustedIpc(event);
-  return listOfficialRemoteThemeViews();
-});
-
-ipcMain.handle(IPC_CHANNELS.theme.downloadOfficialTheme, async (event, themeId: string) => {
-  assertTrustedIpc(event);
-  return downloadOfficialTheme(themeId);
-});
-
-ipcMain.handle(IPC_CHANNELS.theme.openThemeMarket, async (event) => {
-  assertTrustedIpc(event);
-  await openAllowedExternal('https://plotflow.app/themes');
-});
-
-ipcMain.handle(IPC_CHANNELS.theme.openOfficialThemeStore, async (event) => {
-  assertTrustedIpc(event);
-  await openAllowedExternal('https://plotflow.app/themes');
+  return submitFeedbackOverHttps(payload, { isPackaged: app.isPackaged });
 });
 
 ipcMain.on(IPC_CHANNELS.menu.setLanguage, (event, language: AppMenuLanguage) => {
@@ -777,19 +802,21 @@ function createWindow(): void {
 
     const affectedWindow = mainWindow;
     const text = getMainProcessMessages(currentMenuLanguage);
-    void dialog.showMessageBox(affectedWindow, {
-      type: 'error',
-      title: text.productName,
-      message: text.rendererCrashMessage,
-      detail: text.rendererCrashDetail,
-      buttons: [...text.rendererCrashButtons],
-      defaultId: 0,
-      cancelId: 1,
-    }).then(({ response }) => {
-      if (affectedWindow.isDestroyed()) return;
-      if (response === 0) affectedWindow.reload();
-      else affectedWindow.close();
-    });
+    void dialog
+      .showMessageBox(affectedWindow, {
+        type: 'error',
+        title: text.productName,
+        message: text.rendererCrashMessage,
+        detail: text.rendererCrashDetail,
+        buttons: [...text.rendererCrashButtons],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (affectedWindow.isDestroyed()) return;
+        if (response === 0) affectedWindow.reload();
+        else affectedWindow.close();
+      });
   });
 
   /**
@@ -805,21 +832,26 @@ function createWindow(): void {
     let authorised = false;
     try {
       authorised = await arbitrateClose({
-        queryState: async () => withTimeout(
-          target.webContents.executeJavaScript('window.__getEditorDirtyState__()'),
-          RENDERER_QUERY_TIMEOUT_MS,
-          '读取编辑器状态超时',
-        ),
-        save: async () => withTimeout(
-          target.webContents.executeJavaScript('window.__forceSave__ && window.__forceSave__()'),
-          RENDERER_SAVE_TIMEOUT_MS,
-          '保存操作超时',
-        ),
-        discard: async () => withTimeout(
-          target.webContents.executeJavaScript('window.__prepareDiscard__ && window.__prepareDiscard__()'),
-          RENDERER_SAVE_TIMEOUT_MS,
-          '放弃更改前的磁盘恢复超时',
-        ),
+        queryState: async () =>
+          withTimeout(
+            target.webContents.executeJavaScript('window.__getEditorDirtyState__()'),
+            RENDERER_QUERY_TIMEOUT_MS,
+            '读取编辑器状态超时',
+          ),
+        save: async () =>
+          withTimeout(
+            target.webContents.executeJavaScript('window.__forceSave__ && window.__forceSave__()'),
+            RENDERER_SAVE_TIMEOUT_MS,
+            '保存操作超时',
+          ),
+        discard: async () =>
+          withTimeout(
+            target.webContents.executeJavaScript(
+              'window.__prepareDiscard__ && window.__prepareDiscard__()',
+            ),
+            RENDERER_SAVE_TIMEOUT_MS,
+            '放弃更改前的磁盘恢复超时',
+          ),
         chooseUnsaved: async (state) => {
           const text = getMainProcessMessages(currentMenuLanguage);
           const result = await dialog.showMessageBox(target, {
@@ -837,7 +869,10 @@ function createWindow(): void {
           const text = getMainProcessMessages(currentMenuLanguage);
           const reason = error instanceof Error ? error.message : String(error);
           // eslint-disable-next-line no-console -- close failures need durable main-process diagnostics
-          console.error(`[Fablevia] ${stage === 'query' ? '读取关闭状态' : '关闭前保存'}失败`, error);
+          console.error(
+            `[Fablevia] ${stage === 'query' ? '读取关闭状态' : '关闭前保存'}失败`,
+            error,
+          );
           if (target.isDestroyed()) return 'cancel';
           const result = await dialog.showMessageBox(target, {
             type: 'error',
@@ -886,7 +921,8 @@ app.on('open-file', (event, path) => {
 
   console.log(`[Fablevia] macOS open-file: ${path}`);
 
-  if (rendererReadyForSystemOpen && mainWindow && !mainWindow.isDestroyed()) dispatchSystemOpenFile(path);
+  if (rendererReadyForSystemOpen && mainWindow && !mainWindow.isDestroyed())
+    dispatchSystemOpenFile(path);
   else pendingFilePath = path;
 });
 
@@ -935,7 +971,6 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     checkCommandLineArgs();
-    registerOfficialThemeProtocolHandler();
     Menu.setApplicationMenu(buildMenu(currentMenuLanguage));
     createWindow();
 
@@ -965,6 +1000,3 @@ app.on('before-quit', () => {
   stopWatchingStoryFile();
   // Keep dirty-state arbitration in BrowserWindow 'close'.
 });
-
-
-

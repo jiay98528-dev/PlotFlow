@@ -12,6 +12,7 @@
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import type { PlotFlowData } from '@plotflow/core';
+import type { StoryIdentity } from '../services/storySnapshot';
 
 // ============================================================================
 // 节点查找缓存 (M2-15 性能优化)
@@ -48,6 +49,9 @@ export interface StoryState {
   /** 解析后的完整 AST（null 表示尚未解析或无有效数据） */
   readonly plotFlowData: PlotFlowData | null;
 
+  /** 该 AST 对应的精确故事版本；null 表示调用方未提供版本。 */
+  readonly snapshotIdentity: StoryIdentity | null;
+
   /** 解析器是否正在运行 */
   readonly isParsing: boolean;
 
@@ -57,7 +61,7 @@ export interface StoryState {
   // --- Actions ---
 
   /** 设置解析结果（AST 数据） */
-  setPlotFlowData: (data: PlotFlowData) => void;
+  setPlotFlowData: (data: PlotFlowData, identity?: StoryIdentity) => void;
 
   /** 清除解析数据（关闭文件或解析失败时调用） */
   clearParseData: () => void;
@@ -103,6 +107,7 @@ export interface StoryState {
 
 const initialState = {
   plotFlowData: null,
+  snapshotIdentity: null,
   isParsing: false,
   parseError: null,
 } as const satisfies Omit<StoryState, 'setPlotFlowData' | 'clearParseData' | 'setParseError' | 'getNodeByLine' | 'getNodeByFullId' | 'getAllNodes'>;
@@ -120,16 +125,16 @@ export const useStoryStore = create<StoryState>()(
 
       // --- Actions ---
 
-      setPlotFlowData: (data: PlotFlowData) =>
+      setPlotFlowData: (data: PlotFlowData, identity?: StoryIdentity) =>
         set(
-          { plotFlowData: data, isParsing: false, parseError: null },
+          { plotFlowData: data, snapshotIdentity: identity ?? null, isParsing: false, parseError: null },
           false,
           'story/setPlotFlowData',
         ),
 
       clearParseData: () =>
         set(
-          { plotFlowData: null, isParsing: false, parseError: null },
+          { plotFlowData: null, snapshotIdentity: null, isParsing: false, parseError: null },
           false,
           'story/clearParseData',
         ),

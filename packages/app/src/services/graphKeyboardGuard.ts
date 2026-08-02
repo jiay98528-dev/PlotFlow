@@ -14,7 +14,7 @@ export function isGraphShortcutBlocked(event: KeyboardEvent): boolean {
   );
   return shouldBlockGraphShortcut({
     defaultPrevented: event.defaultPrevented,
-    hasModal: Boolean(document.querySelector('[aria-modal="true"], [role="dialog"]')),
+    hasModal: Boolean(document.querySelector('[aria-modal="true"], [role="dialog"], [role="menu"]')),
     isEditableTarget,
   });
 }

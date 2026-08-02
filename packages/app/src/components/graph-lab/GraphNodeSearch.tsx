@@ -7,6 +7,7 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { isGraphShortcutBlocked } from '../../services/graphKeyboardGuard';
+import { requestActiveChapter } from '../../services/storyTransactionService';
 
 const SEVERITY_RANK: Readonly<Record<DiagnosticSeverity, number>> = {
   info: 1,
@@ -60,7 +61,6 @@ export function GraphNodeSearch(): React.ReactElement {
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const setActiveNodeId = useEditorStore((state) => state.setActiveNodeId);
   const selectNode = useGraphStore((state) => state.selectNode);
-  const setActiveChapterId = useUIStore((state) => state.setActiveChapterId);
   const setCompactGraphPanel = useUIStore((state) => state.setCompactGraphPanel);
   const requestGraphFocus = useUIStore((state) => state.requestGraphFocus);
   const [isOpen, setIsOpen] = useState(false);
@@ -110,7 +110,7 @@ export function GraphNodeSearch(): React.ReactElement {
 
   const choose = useCallback((result: SearchResult) => {
     const { node } = result;
-    setActiveChapterId(node.chapterId);
+    if (!requestActiveChapter(node.chapterId)) return;
     selectNode(node.fullId);
     setActiveNodeId(node.fullId);
     if (window.matchMedia?.('(width <= 900px)').matches) {
@@ -118,7 +118,7 @@ export function GraphNodeSearch(): React.ReactElement {
     }
     requestGraphFocus(node.fullId, 'center');
     close(false);
-  }, [close, requestGraphFocus, selectNode, setActiveChapterId, setActiveNodeId, setCompactGraphPanel]);
+  }, [close, requestGraphFocus, selectNode, setActiveNodeId, setCompactGraphPanel]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {

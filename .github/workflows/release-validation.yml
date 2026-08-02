@@ -26,11 +26,12 @@ jobs:
     timeout-minutes: 120
     env:
       PLOTFLOW_REVIEW_EVIDENCE: '1'
+      PLOTFLOW_VISUAL_FONT_ENV: windows-2022-segoe-ui
     outputs:
       artifact-id: ${{ steps.release-upload.outputs.artifact-id }}
       artifact-url: ${{ steps.release-upload.outputs.artifact-url }}
       artifact-digest: ${{ steps.release-upload.outputs.artifact-digest }}
-      artifact-name: plotflow-windows-${{ github.sha }}
+      artifact-name: fablevia-windows-${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,48 +50,77 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build fresh Windows package
-        run: pnpm package:win
+      - name: Run complete source and release gates
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm lint:css
+          pnpm lint:tokens
+          pnpm lint:layers
+          pnpm lint:bundle
+          pnpm lint:ui-literals
+          pnpm lint:brand
+          pnpm lint:docs
+          pnpm check:schema
+          pnpm test:engine-contract
+          pnpm test:external-review-contract
+          pnpm test:release-tools
+          pnpm --dir packages/feedback-service build
+          pnpm --dir packages/feedback-service test:runtime
+          pnpm --dir website lint
+          pnpm --dir website typecheck
+          pnpm --dir website test
+          pnpm --dir website build:static
+          pnpm --dir website verify:static
+          pnpm audit --prod --audit-level high
+          pnpm audit --audit-level moderate
+
+      - name: Run integration E2E before packaging
+        run: pnpm --filter @plotflow/app test:e2e
+
+      - name: Run source blackbox before packaging
+        run: pnpm --filter @plotflow/app test:e2e:blackbox
+
+      - name: Create fresh unsigned Windows candidate
+        id: candidate
+        run: pnpm release:candidate:create
 
       - name: Run unpacked blackbox
+        env:
+          PLOTFLOW_BLACKBOX_RELEASE_ROOT: ${{ steps.candidate.outputs.candidate_dir }}
+          PLOTFLOW_BLACKBOX_UNPACKED_EXE: ${{ steps.candidate.outputs.unpacked_exe }}
         run: pnpm --filter @plotflow/app test:e2e:unpacked
 
       - name: Run unpacked 100, 500 and 1000 node performance journeys
         shell: pwsh
+        env:
+          PLOTFLOW_BLACKBOX_RELEASE_ROOT: ${{ steps.candidate.outputs.candidate_dir }}
+          PLOTFLOW_BLACKBOX_UNPACKED_EXE: ${{ steps.candidate.outputs.unpacked_exe }}
         run: |
           $env:PLOTFLOW_BLACKBOX_TARGET = 'winUnpacked'
           pnpm.cmd --filter @plotflow/app test:e2e:blackbox:perf
 
-      - name: Generate SHA256 manifest
-        shell: pwsh
-        run: |
-          $releaseRoot = (Resolve-Path -LiteralPath 'release').Path
-          $files = @(
-            Get-ChildItem -LiteralPath 'release' -File -Filter 'Fablevia Setup *.exe'
-            Get-ChildItem -LiteralPath 'release/win-unpacked' -File -Filter 'Fablevia.exe'
-          ) | Sort-Object FullName
-          if ($files.Count -ne 2) {
-            throw "Expected one installer and one unpacked executable, found $($files.Count)."
-          }
-          $lines = foreach ($file in $files) {
-            $relative = $file.FullName.Substring($releaseRoot.Length + 1).Replace('\', '/')
-            "$(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256 | Select-Object -ExpandProperty Hash) *$relative"
-          }
-          $lines | Set-Content -LiteralPath 'release/SHA256SUMS.txt' -Encoding utf8
-          Get-Content -LiteralPath 'release/SHA256SUMS.txt'
+      - name: Verify candidate again after unpacked validation
+        run: >-
+          node scripts/release/windows-unsigned-candidate.mjs verify
+          --release-root "${{ steps.candidate.outputs.candidate_dir }}"
+          --expected-commit "${{ github.sha }}"
 
-      - name: Upload package and SHA256 evidence
+      - name: Upload unsigned candidate and identity evidence
         id: release-upload
         uses: actions/upload-artifact@v4
         with:
-          name: plotflow-windows-${{ github.sha }}
+          name: fablevia-windows-${{ github.sha }}
           retention-days: 14
           if-no-files-found: error
           path: |
-            release/Fablevia Setup *.exe
-            release/Fablevia Setup *.exe.blockmap
-            release/win-unpacked/Fablevia.exe
-            release/SHA256SUMS.txt
+            ${{ steps.candidate.outputs.candidate_dir }}/Fablevia Setup *.exe
+            ${{ steps.candidate.outputs.candidate_dir }}/win-unpacked/Fablevia.exe
+            ${{ steps.candidate.outputs.candidate_dir }}/win-unpacked/resources/app.asar
+            ${{ steps.candidate.outputs.candidate_dir }}/candidate-manifest.json
+            ${{ steps.candidate.outputs.candidate_dir }}/SHA256SUMS.txt
 
       - name: Upload Playwright failure evidence
         if: failure()
@@ -141,12 +171,15 @@ jobs:
       - name: Download package from this workflow run
         uses: actions/download-artifact@v4
         with:
-          name: plotflow-windows-${{ github.sha }}
+          name: fablevia-windows-${{ github.sha }}
           path: ${{ env.PLOTFLOW_VALIDATED_RELEASE }}
 
       - name: Verify package hashes and install this workflow's candidate
         shell: pwsh
         run: |
+          node scripts/release/windows-unsigned-candidate.mjs verify `
+            --release-root $env:PLOTFLOW_VALIDATED_RELEASE `
+            --expected-commit '${{ github.sha }}'
           $manifestPath = Resolve-Path -LiteralPath (Join-Path $env:PLOTFLOW_VALIDATED_RELEASE 'SHA256SUMS.txt')
           $manifest = Get-Content -LiteralPath $manifestPath
           $installer = Get-ChildItem -LiteralPath $env:PLOTFLOW_VALIDATED_RELEASE -File -Filter 'Fablevia Setup *.exe' | Select-Object -First 1

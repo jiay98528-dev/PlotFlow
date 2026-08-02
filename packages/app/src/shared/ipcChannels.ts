@@ -14,13 +14,7 @@ export const IPC_CHANNELS = {
     readWorkspaceStory: 'file:readWorkspaceStory',
   },
   dialog: { confirm: 'dialog:confirm' },
-  theme: {
-    listOfficialInstalled: 'theme:listOfficialInstalled',
-    listOfficialRemote: 'theme:listOfficialRemote',
-    downloadOfficialTheme: 'theme:downloadOfficialTheme',
-    openThemeMarket: 'theme:openThemeMarket',
-    openOfficialThemeStore: 'theme:openOfficialThemeStore',
-  },
+  feedback: { send: 'feedback:send' },
   menu: {
     setLanguage: 'menu:setLanguage',
     events: {
@@ -39,6 +33,7 @@ export const IPC_CHANNELS = {
       exportJson: 'menu:export:json',
       exportHtml: 'menu:export:html',
       exportTxt: 'menu:export:txt',
+      helpFeedback: 'menu:help:feedback',
       helpAbout: 'menu:help:about',
       helpDocs: 'menu:help:docs',
     },
@@ -53,4 +48,3 @@ type DeepStringValue<T> = T extends string
 
 export type IpcChannel = DeepStringValue<typeof IPC_CHANNELS>;
 export type MenuEventChannel = DeepStringValue<typeof IPC_CHANNELS.menu.events>;
-
