@@ -12,6 +12,9 @@ test-results/
 manual-gui-audit*.mdstory
 manual-gui-audit*.json
 
+# Local landing-page design exploration (snapshots and probes)
+/网页/
+
 # OS files
 .DS_Store
 Thumbs.db
