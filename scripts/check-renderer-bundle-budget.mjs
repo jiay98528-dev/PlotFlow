@@ -1,9 +1,13 @@
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ASSETS_DIR = join(process.cwd(), 'out', 'renderer', 'assets');
 const ENTRY_BUDGET_BYTES = 3 * 1024 * 1024;
 
+if (!existsSync(ASSETS_DIR)) {
+  console.error('Renderer build output is missing. Run `pnpm build` before `pnpm lint:bundle`.');
+  process.exit(1);
+}
 const files = readdirSync(ASSETS_DIR).filter((file) => file.endsWith('.js'));
 const entryFiles = files.filter((file) => /^index-[A-Za-z0-9_-]+\.js$/.test(file));
 const reports = files

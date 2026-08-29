@@ -4,14 +4,15 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "node ../../scripts/clean-app-local-out.mjs && pnpm --dir ../.. build",
-    "test:e2e": "playwright test --config e2e/playwright.config.ts --workers=1",
-    "test:e2e:blackbox": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @packaged",
-    "test:e2e:unpacked": "set PLOTFLOW_BLACKBOX_TARGET=winUnpacked&& playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @installed",
-    "test:e2e:installed": "set PLOTFLOW_BLACKBOX_TARGET=installedExe&& playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @unpacked",
+    "check:electron-runtime": "node ../../scripts/check-electron-runtime.mjs",
+    "test:e2e": "pnpm check:electron-runtime && playwright test --config e2e/playwright.config.ts --workers=1",
+    "test:e2e:blackbox": "pnpm check:electron-runtime && playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @packaged",
+    "test:e2e:unpacked": "node ../../scripts/run-app-e2e.mjs winUnpacked --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @installed",
+    "test:e2e:installed": "node ../../scripts/run-app-e2e.mjs installedExe --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @unpacked",
     "test:e2e:blackbox:journey": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep @journey",
     "test:e2e:blackbox:edge": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep @edge",
     "test:e2e:blackbox:perf": "playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep @perf",
-    "test:e2e:ghost": "playwright test --config playwright.config.ts"
+    "test:e2e:ghost": "pnpm check:electron-runtime && playwright test --config playwright.config.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.0.0",
