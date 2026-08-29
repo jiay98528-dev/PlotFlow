@@ -52,11 +52,29 @@ export const CollapseNode: React.FC<CollapseNodeProps> = ({ data }) => {
     [data.groupId, toggleGroupCollapse],
   );
 
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleGroupCollapse(data.groupId);
+    },
+    [data.groupId, toggleGroupCollapse],
+  );
+
+  const accessibleLabel = text('themeNode.expandCollapsedNodes', {
+    count: data.collapsedCount,
+  });
+
   return (
     <div
       className="collapse-node-card"
       onClick={handleClick}
-      title={text('themeNode.expandCollapsedNodes', { count: data.collapsedCount })}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={accessibleLabel}
+      title={accessibleLabel}
     >
       {/* 目标端口（顶部，接收来自父节点的连线） */}
       <Handle

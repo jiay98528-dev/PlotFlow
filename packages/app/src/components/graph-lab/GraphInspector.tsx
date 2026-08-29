@@ -780,10 +780,9 @@ function EffectsEditor({
   readonly onCommit: (raw: string | null) => boolean;
 }): React.ReactElement {
   const text = useAppText();
-  const parsed = parseEffectsForEditor(raw, variables);
-  const fallback = parsed === null;
-  const parsedEffects = parsed ?? [];
-  const parsedEffectsSignature = JSON.stringify(parsedEffects);
+  const parsedResult = useMemo(() => parseEffectsForEditor(raw, variables), [raw, variables]);
+  const fallback = parsedResult === null;
+  const parsedEffects = useMemo(() => parsedResult ?? [], [parsedResult]);
   const [effects, setEffects] = useState<ParsedEffect[]>(parsedEffects);
   const firstVariable = variables[0]?.name ?? '';
   const [draftVariable, setDraftVariable] = useState(firstVariable);
@@ -805,7 +804,7 @@ function EffectsEditor({
   React.useEffect(() => {
     setEffects(parsedEffects);
     setCommitRejected(false);
-  }, [draftIdentity, parsedEffectsSignature, storySessionId]);
+  }, [draftIdentity, parsedEffects, storySessionId]);
 
   const updateEffect = useCallback(
     (effectIndex: number, patch: Partial<ParsedEffect>) => {
@@ -1012,8 +1011,8 @@ export function GraphInspector({
 
   const node = useMemo(() => {
     const id = selectedNodeId ?? activeNodeId;
-    return id ? useStoryStore.getState().getNodeByFullId(id) : undefined;
-  }, [activeNodeId, selectedNodeId, plotFlowData]);
+    return id ? allNodes.find((candidate) => candidate.fullId === id) : undefined;
+  }, [activeNodeId, allNodes, selectedNodeId]);
 
   const chapterOptions = useMemo(
     () => plotFlowData?.chapters.map((chapter) => chapter.title).filter(Boolean) ?? [],

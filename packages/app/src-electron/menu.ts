@@ -36,7 +36,6 @@ const labels: Record<
     help: string;
     feedback: string;
     about: string;
-    docs: string;
   }
 > = {
   'zh-CN': {
@@ -67,7 +66,6 @@ const labels: Record<
     help: '帮助',
     feedback: '报告问题…',
     about: '关于维叙（Fablevia）',
-    docs: '文档',
   },
   'en-US': {
     file: 'File',
@@ -97,7 +95,6 @@ const labels: Record<
     help: 'Help',
     feedback: 'Report an Issue…',
     about: 'About Fablevia',
-    docs: 'Documentation',
   },
 };
 
@@ -248,20 +245,15 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
           label: text.feedback,
           click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpFeedback),
         },
-        { type: 'separator' },
         ...(IS_MAC
           ? []
           : [
+              { type: 'separator' as const },
               {
                 label: text.about,
                 click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpAbout),
               },
-              { type: 'separator' as const },
             ]),
-        {
-          label: text.docs,
-          click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpDocs),
-        },
       ],
     },
   ];

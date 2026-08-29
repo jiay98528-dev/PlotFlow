@@ -5,18 +5,29 @@ import type {
   OpenDialogOptions,
   SaveDialogOptions,
 } from 'electron';
-import { basename, isAbsolute, join, normalize, relative, resolve } from 'node:path';
-import { readFile, stat, readdir } from 'node:fs/promises';
-import { existsSync, watch, type FSWatcher } from 'node:fs';
+import { join, normalize } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { existsSync, type FSWatcher } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { buildMenu, type AppMenuLanguage } from './menu';
 import { IPC_CHANNELS } from '../src/shared/ipcChannels';
 import { createOrderedAsyncDispatcher } from '../src/shared/orderedAsyncDispatcher';
 import type { FeedbackSubmitRequest } from '../src/shared/feedback';
+import type { FileExportRequest } from '../src/types/electron';
 import { submitFeedbackOverHttps } from './feedbackHttpService';
 import { getMainProcessMessages } from './mainProcessI18n';
 import { resolvePendingOpenFile } from './pendingOpenFile';
 import { arbitrateClose } from './closeGuard';
+import {
+  MAX_READ_BYTES,
+  isBlockedSystemPath,
+  listWorkspaceStories,
+  resolveWorkspaceStoryPath,
+} from './workspaceFiles';
+import {
+  StoryFileObservationTracker,
+  type InternalStoryWriteToken,
+} from './storyFileObservation';
 import {
   assertTrustedIpcSender,
   developmentRendererUrl,
@@ -26,9 +37,13 @@ import {
 import {
   assertWritableContent,
   findStoryFileArgument,
-  preflightFileSaveHash,
+  isStoryFilePath,
+  resolveExistingFilePath,
+  resolveWritableFilePath,
   sanitizeExportDefaultPath,
   withTimeout,
+  watchFileByDirectory,
+  writeTextFileAtomically,
   writeTextFileAndVerify,
 } from './mainProcessUtils';
 
@@ -39,15 +54,14 @@ import {
 let mainWindow: BrowserWindow | null = null;
 let currentMenuLanguage: AppMenuLanguage = 'zh-CN';
 
-/** 褰撶敤鎴峰湪鑴忔鏌ョ‘璁ゅ悗锛屽己鍒堕€€鍑烘祦绋嬩腑璺宠繃閲嶅纭鐨勬爣璁?*/
+/** 用户完成脏状态裁决后，允许退出流程绕过重复确认。 */
 let forceQuitting = false;
 
 interface WatchedStoryFile {
   readonly path: string;
   watcher: FSWatcher | null;
   pollingTimer: ReturnType<typeof setInterval> | null;
-  lastHash: string;
-  lastNotifiedHash: string | null;
+  readonly observations: StoryFileObservationTracker;
   debounceTimer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -55,6 +69,24 @@ let watchedStoryFile: WatchedStoryFile | null = null;
 
 function hashContent(content: string): string {
   return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+interface PendingWatchedWrite {
+  readonly tracker: StoryFileObservationTracker;
+  readonly token: InternalStoryWriteToken;
+}
+
+function beginWatchedInternalWrite(filePath: string, hash: string): PendingWatchedWrite | null {
+  if (!watchedStoryFile || watchedStoryFile.path !== normalize(filePath)) return null;
+  const tracker = watchedStoryFile.observations;
+  return { tracker, token: tracker.beginInternalWrite(hash) };
+}
+
+function settleWatchedInternalWrite(
+  pending: PendingWatchedWrite | null,
+  written: boolean,
+): void {
+  pending?.tracker.settleInternalWrite(pending.token, written);
 }
 
 function stopWatchingStoryFile(): void {
@@ -76,26 +108,28 @@ async function notifyExternalStoryChange(filePath: string): Promise<void> {
     const content = await readFile(filePath, 'utf-8');
     const fileStat = await stat(filePath);
     const hash = hashContent(content);
-    if (
-      !watchedStoryFile ||
-      watchedStoryFile.path !== filePath ||
-      watchedStoryFile.lastHash === hash
-    )
-      return;
-    if (watchedStoryFile.lastNotifiedHash === hash) return;
-    watchedStoryFile.lastNotifiedHash = hash;
+    if (!watchedStoryFile || watchedStoryFile.path !== filePath) return;
+    if (!watchedStoryFile.observations.observe(hash).shouldNotify) return;
     mainWindow?.webContents.send(IPC_CHANNELS.file.externalChange, {
       filePath,
       content,
       hash,
       modifiedAt: fileStat.mtimeMs,
     });
-  } catch {
-    stopWatchingStoryFile();
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT' &&
+      watchedStoryFile?.path === filePath
+    ) {
+      scheduleExternalStoryCheck(filePath, 300);
+    }
   }
 }
 
-function scheduleExternalStoryCheck(filePath: string): void {
+function scheduleExternalStoryCheck(filePath: string, delayMs = 150): void {
   if (!watchedStoryFile || watchedStoryFile.path !== filePath) return;
   if (watchedStoryFile.debounceTimer) {
     clearTimeout(watchedStoryFile.debounceTimer);
@@ -103,15 +137,21 @@ function scheduleExternalStoryCheck(filePath: string): void {
   watchedStoryFile.debounceTimer = setTimeout(() => {
     if (watchedStoryFile) watchedStoryFile.debounceTimer = null;
     void notifyExternalStoryChange(filePath);
-  }, 150);
+  }, delayMs);
+}
+
+function startStoryPolling(state: WatchedStoryFile): void {
+  if (state.pollingTimer) return;
+  state.pollingTimer = setInterval(() => {
+    scheduleExternalStoryCheck(state.path);
+  }, 2000);
 }
 
 function startWatchingStoryFile(filePath: string, content: string): void {
   const normalizedPath = normalize(filePath);
   const hash = hashContent(content);
   if (watchedStoryFile?.path === normalizedPath) {
-    watchedStoryFile.lastHash = hash;
-    watchedStoryFile.lastNotifiedHash = null;
+    watchedStoryFile.observations.setObserved(hash);
     return;
   }
 
@@ -120,28 +160,32 @@ function startWatchingStoryFile(filePath: string, content: string): void {
     path: normalizedPath,
     watcher: null,
     pollingTimer: null,
-    lastHash: hash,
-    lastNotifiedHash: null,
+    observations: new StoryFileObservationTracker(hash),
     debounceTimer: null,
   };
 
   try {
-    watchedStoryFile.watcher = watch(normalizedPath, { persistent: false }, () => {
-      scheduleExternalStoryCheck(normalizedPath);
-    });
+    const state = watchedStoryFile;
+    const watcher = watchFileByDirectory(
+      normalizedPath,
+      () => scheduleExternalStoryCheck(normalizedPath),
+      () => {
+        if (watchedStoryFile !== state) return;
+        watcher.close();
+        state.watcher = null;
+        startStoryPolling(state);
+      },
+    );
+    state.watcher = watcher;
   } catch {
-    watchedStoryFile.pollingTimer = setInterval(() => {
-      scheduleExternalStoryCheck(normalizedPath);
-    }, 2000);
+    startStoryPolling(watchedStoryFile);
   }
 }
 
 /**
- * 绯荤粺锛堝弻鍑?鍛戒护琛岋級鎵撳紑鐨?.mdstory 鏂囦欢璺緞锛圡7-08锛夈€? *
- * 瀛樺偍鏉ヨ嚜浠ヤ笅涓ょ閫斿緞鐨勬枃浠惰矾寰?
- *   - macOS: app.on('open-file', ...) 浜嬩欢
- *   - Windows/Linux: process.argv[1] 鍛戒护琛屽弬鏁? *
- * 绐楀彛灏辩华鍚庯紝娓叉煋杩涚▼閫氳繃 file:getPendingOpenFile IPC 鑾峰彇姝よ矾寰勫苟鍔犺浇銆? */
+ * 系统双击或命令行传入、等待渲染进程消费的 .mdstory 路径。
+ * macOS 来源是 open-file 事件，Windows/Linux 来源是命令行参数。
+ */
 let pendingFilePath: string | null = null;
 let rendererReadyForSystemOpen = false;
 const systemOpenDispatcher = createOrderedAsyncDispatcher<string>(async (filePath) => {
@@ -224,72 +268,22 @@ function focusNativeDialogOwner(): BrowserWindow | undefined {
 }
 
 // ============================================================================
-// IPC 瀹夊叏鏍￠獙甯搁噺 (V0.3 涓昏繘绋嬪厹搴曟牎楠?
+// IPC 安全校验常量
 // ============================================================================
 
-/** 鏂囦欢璇诲彇澶у皬涓婇檺锛?0MB锛堥槻姝㈡伓鎰忓ぇ鏂囦欢 OOM锛?*/
-const MAX_READ_BYTES = 10 * 1024 * 1024;
-
-/** 瀵煎嚭鏍煎紡鐧藉悕鍗?*/
+/** 导出格式白名单。 */
 const ALLOWED_EXPORT_FORMATS = ['json', 'html', 'txt'] as const;
-const MAX_WORKSPACE_SCAN_DEPTH = 2;
-const MAX_WORKSPACE_STORY_FILES = 300;
-const WORKSPACE_IGNORED_DIRS = new Set([
-  '.git',
-  '.hg',
-  '.svn',
-  'node_modules',
-  '.pnpm',
-  'release',
-  'out',
-  'dist',
-  'coverage',
-  'website',
-  'dist-static',
-]);
-/** 绂佹璁块棶鐨勭郴缁熺洰褰曞墠缂€锛圲nix锛?*/
-const FORBIDDEN_UNIX_PREFIXES = ['/etc', '/proc', '/sys', '/dev', '/boot', '/root'];
-
-/**
- * 妫€娴嬭矾寰勬槸鍚︿綅浜庣郴缁熸晱鎰熺洰褰曞唴銆? * 涓嶆浛浠ｆ搷浣滅郴缁熸潈闄愭帶鍒讹紝浠呬綔涓轰富杩涚▼鍏滃簳鏍￠獙銆? */
-function isBlockedSystemPath(filePath: string): boolean {
-  const normalized = normalize(filePath);
-  const lower = normalized.toLowerCase();
-
-  // Unix 绯荤粺鐩綍
-  for (const prefix of FORBIDDEN_UNIX_PREFIXES) {
-    if (lower === prefix || lower.startsWith(prefix + '/') || lower.startsWith(prefix + '\\')) {
-      return true;
-    }
-  }
-
-  // Windows 绯荤粺鐩綍 (C:\Windows, /Windows/ 鍙婂叾瀛愮洰褰?
-  if (lower.includes('\\windows\\') || lower.includes('/windows/')) {
-    return true;
-  }
-
-  return false;
-}
-
-function assertWorkspacePathInside(root: string, target: string): void {
-  const resolvedRoot = resolve(root);
-  const resolvedTarget = resolve(target);
-  const rel = relative(resolvedRoot, resolvedTarget);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error('工作区文件路径越界');
-  }
-}
 
 async function assertReadableStoryFile(filePath: string): Promise<string> {
-  const normalizedPath = normalize(filePath);
-  if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
+  const canonicalPath = await resolveExistingFilePath(filePath);
+  if (!isStoryFilePath(canonicalPath)) {
     throw new Error('仅支持读取 .mdstory 文件');
   }
-  if (isBlockedSystemPath(normalizedPath)) {
+  if (isBlockedSystemPath(canonicalPath)) {
     throw new Error('不允许从系统目录读取文件');
   }
 
-  const fileStat = await stat(normalizedPath);
+  const fileStat = await stat(canonicalPath);
   if (!fileStat.isFile()) {
     throw new Error('目标不是文件');
   }
@@ -298,7 +292,7 @@ async function assertReadableStoryFile(filePath: string): Promise<string> {
     throw new Error(`文件过大（${sizeMB}MB），上限为 10MB`);
   }
 
-  return normalizedPath;
+  return canonicalPath;
 }
 
 async function readStoryFile(
@@ -312,93 +306,11 @@ async function readStoryFile(
   return { filePath: normalizedPath, content, hash, modifiedAt: fileStat.mtimeMs };
 }
 
-interface WorkspaceStoryFile {
-  readonly filePath: string;
-  readonly relativePath: string;
-  readonly name: string;
-  readonly size: number;
-  readonly modifiedAt: number;
-}
-
-interface WorkspaceStoriesResult {
-  readonly rootPath: string;
-  readonly files: WorkspaceStoryFile[];
-  readonly truncated: boolean;
-}
-
-async function collectWorkspaceStories(
-  rootPath: string,
-  currentPath: string,
-  depth: number,
-  files: WorkspaceStoryFile[],
-): Promise<boolean> {
-  if (files.length >= MAX_WORKSPACE_STORY_FILES) return true;
-
-  let truncated = false;
-  const entries = await readdir(currentPath, { withFileTypes: true });
-  for (const entry of entries) {
-    if (files.length >= MAX_WORKSPACE_STORY_FILES) {
-      truncated = true;
-      break;
-    }
-
-    const entryPath = join(currentPath, entry.name);
-    assertWorkspacePathInside(rootPath, entryPath);
-
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-
-    if (entry.isDirectory()) {
-      if (depth >= MAX_WORKSPACE_SCAN_DEPTH) continue;
-      if (WORKSPACE_IGNORED_DIRS.has(entry.name.toLowerCase())) continue;
-      truncated =
-        (await collectWorkspaceStories(rootPath, entryPath, depth + 1, files)) || truncated;
-      continue;
-    }
-
-    if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.mdstory')) {
-      continue;
-    }
-
-    const fileStat = await stat(entryPath);
-    if (fileStat.size > MAX_READ_BYTES) {
-      continue;
-    }
-
-    files.push({
-      filePath: normalize(entryPath),
-      relativePath: relative(rootPath, entryPath).replace(/\\/g, '/'),
-      name: basename(entryPath),
-      size: fileStat.size,
-      modifiedAt: fileStat.mtimeMs,
-    });
-  }
-
-  return truncated;
-}
-
-async function listWorkspaceStories(rootPath: string): Promise<WorkspaceStoriesResult> {
-  const normalizedRoot = normalize(rootPath);
-  if (isBlockedSystemPath(normalizedRoot)) {
-    throw new Error('不允许把系统目录作为维叙（Fablevia）工作区');
-  }
-
-  const rootStat = await stat(normalizedRoot);
-  if (!rootStat.isDirectory()) {
-    throw new Error('请选择文件夹作为维叙（Fablevia）工作区');
-  }
-
-  const files: WorkspaceStoryFile[] = [];
-  const truncated = await collectWorkspaceStories(normalizedRoot, normalizedRoot, 0, files);
-  files.sort((a, b) => a.relativePath.localeCompare(b.relativePath, 'zh-CN'));
-  return { rootPath: normalizedRoot, files, truncated };
-}
 
 // ============================================================================
 
 /**
- * file:save 鈥?灏嗗唴瀹瑰啓鍏ユ寚瀹氭枃浠? *
+ * file:save — 将内容写入指定故事文件。
  * 由渲染进程通过 window.plotflow.file.save({ path, content, expectedHash }) 触发。
  * 对应 TAD.md §4.2 AutoSaveManager 的主进程写文件逻辑。
  */
@@ -418,7 +330,7 @@ ipcMain.handle(
       const rawPath = payload?.path;
       const content = payload?.content;
       assertWritableContent(content);
-      // 鈹€鈹€ 璺緞瀹夊叏楠岃瘉锛圥0-4: 涓夊眰闃叉姢锛夆攢鈹€
+      // 路径安全校验：拒绝遍历、错误扩展名和系统目录。
 
       if (!rawPath || typeof rawPath !== 'string') {
         throw new Error('无效的文件路径');
@@ -428,57 +340,57 @@ ipcMain.handle(
         throw new Error('路径包含非法遍历组件');
       }
 
-      const normalizedPath = normalize(rawPath);
+      const normalizedPath = await resolveWritableFilePath(rawPath);
 
-      // 绗?灞傦細鎵╁睍鍚嶇櫧鍚嶅崟
-      if (!normalizedPath.toLowerCase().endsWith('.mdstory')) {
+      // 扩展名白名单
+      if (!isStoryFilePath(normalizedPath)) {
         throw new Error('仅支持保存 .mdstory 文件');
       }
+      if (isBlockedSystemPath(normalizedPath)) {
+        throw new Error('不允许向系统目录保存文件');
+      }
 
-      if (typeof payload.expectedHash === 'string') {
-        try {
-          const preflight = await preflightFileSaveHash({
-            filePath: normalizedPath,
-            expectedHash: payload.expectedHash,
-            overwriteConflict: payload.overwriteConflict,
-            hashContent,
-          });
-          if (!preflight.canWrite) {
-            return {
-              success: false,
-              conflict: true,
-              filePath: normalizedPath,
-              content: preflight.content,
-              hash: preflight.hash,
-              modifiedAt: preflight.modifiedAt,
-            };
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+      const hash = hashContent(content);
+      const pendingWrite = beginWatchedInternalWrite(normalizedPath, hash);
+      let writeResult: Awaited<ReturnType<typeof writeTextFileAtomically>>;
+      try {
+        writeResult = await writeTextFileAtomically(normalizedPath, content, {
+          expectedHash: payload.expectedHash,
+          hashContent,
+        });
+      } catch (error) {
+        settleWatchedInternalWrite(pendingWrite, false);
+        throw error;
+      }
+      settleWatchedInternalWrite(pendingWrite, writeResult.written);
+      if (!writeResult.written) {
+        if (!writeResult.conflict) {
           return {
             success: false,
             conflict: false,
             timestamp: Date.now(),
-            message: `保存前无法校验磁盘文件: ${message}`,
+            message: writeResult.message,
           };
         }
+        return {
+          success: false,
+          conflict: true,
+          filePath: writeResult.filePath,
+          content: writeResult.content,
+          hash: writeResult.hash,
+          modifiedAt: writeResult.modifiedAt,
+        };
       }
 
-      await writeTextFileAndVerify(normalizedPath, content);
-      const fileStat = await stat(normalizedPath);
-      const hash = hashContent(content);
       startWatchingStoryFile(normalizedPath, content);
-      return { success: true, timestamp: Date.now(), hash, modifiedAt: fileStat.mtimeMs };
+      return { success: true, timestamp: Date.now(), hash, modifiedAt: writeResult.modifiedAt };
     } catch (error) {
       throw new Error(`无法保存文件: ${(error as Error).message}`);
     }
   },
 );
 
-/**
- * file:open 鈥?鎵撳紑鏂囦欢瀵硅瘽妗?+ 璇诲彇鍐呭
- *
- * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.open() 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_OPEN 閫氶亾銆? */
+/** file:open — 打开文件对话框并读取故事内容。 */
 ipcMain.handle(IPC_CHANNELS.file.open, async (event) => {
   assertTrustedIpc(event);
   try {
@@ -508,10 +420,7 @@ ipcMain.handle(IPC_CHANNELS.file.open, async (event) => {
   }
 });
 
-/**
- * file:saveAs 鈥?鍙﹀瓨涓哄璇濇 + 鍐欏叆鏂囦欢
- *
- * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveAs(content) 瑙﹀彂銆? * 瀵瑰簲 TAD.md 搂4.1 File I/O 鏈嶅姟鐨?FILE_SAVE_AS 閫氶亾銆? */
+/** file:saveAs — 打开另存为对话框并原子写入故事文件。 */
 ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: string }) => {
   assertTrustedIpc(event);
   try {
@@ -533,10 +442,14 @@ ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: strin
       return null;
     }
 
-    // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠岋細鑷姩杩藉姞 .mdstory 鎵╁睍鍚?鈹€鈹€
+    // 主进程兜底：自动补全 .mdstory 扩展名。
     let filePath = result.filePath;
-    if (!filePath.toLowerCase().endsWith('.mdstory')) {
+    if (!isStoryFilePath(filePath)) {
       filePath += '.mdstory';
+    }
+    filePath = await resolveWritableFilePath(filePath);
+    if (isBlockedSystemPath(filePath)) {
+      throw new Error('不允许向系统目录保存文件');
     }
 
     await writeTextFileAndVerify(filePath, payload.content);
@@ -549,68 +462,55 @@ ipcMain.handle(IPC_CHANNELS.file.saveAs, async (event, payload: { content: strin
   }
 });
 
-/**
- * file:export 鈥?瀵煎嚭鏂囦欢瀵硅瘽妗?+ 鍐欏叆鏂囦欢
- *
- * 鐢辨覆鏌撹繘绋嬮€氳繃 window.plotflow.file.saveExport(options) 瑙﹀彂銆? * 鏀寔鎸囧畾鏂囦欢绫诲瀷杩囨护鍣紙濡?.json / .html / .txt锛夊拰寤鸿鏂囦欢鍚嶃€? * 琚彇娑堟椂杩斿洖 null銆? */
-ipcMain.handle(
-  IPC_CHANNELS.file.export,
-  async (
-    event,
-    payload: {
-      content: string;
-      defaultPath: string;
-      filters: Array<{ name: string; extensions: string[] }>;
-      format: string;
-    },
-  ) => {
-    assertTrustedIpc(event);
-    try {
-      assertWritableContent(payload?.content);
+/** file:export — 打开导出对话框并原子写入 JSON、HTML 或 TXT。 */
+ipcMain.handle(IPC_CHANNELS.file.export, async (event, payload: FileExportRequest) => {
+  assertTrustedIpc(event);
+  try {
+    assertWritableContent(payload?.content);
 
-      // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?1锛歠ormat 鐧藉悕鍗?鈹€鈹€
-      if (
-        !payload.format ||
-        !(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(payload.format)
-      ) {
-        throw new Error(`不支持的导出格式: ${payload.format || '(未指定)'}`);
-      }
+    // 主进程兜底 1：格式白名单。
+    if (
+      !payload.format ||
+      !(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(payload.format)
+    ) {
+      throw new Error(`不支持的导出格式: ${payload.format || '(未指定)'}`);
+    }
 
-      // 鈹€鈹€ 涓昏繘绋嬪厹搴曟牎楠?2锛歠ilters 鎵╁睍鍚嶇櫧鍚嶅崟 鈹€鈹€
-      if (payload.filters && Array.isArray(payload.filters)) {
-        for (const filter of payload.filters) {
-          for (const ext of filter.extensions) {
-            if (!(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(ext)) {
-              throw new Error(`不支持的导出扩展名: .${ext}`);
-            }
+    // 主进程兜底 2：过滤器扩展名白名单。
+    if (payload.filters && Array.isArray(payload.filters)) {
+      for (const filter of payload.filters) {
+        for (const ext of filter.extensions) {
+          if (!(ALLOWED_EXPORT_FORMATS as readonly string[]).includes(ext)) {
+            throw new Error(`不支持的导出扩展名: .${ext}`);
           }
         }
       }
-
-      focusNativeDialogOwner();
-      const exportOptions: SaveDialogOptions = {
-        title: getMainProcessMessages(currentMenuLanguage).exportTitle,
-        filters: payload.filters,
-        defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
-      };
-      const result = await dialog.showSaveDialog(exportOptions);
-
-      if (result.canceled || !result.filePath) {
-        return null;
-      }
-
-      await writeTextFileAndVerify(result.filePath, payload.content);
-      return { filePath: result.filePath };
-    } catch (error) {
-      throw new Error(`导出失败: ${(error as Error).message}`);
     }
-  },
-);
+
+    focusNativeDialogOwner();
+    const exportOptions: SaveDialogOptions = {
+      title: getMainProcessMessages(currentMenuLanguage).exportTitle,
+      filters: payload.filters,
+      defaultPath: sanitizeExportDefaultPath(payload.defaultPath, payload.format),
+    };
+    const result = await dialog.showSaveDialog(exportOptions);
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    const filePath = await resolveWritableFilePath(result.filePath);
+    await writeTextFileAndVerify(filePath, payload.content);
+    return { filePath };
+  } catch (error) {
+    throw new Error(`导出失败: ${(error as Error).message}`);
+  }
+});
 
 /**
- * file:getPendingOpenFile 鈥?鑾峰彇绯荤粺鎵撳紑鐨勬枃浠惰矾寰勪笌鍐呭锛圡7-08锛? *
- * 娓叉煋杩涚▼鍦ㄧ獥鍙ｆ寕杞藉悗璋冪敤姝?IPC锛? * 妫€鏌ユ槸鍚︽湁绯荤粺锛堝弻鍑?.mdstory / open-file 浜嬩欢锛変紶閫掔殑鏂囦欢寰呮墦寮€銆? *
- * 杩斿洖 { filePath, content } 鎴?null锛堟棤寰呮墦寮€鏂囦欢锛夈€? * 杩斿洖鍚庢竻闄?pending 鐘舵€侊紝閬垮厤閲嶅鎵撳紑銆? */
+ * file:getPendingOpenFile — 消费系统打开事件暂存的故事文件。
+ * 返回结构化结果后清空 pending，避免重复打开。
+ */
 ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async (event) => {
   assertTrustedIpc(event);
   const path = pendingFilePath;
@@ -633,10 +533,7 @@ ipcMain.handle(IPC_CHANNELS.file.getPendingOpenFile, async (event) => {
   return result;
 });
 
-/**
- * file:readByPath 鈥?鎸夎矾寰勮鍙栨枃浠跺唴瀹?(M7-08)
- *
- * 娓叉煋杩涚▼鍦ㄦ敹鍒扮郴缁熸枃浠舵墦寮€閫氱煡鍚庤皟鐢ㄦ IPC锛? * 璇诲彇鎸囧畾璺緞鐨?.mdstory 鏂囦欢鍐呭銆? */
+/** file:readByPath — 按路径读取系统打开通知指定的 .mdstory 文件。 */
 ipcMain.handle(IPC_CHANNELS.file.readByPath, async (event, payload: { path: string }) => {
   assertTrustedIpc(event);
   try {
@@ -684,9 +581,7 @@ ipcMain.handle(
   async (event, payload: { rootPath: string; filePath: string }) => {
     assertTrustedIpc(event);
     try {
-      const rootPath = normalize(payload.rootPath);
-      const filePath = normalize(payload.filePath);
-      assertWorkspacePathInside(rootPath, filePath);
+      const filePath = await resolveWorkspaceStoryPath(payload.rootPath, payload.filePath);
       return readStoryFile(filePath);
     } catch (error) {
       console.error(`[Fablevia] 读取工作区文件失败: ${payload.filePath}`, error);
@@ -695,10 +590,7 @@ ipcMain.handle(
   },
 );
 
-/**
- * dialog:confirm 鈥?浠庢覆鏌撹繘绋嬭皟鐢ㄥ師鐢熸秷鎭璇濇
- *
- * 渚涙覆鏌撹繘绋嬮€氳繃 window.plotflow.dialog.confirm(options) 瑙﹀彂銆? * 杩斿洖鐢ㄦ埛鐐瑰嚮鐨勬寜閽储寮曪紙0-based锛夛紝dialog 鍏抽棴鏃惰繑鍥?-1銆? */
+/** dialog:confirm — 显示渲染进程请求的原生确认框并返回按钮索引。 */
 ipcMain.handle(
   IPC_CHANNELS.dialog.confirm,
   async (
@@ -820,8 +712,9 @@ function createWindow(): void {
   });
 
   /**
-   * 绐楀彛鍏抽棴鎷︽埅 鈥?P0-5 鑴忕姸鎬佹鏌?   *
-   * 褰撶敤鎴风偣鍑诲叧闂寜閽垨鎸?Alt+F4 鏃讹紝鍏堟鏌ユ覆鏌撹繘绋嬬殑缂栬緫鍣?   * 鏄惁鏈夋湭淇濆瓨鐨勬洿鏀广€傚鏋滄湁锛屾樉绀轰繚瀛?涓嶄繚瀛?鍙栨秷瀵硅瘽妗嗐€?   * forceQuitting 鏍囧織闃叉瀵硅瘽妗嗚嚜韬殑鍏抽棴鎿嶄綔琚噸澶嶆嫤鎴€?   */
+   * 窗口关闭保护：检查未保存更改并复用现有保存/放弃/取消裁决。
+   * forceQuitting 防止已获准的关闭动作再次进入本处理器。
+   */
   mainWindow.on('close', async (event) => {
     if (forceQuitting || mainWindow === null) return;
     event.preventDefault();
@@ -905,17 +798,15 @@ function createWindow(): void {
 }
 
 // ============================================================================
-// 绯荤粺鏂囦欢鎵撳紑浜嬩欢澶勭悊 (M7-08)
+// 系统文件打开事件
 // ============================================================================
 
-/**
- * macOS: 閫氳繃绯荤粺 open-file 浜嬩欢鎹曡幏鍙屽嚮鐨?.mdstory 鏂囦欢璺緞銆? *
- * 褰撶敤鎴峰湪 Finder 涓弻鍑?.mdstory 鏂囦欢锛堜笖 PlotFlow 宸叉敞鍐屼负璇ユ墿灞曠殑榛樿搴旂敤锛夋椂锛? * macOS 鍚戝凡杩愯鐨勫疄渚嬪彂閫?open-file 浜嬩欢锛屾垨鍦ㄦ柊鍚姩鏃堕€氳繃姝や簨浠朵紶閫掕矾寰勩€? */
+/** macOS open-file 事件接收 Finder 双击的 .mdstory 文件。 */
 app.on('open-file', (event, path) => {
   event.preventDefault();
 
-  // 浠呭鐞?.mdstory 鏂囦欢
-  if (!path.endsWith('.mdstory')) {
+  // 仅处理 .mdstory 文件
+  if (!isStoryFilePath(path)) {
     return;
   }
 
@@ -926,11 +817,7 @@ app.on('open-file', (event, path) => {
   else pendingFilePath = path;
 });
 
-/**
- * Windows / Linux: 閫氳繃鍛戒护琛屽弬鏁版崟鑾峰弻鍑荤殑 .mdstory 鏂囦欢璺緞銆? *
- * 褰撶敤鎴峰弻鍑?.mdstory 鏂囦欢鏃讹紙electron-builder 娉ㄥ唽浜嗘枃浠跺叧鑱斿悗锛夛紝
- * Windows 灏嗘枃浠惰矾寰勪綔涓虹涓€涓懡浠よ鍙傛暟浼犻€掔粰搴旂敤銆? *
- * 娉ㄦ剰: process.argv[0] 鏄彲鎵ц鏂囦欢鑷韩璺緞銆? * 鐢熶骇鐜锛堟墦鍖呭悗锛塧rgv[1] 涓烘枃浠惰矾寰勶紱寮€鍙戠幆澧冿紙electron-vite dev锛塧rgv[1] 鍙兘涓哄叾浠栥€? */
+/** Windows/Linux 从命令行参数提取文件关联传入的 .mdstory 路径。 */
 function checkCommandLineArgs(args: readonly string[] = process.argv): boolean {
   const storyPath = findStoryFileArgument(args);
   if (storyPath && existsSync(storyPath)) {

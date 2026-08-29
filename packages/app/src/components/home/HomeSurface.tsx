@@ -4,6 +4,7 @@ import { useThemePlatform } from '../ThemePlatformProvider';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUIStore } from '../../stores/uiStore';
 import { clearRecentStory, readRecentStory } from '../../services/recentFileService';
+import { FileService } from '../../services/fileService';
 import { runStoryReplacement } from '../../services/storyTransactionService';
 import { useAppText } from '../../i18n/appI18n';
 import { requestWorkspaceMode } from '../../services/workspaceModeService';
@@ -71,7 +72,6 @@ export function HomeSurface(): React.ReactElement | null {
   const openFile = useCallback(async () => {
     let openedPath = '';
     const replacement = await runStoryReplacement('open', async () => {
-      const { FileService } = await import('../../services/fileService');
       try {
         const result = await new FileService().openFile();
         openedPath = result.path;

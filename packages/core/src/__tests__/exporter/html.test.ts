@@ -175,6 +175,50 @@ describe('exportHTML', () => {
     expect(html).toContain('拥有钥匙');
   });
 
+  it('HTML 使用解析器归一化后的嵌套 object 默认值', () => {
+    const input = `---
+vars:
+  玩家:
+    type: object
+    default:
+      属性:
+        生命: 80
+    fields:
+      名称:
+        type: string
+        default: 无名者
+      属性:
+        type: object
+        fields:
+          生命:
+            type: int
+            default: 100
+          存活: bool
+---
+
+# 章
+
+## 节点：开始
+
+正文。
+`;
+    const parsed = parseStory(input);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    const exported = exportHTML(parsed.data);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const storyMatch = exported.data.match(/var STORY = ({.*?});/s);
+    expect(storyMatch?.[1]).toBeDefined();
+    const runtime = JSON.parse(storyMatch![1]!) as { vars: Record<string, unknown> };
+    expect(runtime.vars['玩家']).toEqual({
+      名称: '无名者',
+      属性: { 生命: 80, 存活: false },
+    });
+    expect(runtime.vars['玩家']).toEqual(parsed.data.variables[0]!.defaultValue);
+  });
+
   it('空数据返回错误', () => {
     const parseResult = parseStory('');
     expect(parseResult.ok).toBe(true);

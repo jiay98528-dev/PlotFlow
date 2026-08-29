@@ -669,4 +669,31 @@ describe('validate - 18 条规则一站式验证', () => {
     expect(resultA.diagnostics.length).toBe(resultB.diagnostics.length);
     expect(resultA.summary).toEqual(resultB.summary);
   });
+
+  it('重复验证幂等并覆盖过期节点状态', () => {
+    const root = createNode('root', '开始', '正文', [createOption('继续', 'next')]);
+    const next = createNode('next', '结束', '正文', [], {
+      diagnostics: {
+        isRoot: true,
+        isOrphan: true,
+        isDeadEnd: false,
+        diagnosticIds: ['E005-parse'],
+      },
+    });
+    const data = createMinimalData({
+      chapters: [createChapter('ch1', '第一章', [root, next])],
+    });
+
+    const first = validate(data);
+    const firstNodeDiagnostics = data.chapters[0]!.nodes.map((node) => ({
+      ...node.diagnostics,
+      diagnosticIds: [...node.diagnostics.diagnosticIds],
+    }));
+    const second = validate(data);
+
+    expect(second).toEqual(first);
+    expect(data.chapters[0]!.nodes.map((node) => node.diagnostics)).toEqual(firstNodeDiagnostics);
+    expect(next.diagnostics).toMatchObject({ isRoot: false, isOrphan: false, isDeadEnd: true });
+    expect(next.diagnostics.diagnosticIds).toContain('E005-parse');
+  });
 });

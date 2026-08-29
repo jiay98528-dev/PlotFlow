@@ -12,7 +12,7 @@
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import type { PlotFlowData } from '@plotflow/core';
-import type { StoryIdentity } from '../services/storySnapshot';
+import { sameStoryIdentity, type StoryIdentity } from '../services/storySnapshot';
 
 // ============================================================================
 // 节点查找缓存 (M2-15 性能优化)
@@ -21,13 +21,17 @@ import type { StoryIdentity } from '../services/storySnapshot';
 /** 缓存的节点 Map（O(1) 查找），在 plotFlowData 引用变化时重建 */
 let _nodeMapCache: Map<string, import('@plotflow/core').StoryNode> | null = null;
 let _nodeMapCacheAstRef: import('@plotflow/core').PlotFlowData | null = null;
+let _nodeLineCache: Array<{ readonly fullId: string; readonly lineNumber: number }> | null = null;
+let _nodeLineCacheAstRef: import('@plotflow/core').PlotFlowData | null = null;
 
 /**
  * 获取节点查找 Map（惰性构建 + 缓存）。
  *
  * 每次 plotFlowData 引用变化时自动重建，确保 Map 始终与当前 AST 同步。
  */
-function getNodeMap(data: import('@plotflow/core').PlotFlowData): Map<string, import('@plotflow/core').StoryNode> {
+function getNodeMap(
+  data: import('@plotflow/core').PlotFlowData,
+): Map<string, import('@plotflow/core').StoryNode> {
   if (data !== _nodeMapCacheAstRef || !_nodeMapCache) {
     _nodeMapCache = new Map();
     for (const chapter of data.chapters) {
@@ -38,6 +42,23 @@ function getNodeMap(data: import('@plotflow/core').PlotFlowData): Map<string, im
     _nodeMapCacheAstRef = data;
   }
   return _nodeMapCache;
+}
+
+function getNodeLineIndex(
+  data: import('@plotflow/core').PlotFlowData,
+): Array<{ readonly fullId: string; readonly lineNumber: number }> {
+  if (data !== _nodeLineCacheAstRef || !_nodeLineCache) {
+    _nodeLineCache = data.chapters
+      .flatMap((chapter) =>
+        chapter.nodes.map((node) => ({
+          fullId: node.fullId,
+          lineNumber: node.lineNumber,
+        })),
+      )
+      .sort((left, right) => left.lineNumber - right.lineNumber);
+    _nodeLineCacheAstRef = data;
+  }
+  return _nodeLineCache;
 }
 
 // ============================================================================
@@ -68,6 +89,9 @@ export interface StoryState {
 
   /** 设置解析错误信息 */
   setParseError: (error: string) => void;
+
+  /** 记录指定源码版本的意外解析失败，并清除不属于该版本的 AST。 */
+  setParseFailure: (error: string, identity: StoryIdentity) => void;
 
   /**
    * 根据行号查找所属节点 fullId。
@@ -110,7 +134,16 @@ const initialState = {
   snapshotIdentity: null,
   isParsing: false,
   parseError: null,
-} as const satisfies Omit<StoryState, 'setPlotFlowData' | 'clearParseData' | 'setParseError' | 'getNodeByLine' | 'getNodeByFullId' | 'getAllNodes'>;
+} as const satisfies Omit<
+  StoryState,
+  | 'setPlotFlowData'
+  | 'clearParseData'
+  | 'setParseError'
+  | 'setParseFailure'
+  | 'getNodeByLine'
+  | 'getNodeByFullId'
+  | 'getAllNodes'
+>;
 
 // ============================================================================
 // Store
@@ -118,8 +151,7 @@ const initialState = {
 
 export const useStoryStore = create<StoryState>()(
   devtools(
-    subscribeWithSelector(
-      (set, get) => ({
+    subscribeWithSelector((set, get) => ({
       // --- 初始状态 ---
       ...initialState,
 
@@ -127,24 +159,53 @@ export const useStoryStore = create<StoryState>()(
 
       setPlotFlowData: (data: PlotFlowData, identity?: StoryIdentity) =>
         set(
-          { plotFlowData: data, snapshotIdentity: identity ?? null, isParsing: false, parseError: null },
+          {
+            plotFlowData: data,
+            snapshotIdentity: identity ?? null,
+            isParsing: false,
+            parseError: null,
+          },
           false,
           'story/setPlotFlowData',
         ),
 
-      clearParseData: () =>
+      clearParseData: () => {
+        _nodeMapCache = null;
+        _nodeMapCacheAstRef = null;
+        _nodeLineCache = null;
+        _nodeLineCacheAstRef = null;
         set(
           { plotFlowData: null, snapshotIdentity: null, isParsing: false, parseError: null },
           false,
           'story/clearParseData',
-        ),
+        );
+      },
 
       setParseError: (error: string) =>
+        set({ parseError: error, isParsing: false }, false, 'story/setParseError'),
+
+      setParseFailure: (error: string, identity: StoryIdentity) => {
+        const state = get();
+        const keepCurrentAst = Boolean(
+          state.snapshotIdentity && sameStoryIdentity(state.snapshotIdentity, identity),
+        );
+        if (!keepCurrentAst) {
+          _nodeMapCache = null;
+          _nodeMapCacheAstRef = null;
+          _nodeLineCache = null;
+          _nodeLineCacheAstRef = null;
+        }
         set(
-          { parseError: error, isParsing: false },
+          {
+            plotFlowData: keepCurrentAst ? state.plotFlowData : null,
+            snapshotIdentity: identity,
+            parseError: error,
+            isParsing: false,
+          },
           false,
-          'story/setParseError',
-        ),
+          'story/setParseFailure',
+        );
+      },
 
       /**
        * 根据行号查找所属节点 fullId。
@@ -158,32 +219,22 @@ export const useStoryStore = create<StoryState>()(
         const { plotFlowData } = get();
         if (!plotFlowData) return null;
 
-        // 收集所有节点，记录其起始行号
-        const entries: Array<{ fullId: string; lineNumber: number }> = [];
-        for (const chapter of plotFlowData.chapters) {
-          for (const node of chapter.nodes) {
-            entries.push({ fullId: node.fullId, lineNumber: node.lineNumber });
-          }
-        }
+        const entries = getNodeLineIndex(plotFlowData);
 
         if (entries.length === 0) return null;
-
-        // 按 lineNumber 升序排序（章节内的节点本身有序，但跨章节需要排序）
-        entries.sort((a, b) => a.lineNumber - b.lineNumber);
 
         // 如果 lineNumber 在第一个节点之前，返回 null
         const firstEntry = entries[0]!;
         if (lineNumber < firstEntry.lineNumber) return null;
 
-        // 从后向前找到第一个 lineNumber <= 给定行号的节点
-        for (let i = entries.length - 1; i >= 0; i--) {
-          const entry = entries[i]!;
-          if (entry.lineNumber <= lineNumber) {
-            return entry.fullId;
-          }
+        let low = 0;
+        let high = entries.length - 1;
+        while (low <= high) {
+          const middle = low + Math.floor((high - low) / 2);
+          if (entries[middle]!.lineNumber <= lineNumber) low = middle + 1;
+          else high = middle - 1;
         }
-
-        return null;
+        return high >= 0 ? entries[high]!.fullId : null;
       },
 
       /**
@@ -217,8 +268,7 @@ export const useStoryStore = create<StoryState>()(
         }
         return allNodes;
       },
-    }),
+    })),
+    { name: 'StoryStore' },
   ),
-  { name: 'StoryStore' },
-),
 );

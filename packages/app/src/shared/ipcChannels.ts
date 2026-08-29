@@ -35,7 +35,6 @@ export const IPC_CHANNELS = {
       exportTxt: 'menu:export:txt',
       helpFeedback: 'menu:help:feedback',
       helpAbout: 'menu:help:about',
-      helpDocs: 'menu:help:docs',
     },
   },
 } as const;

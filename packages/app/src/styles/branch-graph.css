@@ -513,6 +513,11 @@
     var(--shadow-sm);
 }
 
+.collapse-node-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
 /* ── 折叠图标 ── */
 .collapse-node-icon {
   color: var(--color-text-muted);
@@ -604,7 +609,8 @@
 }
 
 .wire-drop-menu button:hover,
-.wire-drop-menu button:focus {
+.wire-drop-menu button:focus,
+.wire-drop-menu [role='option'][aria-selected='true'] {
   border-color: var(--color-border-default);
   background: var(--color-accent-subtle);
   outline: none;

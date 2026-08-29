@@ -110,15 +110,7 @@ export function createOfficialGraphNodeCard(
       setEditValue('');
       setRenamingNodeId(null);
       isCommitting.current = false;
-    }, [
-      config,
-      editValue,
-      editorInstance,
-      nodeData.fullId,
-      nodeData.title,
-      setRenamingNodeId,
-      text,
-    ]);
+    }, [editValue, editorInstance, nodeData.fullId, nodeData.title, setRenamingNodeId, text]);
 
     const cancelEdit = useCallback(() => {
       setIsEditing(false);
@@ -236,7 +228,9 @@ export function createOfficialGraphNodeCard(
               className="story-node-rename-input"
               type="text"
               value={editValue}
-              aria-label={text('themeNode.renameField', { title: nodeData.title || config.untitledTitle(text) })}
+              aria-label={text('themeNode.renameField', {
+                title: nodeData.title || config.untitledTitle(text),
+              })}
               onChange={(event) => setEditValue(event.target.value)}
               onKeyDown={handleEditKeyDown}
               onBlur={commitRename}
@@ -301,6 +295,7 @@ export function createOfficialGraphNodeCard(
                 }
                 data-nodeid={nodeData.fullId}
                 data-handleid={summary.sourceHandleId}
+                tabIndex={-1}
                 title={summary.ariaLabel}
               >
                 <Handle

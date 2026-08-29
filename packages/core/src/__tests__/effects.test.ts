@@ -182,6 +182,34 @@ describe('parseEffects - set 赋值操作', () => {
   });
 });
 
+describe('parseEffects - 数值字面量边界', () => {
+  it.each([
+    ['金币=12abc', '尾随字符'],
+    ['金币=1.9', '整数小数'],
+    ['金币=2147483648', 'int32 上溢'],
+    ['金币=-2147483649', 'int32 下溢'],
+    ['暴击率=Infinity', '非有限浮点'],
+  ])('%s（%s）产生 E004 而不是静默截断', (source) => {
+    const result = parseEffects(source, SAMPLE_VARIABLES);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((diagnostic) => diagnostic.code === 'E004')).toBe(true);
+    }
+  });
+
+  it.each([
+    ['金币=-2147483648', -2147483648],
+    ['金币=2147483647', 2147483647],
+    ['暴击率=3', 3],
+    ['暴击率=-.5', -0.5],
+    ['暴击率=3.25', 3.25],
+  ])('%s 保持合法', (source, expectedValue) => {
+    const result = parseEffects(source, SAMPLE_VARIABLES);
+    expectOk(result);
+    expect(expectSingleEffect(result).value).toBe(expectedValue);
+  });
+});
+
 // ============================================================================
 // 基本操作：add（增加 +）
 // ============================================================================

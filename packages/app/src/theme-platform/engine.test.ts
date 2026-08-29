@@ -38,7 +38,11 @@ const theme: ThemeDescriptor = {
   },
   interactionRecipe: { density: 'balanced', realtimeWirePreview: true },
   motionRecipe: { intensity: 'expressive' },
-  storeMeta: { availability: 'bundled', priceLabel: '免费主题', storeUrl: 'https://plotflow.app/themes' },
+  storeMeta: {
+    availability: 'bundled',
+    priceLabel: '免费主题',
+    storeUrl: 'https://plotflow.app/themes',
+  },
   slots: {
     StoryNodeCard: () => null,
     StoryEdge: () => null,
@@ -60,5 +64,19 @@ describe('applyThemeToRoot uxRecipe', () => {
     expect(root.style.getPropertyValue('--theme-ux-node-width')).toBe('280px');
     expect(root.style.getPropertyValue('--theme-ux-node-min-height')).toBe('160px');
     expect(root.style.getPropertyValue('--theme-ux-node-radius')).toBe('18px');
+  });
+
+  it('clears controlled UX dataset flags when the next theme omits recipes', () => {
+    const root = document.documentElement;
+    applyThemeToRoot(root, theme, 'light');
+    expect(root.dataset['themeUxThemeCenter']).toBe('custom');
+    expect(root.dataset['themeUxNode']).toBe('custom');
+
+    applyThemeToRoot(root, { ...theme, id: 'test.plain-theme', uxRecipe: undefined }, 'light');
+
+    expect(root.dataset['themeUxThemeCenter']).toBeUndefined();
+    expect(root.dataset['themeUxNode']).toBeUndefined();
+    expect(root.style.getPropertyValue('--theme-ux-theme-center-width')).toBe('');
+    expect(root.style.getPropertyValue('--theme-ux-node-width')).toBe('');
   });
 });

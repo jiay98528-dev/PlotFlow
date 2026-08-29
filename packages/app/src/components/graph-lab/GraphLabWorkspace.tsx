@@ -508,7 +508,7 @@ export function GraphLabWorkspace(): React.ReactElement {
     return { chapters, nodes, options };
   }, [plotFlowData]);
 
-  const chapters = plotFlowData?.chapters ?? [];
+  const chapters = useMemo(() => plotFlowData?.chapters ?? [], [plotFlowData]);
   const sourceAnalysis = useMemo(() => analyzeStorySource(content), [content]);
   const sourceDraftState = getSourceDraftState();
   const switchActiveChapter = useCallback((chapterId: string) => {

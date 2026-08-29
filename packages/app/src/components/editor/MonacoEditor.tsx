@@ -34,11 +34,9 @@ export function MonacoEditor(): React.ReactElement {
   const filePathRef = useRef<string | null>(null);
 
   const content = useEditorStore((s) => s.content);
-  const setContent = useEditorStore((s) => s.setContent);
   const filePath = useEditorStore((s) => s.filePath);
   const diagnostics = useEditorStore((s) => s.diagnostics);
   const language = useUIStore((s) => s.language);
-  const setEditorInstance = useEditorStore((s) => s.setEditorInstance);
 
   // V02-033: isEditing 锁自动恢复 — 拖拽连线期间管线被阻塞，锁释放后自动重解析
   const isEditing = useGraphStore((s) => s.isEditing);
@@ -63,13 +61,20 @@ export function MonacoEditor(): React.ReactElement {
     const activeTheme = getThemeOrDefault(activeThemeId);
     const monacoTheme = activeTheme.defaultMode === 'dark' ? THEME_DARK : THEME_LIGHT;
 
-    initMonacoEditor(container, content, monacoTheme).then((editor) => {
+    const initialContent = useEditorStore.getState().content;
+    initMonacoEditor(container, initialContent, monacoTheme).then((editor) => {
       if (disposed) {
         editor.dispose();
         return;
       }
-      editorRef.current = editor;
-      setEditorInstance(editor);
+
+      // File/system-open events can replace the story while Monaco is loading.
+      // Hydrate the newest store content before attaching the user-change listener
+      // so this reconciliation never creates history or starts an auto-save.
+      const latestContent = useEditorStore.getState().content;
+      if (editor.getValue() !== latestContent) {
+        editor.setValue(latestContent);
+      }
 
       // 内容变更 → store + pipeline
       editor.onDidChangeModelContent(() => {
@@ -79,7 +84,7 @@ export function MonacoEditor(): React.ReactElement {
         clearGraphHistory();
         // 标记为编辑器内用户操作（阻止 useEffect 覆盖为旧内容）
         isUserEditRef.current = true;
-        setContent(newContent);
+        useEditorStore.getState().setContent(newContent);
 
         debouncedSave(newContent, filePathRef.current);
 
@@ -94,22 +99,24 @@ export function MonacoEditor(): React.ReactElement {
         debouncedParsePipeline(newContent);
       });
 
-      // 初始解析 — 用 store 最新值而非闭包（解决异步竞态）
-      const latestContent = useEditorStore.getState().content;
-      if (latestContent) {
-        parsePipelineNow(latestContent);
-      }
+      editorRef.current = editor;
+      useEditorStore.getState().setEditorInstance(editor);
+      parsePipelineNow(latestContent);
     });
 
     return () => {
       disposed = true;
       if (editorRef.current) {
-        editorRef.current.dispose();
+        const editor = editorRef.current;
+        editor.dispose();
         editorRef.current = null;
-        setEditorInstance(null);
+        const editorState = useEditorStore.getState();
+        if (editorState.editorInstance === editor) {
+          editorState.setEditorInstance(null);
+        }
       }
     };
-  }, []); // 仅挂载时初始化 — 刻意不依赖 content 避免重建编辑器
+  }, []); // 仅挂载时初始化，内容通过 store 快照协调，避免重建编辑器
 
   // ── 外部内容变更（打开文件 / 模板新建）→ Monaco Model ──
   // Graph context menu operations use editorInstance.executeEdits() directly,
@@ -133,11 +140,7 @@ export function MonacoEditor(): React.ReactElement {
     // 外部内容变更（打开文件 / 模板新建）→ 同步到 Monaco
     if (editorValue !== content) {
       editor.setValue(content);
-      if (content) {
-        parsePipelineNow(content);
-      } else {
-        clearDiagnostics(editor);
-      }
+      parsePipelineNow(content);
     }
   }, [content]);
 
@@ -146,10 +149,13 @@ export function MonacoEditor(): React.ReactElement {
     const editor = editorRef.current;
     if (!editor) return;
     if (diagnostics.length > 0) {
-      applyDiagnostics(editor, diagnostics.map((diagnostic) => ({
-        ...diagnostic,
-        ...localizeDiagnostic(diagnostic, language),
-      })));
+      applyDiagnostics(
+        editor,
+        diagnostics.map((diagnostic) => ({
+          ...diagnostic,
+          ...localizeDiagnostic(diagnostic, language),
+        })),
+      );
     } else {
       clearDiagnostics(editor);
     }
@@ -166,9 +172,7 @@ export function MonacoEditor(): React.ReactElement {
       const editor = editorRef.current;
       if (editor) {
         const currentContent = editor.getValue();
-        if (currentContent) {
-          parsePipelineNow(currentContent);
-        }
+        parsePipelineNow(currentContent);
       }
     }
   }, [isEditing]);
@@ -178,7 +182,7 @@ export function MonacoEditor(): React.ReactElement {
   useEffect(() => {
     if (filePath && filePath !== prevFilePath.current) {
       prevFilePath.current = filePath;
-      if (content) parsePipelineNow(content);
+      parsePipelineNow(content);
     }
   }, [filePath, content]);
 
@@ -186,15 +190,12 @@ export function MonacoEditor(): React.ReactElement {
   // 实际写入由 Electron 菜单 accelerator 通过 IPC menu:file:save 触发，
   // 最终调用 autoSaveService.forceSave()。此处仅 preventDefault 防止
   // 浏览器弹出"保存网页"对话框干扰编辑器操作。
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        void saveOrSaveAs();
-      }
-    },
-    [],
-  );
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      void saveOrSaveAs();
+    }
+  }, []);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

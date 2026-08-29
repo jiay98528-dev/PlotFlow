@@ -39,16 +39,12 @@ import type {
   DiagnosticSeverity,
 } from '../types/diagnostic.js';
 import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
-import { parseFrontmatter } from './frontmatter.js';
+import { parseFrontmatterWithDiagnostics } from './frontmatter.js';
 import type { FrontmatterResult } from './frontmatter.js';
 import { analyzeStorySource } from './source.js';
 import { parseOptions } from './options.js';
 import { parseEffects } from './effects.js';
-import {
-  ANONYMOUS_CHAPTER_ID,
-  createFullId,
-  legacyFullId,
-} from '../fullId.js';
+import { ANONYMOUS_CHAPTER_ID, createFullId, legacyFullId } from '../fullId.js';
 
 // ============================================================================
 // 诊断创建辅助
@@ -183,7 +179,7 @@ function parseNodeNextTarget(
   let nextTarget: NodeNextTarget | null = null;
   let collectNarrative = true;
 
-  for (let index = 0; index < lines.length;) {
+  for (let index = 0; index < lines.length; ) {
     const line = lines[index] ?? '';
     const nextMatch = NEXT_TARGET_LINE_RE.exec(line);
     if (!nextMatch) {
@@ -198,15 +194,17 @@ function parseNodeNextTarget(
     const parsed = parseTargetReference(rawTarget);
 
     if (!parsed) {
-      diagnostics.push(createDiagnostic(
-        'E005',
-        'error',
-        absoluteLine,
-        1,
-        line.length,
-        `下一步目标格式错误: "${rawTarget}"`,
-        '格式应为 "下一步: 节点：目标节点名" 或 "下一步: 章节/节点：目标节点名"。',
-      ));
+      diagnostics.push(
+        createDiagnostic(
+          'E005',
+          'error',
+          absoluteLine,
+          1,
+          line.length,
+          `下一步目标格式错误: "${rawTarget}"`,
+          '格式应为 "下一步: 节点：目标节点名" 或 "下一步: 章节/节点：目标节点名"。',
+        ),
+      );
       bodyLines.push(line);
       if (collectNarrative) narrativeBodyLines.push(line);
       index++;
@@ -234,14 +232,16 @@ function parseNodeNextTarget(
     }
 
     if (nextTarget) {
-      diagnostics.push(createDiagnostic(
-        'W006',
-        'warning',
-        absoluteLine,
-        1,
-        line.length,
-        '重复的下一步声明将被忽略',
-      ));
+      diagnostics.push(
+        createDiagnostic(
+          'W006',
+          'warning',
+          absoluteLine,
+          1,
+          line.length,
+          '重复的下一步声明将被忽略',
+        ),
+      );
       bodyLines.push(...Array.from({ length: consumed }, () => ''));
       index += consumed;
       continue;
@@ -312,27 +312,19 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
   resetErrorSeq();
 
   // Strip UTF-8 BOM if present (U+FEFF at file start breaks /^---/ regex)
-  if (raw.length > 0 && raw.charCodeAt(0) === 0xFEFF) {
+  if (raw.length > 0 && raw.charCodeAt(0) === 0xfeff) {
     raw = raw.slice(1);
   }
 
   // 步骤 1：解析 Frontmatter
-  const fmResult = parseFrontmatter(raw);
+  const fmResult = parseFrontmatterWithDiagnostics(raw);
 
   // 步骤 2：收集 Frontmatter 诊断
   const allDiagnostics: Diagnostic[] = [];
   let variables: VariableDeclaration[] = [];
-  let fmMeta: FrontmatterResult;
-
-  if (fmResult.ok) {
-    fmMeta = fmResult.data;
-    variables = fmMeta.variables;
-    allDiagnostics.push(...fmResult.diagnostics);
-  } else {
-    // Frontmatter 解析失败时使用默认空值，不中断解析
-    allDiagnostics.push(...fmResult.errors);
-    fmMeta = { variables: [] };
-  }
+  const fmMeta: FrontmatterResult = fmResult.data;
+  variables = fmMeta.variables;
+  allDiagnostics.push(...fmResult.diagnostics);
 
   // 步骤 3：定位 Frontmatter 结束位置。必须与 parseFrontmatter 使用同一个
   // source analyzer，避免 Graph Lab 和 parser 对 `---` 边界产生分叉。
@@ -367,18 +359,20 @@ export function parseStory(raw: string): ParseResult<PlotFlowData> {
   const knownChapterIds = new Set(chapters.flatMap((chapter) => [chapter.id, chapter.title]));
   for (const variable of fmMeta.variables) {
     if (
-      variable.scope === 'chapter'
-      && variable.chapterId
-      && !knownChapterIds.has(variable.chapterId)
+      variable.scope === 'chapter' &&
+      variable.chapterId &&
+      !knownChapterIds.has(variable.chapterId)
     ) {
-      allDiagnostics.push(createDiagnostic(
-        'E005',
-        'error',
-        variable.lineNumber,
-        1,
-        1,
-        `chapter scope 变量 "${variable.name}" 引用了不存在的章节 "${variable.chapterId}"`,
-      ));
+      allDiagnostics.push(
+        createDiagnostic(
+          'E005',
+          'error',
+          variable.lineNumber,
+          1,
+          1,
+          `chapter scope 变量 "${variable.name}" 引用了不存在的章节 "${variable.chapterId}"`,
+        ),
+      );
     }
   }
 
@@ -541,9 +535,7 @@ export function parseChaptersAndNodes(
       .map((l) => l.trimEnd())
       .join('\n')
       .trim();
-    const optionSource = nextTargetResult.bodyLines
-      .map((l) => l.trimEnd())
-      .join('\n');
+    const optionSource = nextTargetResult.bodyLines.map((l) => l.trimEnd()).join('\n');
 
     // ---- 解析选项 (M1-03/04/05 集成) ----
     let nodeOptions: Option[] = [];
@@ -602,9 +594,9 @@ export function parseChaptersAndNodes(
     }
 
     const diagnostics: NodeDiagnostics = {
-      isRoot: false,     // M3 填充
-      isOrphan: false,   // M3 填充
-      isDeadEnd: false,  // M3 填充
+      isRoot: false, // M3 填充
+      isOrphan: false, // M3 填充
+      isDeadEnd: false, // M3 填充
       diagnosticIds,
     };
 
@@ -642,11 +634,7 @@ export function parseChaptersAndNodes(
     const trimmed = line.trimStart();
 
     // --- 检测章节标题：`# XXX`（但不匹配 `##`） ---
-    if (
-      trimmed.startsWith('#') &&
-      !trimmed.startsWith('##') &&
-      CHAPTER_HEADING_RE.test(trimmed)
-    ) {
+    if (trimmed.startsWith('#') && !trimmed.startsWith('##') && CHAPTER_HEADING_RE.test(trimmed)) {
       const match = CHAPTER_HEADING_RE.exec(trimmed)!;
       const chapterTitle = match[1]!.trim();
 
@@ -685,15 +673,17 @@ export function parseChaptersAndNodes(
       // 同时避免与匿名 builder/fullId 合并。源文本本身不会被改写。
       const usesReservedAnonymousId = chapterTitle === ANONYMOUS_CHAPTER_ID;
       if (usesReservedAnonymousId) {
-        allErrors.push(createDiagnostic(
-          'E005',
-          'error',
-          absoluteLine,
-          1,
-          trimmed.length,
-          `章节名 "${ANONYMOUS_CHAPTER_ID}" 是系统保留名称`,
-          '请重命名该章节；节点内容已保留，但在修复前故事不可导出。',
-        ));
+        allErrors.push(
+          createDiagnostic(
+            'E005',
+            'error',
+            absoluteLine,
+            1,
+            trimmed.length,
+            `章节名 "${ANONYMOUS_CHAPTER_ID}" 是系统保留名称`,
+            '请重命名该章节；节点内容已保留，但在修复前故事不可导出。',
+          ),
+        );
       }
 
       // 创建/切换到新章节。非法保留名使用独立 recovery builder。
@@ -708,11 +698,7 @@ export function parseChaptersAndNodes(
     }
 
     // --- 检测畸形的 # 行（非 ##，但不匹配章节标题正则）---
-    if (
-      trimmed.startsWith('#') &&
-      !trimmed.startsWith('##') &&
-      !CHAPTER_HEADING_RE.test(trimmed)
-    ) {
+    if (trimmed.startsWith('#') && !trimmed.startsWith('##') && !CHAPTER_HEADING_RE.test(trimmed)) {
       const diag = createDiagnostic(
         'E005',
         'error',
@@ -812,7 +798,9 @@ export function parseChaptersAndNodes(
           // 如果下一非空行是节点或章节标题，当前 --- 是分隔符
           if (
             (nextTrimmed.startsWith('##') && NODE_HEADING_RE.test(nextTrimmed)) ||
-            (nextTrimmed.startsWith('#') && !nextTrimmed.startsWith('##') && CHAPTER_HEADING_RE.test(nextTrimmed))
+            (nextTrimmed.startsWith('#') &&
+              !nextTrimmed.startsWith('##') &&
+              CHAPTER_HEADING_RE.test(nextTrimmed))
           ) {
             // 这是分隔符，不加入正文
             // 而且终结当前节点的正文收集（但不终结节点本身——finalizeNode 在检测到新节点时调用）
@@ -889,14 +877,16 @@ export function parseChaptersAndNodes(
       }
       continue;
     }
-    allErrors.push(createDiagnostic(
-      'W006',
-      'warning',
-      1,
-      1,
-      1,
-      `旧版布局键 "${legacyKey}" 同时匹配 ${matches.length} 个节点，已忽略并等待重新布局`,
-    ));
+    allErrors.push(
+      createDiagnostic(
+        'W006',
+        'warning',
+        1,
+        1,
+        1,
+        `旧版布局键 "${legacyKey}" 同时匹配 ${matches.length} 个节点，已忽略并等待重新布局`,
+      ),
+    );
   }
 
   // 回填 targetFullId（M2: 跨章节引用解析）
@@ -958,17 +948,17 @@ function resolveTargetFullIds(chapterBuilders: Map<string, ChapterBuilder>): voi
       for (const option of node.options) {
         if (option.targetFullId !== null) continue;
         if (!option.targetNodeId) continue;
-        const resolved = resolveTarget(
-          node.chapterId,
-          option.targetNodeId,
-          option.targetChapterId,
-        );
+        const resolved = resolveTarget(node.chapterId, option.targetNodeId, option.targetChapterId);
         if (resolved) (option as { targetFullId: string | null }).targetFullId = resolved;
       }
 
       const nextTarget = node.nextTarget;
       if (nextTarget?.targetNodeId && !nextTarget.targetFullId) {
-        const resolved = resolveTarget(node.chapterId, nextTarget.targetNodeId, nextTarget.targetChapterId);
+        const resolved = resolveTarget(
+          node.chapterId,
+          nextTarget.targetNodeId,
+          nextTarget.targetChapterId,
+        );
         if (resolved) (nextTarget as { targetFullId: string | null }).targetFullId = resolved;
       }
     }

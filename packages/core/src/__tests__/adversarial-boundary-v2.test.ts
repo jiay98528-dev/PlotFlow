@@ -65,7 +65,6 @@ describe('B1: 空文件 → 验证无崩溃', () => {
     }
   });
 });
-
 // ============================================================================
 // B2: 仅 Frontmatter 文件（无章节）→ 验证优雅处理
 // ============================================================================
@@ -283,10 +282,7 @@ describe('B4: 仅含分隔符 --- 文件 → 验证解析器不循环', () => {
     }
   });
 
-  it('B4-4: --- 作为节点间分隔符 — 已知解析器限制：Frontmatter regex 可能过度匹配', () => {
-    // 已知行为: Frontmatter regex /^---\r?\n([\s\S]*?)\r?\n---/ 使用 [\s\S]*?
-    // 懒惰匹配可能跳过中间的 --- 分隔符，将 ## 节点：A 到第一个正文 ---
-    // 之间的内容吞为 Frontmatter。这是解析器的已知边界，不崩溃即可。
+  it('B4-4: 空 Frontmatter 后的节点分隔符不会吞掉故事节点', () => {
     const content = `---
 ---
 # 第一章
@@ -304,13 +300,10 @@ describe('B4: 仅含分隔符 --- 文件 → 验证解析器不循环', () => {
 正文 B。
 `;
     const result = parseStory(content);
-    expect(result.ok).toBeDefined();
-    // 不崩溃即为通过 — 节点数取决于 Frontmatter 截断位置
+    expect(result.ok).toBe(true);
     if (result.ok) {
       const nodes = result.data.chapters.flatMap((c) => c.nodes);
-      console.log(`[B4-4] 解析到 ${nodes.length} 个节点（Frontmatter 截断影响）`);
-      // 至少应有一个节点（B），不应崩溃或无限循环
-      expect(nodes.length).toBeGreaterThanOrEqual(1);
+      expect(nodes.map((node) => node.id)).toEqual(['A', 'B']);
     }
   });
 });

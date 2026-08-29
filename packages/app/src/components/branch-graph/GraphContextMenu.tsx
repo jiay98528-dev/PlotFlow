@@ -296,6 +296,7 @@ const RenameDialog: React.FC<RenameDialogProps> = ({ currentTitle, onConfirm, on
 
   return (
     <div
+      role="presentation"
       style={{
         position: 'fixed',
         inset: 0,
@@ -451,6 +452,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   return (
     <div
+      role="presentation"
       style={{
         position: 'fixed',
         inset: 0,

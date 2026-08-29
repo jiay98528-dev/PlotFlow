@@ -913,7 +913,7 @@ describe('E008 - 变量重复声明', () => {
     expect(result[0]!.detail).toContain('重复声明');
   });
 
-  it('检测嵌套 object 字段与顶层变量同名', () => {
+  it('允许嵌套 object 字段与顶层变量同名', () => {
     const variables: VariableDeclaration[] = [
       {
         name: '角色',
@@ -933,12 +933,10 @@ describe('E008 - 变量重复声明', () => {
     });
 
     const result = checkE008(data);
-    expect(result).toHaveLength(1);
-    expect(result[0]!.code).toBe('E008');
-    expect(result[0]!.detail).toContain('hp');
+    expect(result).toHaveLength(0);
   });
 
-  it('检测嵌套 object 字段之间的同名', () => {
+  it('允许 sibling object 复用相同字段名', () => {
     const variables: VariableDeclaration[] = [
       {
         name: '角色',
@@ -974,10 +972,25 @@ describe('E008 - 变量重复声明', () => {
     });
 
     const result = checkE008(data);
-    // seenNames 跨所有变量共享，第二次出现 '体力' 时触发 1 条诊断
+    expect(result).toHaveLength(0);
+  });
+
+  it('检测同一 object 直接字段同名', () => {
+    const variables: VariableDeclaration[] = [{
+      name: '角色',
+      type: 'object',
+      defaultValue: {},
+      lineNumber: 2,
+      fields: [
+        { name: 'hp', type: 'int', defaultValue: 100, lineNumber: 3 },
+        { name: 'hp', type: 'int', defaultValue: 50, lineNumber: 4 },
+      ],
+    }];
+
+    const result = checkE008(createMinimalData({ variables, chapters: [] }));
     expect(result).toHaveLength(1);
     expect(result[0]!.code).toBe('E008');
-    expect(result[0]!.detail).toContain('体力');
+    expect(result[0]!.detail).toContain('角色.hp');
   });
 
   it('所有变量名唯一时不产生诊断', () => {

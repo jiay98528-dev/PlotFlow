@@ -216,11 +216,6 @@ export function useMenuEvents(): void {
       useUIStore.getState().setStatusMessage(menuText('menu.about'));
     });
 
-    menu.onEvent('menu:help:docs', () => {
-      // M7 启用：使用 shell.openExternal 或 shell.openPath 打开文档
-      useUIStore.getState().setStatusMessage(menuText('menu.docs'));
-    });
-
     // ── 组件卸载时清理所有监听器 ──
     return () => {
       menu.removeAllEventListeners();

@@ -21,7 +21,14 @@
  * @version 0.1.0
  */
 
-import type { PlotFlowData, StoryNode, Option, SideEffect, ConditionNode, VariableDeclaration } from '../types/ast.js';
+import type {
+  PlotFlowData,
+  StoryNode,
+  Option,
+  SideEffect,
+  ConditionNode,
+  VariableDeclaration,
+} from '../types/ast.js';
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
 import { checkExportStructure } from './guard.js';
@@ -162,28 +169,24 @@ function toRuntimeOption(opt: Option): RuntimeOption {
 function buildInitialVariables(variables: VariableDeclaration[]): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const v of variables) {
-    if (v.type === 'object') {
-      result[v.name] = buildObjectValue(v);
-    } else {
-      result[v.name] = v.defaultValue;
-    }
+    result[v.name] = cloneVariableValue(v.defaultValue);
   }
   return result;
 }
 
-/** 递归构建 object 类型变量的初始值 */
-function buildObjectValue(v: VariableDeclaration): Record<string, unknown> {
-  const obj: Record<string, unknown> = {};
-  if (v.fields) {
-    for (const field of v.fields) {
-      if (field.type === 'object') {
-        obj[field.name] = buildObjectValue(field);
-      } else {
-        obj[field.name] = field.defaultValue;
-      }
-    }
+/** 复制解析器已归一化的默认值，避免运行时修改 AST 中的对象引用。 */
+function cloneVariableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(cloneVariableValue);
   }
-  return obj;
+  if (value !== null && typeof value === 'object') {
+    const clone: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      clone[key] = cloneVariableValue(child);
+    }
+    return clone;
+  }
+  return value;
 }
 
 // ============================================================================
@@ -245,73 +248,75 @@ body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFo
 function generateJS(): string {
   // 注意：此函数生成 JS 代码字符串，会被 HTML 直接嵌入。
   // 使用分号连接的紧凑风格控制文件体积。
-  return '(function(){' +
-'\'use strict\';' +
-'var S=JSON.parse(JSON.stringify(STORY));' +
-'var st={vars:S.vars,cur:S.rootId||Object.keys(S.nodes)[0],crumb:[]};' +
-'var root=S.nodes[st.cur];' +
-'if(root)st.crumb.push({id:st.cur,title:root.title||\'\'});' +
-'function $(id){return document.getElementById(id)}' +
-'var el=$(\'content\'),bc=$(\'breadcrumb\'),vct=$(\'var-content\'),vt=$(\'var-toggle\'),vp=$(\'var-panel\');' +
-'function esc(s){var d=document.createElement(\'div\');d.textContent=s;return d.innerHTML}' +
-'function getVar(n){if(n.includes(\'.\')){var p=n.split(\'.\'),v=st.vars;for(var i=0;i<p.length;i++){if(v==null||typeof v!==\'object\')return undefined;v=v[p[i]]}return v}return st.vars[n]}' +
-'function setVar(n,v){if(n.includes(\'.\')){var p=n.split(\'.\'),c=st.vars;for(var i=0;i<p.length-1;i++){if(c[p[i]]==null||typeof c[p[i]]!==\'object\')c[p[i]]={};c=c[p[i]]}c[p[p.length-1]]=v}else{st.vars[n]=v}}' +
-'function resolveOp(op){if(!op)return undefined;if(op.operandType===\'literal\')return op.literalValue;return getVar(op.variableName||\'\')}' +
-'function evalCond(cond){if(!cond)return true;' +
-'if(cond.type===\'comparison\'){var l=resolveOp(cond.left),r=resolveOp(cond.right);' +
-'switch(cond.operator){case\'==\':return l==r;case\'!=\':return l!=r;case\'>\':return l>r;case\'<\':return l<r;case\'>=\':return l>=r;case\'<=\':return l<=r}return false}' +
-'if(cond.type===\'logical\'){var ops=cond.operands||[];' +
-'switch(cond.operator){case\'AND\':return ops.every(function(c){return evalCond(c)});' +
-'case\'OR\':return ops.some(function(c){return evalCond(c)});' +
-'case\'NOT\':return ops.length>0&&!evalCond(ops[0])}}return true}' +
-'function applyEffects(eff){if(!eff||eff.length===0)return;' +
-'for(var i=0;i<eff.length;i++){var e=eff[i],c=getVar(e.variableName);' +
-'switch(e.operation){case\'set\':setVar(e.variableName,e.value);break;' +
-'case\'add\':setVar(e.variableName,(typeof c===\'number\'?c:0)+(typeof e.value===\'number\'?e.value:0));break;' +
-'case\'subtract\':setVar(e.variableName,(typeof c===\'number\'?c:0)-(typeof e.value===\'number\'?e.value:0));break;' +
-'case\'append\':setVar(e.variableName,String(c||\'\')+String(e.value));break}}}' +
-'function mdh(t){var h=esc(t);' +
-'h=h.replace(/\\*\\*(.+?)\\*\\*/g,\'<strong>$1</strong>\');' +
-'h=h.replace(/\\*(.+?)\\*/g,\'<em>$1</em>\');' +
-'h=h.replace(/~~(.+?)~~/g,\'<s>$1</s>\');' +
-'h=h.replace(/`([^`]+)`/g,\'<code>$1</code>\');' +
-'return h.split(/\\n{2,}/).map(function(p){var s=p.trim();if(!s)return\'\';return\'<p>\'+s.replace(/\\n/g,\'<br>\')+\'</p>\'}).join(\'\')}' +
-'function serCond(cond){if(!cond)return\'\';' +
-'if(cond.type===\'comparison\'){' +
-'var l=cond.left?((cond.left.operandType===\'variable\'?\'$\':\'\')+(cond.left.variableName||String(cond.left.literalValue||\'\'))):\'?\';' +
-'var r=cond.right?((cond.right.operandType===\'variable\'?\'$\':\'\')+(cond.right.variableName||String(cond.right.literalValue||\'\'))):\'?\';' +
-'return l+\' \'+cond.operator+\' \'+r}' +
-'if(cond.type===\'logical\'){if(cond.operator===\'NOT\')return\'NOT (\'+serCond(cond.operands[0])+\')\';' +
-'return cond.operands.map(function(c){return\'(\'+serCond(c)+\')\'}).join(\' \'+cond.operator+\' \')}return\'?\'}' +
-'function render(){var node=S.nodes[st.cur];if(!node){el.innerHTML=\'<p class="error-msg">\\u8282\\u70b9\\u672a\\u627e\\u5230</p>\';renderBC();renderVars();return}' +
-'if(st.cur===S.rootId&&st.crumb.length===1){el.innerHTML=\'<div class="start-screen"><h2>\'+esc(node.title||\'\')+\'</h2>\'+mdh(node.body||\'\')+\'<button class="start-btn" id="start-btn">\\u5f00\\u59cb\\u5192\\u9669</button></div>\';var sb=$(\'start-btn\');if(sb)sb.onclick=function(){renderNode(node)};renderBC();renderVars();return}' +
-'renderNode(node)}' +
-'function renderNode(node){el.innerHTML=\'<h2 style="font-size:1.3em;margin-bottom:16px;color:#e6edf3">\'+esc(node.title||\'\')+\'</h2><div id="node-body">\'+mdh(node.body||\'\')+\'</div><div id="options">\'+renderOpts(node)+\'</div>\';' +
-'el.querySelectorAll(\'.option-btn:not([disabled])\').forEach(function(btn){btn.onclick=function(){var idx=parseInt(this.dataset.index);var opt=node.options[idx];if(opt)choose(opt)}});' +
-'renderBC();renderVars();el.scrollIntoView({behavior:\'smooth\',block:\'start\'})}' +
-'function renderOpts(node){if(!node.options||node.options.length===0)return\'<p class="dead-end">\\u2014\\u2014 \\u6545\\u4e8b\\u7ed3\\u675f \\u2014\\u2014</p>\';' +
-'var h=\'\';for(var i=0;i<node.options.length;i++){var o=node.options[i],av=evalCond(o.condition);' +
-'h+=\'<button class="option-btn\'+(av?\'\':\' option-disabled\')+\'" data-index="\'+i+\'"\'+(av?\'\':\' disabled\')+\'>\';' +
-'if(!av)h+=\'<span class="lock-icon">\\ud83d\\udd12</span>\';' +
-'h+=esc(o.text)+\'</button>\';' +
-'if(!av&&o.conditionRaw){h+=\'<div class="condition-text">\'+esc(o.conditionRaw)+\'</div>\'}' +
-'else if(!av&&o.condition){h+=\'<div class="condition-text">\'+esc(serCond(o.condition))+\'</div>\'}}return h}' +
-'function choose(opt){if(!opt.target)return;applyEffects(opt.effects);st.cur=opt.target;' +
-'var tn=S.nodes[opt.target];if(tn)st.crumb.push({id:opt.target,title:tn.title});render()}' +
-'function renderBC(){var h=\'\';for(var i=0;i<st.crumb.length;i++){var c=st.crumb[i];' +
-'if(i>0)h+=\'<span class="crumb-sep">\\u203a</span>\';' +
-'if(i===st.crumb.length-1){h+=\'<span class="crumb-current">\'+esc(c.title||\'\')+\'</span>\'}' +
-'else{h+=\'<a class="crumb-link" data-idx="\'+i+\'">\'+esc(c.title||\'\')+\'</a>\'}}' +
-'bc.innerHTML=h;bc.querySelectorAll(\'.crumb-link\').forEach(function(el){el.onclick=function(){goCrumb(parseInt(this.dataset.idx))}})}' +
-'function goCrumb(idx){if(idx<0||idx>=st.crumb.length)return;st.cur=st.crumb[idx].id;st.crumb=st.crumb.slice(0,idx+1);render()}' +
-'function renderVars(){var h=\'<table class="var-table"><tbody>\';' +
-'for(var k in st.vars){if(st.vars.hasOwnProperty(k)){var v=st.vars[k];' +
-'if(v!==null&&typeof v===\'object\'&&!Array.isArray(v)){' +
-'for(var sk in v){if(v.hasOwnProperty(sk)){h+=\'<tr><td class="var-key">\'+esc(k)+\'.\'+esc(sk)+\'</td><td class="var-val">\'+esc(String(v[sk]))+\'</td></tr>\'}}}' +
-'else{h+=\'<tr><td class="var-key">\'+esc(k)+\'</td><td class="var-val">\'+esc(String(v))+\'</td></tr>\'}}}' +
-'h+=\'</tbody></table>\';vct.innerHTML=h}' +
-'vt.onclick=function(){vp.classList.toggle(\'collapsed\');vt.textContent=vp.classList.contains(\'collapsed\')?\'\\ud83d\\udcca \\u53d8\\u91cf\':\'\\ud83d\\udcca \\u53d8\\u91cf \\u25bc\'};' +
-'render()})()';
+  return (
+    '(function(){' +
+    "'use strict';" +
+    'var S=JSON.parse(JSON.stringify(STORY));' +
+    'var st={vars:S.vars,cur:S.rootId||Object.keys(S.nodes)[0],crumb:[]};' +
+    'var root=S.nodes[st.cur];' +
+    "if(root)st.crumb.push({id:st.cur,title:root.title||''});" +
+    'function $(id){return document.getElementById(id)}' +
+    "var el=$('content'),bc=$('breadcrumb'),vct=$('var-content'),vt=$('var-toggle'),vp=$('var-panel');" +
+    "function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}" +
+    "function getVar(n){if(n.includes('.')){var p=n.split('.'),v=st.vars;for(var i=0;i<p.length;i++){if(v==null||typeof v!=='object')return undefined;v=v[p[i]]}return v}return st.vars[n]}" +
+    "function setVar(n,v){if(n.includes('.')){var p=n.split('.'),c=st.vars;for(var i=0;i<p.length-1;i++){if(c[p[i]]==null||typeof c[p[i]]!=='object')c[p[i]]={};c=c[p[i]]}c[p[p.length-1]]=v}else{st.vars[n]=v}}" +
+    "function resolveOp(op){if(!op)return undefined;if(op.operandType==='literal')return op.literalValue;return getVar(op.variableName||'')}" +
+    'function evalCond(cond){if(!cond)return true;' +
+    "if(cond.type==='comparison'){var l=resolveOp(cond.left),r=resolveOp(cond.right);" +
+    "switch(cond.operator){case'==':return l==r;case'!=':return l!=r;case'>':return l>r;case'<':return l<r;case'>=':return l>=r;case'<=':return l<=r}return false}" +
+    "if(cond.type==='logical'){var ops=cond.operands||[];" +
+    "switch(cond.operator){case'AND':return ops.every(function(c){return evalCond(c)});" +
+    "case'OR':return ops.some(function(c){return evalCond(c)});" +
+    "case'NOT':return ops.length>0&&!evalCond(ops[0])}}return true}" +
+    'function applyEffects(eff){if(!eff||eff.length===0)return;' +
+    'for(var i=0;i<eff.length;i++){var e=eff[i],c=getVar(e.variableName);' +
+    "switch(e.operation){case'set':setVar(e.variableName,e.value);break;" +
+    "case'add':setVar(e.variableName,(typeof c==='number'?c:0)+(typeof e.value==='number'?e.value:0));break;" +
+    "case'subtract':setVar(e.variableName,(typeof c==='number'?c:0)-(typeof e.value==='number'?e.value:0));break;" +
+    "case'append':setVar(e.variableName,String(c||'')+String(e.value));break}}}" +
+    'function mdh(t){var h=esc(t);' +
+    "h=h.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');" +
+    "h=h.replace(/\\*(.+?)\\*/g,'<em>$1</em>');" +
+    "h=h.replace(/~~(.+?)~~/g,'<s>$1</s>');" +
+    "h=h.replace(/`([^`]+)`/g,'<code>$1</code>');" +
+    "return h.split(/\\n{2,}/).map(function(p){var s=p.trim();if(!s)return'';return'<p>'+s.replace(/\\n/g,'<br>')+'</p>'}).join('')}" +
+    "function serCond(cond){if(!cond)return'';" +
+    "if(cond.type==='comparison'){" +
+    "var l=cond.left?((cond.left.operandType==='variable'?'$':'')+(cond.left.variableName||String(cond.left.literalValue||''))):'?';" +
+    "var r=cond.right?((cond.right.operandType==='variable'?'$':'')+(cond.right.variableName||String(cond.right.literalValue||''))):'?';" +
+    "return l+' '+cond.operator+' '+r}" +
+    "if(cond.type==='logical'){if(cond.operator==='NOT')return'NOT ('+serCond(cond.operands[0])+')';" +
+    "return cond.operands.map(function(c){return'('+serCond(c)+')'}).join(' '+cond.operator+' ')}return'?'}" +
+    'function render(){var node=S.nodes[st.cur];if(!node){el.innerHTML=\'<p class="error-msg">\\u8282\\u70b9\\u672a\\u627e\\u5230</p>\';renderBC();renderVars();return}' +
+    "if(st.cur===S.rootId&&st.crumb.length===1){el.innerHTML='<div class=\"start-screen\"><h2>'+esc(node.title||'')+'</h2>'+mdh(node.body||'')+'<button class=\"start-btn\" id=\"start-btn\">\\u5f00\\u59cb\\u5192\\u9669</button></div>';var sb=$('start-btn');if(sb)sb.onclick=function(){renderNode(node)};renderBC();renderVars();return}" +
+    'renderNode(node)}' +
+    "function renderNode(node){el.innerHTML='<h2 style=\"font-size:1.3em;margin-bottom:16px;color:#e6edf3\">'+esc(node.title||'')+'</h2><div id=\"node-body\">'+mdh(node.body||'')+'</div><div id=\"options\">'+renderOpts(node)+'</div>';" +
+    "el.querySelectorAll('.option-btn:not([disabled])').forEach(function(btn){btn.onclick=function(){var idx=parseInt(this.dataset.index);var opt=node.options[idx];if(opt)choose(opt)}});" +
+    "renderBC();renderVars();el.scrollIntoView({behavior:'smooth',block:'start'})}" +
+    'function renderOpts(node){if(!node.options||node.options.length===0)return\'<p class="dead-end">\\u2014\\u2014 \\u6545\\u4e8b\\u7ed3\\u675f \\u2014\\u2014</p>\';' +
+    "var h='';for(var i=0;i<node.options.length;i++){var o=node.options[i],av=evalCond(o.condition);" +
+    "h+='<button class=\"option-btn'+(av?'':' option-disabled')+'\" data-index=\"'+i+'\"'+(av?'':' disabled')+'>';" +
+    'if(!av)h+=\'<span class="lock-icon">\\ud83d\\udd12</span>\';' +
+    "h+=esc(o.text)+'</button>';" +
+    "if(!av&&o.conditionRaw){h+='<div class=\"condition-text\">'+esc(o.conditionRaw)+'</div>'}" +
+    "else if(!av&&o.condition){h+='<div class=\"condition-text\">'+esc(serCond(o.condition))+'</div>'}}return h}" +
+    'function choose(opt){if(!opt.target)return;applyEffects(opt.effects);st.cur=opt.target;' +
+    'var tn=S.nodes[opt.target];if(tn)st.crumb.push({id:opt.target,title:tn.title});render()}' +
+    "function renderBC(){var h='';for(var i=0;i<st.crumb.length;i++){var c=st.crumb[i];" +
+    'if(i>0)h+=\'<span class="crumb-sep">\\u203a</span>\';' +
+    "if(i===st.crumb.length-1){h+='<span class=\"crumb-current\">'+esc(c.title||'')+'</span>'}" +
+    "else{h+='<a class=\"crumb-link\" data-idx=\"'+i+'\">'+esc(c.title||'')+'</a>'}}" +
+    "bc.innerHTML=h;bc.querySelectorAll('.crumb-link').forEach(function(el){el.onclick=function(){goCrumb(parseInt(this.dataset.idx))}})}" +
+    'function goCrumb(idx){if(idx<0||idx>=st.crumb.length)return;st.cur=st.crumb[idx].id;st.crumb=st.crumb.slice(0,idx+1);render()}' +
+    'function renderVars(){var h=\'<table class="var-table"><tbody>\';' +
+    'for(var k in st.vars){if(st.vars.hasOwnProperty(k)){var v=st.vars[k];' +
+    "if(v!==null&&typeof v==='object'&&!Array.isArray(v)){" +
+    "for(var sk in v){if(v.hasOwnProperty(sk)){h+='<tr><td class=\"var-key\">'+esc(k)+'.'+esc(sk)+'</td><td class=\"var-val\">'+esc(String(v[sk]))+'</td></tr>'}}}" +
+    "else{h+='<tr><td class=\"var-key\">'+esc(k)+'</td><td class=\"var-val\">'+esc(String(v))+'</td></tr>'}}}" +
+    "h+='</tbody></table>';vct.innerHTML=h}" +
+    "vt.onclick=function(){vp.classList.toggle('collapsed');vt.textContent=vp.classList.contains('collapsed')?'\\ud83d\\udcca \\u53d8\\u91cf':'\\ud83d\\udcca \\u53d8\\u91cf \\u25bc'};" +
+    'render()})()'
+  );
 }
 
 // ============================================================================
@@ -374,30 +379,41 @@ function generateHTML(title: string, runtimeJson: string): string {
   const js = generateJS();
 
   // 构造完整的 HTML
-  return '<!DOCTYPE html>\n'
-    + '<html lang="zh-CN">\n'
-    + '<head>\n'
-    + '<meta charset="UTF-8">\n'
-    + '<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">\n'
-    + '<title>' + escapedTitle + '</title>\n'
-    + '<style>\n' + css + '\n</style>\n'
-    + '</head>\n'
-    + '<body>\n'
-    + '<div id="app">\n'
-    + '  <header id="header">\n'
-    + '    <div id="story-title">' + escapedTitle + '</div>\n'
-    + '    <nav id="breadcrumb"></nav>\n'
-    + '  </header>\n'
-    + '  <main id="content"></main>\n'
-    + '</div>\n'
-    + '<aside id="var-panel" class="collapsed">\n'
-    + '  <button id="var-toggle">📊 变量</button>\n'
-    + '  <div id="var-content"></div>\n'
-    + '</aside>\n'
-    + '<script>\n'
-    + 'var STORY = ' + runtimeJson + ';\n'
-    + js + '\n'
-    + '</script>\n'
-    + '</body>\n'
-    + '</html>';
+  return (
+    '<!DOCTYPE html>\n' +
+    '<html lang="zh-CN">\n' +
+    '<head>\n' +
+    '<meta charset="UTF-8">\n' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">\n' +
+    '<title>' +
+    escapedTitle +
+    '</title>\n' +
+    '<style>\n' +
+    css +
+    '\n</style>\n' +
+    '</head>\n' +
+    '<body>\n' +
+    '<div id="app">\n' +
+    '  <header id="header">\n' +
+    '    <div id="story-title">' +
+    escapedTitle +
+    '</div>\n' +
+    '    <nav id="breadcrumb"></nav>\n' +
+    '  </header>\n' +
+    '  <main id="content"></main>\n' +
+    '</div>\n' +
+    '<aside id="var-panel" class="collapsed">\n' +
+    '  <button id="var-toggle">📊 变量</button>\n' +
+    '  <div id="var-content"></div>\n' +
+    '</aside>\n' +
+    '<script>\n' +
+    'var STORY = ' +
+    runtimeJson +
+    ';\n' +
+    js +
+    '\n' +
+    '</script>\n' +
+    '</body>\n' +
+    '</html>'
+  );
 }

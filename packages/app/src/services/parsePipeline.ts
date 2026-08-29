@@ -77,9 +77,16 @@ function currentIdentity(): StoryIdentity {
   };
 }
 
-export function publishStorySnapshot(snapshot: PreparedStorySnapshot): void {
+export function publishStorySnapshot(snapshot: PreparedStorySnapshot): boolean {
   useStoryStore.getState().setPlotFlowData(snapshot.data, snapshot.identity);
+  const projection = useGraphStore.getState().syncFromAST(snapshot.data);
+  if (!projection.ok) {
+    useUIStore
+      .getState()
+      .setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.graphRenderFailed')}`);
+  }
   useEditorStore.getState().setDiagnostics([...snapshot.diagnostics]);
+  return projection.ok;
 }
 
 function executePipeline(raw: string): PreparedStorySnapshot | null {
@@ -87,11 +94,18 @@ function executePipeline(raw: string): PreparedStorySnapshot | null {
   const graphStore = useGraphStore.getState();
   if (graphStore.isEditing) return null;
 
-  const result = createStorySnapshot(raw, currentIdentity());
+  const identity = currentIdentity();
+  const result = createStorySnapshot(raw, identity);
   if (!result.ok) {
     // 意外崩溃 — 极其罕见但必须兜底
     // eslint-disable-next-line no-console
     console.error('[ParsePipeline] parseStory threw unexpectedly:', result.error);
+    const message = result.error instanceof Error ? result.error.message : String(result.error);
+    useStoryStore.getState().setParseFailure(message, identity);
+    useEditorStore.getState().setDiagnostics([]);
+    if (useStoryStore.getState().plotFlowData === null) {
+      useGraphStore.getState().syncFromAST(null);
+    }
     const ui = useUIStore.getState();
     if (!ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
       ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.exception')}`);
@@ -99,7 +113,7 @@ function executePipeline(raw: string): PreparedStorySnapshot | null {
     return null;
   }
 
-  publishStorySnapshot(result.snapshot);
+  const graphProjectionSucceeded = publishStorySnapshot(result.snapshot);
 
   // 6. 状态栏消息：有错误时提示用户分支图可能不完整 (V02-033)
   const errorCount = result.snapshot.diagnostics.filter((d) => d.severity === 'error').length;
@@ -107,9 +121,12 @@ function executePipeline(raw: string): PreparedStorySnapshot | null {
   if (ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
     return result.snapshot;
   }
+  if (!graphProjectionSucceeded) return result.snapshot;
 
   if (errorCount > 0) {
-    ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.syntaxErrors', { count: errorCount })}`);
+    ui.setStatusMessage(
+      `${PARSE_STATUS_PREFIX}${pipelineText('parse.syntaxErrors', { count: errorCount })}`,
+    );
   } else {
     // 无错误时清除之前可能残留的错误消息
     const current = ui.statusMessage;

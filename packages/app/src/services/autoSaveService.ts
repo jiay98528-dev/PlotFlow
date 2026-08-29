@@ -948,7 +948,9 @@ export async function saveAsCurrentFile(): Promise<boolean> {
   }
 }
 
-export async function overwritePendingExternalChange(): Promise<boolean> {
+export async function overwritePendingExternalChange(
+  confirmedExternal?: FileExternalChangeEvent,
+): Promise<boolean> {
   if (!flushDraftForSave()) return false;
   const currentContent = syncLatestEditorContent();
   const editorState = useEditorStore.getState();
@@ -957,10 +959,23 @@ export async function overwritePendingExternalChange(): Promise<boolean> {
     return false;
   }
 
+  if (
+    confirmedExternal
+    && (
+      normalizeSavePath(confirmedExternal.filePath) !== normalizeSavePath(pending.filePath)
+      || confirmedExternal.content !== pending.content
+      || confirmedExternal.hash !== pending.hash
+      || confirmedExternal.modifiedAt !== pending.modifiedAt
+    )
+  ) {
+    updateConflictStatus('A newer external change remains pending; the older overwrite was not applied.');
+    return false;
+  }
+
   return performSave(currentContent, editorState.filePath, {
     overwriteConflict: true,
-    expectedHash: pending.hash,
-    confirmedExternal: pending,
+    expectedHash: (confirmedExternal ?? pending).hash,
+    confirmedExternal: confirmedExternal ?? pending,
   });
 }
 

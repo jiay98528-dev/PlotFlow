@@ -26,6 +26,7 @@ import { getCurrentStoryIdentity } from '../../services/sourceDraftCoordinator';
 import { sameStoryIdentity } from '../../services/storySnapshot';
 import { useAppText } from '../../i18n/appI18n';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
+import { sameStoryPath } from '../../services/storyPathIdentity';
 import { GraphLabGlobalEditor } from './GraphLabGlobalEditor';
 
 interface GraphLabPaletteProps {
@@ -120,6 +121,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
 
   const severityByNode = useMemo(() => {
     const map = new Map<string, NodeSeverity>();
+    if (!plotFlowData) return map;
     for (const diagnostic of diagnostics) {
       const nodeId =
         diagnostic.relatedNodeId ??
@@ -420,7 +422,11 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             )}
             <div className="graph-lab-file-list">
               {workspace.files.map((file) => {
-                const isActive = file.filePath.replace(/\\/g, '/') === filePath;
+                const isActive = sameStoryPath(
+                  file.filePath,
+                  filePath,
+                  window.plotflow.platform,
+                );
                 return (
                   <button
                     type="button"

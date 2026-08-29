@@ -210,30 +210,48 @@ function createDiagnostic(
  * ```
  */
 export function parseFrontmatter(raw: string): ParseResult<FrontmatterResult> {
+  const recovered = parseFrontmatterWithDiagnostics(raw);
+  if (recovered.diagnostics.length > 0) {
+    return failure(recovered.diagnostics);
+  }
+  return success(recovered.data);
+}
+
+/**
+ * Parser-internal recovery entry point. It preserves every valid declaration
+ * while returning diagnostics separately, so the story parser can keep a
+ * partial AST without changing parseFrontmatter's public Result contract.
+ */
+export function parseFrontmatterWithDiagnostics(raw: string): {
+  readonly data: FrontmatterResult;
+  readonly diagnostics: readonly Diagnostic[];
+} {
   resetErrorSeq();
   const errors: Diagnostic[] = [];
 
   // 步骤 1：提取 Frontmatter 块
   const source = analyzeStorySource(raw);
   if (!source.frontmatter) {
-    // 无 Frontmatter 块 → 空结果，不报错
-    return success({ variables: [] });
+    return { data: { variables: [] }, diagnostics: [] };
   }
 
   const fmContent = source.frontmatter.content;
   const fmContentStartLine = source.frontmatter.contentStartLine;
 
   if (new TextEncoder().encode(fmContent).byteLength > MAX_FRONTMATTER_BYTES) {
-    return failure([
-      createDiagnostic(
-        'E005',
-        fmContentStartLine,
-        1,
-        1,
-        'Frontmatter 超过 64 KB 上限',
-        '请精简 Frontmatter 后重试。故事正文不计入此限制。',
-      ),
-    ]);
+    return {
+      data: { variables: [] },
+      diagnostics: [
+        createDiagnostic(
+          'E005',
+          fmContentStartLine,
+          1,
+          1,
+          'Frontmatter 超过 64 KB 上限',
+          '请精简 Frontmatter 后重试。故事正文不计入此限制。',
+        ),
+      ],
+    };
   }
 
   // 步骤 2：分割 Frontmatter 内容为行
@@ -254,19 +272,17 @@ export function parseFrontmatter(raw: string): ParseResult<FrontmatterResult> {
     variables = parseVarsSection(varsLines, fmContentStartLine + varsLineIndex + 1, errors);
   }
 
-  // 步骤 6：返回结果
-  if (errors.length > 0) {
-    return failure(errors as readonly Diagnostic[]);
-  }
-
-  return success({
-    variables,
-    title: meta.title,
-    author: meta.author,
-    engine: meta.engine,
-    plotflow: meta.plotflow,
-    layout: meta.layout,
-  });
+  return {
+    data: {
+      variables,
+      title: meta.title,
+      author: meta.author,
+      engine: meta.engine,
+      plotflow: meta.plotflow,
+      layout: meta.layout,
+    },
+    diagnostics: errors,
+  };
 }
 
 // ============================================================================
@@ -1201,6 +1217,111 @@ function validateVariableName(
 // 枚举类型解析
 // ============================================================================
 
+/** Split only at separators outside quotes, enum brackets and object braces. */
+function splitTopLevel(value: string, separators: ReadonlySet<string>): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  let squareDepth = 0;
+  let braceDepth = 0;
+
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index]!;
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '[') {
+      squareDepth++;
+    } else if (char === ']') {
+      squareDepth = Math.max(0, squareDepth - 1);
+    } else if (char === '{') {
+      braceDepth++;
+    } else if (char === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+    } else if (squareDepth === 0 && braceDepth === 0 && separators.has(char)) {
+      parts.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+
+  parts.push(value.slice(start));
+  return parts;
+}
+
+function findTopLevelColon(value: string): number {
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  let squareDepth = 0;
+  let braceDepth = 0;
+
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index]!;
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") quote = char;
+    else if (char === '[') squareDepth++;
+    else if (char === ']') squareDepth = Math.max(0, squareDepth - 1);
+    else if (char === '{') braceDepth++;
+    else if (char === '}') braceDepth = Math.max(0, braceDepth - 1);
+    else if ((char === ':' || char === '：') && squareDepth === 0 && braceDepth === 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/** Find the closing brace matching an already-consumed opening object brace. */
+function findObjectClosingBrace(value: string): number {
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  let squareDepth = 0;
+  let braceDepth = 1;
+
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index]!;
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") quote = char;
+    else if (char === '[') squareDepth++;
+    else if (char === ']') squareDepth = Math.max(0, squareDepth - 1);
+    else if (squareDepth === 0 && char === '{') braceDepth++;
+    else if (squareDepth === 0 && char === '}') {
+      braceDepth--;
+      if (braceDepth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function unquoteEnumValue(value: string): string {
+  if (value.length < 2) return value;
+  const first = value[0];
+  const last = value[value.length - 1];
+  if (!((first === '"' && last === '"') || (first === "'" && last === "'"))) {
+    return value;
+  }
+  return value.slice(1, -1).replace(/\\(.)/g, '$1');
+}
+
 /**
  * 解析枚举类型声明。
  *
@@ -1231,20 +1352,8 @@ function parseEnumType(
   }
 
   const rawValues = match[1];
-  // 按英文逗号或中文逗号分割
-  const enumValues = rawValues
-    .split(/[,，]/)
-    .map((v) => {
-      let val = v.trim();
-      // 去除引号
-      if (
-        (val.startsWith('"') && val.endsWith('"') && val.length >= 2) ||
-        (val.startsWith("'") && val.endsWith("'") && val.length >= 2)
-      ) {
-        val = val.slice(1, -1);
-      }
-      return val;
-    })
+  const enumValues = splitTopLevel(rawValues, new Set([',', '，']))
+    .map((value) => unquoteEnumValue(value.trim()))
     .filter((v) => v.length > 0);
 
   // 验证枚举值不为空
@@ -1294,6 +1403,163 @@ interface ObjectParseResult {
   nextIndex: number; // 下一行索引
 }
 
+function createObjectDeclaration(
+  name: string,
+  fields: VariableDeclaration[],
+  lineNumber: number,
+): VariableDeclaration {
+  const defaultValue: Record<string, unknown> = {};
+  for (const field of fields) defaultValue[field.name] = field.defaultValue;
+  return {
+    name,
+    type: 'object',
+    defaultValue,
+    fields: fields.length > 0 ? fields : undefined,
+    lineNumber,
+  };
+}
+
+function parseInlineFieldType(
+  typeSpec: string,
+  fieldName: string,
+  absoluteLine: number,
+  depth: number,
+  errors: Diagnostic[],
+): VariableDeclaration | null {
+  if (PRIMITIVE_TYPES.has(typeSpec)) {
+    const type = typeSpec as VariableType;
+    return {
+      name: fieldName,
+      type,
+      defaultValue: TYPE_DEFAULTS[type],
+      lineNumber: absoluteLine,
+    };
+  }
+  if (ENUM_REGEX.test(typeSpec)) {
+    return parseEnumType(typeSpec, fieldName, absoluteLine, errors);
+  }
+  if (typeSpec.startsWith(OBJECT_START_MARKER)) {
+    return parseInlineObjectDeclaration(typeSpec, fieldName, absoluteLine, depth, errors);
+  }
+  errors.push(
+    createDiagnostic(
+      'E005',
+      absoluteLine,
+      1,
+      Math.max(1, typeSpec.length),
+      `无法识别的字段类型: "${typeSpec}"`,
+    ),
+  );
+  return null;
+}
+
+function parseInlineObjectFields(
+  content: string,
+  objectName: string,
+  absoluteLine: number,
+  depth: number,
+  errors: Diagnostic[],
+): VariableDeclaration[] {
+  const fields: VariableDeclaration[] = [];
+  const seenNames = new Map<string, number>();
+
+  for (const rawField of splitTopLevel(content, new Set([',', '，']))) {
+    const fieldText = rawField.trim();
+    if (!fieldText) continue;
+    const colonIndex = findTopLevelColon(fieldText);
+    if (colonIndex <= 0) {
+      errors.push(
+        createDiagnostic(
+          'E005',
+          absoluteLine,
+          1,
+          Math.max(1, fieldText.length),
+          `object "${objectName}" 的字段声明格式错误: "${fieldText}"`,
+        ),
+      );
+      continue;
+    }
+
+    const fieldName = fieldText.slice(0, colonIndex).trim();
+    const typeSpec = fieldText.slice(colonIndex + 1).trim();
+    const nameError = validateVariableName(fieldName, absoluteLine, seenNames);
+    if (nameError) {
+      errors.push(nameError);
+      continue;
+    }
+    if (!typeSpec) {
+      errors.push(
+        createDiagnostic(
+          'E005',
+          absoluteLine,
+          colonIndex + 1,
+          fieldText.length,
+          `字段 "${fieldName}" 缺少类型声明`,
+        ),
+      );
+      continue;
+    }
+
+    const field = parseInlineFieldType(typeSpec, fieldName, absoluteLine, depth + 1, errors);
+    if (field) fields.push(field);
+  }
+  return fields;
+}
+
+function parseInlineObjectDeclaration(
+  typeSpec: string,
+  objectName: string,
+  absoluteLine: number,
+  depth: number,
+  errors: Diagnostic[],
+): VariableDeclaration | null {
+  if (depth > MAX_OBJECT_DEPTH) {
+    errors.push(
+      createDiagnostic(
+        'E006',
+        absoluteLine,
+        1,
+        1,
+        DIAGNOSTIC_MESSAGES['E006'],
+        `变量 "${objectName}" 的嵌套深度为 ${depth}，超过最大限制 ${MAX_OBJECT_DEPTH} 层`,
+      ),
+    );
+    return null;
+  }
+
+  const afterBrace = typeSpec.slice(OBJECT_START_MARKER.length);
+  const closingIndex = findObjectClosingBrace(afterBrace);
+  const content = closingIndex >= 0 ? afterBrace.slice(0, closingIndex) : afterBrace;
+  if (closingIndex < 0) {
+    errors.push(
+      createDiagnostic(
+        'E005',
+        absoluteLine,
+        1,
+        Math.max(1, typeSpec.length),
+        `object "${objectName}" 缺少闭合的 "}"`,
+      ),
+    );
+  } else {
+    const trailing = afterBrace.slice(closingIndex + 1).trim();
+    if (trailing && !trailing.startsWith('#')) {
+      errors.push(
+        createDiagnostic(
+          'E005',
+          absoluteLine,
+          1,
+          Math.max(1, typeSpec.length),
+          `object "${objectName}" 的闭合括号后存在无法识别的内容`,
+          trailing,
+        ),
+      );
+    }
+  }
+
+  const fields = parseInlineObjectFields(content, objectName, absoluteLine, depth, errors);
+  return createObjectDeclaration(objectName, fields, absoluteLine);
+}
+
 /**
  * 解析 object{...} 类型的多行声明。
  *
@@ -1339,14 +1605,35 @@ function parseObjectType(
   // 解析 object{ 行，检查是否在同一行有内容
   const objectLine = lines[startIndex]!;
   const openBraceIdx = objectLine.indexOf('{');
-  const afterBrace = openBraceIdx >= 0 ? objectLine.slice(openBraceIdx + 1).trim() : '';
+  const afterBrace = openBraceIdx >= 0 ? objectLine.slice(openBraceIdx + 1) : '';
 
   const fields: VariableDeclaration[] = [];
   let i = startIndex + 1;
+  let closed = false;
 
-  // 检查同一行是否有字段（如 object{ field: int } 虽不推荐但处理）
-  if (afterBrace && afterBrace !== '') {
-    // 同一行内容，解析为可能的字段或忽略（object{ 行通常只有 {）
+  const inlineClosingIndex = findObjectClosingBrace(afterBrace);
+  if (inlineClosingIndex >= 0) {
+    const inlineVariable = parseInlineObjectDeclaration(
+      objectLine.slice(objectLine.indexOf(OBJECT_START_MARKER)).trim(),
+      varName,
+      absoluteLine,
+      depth,
+      errors,
+    );
+    return { variable: inlineVariable, nextIndex: startIndex + 1 };
+  }
+
+  // 支持起始行先声明部分字段、随后继续多行书写；缺少闭合时仍保留字段。
+  if (afterBrace.trim()) {
+    fields.push(
+      ...parseInlineObjectFields(
+        afterBrace.trim().replace(/[,，]\s*$/, ''),
+        varName,
+        absoluteLine,
+        depth,
+        errors,
+      ),
+    );
   }
 
   // 解析多行字段
@@ -1367,6 +1654,7 @@ function parseObjectType(
     const trimmed = line.trimStart();
     if (lineIndent === parentIndent && trimmed === '}') {
       i++; // 跳过 }
+      closed = true;
       break;
     }
 
@@ -1393,8 +1681,6 @@ function parseObjectType(
     const fieldName = fieldParseResult.name;
     const fieldTypeSpec = fieldParseResult.typeSpec;
 
-    // 验证字段名
-    const seenFieldNames = new Map<string, number>();
     // 检查字段名重复（在同一个 object 内）
     if (fields.some((f) => f.name === fieldName)) {
       errors.push(
@@ -1438,8 +1724,6 @@ function parseObjectType(
       i++;
       continue;
     }
-
-    seenFieldNames.set(fieldName, fieldAbsoluteLine);
 
     // 根据字段类型声明创建字段变量
     if (PRIMITIVE_TYPES.has(fieldTypeSpec)) {
@@ -1485,20 +1769,20 @@ function parseObjectType(
     }
   }
 
-  // 生成 object 默认值（各字段默认值的组合）
-  const defaultValue: Record<string, unknown> = {};
-  for (const field of fields) {
-    defaultValue[field.name] = field.defaultValue;
+  if (!closed) {
+    errors.push(
+      createDiagnostic(
+        'E005',
+        absoluteLine,
+        1,
+        Math.max(1, objectLine.trim().length),
+        `object "${varName}" 缺少闭合的 "}"`,
+      ),
+    );
   }
 
   return {
-    variable: {
-      name: varName,
-      type: 'object',
-      defaultValue,
-      fields: fields.length > 0 ? fields : undefined,
-      lineNumber: absoluteLine,
-    },
+    variable: createObjectDeclaration(varName, fields, absoluteLine),
     nextIndex: i,
   };
 }

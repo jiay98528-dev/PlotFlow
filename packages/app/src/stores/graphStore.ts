@@ -17,12 +17,11 @@ import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import type { Node, Edge } from '@xyflow/react';
 import type { PlotFlowData } from '@plotflow/core';
-import { plotFlowDataToFlow } from '../components/branch-graph/adapter';
+import { STATUS_TO_CLASS_MAP, type NodeStatus } from '../components/branch-graph/adapter-helpers';
 import {
-  STATUS_TO_CLASS_MAP,
-  type NodeStatus,
-} from '../components/branch-graph/adapter-helpers';
-import { useUIStore } from './uiStore';
+  projectGraphFromAST,
+  type GraphProjectionResult,
+} from '../services/graphProjectionService';
 
 // ============================================================================
 // 类型定义
@@ -133,7 +132,7 @@ export interface GraphState {
    *
    * @param data - 解析后的 PlotFlowData AST，或 null 表示清空
    */
-  syncFromAST: (data: PlotFlowData | null) => void;
+  syncFromAST: (data: PlotFlowData | null) => GraphProjectionResult;
 
   /**
    * 增量更新单个节点的诊断着色（M3-18）。
@@ -171,7 +170,19 @@ const initialState = {
   renamingNodeId: null,
   isEditing: false,
   collapsedGroups: {} as Record<string, boolean>,
-} as const satisfies Omit<GraphState, 'setNodes' | 'setEdges' | 'selectNode' | 'setZoom' | 'toggleViewMode' | 'setRenamingNodeId' | 'setEditing' | 'toggleGroupCollapse' | 'syncFromAST' | 'updateNodeStatus'>;
+} as const satisfies Omit<
+  GraphState,
+  | 'setNodes'
+  | 'setEdges'
+  | 'selectNode'
+  | 'setZoom'
+  | 'toggleViewMode'
+  | 'setRenamingNodeId'
+  | 'setEditing'
+  | 'toggleGroupCollapse'
+  | 'syncFromAST'
+  | 'updateNodeStatus'
+>;
 
 // ============================================================================
 // Store
@@ -179,40 +190,19 @@ const initialState = {
 
 export const useGraphStore = create<GraphState>()(
   devtools(
-    subscribeWithSelector(
-      (set, get) => ({
+    subscribeWithSelector((set, get) => ({
       // --- 初始状态 ---
       ...initialState,
 
       // --- Actions ---
 
-      setNodes: (nodes: Node[]) =>
-        set(
-          { nodes },
-          false,
-          'graph/setNodes',
-        ),
+      setNodes: (nodes: Node[]) => set({ nodes }, false, 'graph/setNodes'),
 
-      setEdges: (edges: Edge[]) =>
-        set(
-          { edges },
-          false,
-          'graph/setEdges',
-        ),
+      setEdges: (edges: Edge[]) => set({ edges }, false, 'graph/setEdges'),
 
-      selectNode: (id: string | null) =>
-        set(
-          { selectedNodeId: id },
-          false,
-          'graph/selectNode',
-        ),
+      selectNode: (id: string | null) => set({ selectedNodeId: id }, false, 'graph/selectNode'),
 
-      setZoom: (level: number) =>
-        set(
-          { zoomLevel: clampZoom(level) },
-          false,
-          'graph/setZoom',
-        ),
+      setZoom: (level: number) => set({ zoomLevel: clampZoom(level) }, false, 'graph/setZoom'),
 
       toggleViewMode: () =>
         set(
@@ -224,11 +214,7 @@ export const useGraphStore = create<GraphState>()(
         ),
 
       setRenamingNodeId: (id: string | null) =>
-        set(
-          { renamingNodeId: id },
-          false,
-          'graph/setRenamingNodeId',
-        ),
+        set({ renamingNodeId: id }, false, 'graph/setRenamingNodeId'),
 
       setEditing: (editing: boolean) => {
         clearEditingLockTimer();
@@ -277,25 +263,17 @@ export const useGraphStore = create<GraphState>()(
             false,
             'graph/syncFromAST:clear',
           );
-          return;
+          return { ok: true, nodes: [], edges: [] };
         }
 
-        try {
-          const { nodes, edges } = plotFlowDataToFlow(data);
-          set(
-            { nodes, edges },
-            false,
-            'graph/syncFromAST',
-          );
-        } catch (error) {
+        const projection = projectGraphFromAST(data);
+        if (!projection.ok) {
           // eslint-disable-next-line no-console -- intentional error logging for diagnostics
-          console.error('[GraphStore] syncFromAST failed:', error);
-          // V02-033: 保留上次有效状态，不清空画布
-          // 仅设置状态栏消息告知用户渲染失败
-          useUIStore.getState().setStatusMessage(
-            '⚠️ 分支图渲染失败 — 已保留当前视图，请检查语法',
-          );
+          console.error('[GraphStore] syncFromAST failed:', projection.error);
+          return projection;
         }
+        set({ nodes: projection.nodes, edges: projection.edges }, false, 'graph/syncFromAST');
+        return projection;
       },
 
       /**
@@ -332,14 +310,9 @@ export const useGraphStore = create<GraphState>()(
           },
         };
 
-        set(
-          { nodes: updatedNodes },
-          false,
-          'graph/updateNodeStatus',
-        );
+        set({ nodes: updatedNodes }, false, 'graph/updateNodeStatus');
       },
-    }),
-  ),
-  { name: 'GraphStore' },
+    })),
+    { name: 'GraphStore' },
   ),
 );

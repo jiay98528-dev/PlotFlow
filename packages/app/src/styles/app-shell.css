@@ -285,6 +285,15 @@
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-border-focus), transparent 72%);
 }
 
+[data-condition-editor] :is(button, input, select):focus-visible,
+[data-condition-dropdown]:focus-visible,
+[data-condition-dropdown] :is(button, input, select, [role='listbox']):focus-visible {
+  border-color: var(--color-border-focus);
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-border-focus), transparent 72%);
+}
+
 .toolbar-button:active,
 .icon-button:active,
 .toolbar-select:active,
@@ -514,6 +523,12 @@
 
 .status-spacer {
   flex: 1;
+}
+
+.outline-node:focus-visible,
+.outline-panel__resize-handle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 @media (width <= 900px) {

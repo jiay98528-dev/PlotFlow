@@ -54,15 +54,14 @@ import type { PendingOpenFileResult } from '../types/electron';
 import { createOrderedAsyncDispatcher } from '../shared/orderedAsyncDispatcher';
 import { BrandLockup } from '../components/brand/BrandLockup';
 import { FeedbackDialogHost } from '../components/feedback/FeedbackDialog';
+import { createLatestOnlyExternalChangeCoordinator } from '../services/externalChangeCoordinator';
 
 // ============================================================================
-// P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
+// 暴露给主进程的脏状态查询与保存接口。
 // ============================================================================
 //
-// 涓昏繘绋嬮€氳繃 mainWindow.webContents.executeJavaScript 璋冪敤杩欎簺鍑芥暟锛?
-// 鐢ㄤ簬绐楀彛鍏抽棴/搴旂敤閫€鍑烘椂鐨勮剰鐘舵€佹鏌ヤ笌淇濆瓨娴佺▼銆?
-// 娓叉煋杩涚▼閫氳繃 window.plotflow.dialog.confirm() 璋冪敤鍘熺敓瀵硅瘽妗嗗鐞?
-// 鏂板缓/鎵撳紑鏂囦欢鏃剁殑鑴忕姸鎬佺‘璁ゃ€?
+// 主进程在窗口关闭或应用退出时调用这些函数；渲染进程继续复用现有
+// 原生确认框处理未保存故事。
 
 window.__getEditorDirtyState__ = () => {
   const editor = useEditorStore.getState();
@@ -118,13 +117,15 @@ function AppContent(): React.ReactElement {
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
 
-  // storyStore 鈫?graphStore 瀹夊叏缃戯紙parsePipeline 宸茬洿鎺ヨ皟鐢?syncFromAST锛?
-  // 姝ゅ浠呭鐞嗙洿鎺ヨ皟鐢?setPlotFlowData 鐨勬梺璺矾寰勶級
+  // storyStore → graphStore 安全网：覆盖绕过 parsePipeline 直接发布 AST 的路径。
   useEffect(() => {
     const unsubscribe = useStoryStore.subscribe((state, prevState) => {
       if (state.plotFlowData !== prevState.plotFlowData) {
         if (!useGraphStore.getState().isEditing) {
-          useGraphStore.getState().syncFromAST(state.plotFlowData);
+          const projection = useGraphStore.getState().syncFromAST(state.plotFlowData);
+          if (!projection.ok) {
+            setStatusMessage(text('parse.graphRenderFailed'));
+          }
         }
       }
     });
@@ -132,17 +133,16 @@ function AppContent(): React.ReactElement {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [setStatusMessage, text]);
 
-  // P0-1: graphStore.selectedNodeId 鈫?editorStore 鍗曞悜鍚屾
-  // 鍒嗘敮鍥捐妭鐐归€変腑鏃惰嚜鍔ㄨ仈鍔ㄥぇ绾查珮浜笌鍏夋爣浣嶇疆
-  // 璁㈤槄鏀惧湪 App.tsx 鍏ㄥ眬灞傜‘淇濅笉鍙?GraphCanvas 鏉′欢娓叉煋锛坢inimap/split 鍒囨崲锛夊奖鍝?
+  // graphStore.selectedNodeId → editorStore 单向同步。
+  // 全局订阅不受 GraphCanvas 条件渲染和视图切换影响。
   useEffect(() => {
     const unsubscribe = useGraphStore.subscribe(
       (state) => state.selectedNodeId,
       (selectedNodeId, prevSelectedNodeId) => {
         if (selectedNodeId === prevSelectedNodeId) return;
-        if (useGraphStore.getState().isEditing) return; // 杩炵嚎鎷栨嫿绛夋搷浣滀腑璺宠繃
+        if (useGraphStore.getState().isEditing) return; // 连线拖拽期间跳过联动。
 
         if (!selectedNodeId) {
           useEditorStore.getState().setActiveNodeId(null);
@@ -161,24 +161,21 @@ function AppContent(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  // P0: isEditing 閿侀噴鏀?鈫?鑷姩閲嶈В鏋愶紙闃叉缂栬緫閿佹湡闂寸殑鍐呭鍙樻洿涓㈠け锛?
+  // 操作锁释放后立即重解析，避免锁期间的源码变化丢失。
   useEffect(() => {
     const unsub = useGraphStore.subscribe(
       (s) => s.isEditing,
       (editing, wasEditing) => {
         if (wasEditing && !editing) {
           const content = useEditorStore.getState().content;
-          if (content) {
-            parsePipelineNow(content);
-          }
+          parsePipelineNow(content);
         }
       },
     );
     return unsub;
   }, []);
 
-  // P0-6: 鎸傝浇鏃舵鏌ョ郴缁熷弻鍑?鍛戒护琛屼紶鍏ョ殑寰呮墦寮€鏂囦欢 (M7-08)
-  // 绐楀彛棣栨鎸傝浇鏃惰皟鐢?getPendingOpenFile()锛屾秷璐规枃浠舵墦寮€绯荤粺浜嬩欢銆?
+  // 首次挂载时消费系统双击传入的待打开文件。
   useEffect(() => {
     let cancelled = false;
     const consume = async (result: PendingOpenFileResult): Promise<void> => {
@@ -214,69 +211,60 @@ function AppContent(): React.ReactElement {
     };
   }, [setHomeSurfaceOpen, setStatusMessage, text]);
 
-  // P0-6: 杩愯鏃剁洃鍚郴缁熸枃浠舵墦寮€閫氱煡锛堝簲鐢ㄥ凡杩愯锛岀敤鎴峰弻鍑?.mdstory 鏂囦欢鏃惰Е鍙戯級
+  // 运行时监听当前 .mdstory 的外部磁盘变化。
   useEffect(() => {
     if (!window.plotflow?.file?.onExternalChange) return;
 
-    const cleanup = window.plotflow.file.onExternalChange(async (event) => {
-      const normalizedEvent = {
-        ...event,
-        filePath: event.filePath.replace(/\\/g, '/'),
-      };
-      const editor = useEditorStore.getState();
-      const currentFilePath = editor.filePath ? normalizeStoryPath(editor.filePath) : null;
-      if (currentFilePath && currentFilePath !== normalizedEvent.filePath) return;
-
-      if (!hasCurrentStoryUnsavedChanges()) {
-        if (await applyExternalFileContent(normalizedEvent)) {
-          setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
+    const coordinator = createLatestOnlyExternalChangeCoordinator({
+      getLease: () => {
+        const editor = useEditorStore.getState();
+        return {
+          storySessionId: editor.storySessionId,
+          filePath: editor.filePath ? normalizeStoryPath(editor.filePath) : null,
+        };
+      },
+      hasUnsavedChanges: hasCurrentStoryUnsavedChanges,
+      isCurrentFile: (filePath) => {
+        const currentPath = useEditorStore.getState().filePath;
+        return (
+          currentPath !== null && normalizeStoryPath(currentPath) === normalizeStoryPath(filePath)
+        );
+      },
+      setPending: (event) => useEditorStore.getState().setPendingExternalChange(event),
+      confirm: (event) =>
+        window.plotflow.dialog.confirm({
+          type: 'warning',
+          message: text('appShell.externalChangeTitle'),
+          detail: text('appShell.externalChangeDetail', { path: event.filePath }),
+          buttons: [
+            text('appShell.saveCopy'),
+            text('appShell.reloadDisk'),
+            text('appShell.overwriteDisk'),
+            text('appShell.keepEditing'),
+          ],
+        }),
+      reload: async (event) => {
+        if (await applyExternalFileContent(event)) {
+          setStatusMessage(text('appShell.externalReloaded', { path: event.filePath }));
         }
-        return;
-      }
-
-      editor.setPendingExternalChange(normalizedEvent);
-      const choice = await window.plotflow.dialog.confirm({
-        type: 'warning',
-        message: text('appShell.externalChangeTitle'),
-        detail: text('appShell.externalChangeDetail', { path: normalizedEvent.filePath }),
-        buttons: [
-          text('appShell.saveCopy'),
-          text('appShell.reloadDisk'),
-          text('appShell.overwriteDisk'),
-          text('appShell.keepEditing'),
-        ],
-      });
-
-      const latestPending = useEditorStore.getState().pendingExternalChange;
-      const confirmedEventIsCurrent =
-        latestPending !== null &&
-        normalizeStoryPath(latestPending.filePath) === normalizedEvent.filePath &&
-        latestPending.content === normalizedEvent.content &&
-        latestPending.hash === normalizedEvent.hash &&
-        latestPending.modifiedAt === normalizedEvent.modifiedAt;
-      if ((choice === 1 || choice === 2) && !confirmedEventIsCurrent) {
-        setStatusMessage(text('appShell.externalPending'));
-        return;
-      }
-
-      if (choice === 0) {
-        const saved = await saveAsCurrentFile();
-        if (saved) {
-          setStatusMessage(text('appShell.copySaved'));
-        }
-      } else if (choice === 1) {
-        const pending = useEditorStore.getState().pendingExternalChange ?? normalizedEvent;
-        if (await applyExternalFileContent(pending)) {
-          setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
-        }
-      } else if (choice === 2) {
-        void overwritePendingExternalChange();
-      } else {
-        setStatusMessage(text('appShell.externalPending'));
-      }
+      },
+      overwrite: async (event) => {
+        await overwritePendingExternalChange(event);
+      },
+      saveCopy: async () => {
+        if (await saveAsCurrentFile()) setStatusMessage(text('appShell.copySaved'));
+      },
+      showPending: () => setStatusMessage(text('appShell.externalPending')),
     });
 
-    return cleanup;
+    const cleanup = window.plotflow.file.onExternalChange((event) => {
+      void coordinator.enqueue({ ...event, filePath: normalizeStoryPath(event.filePath) });
+    });
+
+    return () => {
+      coordinator.dispose();
+      cleanup();
+    };
   }, [setStatusMessage, text]);
 
   const handleTemplateSelected = useCallback(
@@ -386,7 +374,7 @@ function AppContent(): React.ReactElement {
       getThemeId: () => useUIStore.getState().activeThemeId,
       openThemeCenter: () => useUIStore.getState().openThemeCenter(),
       setHomeSurfaceOpen: (open: boolean) => useUIStore.getState().setHomeSurfaceOpen(open),
-      /** 鐩存帴閫変腑鍒嗘敮鍥捐妭鐐瑰苟鑱斿姩缂栬緫鍣紝缁曞紑 DOM 鐐瑰嚮/鍐掓场/浜嬩欢濮旀墭渚濊禆 */
+      /** 直接选中图节点并联动编辑器，供测试桥使用。 */
       selectNode: (nodeId: string) => {
         useGraphStore.getState().selectNode(nodeId);
         useEditorStore.getState().setActiveNodeId(nodeId);

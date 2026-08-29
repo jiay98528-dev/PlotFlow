@@ -34,6 +34,7 @@ import type {
   Operand,
   SideEffect,
 } from '../types/ast.js';
+import { deriveNodeStatuses, type DerivedNodeStatus } from '../validator/nodeStatus.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import validateStorySchema02 from './generated/storySchema02Validator.js';
 import { checkExportStructure } from './guard.js';
@@ -51,7 +52,10 @@ const storySchemaValidator = validateStorySchema02 as StorySchemaValidator;
 
 function isRfc3339DateTime(value: unknown): value is string {
   if (typeof value !== 'string') return false;
-  const match = /^(\d{4})-(\d{2})-(\d{2})[Tt](?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})[Tt](?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(
+      value,
+    );
   if (!match) return false;
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -77,10 +81,12 @@ function createExportError(code: 'E005' | 'E009', message: string, detail?: stri
     messageKey: `diagnostic.${code}.message`,
     messageParams: {},
     ...(detail ? { detail } : {}),
-    ...(code === 'E009' ? {
-      detailKey: 'diagnostic.E009.detail' as const,
-      detailParams: { reason: 'schemaViolation' },
-    } : {}),
+    ...(code === 'E009'
+      ? {
+          detailKey: 'diagnostic.E009.detail' as const,
+          detailParams: { reason: 'schemaViolation' },
+        }
+      : {}),
     range: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
   };
 }
@@ -101,19 +107,23 @@ export function exportJSON(data: PlotFlowData): ParseResult<string> {
     if (structuralErrors.length > 0) return failure(structuralErrors);
     const exported = serializeStory(data);
     if (!storySchemaValidator(exported)) {
-      return failure([createExportError(
-        'E009',
-        '故事结构不满足 JSON Schema 0.2，已阻止导出',
-        formatSchemaErrors(storySchemaValidator.errors),
-      )]);
+      return failure([
+        createExportError(
+          'E009',
+          '故事结构不满足 JSON Schema 0.2，已阻止导出',
+          formatSchemaErrors(storySchemaValidator.errors),
+        ),
+      ]);
     }
     const exportedAt = (exported['meta'] as Record<string, unknown>)['exportedAt'];
     if (!isRfc3339DateTime(exportedAt)) {
-      return failure([createExportError(
-        'E009',
-        '故事结构不满足 JSON Schema 0.2，已阻止导出',
-        '/meta/exportedAt must match format "date-time"',
-      )]);
+      return failure([
+        createExportError(
+          'E009',
+          '故事结构不满足 JSON Schema 0.2，已阻止导出',
+          '/meta/exportedAt must match format "date-time"',
+        ),
+      ]);
     }
     const json = JSON.stringify(exported, null, 2) + '\n';
     return success(json);
@@ -131,11 +141,12 @@ export function exportJSON(data: PlotFlowData): ParseResult<string> {
  * 将完整的 PlotFlowData 序列化为 JSON 可序列化对象。
  */
 function serializeStory(data: PlotFlowData): Record<string, unknown> {
+  const nodeStatuses = deriveNodeStatuses(data);
   return {
     $schema: 'https://plotflow.dev/schema/0.2/story.json',
     meta: serializeMeta(data.meta),
     variables: serializeVariables(data.variables),
-    chapters: data.chapters.map(serializeChapter),
+    chapters: data.chapters.map((chapter) => serializeChapter(chapter, nodeStatuses)),
   };
 }
 
@@ -241,13 +252,16 @@ function serializeVariableDef(v: VariableDeclaration): Record<string, unknown> {
  * 序列化章节。
  * 仅输出 Schema 要求的字段：id, title, nodes。
  */
-function serializeChapter(chapter: Chapter): Record<string, unknown> {
+function serializeChapter(
+  chapter: Chapter,
+  nodeStatuses: ReadonlyMap<string, DerivedNodeStatus>,
+): Record<string, unknown> {
   return {
     id: chapter.id,
     // 匿名章节在 AST 中没有显示标题；Schema 0.2 要求非空 title，使用其
     // 稳定 ID 作为导出显示名，避免成功出口产生 Schema 非法 JSON。
     title: chapter.title || chapter.id,
-    nodes: chapter.nodes.map(serializeNode),
+    nodes: chapter.nodes.map((node) => serializeNode(node, nodeStatuses)),
   };
 }
 
@@ -263,7 +277,11 @@ function serializeChapter(chapter: Chapter): Record<string, unknown> {
  * - position: 使用 AST 中的 Graph Lab 布局坐标；缺失时默认 { x: 0, y: 0 }
  * - diagnostics.isRoot/isOrphan/isDeadEnd → 直接映射
  */
-function serializeNode(node: StoryNode, _index: number): Record<string, unknown> {
+function serializeNode(
+  node: StoryNode,
+  nodeStatuses: ReadonlyMap<string, DerivedNodeStatus>,
+): Record<string, unknown> {
+  const status = nodeStatuses.get(node.fullId) ?? node.diagnostics;
   return {
     id: node.id,
     chapterId: node.chapterId,
@@ -272,9 +290,9 @@ function serializeNode(node: StoryNode, _index: number): Record<string, unknown>
     body: splitBodyToParagraphs(node.body),
     options: serializeNodeOptions(node),
     position: node.position ?? { x: 0, y: 0 },
-    isRoot: node.diagnostics.isRoot,
-    isOrphan: node.diagnostics.isOrphan,
-    isDeadEnd: node.diagnostics.isDeadEnd,
+    isRoot: status.isRoot,
+    isOrphan: status.isOrphan,
+    isDeadEnd: status.isDeadEnd,
   };
 }
 
@@ -297,9 +315,8 @@ function splitBodyToParagraphs(body: string): string[] {
 
   // 找到第一个 [选项] 并截断，只保留纯叙述文本
   const firstOption = normalized.search(/\n\[选项\]/);
-  const narrativeOnly = firstOption >= 0
-    ? normalized.slice(0, firstOption).trim()
-    : normalized.trim();
+  const narrativeOnly =
+    firstOption >= 0 ? normalized.slice(0, firstOption).trim() : normalized.trim();
 
   if (narrativeOnly.length === 0) return [];
 

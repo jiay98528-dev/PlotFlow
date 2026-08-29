@@ -18,12 +18,7 @@
 import type { ParseResult } from '../result.js';
 import { success, failure } from '../result.js';
 import type { Option, ConditionNode, SideEffect, VariableDeclaration } from '../types/ast.js';
-import type {
-  Diagnostic,
-  ErrorCode,
-  WarningCode,
-  SourceRange,
-} from '../types/diagnostic.js';
+import type { Diagnostic, ErrorCode, WarningCode, SourceRange } from '../types/diagnostic.js';
 import { createDiagnosticLocalization, DIAGNOSTIC_MESSAGES } from '../types/diagnostic.js';
 import { parseCondition } from './conditions.js';
 import { parseEffects } from './effects.js';
@@ -295,14 +290,7 @@ function parseOneOption(
   // 描述不能为空
   if (description.length === 0) {
     errors.push(
-      createDiagnostic(
-        'E005',
-        'error',
-        absoluteLine,
-        1,
-        trimmed.length,
-        '选项描述不能为空',
-      ),
+      createDiagnostic('E005', 'error', absoluteLine, 1, trimmed.length, '选项描述不能为空'),
     );
     return { option: null, nextIndex: startIndex + 1 };
   }
@@ -392,6 +380,8 @@ function parseOneOption(
 
   let conditionRaw: string | null = null;
   let effectsRaw: string | null = null;
+  let conditionLineNumber: number | null = null;
+  let effectsLineNumber: number | null = null;
 
   // 子行缩进要求：至少 1 个缩进级别（2 空格或 1 Tab）
   // 从 startIndex + 1 开始扫描，直到下一个 [选项] 或文件结束
@@ -413,6 +403,7 @@ function parseOneOption(
         // 仅当第一条条件被记录；后续重复条件子行忽略
         if (conditionRaw === null) {
           conditionRaw = rawText;
+          conditionLineNumber = baseLineNumber + j;
         } else {
           // 重复的条件子行发出警告
           errors.push(
@@ -451,6 +442,7 @@ function parseOneOption(
         if (effectsRaw === null) {
           // 剥离外围括号（效果语法的 "(" EffectList ")" 是结构标记）
           effectsRaw = stripOuterParens(rawText);
+          effectsLineNumber = baseLineNumber + j;
         } else {
           errors.push(
             createDiagnostic(
@@ -490,7 +482,7 @@ function parseOneOption(
 
   let condition: ConditionNode | null = null;
   if (conditionRaw !== null) {
-    const condResult = parseCondition(conditionRaw, variables, absoluteLine);
+    const condResult = parseCondition(conditionRaw, variables, conditionLineNumber ?? absoluteLine);
     if (condResult.ok) {
       condition = condResult.data;
     } else {
@@ -505,7 +497,7 @@ function parseOneOption(
 
   let sideEffects: SideEffect[] = [];
   if (effectsRaw !== null) {
-    const effectsResult = parseEffects(effectsRaw, variables, absoluteLine);
+    const effectsResult = parseEffects(effectsRaw, variables, effectsLineNumber ?? absoluteLine);
     if (effectsResult.ok) {
       sideEffects = effectsResult.data;
     } else {
@@ -523,7 +515,7 @@ function parseOneOption(
     indentLevel,
     targetNodeId,
     targetChapterId,
-    targetFullId: null,       // M2 填充（跨章节引用解析）
+    targetFullId: null, // M2 填充（跨章节引用解析）
     condition,
     sideEffects,
     conditionRaw,

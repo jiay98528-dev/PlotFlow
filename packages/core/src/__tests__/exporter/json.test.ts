@@ -78,7 +78,7 @@ describe('exportJSON — 基本导出', () => {
     expect(node0.body).toContain('故事在这里开始。');
     expect(node0).toHaveProperty('position');
     expect(node0.position).toEqual({ x: 0, y: 0 });
-    expect(node0.isRoot).toBe(false);
+    expect(node0.isRoot).toBe(true);
     expect(node0.isOrphan).toBe(false);
     expect(node0.isDeadEnd).toBe(false);
 
@@ -93,9 +93,9 @@ describe('exportJSON — 基本导出', () => {
     expect(opt0.conditions).toBeNull();
     expect(opt0.sideEffects).toEqual([]);
 
-    // 死胡同节点 — diagnostics 由 M3 填充，M1 阶段默认为 false
+    // 导出器直接派生节点状态，不依赖调用方是否先运行 Validator。
     const node1 = ch.nodes[1];
-    expect(node1.isDeadEnd).toBe(false);
+    expect(node1.isDeadEnd).toBe(true);
     expect(node1.options).toEqual([]);
   });
 

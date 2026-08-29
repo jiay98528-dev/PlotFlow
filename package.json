@@ -57,6 +57,7 @@
     "electron-builder-squirrel-windows": "26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^8.0.0",
+    "eslint-plugin-react-hooks": "4.6.2",
     "husky": "^9.0.0",
     "jsdom": "^29.1.1",
     "lint-staged": "^15.0.0",

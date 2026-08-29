@@ -33,6 +33,9 @@ const PANEL_DEFAULT_WIDTH = 200;
 /** 折叠后宽度 (px) */
 const PANEL_COLLAPSED_WIDTH = 32;
 
+/** 键盘调整面板宽度时的单步距离 (px) */
+const PANEL_KEYBOARD_STEP = 10;
+
 /** 标题截断长度 */
 const TITLE_MAX_LENGTH = 30;
 
@@ -105,6 +108,21 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
     [],
   );
 
+  const handleResizeKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      let nextWidth: number | null = null;
+      if (event.key === 'ArrowLeft') nextWidth = panelWidth - PANEL_KEYBOARD_STEP;
+      if (event.key === 'ArrowRight') nextWidth = panelWidth + PANEL_KEYBOARD_STEP;
+      if (event.key === 'Home') nextWidth = PANEL_MIN_WIDTH;
+      if (event.key === 'End') nextWidth = PANEL_MAX_WIDTH;
+      if (nextWidth === null) return;
+
+      event.preventDefault();
+      setPanelWidth(Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_MAX_WIDTH, nextWidth)));
+    },
+    [panelWidth],
+  );
+
   // 卸载时清理 resize 事件（安全兜底）
   useEffect(() => {
     return () => {
@@ -131,6 +149,7 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
           type="button"
           onClick={handleToggleCollapse}
           title={text('outline.expand')}
+          aria-label={text('outline.expand')}
           style={collapseButtonStyle}
         >
           ▶
@@ -160,6 +179,7 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
           type="button"
           onClick={handleToggleCollapse}
           title={text('outline.collapse')}
+          aria-label={text('outline.collapse')}
           style={collapseButtonStyle}
         >
           ◀
@@ -191,13 +211,16 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
                   const isActive = activeNodeId === node.fullId;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={node.fullId}
                       className={
                         'outline-node' +
                         (isActive ? ' outline-node--active' : '')
                       }
                       onClick={() => handleNodeClick(node.fullId, node.lineNumber)}
+                      aria-current={isActive ? 'location' : undefined}
+                      aria-label={text('outline.nodeLocation', { title: node.title, line: node.lineNumber })}
                       title={text('outline.nodeLocation', { title: node.title, line: node.lineNumber })}
                       style={{
                         ...nodeStyle,
@@ -213,7 +236,7 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
                           {node.options.length}
                         </span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -232,6 +255,14 @@ export function OutlinePanel({ onNodeClick }: OutlinePanelProps): React.ReactEle
       <div
         className="outline-panel__resize-handle"
         onMouseDown={handleResizeStart}
+        onKeyDown={handleResizeKeyDown}
+        role="separator"
+        aria-label={text('outline.resize')}
+        aria-orientation="vertical"
+        aria-valuemin={PANEL_MIN_WIDTH}
+        aria-valuemax={PANEL_MAX_WIDTH}
+        aria-valuenow={panelWidth}
+        tabIndex={0}
         style={resizeHandleStyle}
       />
     </div>
@@ -254,7 +285,6 @@ const panelStyle: React.CSSProperties = {
   minWidth: PANEL_MIN_WIDTH,
   overflow: 'hidden',
 };
-
 const collapsedPanelStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -336,6 +366,7 @@ const chapterStyle: React.CSSProperties = {
 };
 
 const nodeStyle: React.CSSProperties = {
+  width: '100%',
   padding: '4px 12px 4px 20px',
   fontSize: '13px',
   cursor: 'pointer',
@@ -343,14 +374,17 @@ const nodeStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   color: 'var(--color-text-primary)',
+  background: 'transparent',
+  border: 'none',
   borderRadius: 0,
+  fontFamily: 'inherit',
+  textAlign: 'left',
   transition: 'background 0.1s ease',
 };
 
 const activeNodeStyle: React.CSSProperties = {
   background: 'var(--color-accent-subtle)',
-  borderLeft: '2px solid var(--color-accent)',
-  paddingLeft: 18, // 20 - 2 (borderLeft 占位)
+  boxShadow: 'inset 0 0 0 1px var(--color-accent)',
 };
 
 const nodeTitleStyle: React.CSSProperties = {

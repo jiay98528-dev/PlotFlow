@@ -539,8 +539,7 @@ describe('W001 - 孤立节点', () => {
     expect(codes).toContain('W001');
   });
 
-  it('第一个无入边的节点被标记为根节点（非孤立）', () => {
-    // 根节点是第一个无入边的节点，不应标记为 W001
+  it('第一个故事节点被标记为根节点，已解析的后继节点不误报孤立', () => {
     const input = `# 章
 
 ## 节点：根节点
@@ -555,13 +554,10 @@ describe('W001 - 孤立节点', () => {
 `;
     const { parseOk, codes } = runFullPipeline(input);
     expect(parseOk).toBe(true);
-    // 「下一节点」由于 targetFullId 为 null，验证器无法检测入边，
-    // 所以会被标记为孤立节点（W001）
-    expect(codes).toContain('W001');
-    // 但「根节点」由于是第一个节点且无入边，被标记为根节点
-    // 验证器会跳过根节点 → 所以只有 1 条 W001
+    // 解析器已解析出「下一节点」的完整入边；根节点与后继节点都不是孤立节点。
+    expect(codes).not.toContain('W001');
     const w001Count = codes.filter((c) => c === 'W001').length;
-    expect(w001Count).toBe(1);
+    expect(w001Count).toBe(0);
   });
 });
 

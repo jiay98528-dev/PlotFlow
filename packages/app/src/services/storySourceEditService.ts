@@ -20,10 +20,7 @@ import { useUIStore } from '../stores/uiStore';
 import { parsePipelineNow } from './parsePipeline';
 import { debouncedSave } from './autoSaveService';
 import { flushSourceDraft } from './sourceDraftCoordinator';
-import {
-  configureGraphHistoryReplay,
-  recordGraphEdit,
-} from './graphHistoryService';
+import { configureGraphHistoryReplay, recordGraphEdit } from './graphHistoryService';
 
 export interface GraphEditResult {
   readonly content: string;
@@ -131,7 +128,9 @@ function variableSignature(variable: VariableDeclaration): string {
 
 function stableVariableReference(originalName: string | undefined): StableVariableReference | null {
   if (!originalName) return null;
-  const variable = useStoryStore.getState().plotFlowData?.variables.find((candidate) => candidate.name === originalName);
+  const variable = useStoryStore
+    .getState()
+    .plotFlowData?.variables.find((candidate) => candidate.name === originalName);
   return variable ? { originalName, signature: variableSignature(variable) } : null;
 }
 
@@ -148,7 +147,10 @@ function stableOptionReference(option: Option): StableOptionReference | null {
       };
     }
     node.options.forEach((candidate, candidateIndex) => {
-      if (candidate.lineNumber === option.lineNumber && optionSignature(candidate) === optionSignature(option)) {
+      if (
+        candidate.lineNumber === option.lineNumber &&
+        optionSignature(candidate) === optionSignature(option)
+      ) {
         fallbackMatches.push({
           sourceNodeFullId: node.fullId,
           optionIndex: candidateIndex,
@@ -169,7 +171,10 @@ function parsedStoryForEdit(content: string) {
 function resolveNodeForEdit(content: string, fullId: string): StoryNode | null {
   const story = parsedStoryForEdit(content);
   if (!story) return null;
-  return story.chapters.flatMap((chapter) => chapter.nodes).find((node) => node.fullId === fullId) ?? null;
+  return (
+    story.chapters.flatMap((chapter) => chapter.nodes).find((node) => node.fullId === fullId) ??
+    null
+  );
 }
 
 function resolveOptionForEdit(content: string, reference: StableOptionReference): Option | null {
@@ -178,11 +183,14 @@ function resolveOptionForEdit(content: string, reference: StableOptionReference)
   const currentSignatures = node.options.map(optionSignature);
   const indexed = node.options[reference.optionIndex];
   if (
-    indexed
-    && optionSignature(indexed) === reference.signature
-    && currentSignatures.length === reference.sourceOptionSignatures.length
-    && currentSignatures.every((signature, index) => signature === reference.sourceOptionSignatures[index])
-  ) return indexed;
+    indexed &&
+    optionSignature(indexed) === reference.signature &&
+    currentSignatures.length === reference.sourceOptionSignatures.length &&
+    currentSignatures.every(
+      (signature, index) => signature === reference.sourceOptionSignatures[index],
+    )
+  )
+    return indexed;
   const matches = node.options.filter((option) => optionSignature(option) === reference.signature);
   return matches.length === 1 ? matches[0]! : null;
 }
@@ -197,9 +205,29 @@ const NEXT_LABEL = '\u4e0b\u4e00\u6b65';
 const NODE_LABEL = '\u8282\u70b9';
 const VARIABLE_NAME_RE = /^[\p{L}][\p{L}\p{N}_]{0,63}$/u;
 const RESERVED_VARIABLE_NAMES = new Set([
-  'int', 'float', 'bool', 'string', 'enum', 'object',
-  'true', 'false', 'AND', 'OR', 'NOT', 'none',
-  'plotflow', 'title', 'author', 'engine', 'layout', 'graph', 'version', 'nodes', 'x', 'y', 'vars',
+  'int',
+  'float',
+  'bool',
+  'string',
+  'enum',
+  'object',
+  'true',
+  'false',
+  'AND',
+  'OR',
+  'NOT',
+  'none',
+  'plotflow',
+  'title',
+  'author',
+  'engine',
+  'layout',
+  'graph',
+  'version',
+  'nodes',
+  'x',
+  'y',
+  'vars',
 ]);
 
 function normalizeText(value: string): string {
@@ -233,7 +261,9 @@ function findNodeEndLineIndex(lines: readonly string[], titleLineIndex: number):
 }
 
 function findChapterLineIndex(lines: readonly string[], chapterTitle: string): number {
-  return lines.findIndex((line) => isChapterLine(line) && line.replace(/^#\s+/, '').trim() === chapterTitle.trim());
+  return lines.findIndex(
+    (line) => isChapterLine(line) && line.replace(/^#\s+/, '').trim() === chapterTitle.trim(),
+  );
 }
 
 function findChapterEndLineIndex(lines: readonly string[], chapterLineIndex: number): number {
@@ -246,7 +276,10 @@ function findChapterEndLineIndex(lines: readonly string[], chapterLineIndex: num
   return index;
 }
 
-function getNodeRange(content: string, node: StoryNode): { start: number; end: number; lines: string[] } {
+function getNodeRange(
+  content: string,
+  node: StoryNode,
+): { start: number; end: number; lines: string[] } {
   const lines = linesOf(content);
   const start = Math.max(0, node.lineNumber - 1);
   return { start, end: findNodeEndLineIndex(lines, start), lines };
@@ -354,7 +387,9 @@ function findNodeNextTargetLineIndex(lines: readonly string[], node: StoryNode):
 
 function findNextTargetBlockEndLineIndex(lines: readonly string[], nextLineIndex: number): number {
   const nextLine = lines[nextLineIndex + 1] ?? '';
-  return new RegExp(`^\\s+${EFFECTS_LABEL}[：:]`).test(nextLine) ? nextLineIndex + 2 : nextLineIndex + 1;
+  return new RegExp(`^\\s+${EFFECTS_LABEL}[：:]`).test(nextLine)
+    ? nextLineIndex + 2
+    : nextLineIndex + 1;
 }
 
 function serializeNextTargetBlock(
@@ -380,9 +415,7 @@ function serializeOptionLine(option: {
 }): string {
   let line = `${option.prefix ?? '[选项] '}${option.description.trim() || DEFAULT_OPTION}`;
   if (option.targetNodeId && option.targetNodeId.trim()) {
-    const chapterPrefix = option.targetChapterId?.trim()
-      ? `${option.targetChapterId.trim()}/`
-      : '';
+    const chapterPrefix = option.targetChapterId?.trim() ? `${option.targetChapterId.trim()}/` : '';
     line += ` -> ${chapterPrefix}节点：${option.targetNodeId.trim()}`;
   }
   return line;
@@ -559,7 +592,9 @@ function setGraphLayoutNodesText(
   nextNodes: readonly GraphLayoutPatch[],
 ): GraphEditResult {
   const normalized = normalizeText(content);
-  const nodes = nextNodes.filter((node) => Number.isFinite(node.position.x) && Number.isFinite(node.position.y));
+  const nodes = nextNodes.filter(
+    (node) => Number.isFinite(node.position.x) && Number.isFinite(node.position.y),
+  );
 
   if (nodes.length === 0) {
     const lines = linesOf(normalized);
@@ -575,14 +610,9 @@ function setGraphLayoutNodesText(
   const lines = linesOf(normalized);
   const frontmatter = getFrontmatterRange(lines);
   if (!frontmatter) {
-    const next = [
-      '---',
-      'plotflow: 0.1',
-      ...layoutBlock,
-      '---',
-      '',
-      normalized.trimStart(),
-    ].join('\n');
+    const next = ['---', 'plotflow: 0.1', ...layoutBlock, '---', '', normalized.trimStart()].join(
+      '\n',
+    );
     return patchResult(content, next);
   }
 
@@ -592,11 +622,9 @@ function setGraphLayoutNodesText(
     return patchResult(content, lines.join('\n'));
   }
 
-  const varsIndex = lines.findIndex((line, index) => (
-    index > frontmatter.start &&
-    index < frontmatter.end &&
-    /^vars\s*:/.test(line)
-  ));
+  const varsIndex = lines.findIndex(
+    (line, index) => index > frontmatter.start && index < frontmatter.end && /^vars\s*:/.test(line),
+  );
   const insertIndex = varsIndex >= 0 ? varsIndex : frontmatter.end;
   lines.splice(insertIndex, 0, ...layoutBlock);
   return patchResult(content, lines.join('\n'));
@@ -608,9 +636,7 @@ export function upsertGraphLayoutText(
 ): GraphEditResult {
   const normalized = normalizeText(content);
   const parsed = parseStory(normalized);
-  const storyNodes = parsed.ok
-    ? parsed.data.chapters.flatMap((chapter) => chapter.nodes)
-    : [];
+  const storyNodes = parsed.ok ? parsed.data.chapters.flatMap((chapter) => chapter.nodes) : [];
   const canonicalIds = new Set(storyNodes.map((node) => node.fullId));
   const legacyMatches = new Map<string, StoryNode[]>();
   for (const node of storyNodes) {
@@ -680,7 +706,10 @@ export function createChapterText(
   }
 
   const prefix = normalized.trim().length > 0 ? '\n\n' : '';
-  return patchResult(content, `${ensureTrailingNewline(normalized).trimEnd()}${prefix}# ${chapterTitle.trim() || DEFAULT_CHAPTER_TITLE}\n`);
+  return patchResult(
+    content,
+    `${ensureTrailingNewline(normalized).trimEnd()}${prefix}# ${chapterTitle.trim() || DEFAULT_CHAPTER_TITLE}\n`,
+  );
 }
 
 export function createNodeText(
@@ -693,7 +722,10 @@ export function createNodeText(
   } = {},
 ): GraphEditResult {
   const normalized = normalizeText(content);
-  const title = uniqueNodeTitle(normalized, params.title ?? (params.isEnding ? '结局' : DEFAULT_NODE_TITLE));
+  const title = uniqueNodeTitle(
+    normalized,
+    params.title ?? (params.isEnding ? '结局' : DEFAULT_NODE_TITLE),
+  );
   const body = params.body?.trim() ?? (params.isEnding ? '故事在这里结束。' : DEFAULT_BODY);
   const nodeBlock = `## 节点：${title}\n\n${body}\n`;
   const chapterTitle = params.chapterTitle?.trim();
@@ -738,20 +770,20 @@ export function deleteNodeText(content: string, node: StoryNode): GraphEditResul
   };
 }
 
-export function updateNodeText(content: string, node: StoryNode, patch: NodePatch): GraphEditResult {
+export function updateNodeText(
+  content: string,
+  node: StoryNode,
+  patch: NodePatch,
+): GraphEditResult {
   const normalized = normalizeText(content);
   const oldFullId = node.fullId;
   const nextChapterId = patch.chapterTitle?.trim() || node.chapterId;
   const nextNodeId = patch.title?.trim() || node.id;
   const newFullId = fullIdFor(nextChapterId, nextNodeId);
-  let next = newFullId === oldFullId
-    ? normalized
-    : replaceTargetReferencesText(
-      normalized,
-      oldFullId,
-      nextNodeId,
-      nextChapterId,
-    ).content;
+  let next =
+    newFullId === oldFullId
+      ? normalized
+      : replaceTargetReferencesText(normalized, oldFullId, nextNodeId, nextChapterId).content;
 
   if (patch.title !== undefined && patch.title.trim()) {
     const { lines, start } = getNodeRange(next, node);
@@ -764,19 +796,21 @@ export function updateNodeText(content: string, node: StoryNode, patch: NodePatc
     const parsed = parseStory(next);
     const parsedNode = parsed.ok
       ? parsed.data.chapters
-        .flatMap((chapter) => chapter.nodes)
-        .find((candidate) => candidate.fullId === currentFullId)
+          .flatMap((chapter) => chapter.nodes)
+          .find((candidate) => candidate.fullId === currentFullId)
       : undefined;
-    const freshNode = parsedNode ?? (patch.title && patch.title !== node.title
-      ? { ...node, id: nextNodeId, fullId: currentFullId, title: nextNodeId }
-      : node);
+    const freshNode =
+      parsedNode ??
+      (patch.title && patch.title !== node.title
+        ? { ...node, id: nextNodeId, fullId: currentFullId, title: nextNodeId }
+        : node);
     const { lines, start, end } = getNodeRange(next, freshNode);
     const existingNextTarget = freshNode.nextTarget?.targetNodeId
       ? serializeNextTargetBlock(
-        freshNode.nextTarget.targetNodeId,
-        freshNode.nextTarget.effectsRaw,
-        freshNode.nextTarget.targetChapterId,
-      )
+          freshNode.nextTarget.targetNodeId,
+          freshNode.nextTarget.effectsRaw,
+          freshNode.nextTarget.targetChapterId,
+        )
       : [];
     const existingOptions = freshNode.options.flatMap(optionToBlock);
     const titleLine = lines[start] ?? `## 节点：${freshNode.title}`;
@@ -786,11 +820,22 @@ export function updateNodeText(content: string, node: StoryNode, patch: NodePatc
       ...(existingNextTarget.length > 0 && existingOptions.length > 0 ? [''] : []),
       ...existingOptions,
     ];
-    lines.splice(start, end - start, titleLine, '', ...bodyLines, ...(flowLines.length > 0 ? ['', ...flowLines] : []));
+    lines.splice(
+      start,
+      end - start,
+      titleLine,
+      '',
+      ...bodyLines,
+      ...(flowLines.length > 0 ? ['', ...flowLines] : []),
+    );
     next = lines.join('\n');
   }
 
-  if (patch.chapterTitle !== undefined && patch.chapterTitle.trim() && patch.chapterTitle.trim() !== node.chapterId) {
+  if (
+    patch.chapterTitle !== undefined &&
+    patch.chapterTitle.trim() &&
+    patch.chapterTitle.trim() !== node.chapterId
+  ) {
     next = moveNodeToChapterText(next, node, nextChapterId).content;
   }
 
@@ -806,7 +851,11 @@ export function updateNodeText(content: string, node: StoryNode, patch: NodePatc
   return patchResult(content, next);
 }
 
-export function moveNodeToChapterText(content: string, node: StoryNode, chapterTitle: string): GraphEditResult {
+export function moveNodeToChapterText(
+  content: string,
+  node: StoryNode,
+  chapterTitle: string,
+): GraphEditResult {
   const normalized = normalizeText(content);
   const { lines, start, end } = getNodeRange(normalized, node);
   const nodeBlock = lines.slice(start, end);
@@ -816,7 +865,8 @@ export function moveNodeToChapterText(content: string, node: StoryNode, chapterT
   next = chapterResult.content;
   const nextLines = linesOf(next);
   const chapterLineIndex = findChapterLineIndex(nextLines, chapterTitle);
-  const insertIndex = chapterLineIndex >= 0 ? findChapterEndLineIndex(nextLines, chapterLineIndex) : nextLines.length;
+  const insertIndex =
+    chapterLineIndex >= 0 ? findChapterEndLineIndex(nextLines, chapterLineIndex) : nextLines.length;
   nextLines.splice(insertIndex, 0, '', ...nodeBlock);
   return patchResult(content, nextLines.join('\n').replace(/\n{4,}/g, '\n\n\n'));
 }
@@ -852,12 +902,20 @@ export function updateOptionText(
   const block = serializeOptionBlock({
     prefix: parsed?.prefix,
     description: patch.description ?? parsed?.description ?? option.description,
-    targetNodeId: patch.targetNodeId !== undefined ? patch.targetNodeId : parsed?.targetNodeId ?? option.targetNodeId,
-    targetChapterId: patch.targetChapterId !== undefined
-      ? patch.targetChapterId
-      : parsed?.targetChapterId ?? option.targetChapterId,
-    conditionRaw: patch.conditionRaw !== undefined ? patch.conditionRaw : parsed?.conditionRaw ?? option.conditionRaw,
-    effectsRaw: patch.effectsRaw !== undefined ? patch.effectsRaw : parsed?.effectsRaw ?? option.effectsRaw,
+    targetNodeId:
+      patch.targetNodeId !== undefined
+        ? patch.targetNodeId
+        : (parsed?.targetNodeId ?? option.targetNodeId),
+    targetChapterId:
+      patch.targetChapterId !== undefined
+        ? patch.targetChapterId
+        : (parsed?.targetChapterId ?? option.targetChapterId),
+    conditionRaw:
+      patch.conditionRaw !== undefined
+        ? patch.conditionRaw
+        : (parsed?.conditionRaw ?? option.conditionRaw),
+    effectsRaw:
+      patch.effectsRaw !== undefined ? patch.effectsRaw : (parsed?.effectsRaw ?? option.effectsRaw),
   });
   const end = findOptionBlockEndLineIndex(lines, index);
   lines.splice(index, end - index, ...block);
@@ -928,9 +986,10 @@ function replaceTargetReferencesText(
           prefix: optionLine.prefix,
           description: optionLine.description,
           targetNodeId: toTarget,
-          targetChapterId: option.targetChapterId !== null || sourceNode.chapterId !== toChapter
-            ? toChapter
-            : null,
+          targetChapterId:
+            option.targetChapterId !== null || sourceNode.chapterId !== toChapter
+              ? toChapter
+              : null,
           conditionRaw: optionLine.conditionRaw,
           effectsRaw: optionLine.effectsRaw,
         });
@@ -984,7 +1043,8 @@ export function reorderOptionText(
   const lastOption = node.options[node.options.length - 1];
   if (firstOptionIndex < 0 || !lastOption) return { content, changed: false };
   const lastOptionIndex = findOptionLineIndex(lines, lastOption);
-  const replaceEnd = lastOptionIndex >= 0 ? findOptionBlockEndLineIndex(lines, lastOptionIndex) : end;
+  const replaceEnd =
+    lastOptionIndex >= 0 ? findOptionBlockEndLineIndex(lines, lastOptionIndex) : end;
   const reorderedBlocks = options.flatMap((option) => optionToBlock(option));
   lines.splice(firstOptionIndex, replaceEnd - firstOptionIndex, ...reorderedBlocks);
   return patchResult(content, lines.join('\n'));
@@ -1002,10 +1062,12 @@ export function createNodeAndConnectText(
   const created = createNodeText(normalized, { chapterTitle: node.chapterId, title: targetTitle });
   let next = updateOptionText(created.content, option, { targetNodeId }).content;
   if (targetPosition) {
-    next = upsertGraphLayoutText(next, [{
-      id: fullIdFor(node.chapterId, targetNodeId),
-      position: targetPosition,
-    }]).content;
+    next = upsertGraphLayoutText(next, [
+      {
+        id: fullIdFor(node.chapterId, targetNodeId),
+        position: targetPosition,
+      },
+    ]).content;
   }
   return patchResult(content, next);
 }
@@ -1021,10 +1083,12 @@ export function createNodeAndConnectNextText(
   const created = createNodeText(normalized, { chapterTitle: node.chapterId, title: targetNodeId });
   let next = updateNodeNextTargetText(created.content, node, targetNodeId).content;
   if (targetPosition) {
-    next = upsertGraphLayoutText(next, [{
-      id: fullIdFor(node.chapterId, targetNodeId),
-      position: targetPosition,
-    }]).content;
+    next = upsertGraphLayoutText(next, [
+      {
+        id: fullIdFor(node.chapterId, targetNodeId),
+        position: targetPosition,
+      },
+    ]).content;
   }
   return patchResult(content, next);
 }
@@ -1041,20 +1105,27 @@ export function updateNodePositionsText(
   content: string,
   patches: readonly GraphNodePositionPatch[],
 ): GraphEditResult {
-  return upsertGraphLayoutText(content, patches.map((patch) => ({
-    id: patch.fullId,
-    position: patch.position,
-  })));
+  return upsertGraphLayoutText(
+    content,
+    patches.map((patch) => ({
+      id: patch.fullId,
+      position: patch.position,
+    })),
+  );
 }
 
-export function updateMetaText(content: string, field: 'title' | 'author' | 'engine', value: string): GraphEditResult {
+export function updateMetaText(
+  content: string,
+  field: 'title' | 'author' | 'engine',
+  value: string,
+): GraphEditResult {
   const normalizedValue = value.trim();
   if (
-    field === 'engine'
-    && normalizedValue !== 'generic'
-    && normalizedValue !== 'godot'
-    && normalizedValue !== 'unity'
-    && normalizedValue !== 'unreal'
+    field === 'engine' &&
+    normalizedValue !== 'generic' &&
+    normalizedValue !== 'godot' &&
+    normalizedValue !== 'unity' &&
+    normalizedValue !== 'unreal'
   ) {
     return { content, changed: false };
   }
@@ -1079,14 +1150,20 @@ export function updateMetaText(content: string, field: 'title' | 'author' | 'eng
     return patchResult(content, next);
   }
 
-  const fieldIndex = lines.findIndex((line, index) => index > 0 && index < frontmatterEnd && line.startsWith(`${field}:`));
+  const fieldIndex = lines.findIndex(
+    (line, index) => index > 0 && index < frontmatterEnd && line.startsWith(`${field}:`),
+  );
   if (fieldIndex >= 0) {
     lines[fieldIndex] = `${field}: ${serializedValue}`;
   } else {
-    const variablesIndex = lines.findIndex((line, index) => (
-      index > 0 && index < frontmatterEnd && line.trim() === 'vars:'
-    ));
-    lines.splice(variablesIndex >= 0 ? variablesIndex : frontmatterEnd, 0, `${field}: ${serializedValue}`);
+    const variablesIndex = lines.findIndex(
+      (line, index) => index > 0 && index < frontmatterEnd && line.trim() === 'vars:',
+    );
+    lines.splice(
+      variablesIndex >= 0 ? variablesIndex : frontmatterEnd,
+      0,
+      `${field}: ${serializedValue}`,
+    );
   }
   return patchResult(content, lines.join('\n'));
 }
@@ -1096,10 +1173,12 @@ function implicitVariableDefault(variable: VariablePatch): VariableValue {
   if (variable.type === 'bool') return false;
   if (variable.type === 'string') return '';
   if (variable.type === 'enum') return variable.enumValues?.[0]?.trim() ?? '';
-  return Object.fromEntries((variable.fields ?? []).map((field) => [
-    field.name.trim(),
-    field.defaultValue ?? implicitVariableDefault(field),
-  ]));
+  return Object.fromEntries(
+    (variable.fields ?? []).map((field) => [
+      field.name.trim(),
+      field.defaultValue ?? implicitVariableDefault(field),
+    ]),
+  );
 }
 
 function declarationToVariablePatch(variable: VariableDeclaration): VariablePatch {
@@ -1118,18 +1197,26 @@ function declarationToVariablePatch(variable: VariableDeclaration): VariablePatc
 function normalizedVariablePatch(variable: VariablePatch, depth = 1): VariablePatch | null {
   const name = variable.name.trim().replace(/^\$/, '');
   if (!VARIABLE_NAME_RE.test(name) || RESERVED_VARIABLE_NAMES.has(name)) return null;
-  const enumValues = variable.type === 'enum'
-    ? (variable.enumValues ?? []).map((value) => value.trim()).filter(Boolean)
-    : undefined;
-  if (variable.type === 'enum' && (!enumValues?.length || new Set(enumValues).size !== enumValues.length)) {
+  const enumValues =
+    variable.type === 'enum'
+      ? (variable.enumValues ?? []).map((value) => value.trim()).filter(Boolean)
+      : undefined;
+  if (
+    variable.type === 'enum' &&
+    (!enumValues?.length || new Set(enumValues).size !== enumValues.length)
+  ) {
     return null;
   }
-  const fields = variable.type === 'object'
-    ? (variable.fields ?? []).map((field) => normalizedVariablePatch(field, depth + 1))
-    : undefined;
+  const fields =
+    variable.type === 'object'
+      ? (variable.fields ?? []).map((field) => normalizedVariablePatch(field, depth + 1))
+      : undefined;
   if (fields?.some((field) => field === null)) return null;
   const normalizedFields = fields?.filter((field): field is VariablePatch => field !== null);
-  if (normalizedFields && new Set(normalizedFields.map((field) => field.name)).size !== normalizedFields.length) {
+  if (
+    normalizedFields &&
+    new Set(normalizedFields.map((field) => field.name)).size !== normalizedFields.length
+  ) {
     return null;
   }
   const chapterId = variable.chapterId?.trim();
@@ -1142,12 +1229,14 @@ function normalizedVariablePatch(variable: VariablePatch, depth = 1): VariablePa
     enumValues,
     fields: normalizedFields,
     chapterId,
-    defaultValue: variable.defaultValue ?? implicitVariableDefault({
-      ...variable,
-      name,
-      enumValues,
-      fields: normalizedFields,
-    }),
+    defaultValue:
+      variable.defaultValue ??
+      implicitVariableDefault({
+        ...variable,
+        name,
+        enumValues,
+        fields: normalizedFields,
+      }),
     description: variable.description?.trim() || undefined,
   };
 }
@@ -1159,25 +1248,29 @@ function serializeYamlValue(value: VariableValue): string {
   return JSON.stringify(value);
 }
 
-function serializeStructuredVariable(variable: VariablePatch, indent: number, depth: number): string[] | null {
+function serializeStructuredVariable(
+  variable: VariablePatch,
+  indent: number,
+  depth: number,
+): string[] | null {
   if (variable.type === 'object' && depth > 3) return null;
   const normalized = normalizedVariablePatch(variable);
   if (!normalized) return null;
   const prefix = ' '.repeat(indent);
   const propertyPrefix = ' '.repeat(indent + 2);
-  const lines = [
-    `${prefix}${normalized.name}:`,
-    `${propertyPrefix}type: ${normalized.type}`,
-  ];
+  const lines = [`${prefix}${normalized.name}:`, `${propertyPrefix}type: ${normalized.type}`];
   if (normalized.type === 'enum') {
     lines.push(`${propertyPrefix}values: ${JSON.stringify(normalized.enumValues ?? [])}`);
   }
-  lines.push(`${propertyPrefix}default: ${serializeYamlValue(normalized.defaultValue ?? implicitVariableDefault(normalized))}`);
+  lines.push(
+    `${propertyPrefix}default: ${serializeYamlValue(normalized.defaultValue ?? implicitVariableDefault(normalized))}`,
+  );
   if (normalized.scope) lines.push(`${propertyPrefix}scope: ${normalized.scope}`);
   if (normalized.scope === 'chapter' && normalized.chapterId) {
     lines.push(`${propertyPrefix}chapter: ${JSON.stringify(normalized.chapterId)}`);
   }
-  if (normalized.description) lines.push(`${propertyPrefix}description: ${JSON.stringify(normalized.description)}`);
+  if (normalized.description)
+    lines.push(`${propertyPrefix}description: ${JSON.stringify(normalized.description)}`);
   if (normalized.type === 'object') {
     const fields = normalized.fields ?? [];
     if (fields.length === 0) {
@@ -1194,23 +1287,24 @@ function serializeStructuredVariable(variable: VariablePatch, indent: number, de
   return lines;
 }
 
-function replaceVariablesSection(content: string, variables: readonly VariablePatch[]): GraphEditResult {
+function replaceVariablesSection(
+  content: string,
+  variables: readonly VariablePatch[],
+): GraphEditResult {
   const normalized = normalizeText(content);
-  const serializedEntries = variables.map((variable) => serializeStructuredVariable(variable, 2, 1));
+  const serializedEntries = variables.map((variable) =>
+    serializeStructuredVariable(variable, 2, 1),
+  );
   if (serializedEntries.some((entry) => entry === null)) return { content, changed: false };
   const serializedVariables = serializedEntries.flatMap((entry) => entry ?? []);
   const block = ['vars:', ...serializedVariables];
   const lines = linesOf(normalized);
   const frontmatter = getFrontmatterRange(lines);
   if (!frontmatter) {
-    return patchResult(content, [
-      '---',
-      'plotflow: 0.1',
-      ...block,
-      '---',
-      '',
-      normalized.trimStart(),
-    ].join('\n'));
+    return patchResult(
+      content,
+      ['---', 'plotflow: 0.1', ...block, '---', '', normalized.trimStart()].join('\n'),
+    );
   }
   const existing = findTopLevelBlockRange(lines, frontmatter, 'vars');
   if (existing) {
@@ -1280,13 +1374,15 @@ function createTextEdits(before: string, after: string): TextEdit[] {
     afterSuffix--;
   }
 
-  return [{
-    range: {
-      startOffset: prefixLength,
-      endOffset: beforeSuffix,
+  return [
+    {
+      range: {
+        startOffset: prefixLength,
+        endOffset: beforeSuffix,
+      },
+      text: after.slice(prefixLength, afterSuffix),
     },
-    text: after.slice(prefixLength, afterSuffix),
-  }];
+  ];
 }
 
 function normalizeEdits(edits: readonly TextEdit[]): TextEdit[] {
@@ -1346,42 +1442,53 @@ export function applyGraphEdit(
   const beforeContent = editor?.getValue() ?? useEditorStore.getState().content;
   const graphState = useGraphStore.getState();
   const uiState = useUIStore.getState();
-  if (uiState.workspaceMode === 'graphLab') {
-    recordGraphEdit({
-      beforeContent,
-      afterContent: nextContent,
-      beforeSelectedNodeId: graphState.selectedNodeId,
-      afterSelectedNodeId: historyContext?.afterSelectedNodeId !== undefined
-        ? historyContext.afterSelectedNodeId
-        : graphState.selectedNodeId,
-      beforeActiveChapterId: uiState.activeChapterId,
-      afterActiveChapterId: historyContext?.afterActiveChapterId !== undefined
-        ? historyContext.afterActiveChapterId
-        : uiState.activeChapterId,
-      source,
-    });
-  }
+  const historyEntry =
+    uiState.workspaceMode === 'graphLab'
+      ? {
+          beforeContent,
+          beforeSelectedNodeId: graphState.selectedNodeId,
+          afterSelectedNodeId:
+            historyContext?.afterSelectedNodeId !== undefined
+              ? historyContext.afterSelectedNodeId
+              : graphState.selectedNodeId,
+          beforeActiveChapterId: uiState.activeChapterId,
+          afterActiveChapterId:
+            historyContext?.afterActiveChapterId !== undefined
+              ? historyContext.afterActiveChapterId
+              : uiState.activeChapterId,
+          source,
+        }
+      : null;
   if (editor) {
     const model = editor.getModel();
     if (model) {
       const textEdits = normalizeEdits(edits ?? createTextEdits(model.getValue(), nextContent));
       editor.pushUndoStop();
-      editor.executeEdits(source, textEdits.map((edit) => {
-        const start = model.getPositionAt(edit.range.startOffset);
-        const end = model.getPositionAt(edit.range.endOffset);
-        return {
-          range: {
-            startLineNumber: start.lineNumber,
-            startColumn: start.column,
-            endLineNumber: end.lineNumber,
-            endColumn: end.column,
-          },
-          text: edit.text,
-        };
-      }));
+      const applied = editor.executeEdits(
+        source,
+        textEdits.map((edit) => {
+          const start = model.getPositionAt(edit.range.startOffset);
+          const end = model.getPositionAt(edit.range.endOffset);
+          return {
+            range: {
+              startLineNumber: start.lineNumber,
+              startColumn: start.column,
+              endLineNumber: end.lineNumber,
+              endColumn: end.column,
+            },
+            text: edit.text,
+          };
+        }),
+      );
+      if (!applied) {
+        throw new Error('Monaco rejected the source text edit');
+      }
       editor.pushUndoStop();
       const committedContent = editor.getValue();
       useEditorStore.getState().setContent(committedContent);
+      if (historyEntry && committedContent !== beforeContent) {
+        recordGraphEdit({ ...historyEntry, afterContent: committedContent });
+      }
       parsePipelineNow(committedContent);
       debouncedSave(committedContent, useEditorStore.getState().filePath);
       return;
@@ -1389,8 +1496,12 @@ export function applyGraphEdit(
   }
 
   useEditorStore.getState().setContent(nextContent);
-  parsePipelineNow(nextContent);
-  debouncedSave(nextContent, useEditorStore.getState().filePath);
+  const committedContent = useEditorStore.getState().content;
+  if (historyEntry && committedContent !== beforeContent) {
+    recordGraphEdit({ ...historyEntry, afterContent: committedContent });
+  }
+  parsePipelineNow(committedContent);
+  debouncedSave(committedContent, useEditorStore.getState().filePath);
 }
 
 configureGraphHistoryReplay((target) => {
@@ -1441,11 +1552,13 @@ function resolveNextTargetFromContent(
 ): { readonly targetNodeId: string | null; readonly targetChapterId: string | null } {
   if (!targetReference) return { targetNodeId: null, targetChapterId: null };
   const allNodes = parsedStoryForEdit(content)?.chapters.flatMap((chapter) => chapter.nodes) ?? [];
-  const target = allNodes.find((candidate) => candidate.fullId === targetReference)
-    ?? allNodes.find((candidate) => (
-      candidate.id === targetReference && candidate.chapterId === sourceNode.chapterId
-    ))
-    ?? allNodes.find((candidate) => candidate.id === targetReference);
+  const target =
+    allNodes.find((candidate) => candidate.fullId === targetReference) ??
+    allNodes.find(
+      (candidate) =>
+        candidate.id === targetReference && candidate.chapterId === sourceNode.chapterId,
+    ) ??
+    allNodes.find((candidate) => candidate.id === targetReference);
   if (!target) return { targetNodeId: targetReference, targetChapterId: null };
   return {
     targetNodeId: target.id,
@@ -1455,7 +1568,9 @@ function resolveNextTargetFromContent(
 
 export const graphEditService = {
   createChapter(chapterTitle = DEFAULT_CHAPTER_TITLE): boolean {
-    return runGraphEdit('graph-lab-create-chapter', (content) => createChapterText(content, chapterTitle));
+    return runGraphEdit('graph-lab-create-chapter', (content) =>
+      createChapterText(content, chapterTitle),
+    );
   },
 
   createNode(params?: Parameters<typeof createNodeText>[1]): boolean {
@@ -1486,21 +1601,23 @@ export const graphEditService = {
     const nextChapterId = patch.chapterTitle?.trim() || node.chapterId;
     const nextNodeId = patch.title?.trim() || node.id;
     const nextFullId = fullIdFor(nextChapterId, nextNodeId);
-    const selectionMoves = useGraphStore.getState().selectedNodeId === node.fullId
-      && nextFullId !== node.fullId;
+    const selectionMoves =
+      useGraphStore.getState().selectedNodeId === node.fullId && nextFullId !== node.fullId;
     const historyContext = selectionMoves
       ? {
-        afterSelectedNodeId: nextFullId,
-        afterActiveChapterId: patch.chapterTitle?.trim()
-          ? nextChapterId
-          : useUIStore.getState().activeChapterId,
-      }
+          afterSelectedNodeId: nextFullId,
+          afterActiveChapterId: patch.chapterTitle?.trim()
+            ? nextChapterId
+            : useUIStore.getState().activeChapterId,
+        }
       : undefined;
     const changed = runGraphEdit(
       'graph-lab-update-node',
       (content) => {
         const currentNode = resolveNodeForEdit(content, nodeFullId);
-        return currentNode ? updateNodeText(content, currentNode, patch) : { content, changed: false };
+        return currentNode
+          ? updateNodeText(content, currentNode, patch)
+          : { content, changed: false };
       },
       historyContext,
     );
@@ -1527,7 +1644,9 @@ export const graphEditService = {
     if (!reference) return false;
     return runGraphEdit('graph-lab-update-option', (content) => {
       const currentOption = resolveOptionForEdit(content, reference);
-      return currentOption ? updateOptionText(content, currentOption, patch) : { content, changed: false };
+      return currentOption
+        ? updateOptionText(content, currentOption, patch)
+        : { content, changed: false };
     });
   },
 
@@ -1541,7 +1660,9 @@ export const graphEditService = {
   },
 
   reorderOption(node: StoryNode, fromIndex: number, toIndex: number): boolean {
-    const reference = node.options[fromIndex] ? stableOptionReference(node.options[fromIndex]!) : null;
+    const reference = node.options[fromIndex]
+      ? stableOptionReference(node.options[fromIndex]!)
+      : null;
     if (!reference) return false;
     const direction = Math.sign(toIndex - fromIndex);
     if (direction === 0) return false;
@@ -1551,7 +1672,8 @@ export const graphEditService = {
       if (!currentNode || !currentOption) return { content, changed: false };
       const currentIndex = currentNode.options.indexOf(currentOption);
       const nextIndex = currentIndex + direction;
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentNode.options.length) return { content, changed: false };
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentNode.options.length)
+        return { content, changed: false };
       return reorderOptionText(content, currentNode, currentIndex, nextIndex);
     });
   },
@@ -1562,10 +1684,12 @@ export const graphEditService = {
     return runGraphEdit('graph-lab-connect-option', (content) => {
       const currentOption = resolveOptionForEdit(content, reference);
       const target = targetFullId ? resolveNodeForEdit(content, targetFullId) : null;
-      return currentOption ? updateOptionText(content, currentOption, {
-        targetNodeId: target?.id ?? targetFullId,
-        targetChapterId: target?.chapterId ?? null,
-      }) : { content, changed: false };
+      return currentOption
+        ? updateOptionText(content, currentOption, {
+            targetNodeId: target?.id ?? targetFullId,
+            targetChapterId: target?.chapterId ?? null,
+          })
+        : { content, changed: false };
     });
   },
 
@@ -1575,7 +1699,13 @@ export const graphEditService = {
       const currentNode = resolveNodeForEdit(content, nodeFullId);
       if (!currentNode) return { content, changed: false };
       const target = resolveNextTargetFromContent(content, currentNode, targetReference);
-      return updateNodeNextTargetText(content, currentNode, target.targetNodeId, currentNode.nextTarget?.effectsRaw ?? null, target.targetChapterId);
+      return updateNodeNextTargetText(
+        content,
+        currentNode,
+        target.targetNodeId,
+        currentNode.nextTarget?.effectsRaw ?? null,
+        target.targetChapterId,
+      );
     });
   },
 
@@ -1584,14 +1714,22 @@ export const graphEditService = {
     return runGraphEdit('graph-lab-update-next-target', (content) => {
       const currentNode = resolveNodeForEdit(content, nodeFullId);
       if (!currentNode) return { content, changed: false };
-      const targetReference = patch.targetFullId !== undefined
-        ? patch.targetFullId
-        : currentNode.nextTarget?.targetFullId ?? null;
+      const targetReference =
+        patch.targetFullId !== undefined
+          ? patch.targetFullId
+          : (currentNode.nextTarget?.targetFullId ?? null);
       const target = resolveNextTargetFromContent(content, currentNode, targetReference);
-      const effectsRaw = patch.effectsRaw !== undefined
-        ? patch.effectsRaw
-        : currentNode.nextTarget?.effectsRaw ?? null;
-      return updateNodeNextTargetText(content, currentNode, target.targetNodeId, effectsRaw, target.targetChapterId);
+      const effectsRaw =
+        patch.effectsRaw !== undefined
+          ? patch.effectsRaw
+          : (currentNode.nextTarget?.effectsRaw ?? null);
+      return updateNodeNextTargetText(
+        content,
+        currentNode,
+        target.targetNodeId,
+        effectsRaw,
+        target.targetChapterId,
+      );
     });
   },
 
@@ -1632,14 +1770,15 @@ export const graphEditService = {
 
   updateNodePositions(patches: readonly GraphNodePositionPatch[]): boolean {
     if (patches.length === 0) return false;
-    return runGraphEdit(
-      'graph-lab-update-node-positions',
-      (content) => updateNodePositionsText(content, patches),
+    return runGraphEdit('graph-lab-update-node-positions', (content) =>
+      updateNodePositionsText(content, patches),
     );
   },
 
   updateMeta(field: 'title' | 'author' | 'engine', value: string): boolean {
-    return runGraphEdit('graph-lab-update-meta', (content) => updateMetaText(content, field, value));
+    return runGraphEdit('graph-lab-update-meta', (content) =>
+      updateMetaText(content, field, value),
+    );
   },
 
   upsertVariable(variable: VariablePatch): boolean {
@@ -1648,8 +1787,11 @@ export const graphEditService = {
     return runGraphEdit('graph-lab-upsert-variable', (content) => {
       if (reference) {
         const parsed = parsedStoryForEdit(content);
-        const current = parsed?.variables.find((candidate) => candidate.name === reference.originalName);
-        if (!current || variableSignature(current) !== reference.signature) return { content, changed: false };
+        const current = parsed?.variables.find(
+          (candidate) => candidate.name === reference.originalName,
+        );
+        if (!current || variableSignature(current) !== reference.signature)
+          return { content, changed: false };
       }
       return upsertVariableText(content, variable);
     });
@@ -1660,7 +1802,9 @@ export const graphEditService = {
     if (!reference) return false;
     return runGraphEdit('graph-lab-delete-variable', (content) => {
       const parsed = parsedStoryForEdit(content);
-      const current = parsed?.variables.find((candidate) => candidate.name === reference.originalName);
+      const current = parsed?.variables.find(
+        (candidate) => candidate.name === reference.originalName,
+      );
       return current && variableSignature(current) === reference.signature
         ? deleteVariableText(content, variableName)
         : { content, changed: false };

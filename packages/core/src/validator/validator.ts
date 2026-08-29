@@ -16,10 +16,15 @@
  * @version 0.1.0
  */
 
-import type { PlotFlowData, VariableDeclaration, ConditionNode, VariableType } from '../types/ast.js';
+import type {
+  PlotFlowData,
+  VariableDeclaration,
+  ConditionNode,
+  VariableType,
+} from '../types/ast.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
-import { buildStoryAdjacency } from './adjacency.js';
+import { deriveNodeStatuses, type DerivedNodeStatus } from './nodeStatus.js';
 import { ANONYMOUS_CHAPTER_ID, createFullId } from '../fullId.js';
 
 interface DeclaredVariableInfo {
@@ -151,9 +156,10 @@ export function checkUndefinedTargetNode(data: PlotFlowData): Diagnostic[] {
 
         if (!isResolvable) {
           const targetLabel = explicitTargetFullId ?? option.targetNodeId;
-          const reason = !explicitTargetFullId && globalMatches.length > 1
-            ? `（存在 ${globalMatches.length} 个同名节点，请显式指定章节）`
-            : '';
+          const reason =
+            !explicitTargetFullId && globalMatches.length > 1
+              ? `（存在 ${globalMatches.length} 个同名节点，请显式指定章节）`
+              : '';
           diagnostics.push(
             createDiagnostic(
               'E001',
@@ -241,8 +247,7 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
     if (!declaredVars.has(varName)) {
       // 尝试查找引用出现的行号
       let refLine = 0;
-      outer:
-      for (const chapter of data.chapters) {
+      outer: for (const chapter of data.chapters) {
         for (const node of chapter.nodes) {
           for (const option of node.options) {
             if (option.condition) {
@@ -289,17 +294,16 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
     relatedNodeId: string,
   ): void => {
     const declaration = declaredVars.get(varName);
-    if (
-      !declaration
-      || declaration.scope !== 'chapter'
-      || declaration.chapterId === chapterId
-    ) return;
-    diagnostics.push(createDiagnostic(
-      'E002',
-      rangeAtLine(lineNumber),
-      `章节变量 "${varName}" 仅可在章节 "${declaration.chapterId ?? ''}" 中访问`,
-      relatedNodeId,
-    ));
+    if (!declaration || declaration.scope !== 'chapter' || declaration.chapterId === chapterId)
+      return;
+    diagnostics.push(
+      createDiagnostic(
+        'E002',
+        rangeAtLine(lineNumber),
+        `章节变量 "${varName}" 仅可在章节 "${declaration.chapterId ?? ''}" 中访问`,
+        relatedNodeId,
+      ),
+    );
   };
 
   for (const chapter of data.chapters) {
@@ -308,7 +312,9 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
         if (option.condition) {
           const names = new Set<string>();
           collectConditionVarNames(option.condition, names);
-          names.forEach((name) => checkAccess(name, node.chapterId, option.lineNumber, node.fullId));
+          names.forEach((name) =>
+            checkAccess(name, node.chapterId, option.lineNumber, node.fullId),
+          );
         }
         for (const effect of option.sideEffects) {
           checkAccess(effect.variableName, node.chapterId, effect.lineNumber, node.fullId);
@@ -328,8 +334,10 @@ export function checkUndeclaredVariable(data: PlotFlowData): Diagnostic[] {
  */
 function findVariableLineInCondition(condition: ConditionNode, targetName: string): number | null {
   if (condition.type === 'comparison') {
-    if (condition.left.operandType === 'variable' && condition.left.variableName === targetName) return 1;
-    if (condition.right.operandType === 'variable' && condition.right.variableName === targetName) return 1;
+    if (condition.left.operandType === 'variable' && condition.left.variableName === targetName)
+      return 1;
+    if (condition.right.operandType === 'variable' && condition.right.variableName === targetName)
+      return 1;
   } else if (condition.type === 'logical') {
     for (const op of condition.operands) {
       const found = findVariableLineInCondition(op, targetName);
@@ -569,7 +577,9 @@ function checkConditionTypeMatch(
   if (condition.type === 'comparison') {
     // 变量 vs 字面量：检查字面量是否与变量类型兼容
     if (condition.left.operandType === 'variable' && condition.right.operandType === 'literal') {
-      const varInfo = condition.left.variableName ? declaredVars.get(condition.left.variableName) : undefined;
+      const varInfo = condition.left.variableName
+        ? declaredVars.get(condition.left.variableName)
+        : undefined;
       if (varInfo && !isTypeCompatible(varInfo.type, condition.right.literalValue)) {
         diagnostics.push(
           createDiagnostic(
@@ -584,7 +594,9 @@ function checkConditionTypeMatch(
 
     // 字面量 vs 变量
     if (condition.right.operandType === 'variable' && condition.left.operandType === 'literal') {
-      const varInfo = condition.right.variableName ? declaredVars.get(condition.right.variableName) : undefined;
+      const varInfo = condition.right.variableName
+        ? declaredVars.get(condition.right.variableName)
+        : undefined;
       if (varInfo && !isTypeCompatible(varInfo.type, condition.left.literalValue)) {
         diagnostics.push(
           createDiagnostic(
@@ -599,8 +611,12 @@ function checkConditionTypeMatch(
 
     // 变量 vs 变量：检查两者类型是否兼容
     if (condition.left.operandType === 'variable' && condition.right.operandType === 'variable') {
-      const leftInfo = condition.left.variableName ? declaredVars.get(condition.left.variableName) : undefined;
-      const rightInfo = condition.right.variableName ? declaredVars.get(condition.right.variableName) : undefined;
+      const leftInfo = condition.left.variableName
+        ? declaredVars.get(condition.left.variableName)
+        : undefined;
+      const rightInfo = condition.right.variableName
+        ? declaredVars.get(condition.right.variableName)
+        : undefined;
       if (leftInfo && rightInfo && leftInfo.type !== rightInfo.type) {
         // int/float 互兼容
         const intFloatLeft = leftInfo.type === 'int' || leftInfo.type === 'float';
@@ -644,11 +660,12 @@ export function checkE005(data: PlotFlowData): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
   for (const chapter of data.chapters) {
-    if (!chapter.isAnonymous && (
-      chapter.id === ANONYMOUS_CHAPTER_ID
-      || chapter.title === ANONYMOUS_CHAPTER_ID
-      || chapter.id.startsWith(`\u0000reserved:${ANONYMOUS_CHAPTER_ID}:`)
-    )) {
+    if (
+      !chapter.isAnonymous &&
+      (chapter.id === ANONYMOUS_CHAPTER_ID ||
+        chapter.title === ANONYMOUS_CHAPTER_ID ||
+        chapter.id.startsWith(`\u0000reserved:${ANONYMOUS_CHAPTER_ID}:`))
+    ) {
       diagnostics.push(
         createDiagnostic(
           'E005',
@@ -723,8 +740,8 @@ export function checkE006(data: PlotFlowData): Diagnostic[] {
           createDiagnostic(
             'E006',
             rangeAtLine(variable.lineNumber),
-            `变量 "${variable.name}" 的嵌套深度为 ${maxDepth} 层，超过最大限制 3 层。`
-            + ' 请将深层嵌套的字段拆分为独立的顶层变量，或展平对象结构。',
+            `变量 "${variable.name}" 的嵌套深度为 ${maxDepth} 层，超过最大限制 3 层。` +
+              ' 请将深层嵌套的字段拆分为独立的顶层变量，或展平对象结构。',
             undefined,
           ),
         );
@@ -783,16 +800,16 @@ export function checkE007(data: PlotFlowData): Diagnostic[] {
  * 递归检查变量名是否重复（包括嵌套 object 字段）。
  *
  * @param variables - 变量声明列表
- * @param seenNames - 已遇到的变量名 行号映射（跨层级共享）
  * @param parentPath - 父级路径（用于诊断信息中的定位显示）
  * @param diagnostics - 累积的诊断列表
  */
 function checkVariableNamesRecursive(
   variables: VariableDeclaration[],
-  seenNames: Map<string, number>,
   parentPath: string,
   diagnostics: Diagnostic[],
 ): void {
+  const seenNames = new Map<string, number>();
+
   for (const variable of variables) {
     const fullPath = parentPath ? `${parentPath}.${variable.name}` : variable.name;
 
@@ -811,7 +828,7 @@ function checkVariableNamesRecursive(
     }
 
     if (variable.type === 'object' && variable.fields && variable.fields.length > 0) {
-      checkVariableNamesRecursive(variable.fields, seenNames, fullPath, diagnostics);
+      checkVariableNamesRecursive(variable.fields, fullPath, diagnostics);
     }
   }
 }
@@ -821,8 +838,9 @@ function checkVariableNamesRecursive(
  *
  * 检测范围包括：
  * - 顶层变量之间的同名
- * - 顶层变量与嵌套 object 字段之间的同名
- * - 嵌套 object 字段之间的同名
+ * - 每个 object 自己的直接字段之间同名
+ *
+ * 不同对象属于不同作用域，可以复用相同字段名。
  *
  * @param data - 解析后的 PlotFlowData AST
  * @returns 诊断列表
@@ -830,10 +848,7 @@ function checkVariableNamesRecursive(
 export function checkE008(data: PlotFlowData): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
-  /** 变量名 首次出现的行号（跨层级共享） */
-  const seenNames = new Map<string, number>();
-
-  checkVariableNamesRecursive(data.variables, seenNames, '', diagnostics);
+  checkVariableNamesRecursive(data.variables, '', diagnostics);
 
   return diagnostics;
 }
@@ -849,15 +864,17 @@ export function checkE008(data: PlotFlowData): Diagnostic[] {
  */
 export function checkE009(data: PlotFlowData): Diagnostic[] {
   if (data.chapters.length === 0) {
-    return [{
-      ...createDiagnostic(
-        'E009',
-        rangeAtLine(1),
-        '故事至少需要一个包含节点的章节，当前故事没有章节。',
-      ),
-      detailKey: 'diagnostic.E009.detail',
-      detailParams: { reason: 'noChapters' },
-    }];
+    return [
+      {
+        ...createDiagnostic(
+          'E009',
+          rangeAtLine(1),
+          '故事至少需要一个包含节点的章节，当前故事没有章节。',
+        ),
+        detailKey: 'diagnostic.E009.detail',
+        detailParams: { reason: 'noChapters' },
+      },
+    ];
   }
 
   const diagnostics: Diagnostic[] = [];
@@ -918,10 +935,7 @@ export function runValidations(data: PlotFlowData): Diagnostic[] {
  * @returns 诊断列表
  */
 export function checkAllErrors(data: PlotFlowData): Diagnostic[] {
-  return [
-    ...validateErrors(data),
-    ...runValidations(data),
-  ];
+  return [...validateErrors(data), ...runValidations(data)];
 }
 
 // ============================================================================
@@ -941,11 +955,7 @@ import {
   checkClosedCycles,
 } from './warnings.js';
 
-import {
-  checkPotentialSoftlock,
-  checkShortBody,
-  checkMissingChapter,
-} from './infos.js';
+import { checkPotentialSoftlock, checkShortBody, checkMissingChapter } from './infos.js';
 
 /**
  * 对 PlotFlowData 运行全部 18 条验证规则，返回完整诊断结果。
@@ -974,6 +984,7 @@ import {
  * ```
  */
 export function validate(data: PlotFlowData): ValidationResult {
+  const nodeStatuses = deriveNodeStatuses(data);
   const diagnostics: Diagnostic[] = [
     // 错误 E001-E009（9 条规则）
     ...checkUndefinedTargetNode(data),
@@ -986,7 +997,7 @@ export function validate(data: PlotFlowData): ValidationResult {
     ...checkE008(data),
     ...checkE009(data),
     // 警告 W001-W006（6 条规则）
-    ...checkOrphanNodes(data),
+    ...checkOrphanNodes(data, nodeStatuses),
     ...checkDeadEndNodes(data),
     ...checkUnusedVariables(data),
     ...checkDuplicateOptionDescriptions(data),
@@ -1000,7 +1011,7 @@ export function validate(data: PlotFlowData): ValidationResult {
   ];
 
   // 更新每个 Node 的 diagnostics 字段
-  updateNodeDiagnostics(data, diagnostics);
+  updateNodeDiagnostics(data, diagnostics, nodeStatuses);
 
   const summary = computeSummary(diagnostics);
 
@@ -1015,15 +1026,17 @@ export function validate(data: PlotFlowData): ValidationResult {
  * 根据验证结果更新每个 StoryNode 的 diagnostics 元数据。
  *
  * 更新内容：
- * - isRoot: 标记第一个无入口的节点为根节点
+ * - isRoot: 标记源文件中的第一个节点为根节点
  * - isOrphan: 非根节点且无任何选项指向它
  * - isDeadEnd: 节点没有出口选项
- * - diagnosticIds: 追加关联到此节点的诊断 ID（不去重已有的）
+ * - diagnosticIds: 保留解析器诊断，并完整替换本轮 Validator 诊断 ID
  */
-function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[]): void {
-  // 1. 收集所有选项的目标节点 ID（fullId）
-  const adjacency = buildStoryAdjacency(data);
-  // 2. 按 relatedNodeId 分组诊断 ID
+function updateNodeDiagnostics(
+  data: PlotFlowData,
+  allDiagnostics: Diagnostic[],
+  nodeStatuses: ReadonlyMap<string, DerivedNodeStatus>,
+): void {
+  // 1. 按 relatedNodeId 分组诊断 ID
   const diagByNode = new Map<string, string[]>();
   for (const d of allDiagnostics) {
     if (d.relatedNodeId) {
@@ -1036,36 +1049,18 @@ function updateNodeDiagnostics(data: PlotFlowData, allDiagnostics: Diagnostic[])
     }
   }
 
-  // 3. 遍历所有节点，更新状态
-  let foundRoot = false;
+  // 2. 遍历所有节点，更新状态
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
       const nd = node.diagnostics;
-      const hasEntry = adjacency.incomingByTargetFullId.has(node.fullId);
+      const status = nodeStatuses.get(node.fullId);
+      nd.isRoot = status?.isRoot ?? false;
+      nd.isOrphan = status?.isOrphan ?? false;
+      nd.isDeadEnd = status?.isDeadEnd ?? false;
 
-      // isRoot: 第一个没有入口的节点标记为根节点
-      if (!foundRoot && !hasEntry) {
-        nd.isRoot = true;
-        foundRoot = true;
-      } else if (hasEntry) {
-        nd.isRoot = false;
-      }
-
-      // isOrphan: 非根节点且无入口
-      nd.isOrphan = !nd.isRoot && !hasEntry;
-
-      // isDeadEnd: 无出口选项
-      nd.isDeadEnd = !adjacency.outgoingBySourceFullId.has(node.fullId);
-
-      // 追加关联的诊断 ID（保留解析器已写入的 ID）
-      const relatedIds = diagByNode.get(node.fullId);
-      if (relatedIds) {
-        for (const id of relatedIds) {
-          if (!nd.diagnosticIds.includes(id)) {
-            nd.diagnosticIds.push(id);
-          }
-        }
-      }
+      const parserDiagnosticIds = nd.diagnosticIds.filter((id) => !id.includes('@L'));
+      const relatedIds = diagByNode.get(node.fullId) ?? [];
+      nd.diagnosticIds = [...new Set([...parserDiagnosticIds, ...relatedIds])];
     }
   }
 }
