@@ -134,6 +134,18 @@ export function useGraphWireController({
 
   const commitRouteTarget = useCallback(
     (reference: GraphRouteReference, targetFullId: string | null): boolean => {
+      // Wire commits go through runGraphEdit, whose Source-draft flush refuses
+      // to run while an interaction lease still marks the graph as editing, so
+      // drop every wire lease before committing.
+      const connectToken = connectLeaseTokenRef.current;
+      connectLeaseTokenRef.current = null;
+      if (connectToken) interactionLease.release(connectToken);
+      const reconnectToken = reconnectLeaseTokenRef.current;
+      reconnectLeaseTokenRef.current = null;
+      if (reconnectToken) interactionLease.release(reconnectToken);
+      const manualToken = manualWireLeaseTokenRef.current;
+      manualWireLeaseTokenRef.current = null;
+      if (manualToken) interactionLease.release(manualToken);
       try {
         const route = resolveGraphRoute(reference, getNodeByFullId);
         if (!route || targetFullId === reference.sourceFullId) return false;
@@ -145,7 +157,7 @@ export function useGraphWireController({
         return false;
       }
     },
-    [getNodeByFullId],
+    [getNodeByFullId, interactionLease],
   );
 
   const openDropContext = useCallback(

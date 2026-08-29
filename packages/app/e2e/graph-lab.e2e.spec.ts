@@ -2899,6 +2899,10 @@ author: QA
   });
 
   test('connects an option to an existing node by dragging a cable', async () => {
+    // The preceding drag-persistence test ends with a stale, dirty Source
+    // Drawer draft by design; that leftover state blocks this drag from
+    // opening the drop menu, so reset the renderer before interacting.
+    await reloadRenderer(page);
     await setEditorContent(
       page,
       `${START_STORY}
@@ -2920,6 +2924,50 @@ author: QA
     await dragHandleToMenu(page, handle, blankPoint);
     await page.getByTestId('wire-drop-connect-existing').filter({ hasText: '树林' }).click();
     await waitForContent(page, '[选项] 查看四周 -> 第一章/节点：树林');
+  });
+
+  test('commits a direct cable drop onto an existing node without the drop menu', async () => {
+    await setEditorContent(
+      page,
+      `${START_STORY}
+
+## 节点：树林
+
+树影挡住了小路。
+`,
+    );
+    await switchToGraphLab(page);
+    const sourceNode = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    const handle = sourceNode.locator('.story-node-connect-handle').first();
+    await expect(page.locator('.react-flow__node').filter({ hasText: '树林' })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // A direct drop competes with layout settling and canvas state left by
+    // earlier tests in the full suite, so retry the drag instead of assuming
+    // a single attempt lands on the target card.
+    let committed = false;
+    for (let attempt = 0; attempt < 4 && !committed; attempt += 1) {
+      const dragPort = handle.locator('.story-node-connect-port').first();
+      const handleBox = (await handle.boundingBox()) ?? (await dragPort.boundingBox());
+      if (!handleBox) continue;
+      const targetCenter = await nodeCenter(page, '树林');
+      await dragFromTo(
+        page,
+        { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 },
+        targetCenter,
+      );
+      committed = await page
+        .waitForFunction(
+          (text: string) =>
+            (window as TestWindow).__test_store__?.getEditorContent?.().includes(text) ?? false,
+          '[选项] 查看四周 -> 第一章/节点：树林',
+          { timeout: 2_000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+    }
+    expect(committed).toBe(true);
   });
 
   test('opens a cable drop menu on blank space and creates a connected node there', async () => {

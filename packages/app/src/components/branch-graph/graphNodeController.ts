@@ -198,38 +198,38 @@ export function useGraphNodeController({
       const drag = nodePositionDragRef.current;
       nodePositionDragRef.current = null;
       suppressAutoFitForUserViewportChange();
-      try {
-        if (!drag || drag.flowNodeId !== node.id || node.type === 'collapseNode') return;
-        if (!sameStoryIdentity(drag.identity, getCurrentStoryIdentity())) return;
-        const moved =
-          Math.round(drag.startPosition.x) !== Math.round(node.position.x) ||
-          Math.round(drag.startPosition.y) !== Math.round(node.position.y);
-        if (!moved) return;
+      // Release the lease before committing the edit: runGraphEdit flushes the
+      // Source draft, and that flush refuses to run while isEditing is still
+      // true, which would roll the drag back instead of persisting it.
+      if (drag) interactionLease.release(drag.leaseToken);
+      if (!drag || drag.flowNodeId !== node.id || node.type === 'collapseNode') return;
+      if (!sameStoryIdentity(drag.identity, getCurrentStoryIdentity())) return;
+      const moved =
+        Math.round(drag.startPosition.x) !== Math.round(node.position.x) ||
+        Math.round(drag.startPosition.y) !== Math.round(node.position.y);
+      if (!moved) return;
 
-        const storyNode = getNodeByFullId(drag.fullId);
-        if (!storyNode) {
-          rollbackNodePosition(drag);
-          return;
-        }
-        let committed = false;
-        try {
-          committed = graphEditService.updateNodePositions([
-            { fullId: drag.fullId, position: node.position },
-          ]);
-        } catch {
-          rollbackNodePosition(drag);
-          setStatusMessage(text('graphCanvas.changeNotApplied'));
-          return;
-        }
-        if (committed) {
-          setStatusMessage(text('graphCanvas.positionSaved', { title: storyNode.title }));
-          return;
-        }
+      const storyNode = getNodeByFullId(drag.fullId);
+      if (!storyNode) {
+        rollbackNodePosition(drag);
+        return;
+      }
+      let committed = false;
+      try {
+        committed = graphEditService.updateNodePositions([
+          { fullId: drag.fullId, position: node.position },
+        ]);
+      } catch {
         rollbackNodePosition(drag);
         setStatusMessage(text('graphCanvas.changeNotApplied'));
-      } finally {
-        if (drag) interactionLease.release(drag.leaseToken);
+        return;
       }
+      if (committed) {
+        setStatusMessage(text('graphCanvas.positionSaved', { title: storyNode.title }));
+        return;
+      }
+      rollbackNodePosition(drag);
+      setStatusMessage(text('graphCanvas.changeNotApplied'));
     },
     [
       getNodeByFullId,
