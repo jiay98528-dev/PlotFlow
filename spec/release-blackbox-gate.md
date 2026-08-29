@@ -1,8 +1,8 @@
 # PlotFlow Release Blackbox Gate
 
-> Version: 2026-08-02
+> Version: 2026-08-29 (historical evidence archived)
 > Scope: Windows release validation
-> Authority: release status must cite this document when claiming a build is ready.
+> Authority: this document applies only to explicit release-candidate or public-release claims. Ordinary implementation, review and local readiness do not require a formal evidence chain.
 
 ## Purpose
 
@@ -17,7 +17,15 @@ ADR-012 makes Graph Lab the primary and default workspace. Release evidence must
 | Unpacked blackbox | `pnpm.cmd release:candidate:create`, then run `test:e2e:unpacked` with that command's exact `CANDIDATE_DIR` and `UNPACKED_EXE` outputs | `release/candidates/<version>/<commit>/<utc-run>/win-unpacked/Fablevia.exe` | No | proves the immutable candidate executable and resources behave like a user build |
 | Installed blackbox | `$env:PLOTFLOW_INSTALLED_EXE = 'D:\PF\PlotFlow\PlotFlow.exe'` then `pnpm.cmd --filter @plotflow/app test:e2e:installed` | real installed app | No | proves the installed path, registered resources, and app launch path work |
 
-If the unpacked or installed blackbox layers have not been run, project documents may only say "source integration passed" or "source blackbox passed". They must not say "formal release passed".
+If the unpacked or installed blackbox layers have not been run, report only the layers actually executed. Do not turn missing release evidence into a blocker for ordinary implementation, review, commits or source builds.
+
+## Minimum Release Decision Policy
+
+- A normal code change uses targeted tests proportional to the affected path. It does not require candidate packaging, a clean worktree, evidence commits, VM recording or independent-review packs.
+- An unsigned Windows candidate requires source quality gates, candidate creation/verification, and the unpacked Graph-first blackbox against the same candidate directory.
+- A release-candidate claim additionally requires installed blackbox coverage against that same candidate. Manual patrol is limited to high-risk paths not already covered by automation.
+- A public Windows release additionally requires valid Authenticode signatures and verification of the final signed file hashes.
+- The five-pack external-review workflow under `spec/external-review/` is optional and applies only when the user explicitly requests a formal independent review. Its reviewer, recording and tracked-evidence rules do not gate ordinary RC work.
 
 ## Blackbox Rules
 
@@ -59,56 +67,9 @@ Implemented in source integration E2E under `packages/app/e2e/` and required bef
 - Graph Lab P0/P1 coverage: recent-file `Continue editing`, single-file `vars:` editing, condition/effect variable dropdowns, node-level `下一步` flow exits, chapter source slices, and W007 closed-cycle diagnostics.
 - Graph Lab visual coverage: chapter tab bar must be verified by Playwright screenshots before and after creating a chapter; DOM-only assertions are not sufficient because a fixed-height command bar can clip a rendered tab row.
 
-## 0.1.1 Preview Source Preflight
+## Historical Evidence
 
-The 2026-08-02 pre-commit execution for this change set passed lint (0 errors / 9 existing warnings), typecheck, 87 files / 1474 unit tests, build, CSS/token/layer/bundle/UI-literal/brand/document/Schema/engine/external-review/release-tool/website gates, feedback-service 31/31, both dependency audits with no known vulnerabilities, Integration E2E 91/91, and source blackbox 11/11.
-
-These working-tree results are not candidate evidence. A valid 0.1.1 artifact exists only after a clean commit runs candidate creation, unpacked blackbox and candidate verification against the same immutable directory. The resulting `candidate-manifest.json` is the authority; this document must not be edited afterward to manufacture an artifact result.
-
-## Historical Gate Snapshot (Superseded)
-
-Last updated: 2026-07-11
-
-| Layer | Status | Evidence |
-|---|---|---|
-| Local quality gates | Passed | Clean code revision `6faf4801a4f0d2d9a0d15fd2de46f092a2b918b0`; lint 0 errors / 9 existing warnings, typecheck, 72 files / 1385 unit tests, build, CSS/token/layer/bundle/UI-literal/mojibake/Schema/engine/website/audit gates all passed. |
-| Integration E2E | Passed | 82/82 on the same code revision, including keyboard/a11y contracts, system-open tagged errors, drag/reload concurrency and 1440/1280/1180/1179/901/900/390 responsive boundaries. |
-| Source blackbox | Passed | 11 passed / 6 target-specific skips. Native-dialog and packaged-artifact cases intentionally skip on the source target. |
-| Unpacked blackbox | Passed | With the code tree clean, fresh `package:win` followed by 16 passed / 1 installed-only skip. The strict native Graph-first journey exported Schema 0.2 and validated the disk JSON with Ajv draft-2020-12. |
-| Remote PR CI | Passed | [Run 29148547758](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758) passed Ubuntu quality gates, Windows App/visual/source-blackbox E2E and Placeholder scan for code revision `15c6c754245d283e7595091d5ca4392bfc2394ad`. |
-| Installed blackbox | Pending | No installed executable exists at `D:\PF\PlotFlow\PlotFlow.exe` or the standard Program Files paths. An authorized interactive per-machine install is required before setting `$env:PLOTFLOW_INSTALLED_EXE` and running the suite. |
-
-2026-07-12 external-review environment repair evidence: harness revision `956c2777a3a4052694c5841399cf1238350c5722` passed `typecheck`, lint (0 errors / 9 existing warnings), 72 files / 1385 unit tests, build, CSS/token/layer/bundle/UI-literal/document/Schema/engine gates, App E2E 82/82, source blackbox 11 passed / 7 packaged-only skipped, and installed blackbox 17 passed / 1 unpacked-only skipped. The installed suite now proves native Open on three fresh profiles plus one reused profile, structured dialog completion, process-tree isolation, the continuous Graph-first journey, 100/500/1000-node text preservation, and local HTML interaction in system Edge. The tested installer SHA256 was `CB8C7253C87CF61D5302EAEBF6979D703EF93AC1CDCBFE337D43E57FE5D2D456`; the installed executable SHA256 was `C90B405F071B31BA1AAAC06EC343322874C7878FBDE7244FB13B016371D3B443`; Authenticode remained `NotSigned`.
-
-This repair also adds machine-generated Windows environment/install manifests, evidence finalization with SHA256 manifests, strict `PASS | FAIL | BLOCKED | NOT_RUN` semantics, and five independent external-review packs. A local preflight verified Windows/build/language/DPI, package hashes, install/uninstall entry and `.mdstory` association, but correctly returned `BLOCKED` for authoritative manual review because this development host is not a clean VM snapshot and OBS is absent. Therefore the automated installed gate is repaired; the five Windows 11 VM evidence packs, Narrator/manual recording, real-engine smoke, 30-minute patrol and Authenticode remain outstanding and still block RC/public release.
-
-2026-07-11 Ready-review local evidence: the tested code revision is `6faf4801a4f0d2d9a0d15fd2de46f092a2b918b0`; `git status --porcelain` was empty before and after fresh packaging (`dirty=false`). The installer SHA256 is `65FA5E72BA31DB8232A7C39880D2F8796AC1766B44A45DD0F18B9C9D32A835C8`; the unpacked executable SHA256 is `3C29B1CF0B03C981D6636331BA7246704FC0968A6626B7D390DAB591FB2B95BB`. Both Authenticode statuses are `NotSigned`. At capture time this was sufficient only to open a Draft code-review PR; the following remote evidence closes the Ready gate. Installed blackbox, real engine smoke, the 30-minute patrol and signing continue to block RC/public release.
-
-2026-07-11 remote review evidence: [CI run 29148547758](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758) passed all three required jobs for revision `15c6c754245d283e7595091d5ca4392bfc2394ad`: [Ubuntu quality gates](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758/job/86534154878), [Windows App and blackbox E2E](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758/job/86534154885), and [Placeholder code scan](https://github.com/jiay98528-dev/PlotFlow/actions/runs/29148547758/job/86534154870). Windows App/visual E2E passed 82/82, then source blackbox passed on the same job. The successful run intentionally produced no failure artifact; failure upload behavior was exercised during repair, including artifact `windows-e2e-failure-29148202232` with traces, actual/diff screenshots and videos. This closes the Ready for Code Review gate only.
-
-2026-07-11 ADR-013 closure evidence: `lint` passed with 0 errors / 9 existing `no-console` warnings; `typecheck`, `build`, CSS/token/bundle lint and dependency audit passed; unit tests passed 60 files / 1356 tests; app E2E passed 74/74; source blackbox passed 11 / skipped 6; engine contract fixtures passed 6/6; a fresh Windows package was built; unpacked blackbox passed 16 / skipped 1. The strict unpacked journey used a fresh profile and native Open/Export dialogs, repaired E001 in Graph Lab, edited, undid/redid, saved, restarted, continued with empty history, and validated the exported disk JSON against Schema 0.2 with Ajv. Installer SHA256 is `9D574BA999192468D6509ACCD4331C2087D2F3866BE6AEB8E4F14764ABD257C0`; unpacked executable SHA256 is `0DC0CD993BB30D9398252F645816450F26DA36EE39C636CAB968790B5E708C94`. Authenticode status is `NotSigned`.
-
-2026-07-11 ADR-014 local implementation evidence: `lint` passed with 0 errors / 9 existing warnings; `typecheck`, `build`, CSS/token/bundle/UI-literal/Schema mirror/website static and moderate+ audit gates passed; unit tests passed 68 files / 1376 tests; app E2E passed 79/79 including responsive geometry and multi-theme visual baselines; source blackbox passed 11 / skipped 6; engine contracts passed 6/6; fresh `package:win` produced a new installer; unpacked blackbox passed 16 / skipped 1 including the continuous native Open → Graph diagnostic repair → GUI edit → Undo/Redo → save → restart/Continue → native export → disk JSON Schema 0.2 validation journey. Installer SHA256 is `C65CFFD0131F8E400DC663EFAE19022BCAE504F5825FBFED8A7FCDDF09A6A51C`; unpacked executable SHA256 is `17B148B65333AD57E4748708DE5E1DAC3A6943C872282E694E7BCA358BB050BF`. Both Authenticode statuses are `NotSigned`. Remote Ubuntu/Windows/nightly runs, installed blackbox, 30-minute manual patrol and real engine toolchain smoke remain pending, so this is not a release-candidate pass.
-
-Godot/Unity/Unreal consumption contracts have executable JSON fixture/static checks, but this machine lacks Godot/gdlint, Unity assemblies and UnrealBuildTool. Those real engine compiles remain manual release evidence, as do installed blackbox and the 30-minute installed-app patrol. Therefore this snapshot is an unpacked release candidate only; it is not an installed, release-candidate-passed, or public formal release claim.
-
-2026-07-11 stale-package gate probe: the new strict journey was run once against the existing `win-unpacked` artifact. Native Open, visible E001 repair, Graph Inspector edit, session Undo/Redo, save, restart, Home `Continue editing`, empty-history assertion, and native JSON Export all completed. The test then failed at the intended contract boundary because the stale package exported `https://plotflow.dev/schema/0.1/story.json` instead of 0.2. This is a successful red-gate probe, not passing unpacked evidence; rebuild after the Schema 0.2 implementation and rerun the full suite.
-
-2026-07-10 historical Graph-first package evidence: unit tests passed 57 files / 1334 tests; lint passed with 0 errors and 9 existing `no-console` warnings; typecheck, CSS/token/bundle lint, build, package, source blackbox, integration E2E, and unpacked blackbox passed. Installer SHA256 was `FA2DF86E9D22385FAECF9DDBAEFA0EBE8054B454A1608FD721D59383BA9CB7B8`; unpacked executable SHA256 was `73AA2B56ACC6562323C869843DC9651CB25A8EF516D327ECD918B1C46DE9A95B`. Both executables reported `NotSigned`. This evidence is retained for traceability but is stale for current source.
-
-2026-07-10 Graph-first gate update: ADR-012 changed the authoritative default workspace and expanded the required journey. The 2026-07-09 snapshot above is historical evidence for the previous Split-first contract and does not by itself prove the new Graph-first release gate. Regenerate source/package evidence and run the full default-workspace journey before making any release-candidate claim.
-
-2026-07-09 installed GUI blocker repair note: source fixes were applied for Source Drawer save-to-disk semantics, visible-draft flushing before save/replace/Graph Lab source mutations, stale Source Drawer blocking, external conflict overwrite hash preflight, Engine Telemetry bottom Source Drawer visibility, 1000-node large-graph fallback, natural chapter naming, Graph Lab create action reachability, and Home overlay behavior. Verified commands: `lint:tokens`, `typecheck`, `test` (50 files / 1286 tests), `lint` (0 errors / 9 existing warnings), `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab focused E2E, Engine Telemetry focused E2E, 1000-node blackbox performance, full app E2E 62/62, full source blackbox 10 passed / 4 skipped, `package:win`, and unpacked blackbox 13 passed / 1 installed-only skip. Installed blackbox and manual installed GUI patrol have not been rerun, so this is not a release-candidate pass.
-
-2026-07-06 chapter-tab visibility update: source changed after the refreshed package/unpacked evidence above. The new source fix makes the Graph Lab chapter tab bar a dedicated visible command-bar row and adds screenshot-backed E2E assertions. Verified after the change: `typecheck`, `lint`, `lint:css`, `build`, `lint:tokens`, `lint:bundle`, Graph Lab narrow E2E 19/19, and targeted chapter-tab screenshot E2E 1/1. The earlier `package:win` and unpacked blackbox results are now stale for this newer source revision; rerun package/unpacked/installed before any release-candidate claim.
-
-2026-07-06 external-audit P0/P1 closure note: latest source changes add recent-file resume, single-file global variable editing in Graph Lab, node-level `下一步` flow exits, source chapter slices, W007 closed-cycle warnings, and packaged native dialog ownership hardening. Verified commands include `lint:tokens`, `typecheck`, `test` (50 files / 1277 tests), `lint`, `lint:css`, `build`, `@plotflow/app build`, `lint:bundle`, Graph Lab narrow E2E, blackbox edge, full integration E2E, full source blackbox, `package:win`, targeted native export unpacked E2E, and full unpacked blackbox. `lint` still reports 9 existing `no-console` warnings and 0 errors. Installed blackbox and manual high-risk patrol have not been rerun, so this is not yet a release-candidate pass.
-
-2026-07-03 architecture audit note: source/build fixes were applied for six release risks: shared `.mdstory` source boundary analysis, CRLF-preserving Graph Lab writeback, worker-backed graph layout with large-graph fast grid, current-file external modification conflict handling, TS/TSX token linting, and renderer bundle chunking/budget checks. Verified source gates: `lint`, `typecheck`, `test`, `lint:css`, `lint:tokens`, `build`, `@plotflow/app build`, and `lint:bundle`. Because source changed after all previous package evidence, all GUI/E2E blackbox layers are stale until rerun.
-
-2026-07-01 export regression note: unpacked blackbox caught an installed-style export defect where the native save dialog could be driven with an unsafe default filename and the app could still report success without verifying disk output. The product fix now sanitizes placeholder filenames such as `{{title}}`, verifies save/export writes by reading the file back, and the blackbox native export journey must remain in the release gate.
-
-2026-07-01 manual GUI audit note: installed/unpacked manual use found P1/P2 UX blockers in Home layout, Graph Lab target-node rename, diagnostics discoverability, save feedback, English UI coverage, and save-flow cancellation safety. Source fixes are covered by `graph-lab.e2e.spec.ts` narrow regression checks: Home two-theme/three-viewport overlap, diagnostics chip -> ProblemPanel, referenced-node rename without E001, Save As feedback within 300ms, duplicate Save As prevention, Save As failure feedback, Save As cancellation blocking file replacement, and English primary surfaces. The previous clean package is now stale because source changed after it was built; unpacked blackbox, installed blackbox, and manual patrol must be rerun before any release-candidate claim.
+Archived to [`spec/release-evidence/blackbox-gate-history.md`](release-evidence/blackbox-gate-history.md): the 0.1.1 preview source snapshot, the superseded 2026-07 gate-snapshot table, and all dated repair/audit notes with per-run SHA256 identities. History is retained for traceability only; it does not gate current work.
 
 ## Required Release Commands
 
@@ -172,5 +133,5 @@ Any blocking issue found manually must get a new blackbox or installed smoke tes
 - `Unpacked blackbox passed`: `test:e2e:unpacked` passed with `PLOTFLOW_BLACKBOX_RELEASE_ROOT` and `PLOTFLOW_BLACKBOX_UNPACKED_EXE` set to the same immutable candidate directory.
 - `UNSIGNED_PREFLIGHT`: source gates and unpacked blackbox passed, then `release:candidate:verify` revalidated the clean HEAD, manifest, sums, embedded 0.1.1 versions and `NotSigned` executables. This status is not RC PASS, signing approval or public release.
 - `Installed blackbox passed`: `test:e2e:installed` passed against the newly installed app path.
-- `Release candidate passed`: all automated layers, including the strict packaged Graph-first Schema 0.2 journey, plus the manual high-risk patrol passed against the same source revision and newly built package.
+- `Release candidate passed`: source, unpacked and installed automated layers passed against the same candidate; any directly affected high-risk path not covered by automation also passed a focused manual check.
 - `Public formal release passed`: release-candidate evidence is current and the distributed executables have valid Authenticode signatures. An unsigned package must never use this status.

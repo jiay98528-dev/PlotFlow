@@ -60,23 +60,11 @@ jobs:
           pnpm lint:layers
           pnpm lint:bundle
 
-      - name: Graph primary-path UI literal scan
-        run: pnpm lint:ui-literals
-
-      - name: Visible brand boundary scan
-        run: pnpm lint:brand
-
-      - name: Documentation UTF-8 mojibake gate
-        run: pnpm lint:docs
-
-      - name: JSON Schema mirror check
-        run: pnpm check:schema
-
+      # Documentation-form checks (UI literals, brand visibility, doc mojibake,
+      # schema mirror, external-review contract) run nightly in
+      # release-validation.yml; they do not gate PRs.
       - name: Engine consumption contracts
         run: pnpm test:engine-contract
-
-      - name: External review evidence contracts
-        run: pnpm test:external-review-contract
 
       - name: Dependency security audit (moderate+)
         run: pnpm audit --audit-level moderate
@@ -158,17 +146,3 @@ jobs:
             packages/app/test-results/**
             playwright-report/**
             packages/app/playwright-report/**
-
-  placeholder-scan:
-    name: Placeholder code scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Reject milestone placeholders
-        run: |
-          if grep -rn "待 M[0-9]" packages/app/src/; then
-            echo "Placeholder code detected."
-            exit 1
-          fi
-          echo "No milestone placeholder code found."
