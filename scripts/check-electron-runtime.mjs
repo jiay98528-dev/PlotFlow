@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 function fail(message) {
   console.error(`Electron runtime preflight failed: ${message}`);
   console.error(
-    'Run `pnpm rebuild electron` with network access, then retry the source E2E command.',
+    'Run `node node_modules/electron/install.js` with network access, then retry the source E2E command.',
   );
   process.exit(1);
 }
