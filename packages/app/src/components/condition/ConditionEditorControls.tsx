@@ -563,6 +563,15 @@ export function OperatorDropdown({
         window.requestAnimationFrame(() => triggerRef.current?.focus());
         return;
       }
+      if (event.key === 'Tab') {
+        // Keep keyboard focus inside the modal focus domain by returning to
+        // the trigger. stopPropagation prevents the dialog-level Tab trap
+        // from moving focus past the open dropdown's controls.
+        event.preventDefault();
+        event.stopPropagation();
+        triggerRef.current?.focus();
+        return;
+      }
       if (event.key === 'Enter') {
         event.preventDefault();
         chooseOperator(activeIndex);
@@ -611,6 +620,17 @@ export function OperatorDropdown({
           setIsOpen(true);
         }}
         onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            // Toggle explicitly instead of relying on the synthesized click,
+            // which portal focus moves can swallow.
+            event.preventDefault();
+            if (isOpen) {
+              dismissDropdown();
+            } else {
+              setIsOpen(true);
+            }
+            return;
+          }
           if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault();
           if (event.key === 'Home') setActiveIndex(0);

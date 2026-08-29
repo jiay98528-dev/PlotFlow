@@ -751,7 +751,7 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     const variableMenu = portalHost.getByTestId('condition-variable-dropdown-menu');
     await expect(variableMenu).toBeVisible();
-    await expect(variableMenu.getByRole('textbox')).toBeFocused();
+    await expect(variableMenu.getByRole('combobox')).toBeFocused();
 
     await page.keyboard.press('Shift+Tab');
     await expect.poll(() => dialog.evaluate((element) => (
@@ -774,8 +774,13 @@ test.describe('条件编辑器 E2E 测试', () => {
 
     const operatorMenu = portalHost.getByTestId('condition-operator-dropdown-menu');
     await expect(operatorMenu).toBeVisible();
+    // The operator dropdown keeps focus on the listbox container and marks
+    // the active option through aria-activedescendant.
+    await expect(operatorMenu).toBeFocused();
     const selectedOperator = operatorMenu.locator('[role="option"][aria-selected="true"]');
-    await expect(selectedOperator).toBeFocused();
+    await expect
+      .poll(() => operatorMenu.getAttribute('aria-activedescendant'))
+      .toBe(await selectedOperator.getAttribute('id'));
 
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
