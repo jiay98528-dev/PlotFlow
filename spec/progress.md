@@ -1,9 +1,11 @@
 # Fablevia（维叙）实时进度跟踪
 
-> **版本**：V0.3 | **创建日期**：2026-06-12 | **更新**：2026-08-10 代码与流程约束审计 — M0-M7 实际 132/142 (92.96%)
+> **版本**：V0.3 | **创建日期**：2026-06-12 | **更新**：2026-08-30 PR #2 合并与远程 CI 全绿 — M0-M7 实际 132/142 (92.96%)
 > **关联**：`spec/milestones.md`（任务定义来源，已归档为历史规划）| `CLAUDE.md`（开发规范）
 
-> **Current Source Snapshot（2026-08-10，非候选证据）**：当前工作树通过 lint（0 error / 9 个既有 warning）、typecheck、87 files / 1474 tests、production build、受影响 CSS Stylelint、renderer bundle budget 与文档乱码检查。当前机器的 `node_modules/electron` 缺少二进制，在线补装返回 `fetch failed`，因此本轮源码 Electron E2E 为 `NOT_RUN`；新增前检会在约 1 秒内给出恢复命令，避免测试无输出挂起。此快照只描述源码审计覆盖，不宣称 RC 或公共发行通过。
+> **Current Source Snapshot（2026-08-30，非候选证据）**：[PR #2](https://github.com/jiay98528-dev/PlotFlow/pull/2)（merge commit `68160f7`）已合并入 master，远程 CI run 33267024703 全绿：Ubuntu 质量门禁（lint/typecheck/103 files 1548 tests/build/CSS/token/layer/bundle/engine contract/audit 无已知漏洞）与 Windows App 集成 E2E + source blackbox 均通过。本地同口径验证为 App E2E 92/92、1548/1548 单元测试、lint 0 error / 9 个既有 warning，运行时为 Electron 42.10.1（本机二进制已恢复，CI 通过显式 install 脚本步骤保证）。本轮合并修复：graph 交互租约死锁（节点拖拽与连线直投曾静默回滚）、条件下拉键盘焦点域逃逸、两处测试隔离与三个过时视觉基线。已知遗留：graph-lab E2E 套件共享单实例、无逐测试隔离，全量高负载下偶发时序 flaky（复跑即过），建议后续独立任务处理。此快照只描述源码与 CI 覆盖，不宣称 RC 或公共发行通过。
+
+> **Historical Source Snapshot（2026-08-10）**：当时工作树通过 lint（0 error / 9 个既有 warning）、typecheck、87 files / 1474 tests、production build、受影响 CSS Stylelint、renderer bundle budget 与文档乱码检查；本机 `node_modules/electron` 缺二进制且补装 `fetch failed`，源码 Electron E2E 为 `NOT_RUN`。
 
 > **Historical Fablevia 0.1.0 Gate Snapshot（已被后续源码取代）**：品牌迁移代码候选为 `dcd3db6e2aa1191a3fbd15724882f46cf7885df4`。该候选实际通过 lint（0 error / 9 个既有 warning）、typecheck、unit、build、CSS/token/layer/bundle/UI literal/brand/docs/Schema/engine/website/audit、App E2E 87/87、source blackbox 11/11、unpacked blackbox 17/17 和 installed blackbox 17/17。已将旧 PlotFlow 0.1.0 在 `D:\\Test\\PlotFlow` 原位升级为 Fablevia 0.1.0，卸载项、`Fablevia.Story` 文件关联和安装 EXE 哈希均通过验证。从 clean candidate 重建的安装包 SHA256 为 `796BBA4780338A949956FD9ED4C2C6F2AB84065231F00F84BE3F717F6E9546CC`，installed/unpacked `Fablevia.exe` SHA256 为 `5CC8416450709BB24F195C1111F7553863664969001B4D457E3AC94D12EF5083`，均为 `NotSigned`；当时安装器的二次原位覆盖因 UAC 被取消。该段仅保留历史产物身份，不决定当前 RC 状态。
 
