@@ -164,7 +164,7 @@ vars:
 # Chapter
 ## 节点：Start
 Body.
-[选项] Wait
+[选项] Wait -> 节点：End
 [选项] Continue -> 节点：End
   条件: 5 < $coins
 ## 节点：End

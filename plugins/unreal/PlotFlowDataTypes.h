@@ -126,26 +126,26 @@ struct FPlotFlowVariable
     GENERATED_BODY()
 
     /// <summary>变量名（不含 $ 前缀）。例如 "好感度"、"金币"。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     FString Name;
 
     /// <summary>变量类型。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     EPlotFlowVariableType Type = EPlotFlowVariableType::Int;
 
     /// <summary>变量作用域。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     EPlotFlowVariableScope Scope = EPlotFlowVariableScope::Global;
 
     /// <summary>
     /// 0.1 兼容字段。0.2 的 chapter scope 表示“按当前章节分区”，不再把
     /// 声明绑定到单一章节；运行时应使用 FPlotFlowVariableStore.CurrentChapterId。
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable", meta = (DeprecatedProperty, DeprecationMessage = "Use FPlotFlowVariableStore.CurrentChapterId"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable", meta = (DeprecatedProperty, DeprecationMessage = "Use FPlotFlowVariableStore.CurrentChapterId")) // brand-compat: public Unreal type name
     FString Chapter;
 
     /// <summary>变量用途说明。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     FString Description;
 
     /// <summary>
@@ -158,15 +158,15 @@ struct FPlotFlowVariable
     ///   Enum   → 直接使用 DefaultValue（必须为 EnumValues 中一员）
     ///   Object → 递归解析子字段的 DefaultValue
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     FString DefaultValue;
 
     /// <summary>仅 Type==Enum 时使用。合法值列表，索引 0 为默认值。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     TArray<FString> EnumValues;
 
     /// <summary>仅 Type==Object 时使用。子字段定义映射（字段名 → 定义）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     TMap<FString, FPlotFlowVariable> Fields;
 };
 
@@ -185,18 +185,18 @@ struct FPlotFlowSideEffect
     /// 目标变量名。
     /// 支持点号路径访问嵌套字段，例如 "角色状态.生命"。
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|SideEffect")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|SideEffect")
     FString Variable;
 
     /// <summary>操作类型: set / add / subtract / append。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|SideEffect")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|SideEffect")
     EPlotFlowSideEffectOp Operation = EPlotFlowSideEffectOp::Set;
 
     /// <summary>
     /// 操作值（字符串表示）。
     /// 运行时根据 Variable 对应的变量类型做类型转换。
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|SideEffect")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|SideEffect")
     FString Value;
 };
 
@@ -206,10 +206,10 @@ struct FPlotFlowChapterVariableValues
 {
     GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     FString ChapterId;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     TMap<FString, FString> Values;
 };
 
@@ -222,13 +222,13 @@ struct FPlotFlowVariableStore
 {
     GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     FString CurrentChapterId;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     TMap<FString, FString> GlobalValues;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Variable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Variable")
     TArray<FPlotFlowChapterVariableValues> ChapterValues;
 };
 
@@ -245,47 +245,47 @@ struct FPlotFlowConditionNode
     GENERATED_BODY()
 
     /// <summary>AST 节点类型。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     EPlotFlowAstType NodeType = EPlotFlowAstType::Comparison;
 
     /// <summary>比较运算的变量名（或字段路径），例如 "金币"、"角色状态.魔力"。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FString Variable;
 
     /// <summary>比较运算符（NodeType==Comparison 时使用）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     EPlotFlowComparisonOp Operator = EPlotFlowComparisonOp::Equal;
 
     /// <summary>比较值（字符串表示，运行时会做类型转换）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FString ComparisonValue;
 
     /// <summary>
     /// FieldAccess 对象名（NodeType==FieldAccess 时使用）。
     /// 例如: "角色状态"
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FString FieldObject;
 
     /// <summary>
     /// FieldAccess 字段名（NodeType==FieldAccess 时使用）。
     /// 例如: "魔力"
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FString FieldName;
 
     // --- 嵌套子节点（用于 LogicalAnd / LogicalOr / LogicalNot） ---
 
     /// <summary>左子节点（LogicalAnd / LogicalOr 使用）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FPlotFlowConditionNode Left;
 
     /// <summary>右子节点（LogicalAnd / LogicalOr 使用）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FPlotFlowConditionNode Right;
 
     /// <summary>被否定子节点（LogicalNot 使用）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Condition")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Condition")
     FPlotFlowConditionNode Operand;
 };
 
@@ -305,37 +305,37 @@ struct FPlotFlowOption
     GENERATED_BODY()
 
     /// <summary>选项在节点内的序号（从 0 开始）。用于保持显示顺序。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     int32 Index = 0;
 
     /// <summary>选项显示文本。例如 "走向左边的狼嚎声"。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     FString Text;
 
     /// <summary>跳转目标节点 ID（不含章节前缀）。例如 "狼穴"。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     FString TargetNodeId;
 
     /// <summary>显式目标章节 ID；空表示由 targetFullId 或当前章节解析。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     FString TargetChapterId;
 
     /// <summary>跳转目标全局唯一 opaque fullId。不得拆分或自行拼接。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     FString TargetFullId;
 
     /// <summary>
     /// 出现条件。null / 空节点 表示始终可用。
     /// 非空时，引擎在显示选项前评估此条件。
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     FPlotFlowConditionNode Condition;
 
     /// <summary>
     /// 选择后执行的副作用列表。
     /// 空列表表示无副作用。
     /// </summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Option")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Option")
     TArray<FPlotFlowSideEffect> Effects;
 };
 
@@ -350,10 +350,10 @@ struct FPlotFlowPosition
 {
     GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     float X = 0.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     float Y = 0.0f;
 };
 
@@ -371,43 +371,43 @@ struct FPlotFlowNode
     GENERATED_BODY()
 
     /// <summary>节点 ID（不含章节前缀）。例如 "森林入口"。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     FString Id;
 
     /// <summary>所属章节 ID。例如 "第一章"。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     FString ChapterId;
 
     /// <summary>导出器提供的全局唯一 opaque fullId。不得假设分隔符格式。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     FString FullId;
 
     /// <summary>节点显示标题。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     FString Title;
 
     /// <summary>节点描述正文段落列表。每个元素为一个段落。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     TArray<FString> Body;
 
     /// <summary>可用选项列表（可为空——死胡同节点）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     TArray<FPlotFlowOption> Options;
 
     /// <summary>分支图布局坐标（运行时忽略）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     FPlotFlowPosition Position;
 
     /// <summary>是否为根节点（故事起始节点）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     bool bIsRoot = false;
 
     /// <summary>诊断: 是否为孤立节点（无入口路径，根节点除外）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     bool bIsOrphan = false;
 
     /// <summary>诊断: 是否为死胡同（无出口选项）。</summary>
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Node")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Node")
     bool bIsDeadEnd = false;
 };
 
@@ -417,13 +417,13 @@ struct FPlotFlowChapter
 {
     GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Chapter")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Chapter")
     FString Id;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Chapter")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Chapter")
     FString Title;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlotFlow|Chapter")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fablevia|Chapter")
     TArray<FPlotFlowNode> Nodes;
 };
 

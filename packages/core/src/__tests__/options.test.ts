@@ -341,6 +341,27 @@ describe('parseOptions - 条件 + 效果同时存在', () => {
     }
   });
 
+  it('条件与效果诊断使用各自真实子行并保留同码错误', () => {
+    const variables: VariableDeclaration[] = [{
+      name: '状态',
+      type: 'object',
+      defaultValue: { 生命: 0 },
+      fields: [{ name: '生命', type: 'int', defaultValue: 0, lineNumber: 2 }],
+      lineNumber: 1,
+    }];
+    const body = `[选项] 测试 -> 节点：结果
+  条件: ($状态.缺失>=1)
+  效果: (状态.缺失+1)`;
+
+    const result = parseOptions(body, 40, variables);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const typeErrors = result.diagnostics.filter((diagnostic) => diagnostic.code === 'E004');
+      expect(typeErrors).toHaveLength(2);
+      expect(typeErrors.map((diagnostic) => diagnostic.range.startLine)).toEqual([41, 42]);
+    }
+  });
+
   it('先效果后条件', () => {
     const body = `[选项] 交易 -> 节点：市场
   效果: (金币-20)

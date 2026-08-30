@@ -1,9 +1,6 @@
 import { appT } from '../i18n/appI18n';
 import { useUIStore, type WorkspaceMode } from '../stores/uiStore';
-import {
-  flushSourceDraftBeforeSaveOrReplace,
-  getSourceDraftState,
-} from './sourceDraftCoordinator';
+import { flushSourceDraft, getSourceDraftState } from './sourceDraftCoordinator';
 
 function text(key: string): string {
   const ui = useUIStore.getState();
@@ -24,10 +21,12 @@ export function requestWorkspaceMode(mode: WorkspaceMode): boolean {
   if (ui.workspaceMode === 'graphLab' && mode === 'split') {
     const draft = getSourceDraftState();
     if (draft.isStale) {
+      ui.setSourceDrawerOpen(true);
       ui.setStatusMessage(text('sourceDock.workspaceSwitchBlockedStale'));
       return false;
     }
-    if (draft.isDirty && !flushSourceDraftBeforeSaveOrReplace('replace')) {
+    const flushed = flushSourceDraft('workspace');
+    if (!flushed.ok) {
       ui.setStatusMessage(text('sourceDock.workspaceSwitchBlockedDraft'));
       return false;
     }

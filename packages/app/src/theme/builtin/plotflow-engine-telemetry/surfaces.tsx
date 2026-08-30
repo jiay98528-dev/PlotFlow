@@ -27,7 +27,7 @@ export const engineTelemetrySurfaces: ThemeSurfaces = {
     return (
       <header className="app-topbar engine-telemetry-toolbar" data-theme-surface="engine-telemetry-toolbar">
         {brand}
-        <nav className="app-toolbar engine-telemetry-toolbar__nav" aria-label="PlotFlow command bar">
+        <nav className="app-toolbar engine-telemetry-toolbar__nav" aria-label="Fablevia command bar">
           <div className="toolbar-group engine-telemetry-toolbar__group" role="group">
             {fileControls}
           </div>
@@ -98,7 +98,7 @@ export const engineTelemetrySurfaces: ThemeSurfaces = {
     );
   },
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+  ThemeCenterSurface({ header, sidebar, installedThemes, footer }) {
     return (
       <section
         className="theme-center engine-telemetry-theme-center"
@@ -114,7 +114,6 @@ export const engineTelemetrySurfaces: ThemeSurfaces = {
             {sidebar}
             <div className="theme-center__list engine-telemetry-theme-center__list">
               {installedThemes}
-              {remoteThemes}
             </div>
           </div>
           {footer}

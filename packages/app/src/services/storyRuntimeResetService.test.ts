@@ -25,7 +25,7 @@ describe('story runtime reset', () => {
     useUIStore.getState().setActiveChapterId(null);
   });
 
-  it('invalidates a drag token when an external reload begins a new session', () => {
+  it('invalidates a drag token when an external reload begins a new session', async () => {
     const dragSessionId = useEditorStore.getState().storySessionId;
     useGraphStore.getState().setEditing(true);
     recordGraphEdit({
@@ -38,12 +38,15 @@ describe('story runtime reset', () => {
       source: 'test-drag',
     });
 
-    applyExternalFileContent({
+    const reloadEvent = {
       filePath: 'D:/stories/reloaded.mdstory',
       content: reloadedStory,
       hash: 'reload-hash',
       modifiedAt: 42,
-    });
+    };
+    useEditorStore.getState().setFilePath(reloadEvent.filePath);
+    useEditorStore.getState().setPendingExternalChange(reloadEvent);
+    await applyExternalFileContent(reloadEvent);
 
     expect(isCurrentStorySession(dragSessionId)).toBe(false);
     expect(useGraphStore.getState().isEditing).toBe(false);

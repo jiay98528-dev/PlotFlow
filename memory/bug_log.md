@@ -645,3 +645,85 @@ Electron E2E 的 test body 通过不等于套件稳定。所有共享 app 的套
 **Remaining**
 - Installed blackbox was not run because `PLOTFLOW_INSTALLED_EXE` is not set.
 - Manual installed GUI patrol is still required before any release-candidate claim.
+
+---
+
+### BUG-016: 小批量发行候选的数据安全、导出与证据链可被竞态或空壳结果破坏
+
+**Date**: 2026-07-14
+
+**Category**: `DATA` / `GRAPH_LAB` / `ELECTRON` / `RELEASE_EVIDENCE`
+**Severity**: P1 release gate
+
+**Observed**
+- 关闭前 dirty 查询或保存失败时存在静默放行风险；旧会话保存回调可能污染新故事状态。
+- Source Drawer flush 改变行号、选项顺序或变量声明后，Inspector 仍可能按旧对象提交。
+- 空故事、空章节和其他 Error 级诊断可从 Core 直接导出 API 绕过 GUI 门禁。
+- 外审结果可仅凭自报 PASS、文件存在和哈希形状构造，installed gate 也未强制绑定同轮真实安装。
+
+**Root causes**
+- 关闭仲裁、保存状态和 Graph 编辑引用缺少 fail-closed、session/generation 与稳定身份合同。
+- 三种导出器未共用完整 Error 门禁，JSON 成功出口未执行 Schema 0.2 校验。
+- required cases、执行转录、artifact 内容和 Git blob/候选 revision 之间缺少独立守恒校验。
+
+**Fixes**
+- 新增关闭仲裁器；查询/保存异常和超时默认保留窗口，仅显式强制退出放行。
+- 保存尝试绑定 generation、storySessionId 与规范路径；Save As 同时绑定内容快照。
+- 节点、Option 和变量在 flush 后按 fullId、签名及唯一匹配重新解析；歧义或 stale 直接拒绝并保留 GUI 草稿。
+- 新增 E009 与 `_anonymous` 保留名恢复隔离；JSON/HTML/TXT 共用完整 Error 门禁，JSON 成功出口使用生成的 Ajv standalone 校验器。
+- Electron IPC 校验 sender origin，阻断非应用导航；外审 schema v2 固定 cases、结构化 transcript、语义 artifact、Git blob 和 GitHub Actions provenance。
+- Installed workflow 改为同轮 installer 的隔离安装、精确注册校验、黑盒执行和静默卸载闭环。
+
+**Prevention**
+- ESLint：快捷键与 UI 状态竞态不适合纯语法规则；保留现有 TS/React lint。
+- CI 扫描：Schema standalone 同步、IPC/证据合同、UI literal、文档乱码和层级 Token 均进入静态门禁。
+- Smoke/自动化：新增保存竞态、稳定引用、变量冲突、E009、`_anonymous`、关闭失败、IPC origin、空壳证据和恶意注册反例。
+- L4：外审五包仍需独立 actor 按固定 cases 生成二次核验链；NotSigned、真实引擎 smoke 与 30 分钟巡检继续单独阻断 RC/公开发行。
+
+**Verification**
+- `pnpm.cmd test` PASS：77 files / 1414 tests（随后新增 1 个稳定变量删除反例，候选收口时需重跑并记录最终数值）。
+- `pnpm.cmd typecheck`、lint、CSS/Token/layer/UI literal/docs/bundle、Schema、engine contract、website gates PASS。
+- App E2E、source/unpacked/installed 与五包独立外审只在候选 commit 固化后计入正式证据。
+
+---
+
+### BUG-017: 0.1.1 预检候选的数据事务、信任边界与产物身份失配
+
+**Date**: 2026-08-02
+
+**Category**: `DATA` / `ELECTRON` / `SECURITY` / `A11Y` / `RELEASE_IDENTITY`
+**Severity**: P0/P1 release gate
+
+**Observed**
+- Source Drawer 折叠会丢弃未提交 draft，保存和导出可能消费旧 AST；异步打开工作区时的新编辑可能被迟到读取覆盖。
+- 固定反馈气泡遮挡核心按钮，桌面端 SMTP 方案在 clean install 中不可用，并把共享凭据放进客户端信任边界。
+- 官方远程主题由同一在线来源同时提供代码和哈希，renderer 随后动态执行已安装的 JavaScript。
+- 节点菜单到重命名/删除对话框依赖定时器和中间关闭态，焦点及背景快捷键存在竞态。
+- 发行文件、声明哈希、版本和 commit 未由同一不可变候选目录绑定，旧 manifest 可能被误当成当前候选。
+
+**Root causes**
+- 故事内容、Source draft、会话与异步替换没有共享 revision/lease 合同，各入口分别读取可变全局状态。
+- 反馈入口、传输协议和凭据部署边界混在 renderer/桌面安装包内。
+- 远程 ZIP 的完整性校验与发布来源处于同一信任域，哈希不能证明发布者身份。
+- 键盘上下文由多个布尔状态、异步聚焦和延迟关闭共同驱动，而不是单一状态机。
+- 候选脚本依赖可覆盖目录和自报版本，没有强制 clean HEAD、嵌入版本、签名状态与全部运行时载荷一致。
+
+**Fixes**
+- 引入故事 identity、结构化 draft flush、不可变导出快照和 replacement lease；折叠只隐藏 draft，stale/graph-edit-active 时 fail closed。
+- 反馈改为原生 Help 菜单打开的标准 modal，经主进程固定 HTTPS 地址发送；SMTP 只存在独立服务端包。
+- 0.1.1 关闭全部远程主题下载、扫描与动态执行，旧远程 ID 回退内置 Prism Foundry，已安装目录保留但不加载。
+- 节点键盘菜单改为 `closed -> menu -> renameDialog/deleteDialog` reducer，并统一 roving focus、最终关闭恢复和背景命令屏蔽。
+- 候选创建/验证固定到 `release/candidates/<version>/<commit>/<utc-run>`，绑定 installer、unpacked EXE、`app.asar`、嵌入版本、SHA256 与 Authenticode 状态。
+
+**Prevention**
+- ESLint：跨会话竞态和焦点时序无法由纯语法规则可靠预防；继续以 strict TypeScript 约束穷尽联合类型。
+- CI 扫描：品牌模板字符串、HTML、反馈服务、CSP、远程主题运行时代码、依赖漏洞与候选身份合同均进入静态门禁。
+- Smoke/E2E：覆盖隐藏 draft 保存/导出、stale、逆序读取、Help 反馈结果映射、恶意预置主题不执行、键盘连续操作和候选篡改反例。
+- L4：installed、30 分钟人工巡检、真实引擎 smoke 与 Authenticode 仍须在对应阶段独立验证。
+
+**Verification**
+- 提交前源码回归通过：lint 0 errors / 9 existing warnings、typecheck、87 files / 1474 unit tests、build、CSS/token/layer/bundle/UI literal/brand/docs/Schema/engine/external-review/release-tool/website gates。
+- 反馈服务 32/32，生产与完整 moderate audit 均为零；Integration E2E 91/91、source blackbox 11/11。
+- 香港服务以 `fablevia-feedback` 非 root 用户监听 `127.0.0.1:18081`；Nginx 配置备份、`nginx -t`、loopback health、公开 400/403、每 IP 429、重启后 requestId 去重和无正文日志检查均通过。
+- 真实公网报告返回 202，report ID `FB-ac3e36b9-c217-40e8-ad3a-27d45154ff98`，并通过目标企业邮箱 IMAP 只读核对实际到达。
+- 新候选 unpacked blackbox 与最终 verify 只在上述部署记录进入 clean commit 后执行，不从旧候选外推。

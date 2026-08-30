@@ -7,6 +7,7 @@ import { rememberRecentStory } from './recentFileService';
 import { resetStoryRuntimeState } from './storyRuntimeResetService';
 
 interface ResetStorySessionOptions {
+  readonly content: string;
   readonly closeHome?: boolean;
 }
 
@@ -22,10 +23,10 @@ interface StartUnsavedStorySessionOptions extends ResetStorySessionOptions {
   readonly content: string;
 }
 
-export function resetStorySession(options: ResetStorySessionOptions = {}): void {
+export function resetStorySession(options: ResetStorySessionOptions): void {
   clearPendingSave();
   resetAutoSaveBaseline(null);
-  resetStoryRuntimeState(options);
+  resetStoryRuntimeState({ nextContent: options.content, closeHome: options.closeHome });
 }
 
 function selectFirstParsedChapter(): void {
@@ -35,11 +36,10 @@ function selectFirstParsedChapter(): void {
 
 export function loadSavedStorySession(options: LoadSavedStorySessionOptions): void {
   const normalizedPath = options.filePath.replace(/\\/g, '/');
-  resetStorySession({ closeHome: options.closeHome });
+  resetStorySession({ content: options.content, closeHome: options.closeHome });
   const editor = useEditorStore.getState();
   editor.setFilePath(normalizedPath);
   editor.setFileBaseline(options.hash, options.modifiedAt);
-  editor.setContent(options.content);
   editor.markSaved();
   resetAutoSaveBaseline(options.content);
   if (options.rememberRecent ?? true) {
@@ -50,11 +50,11 @@ export function loadSavedStorySession(options: LoadSavedStorySessionOptions): vo
 }
 
 export function startUnsavedStorySession(options: StartUnsavedStorySessionOptions): void {
-  resetStorySession({ closeHome: options.closeHome });
+  resetStorySession({ content: options.content, closeHome: options.closeHome });
   const editor = useEditorStore.getState();
   editor.setFilePath(null);
   editor.setFileBaseline(null, null);
-  editor.setContent(options.content);
+  editor.markDirty();
   resetAutoSaveBaseline(null);
   parsePipelineNow(options.content);
   selectFirstParsedChapter();

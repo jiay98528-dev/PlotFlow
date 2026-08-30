@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   closeBlackboxApp,
   getBlackboxTarget,
   launchBlackboxApp,
   switchToSplit,
   waitForGraphNode,
+  waitForStoryOpenObservation,
 } from './helpers/electronBlackbox';
 import {
   createBlackboxWorkspace,
@@ -85,7 +86,7 @@ test.describe('blackbox Graph-first user journeys', () => {
 
       await expect(dialog).toBeHidden();
       await expectGraphFirstWorkspace(launched.page);
-      await launched.page.getByTestId('graph-inspector-tab-story').click();
+      await launched.page.getByTestId('graph-global-editor-tab-story').click();
       await expect(launched.page.getByTestId('graph-inspector-meta-title')).toHaveValue('Graph First New Story');
     } finally {
       await closeBlackboxApp(launched.app);
@@ -155,7 +156,7 @@ test.describe('blackbox Graph-first user journeys', () => {
     }
   });
 
-  test('completes the packaged Graph-first native open to Schema 0.2 export journey without Split or bridges @journey', async () => {
+  test('completes the packaged Graph-first native open to Schema 0.2 export journey without Split or bridges @journey @packaged', async () => {
     test.skip(process.platform !== 'win32', 'Native open/save dialog automation is Windows-only.');
     test.skip(getBlackboxTarget() === 'devBuild', 'The strict native-dialog journey is a packaged-app gate.');
 
@@ -175,14 +176,15 @@ test.describe('blackbox Graph-first user journeys', () => {
       await expectGraphFirstWorkspace(page);
 
       await home.getByRole('button', { name: /打开文件|Open file/i }).click({ noWaitAfter: true });
-      await completeNativeFileDialog({
+      const dialogResult = await completeNativeFileDialog({
         filePath: storyPath,
+        ownerProcessId: launched.app.process().pid,
         mode: 'open',
-        buttonPattern: 'Open|OK|打开|確定',
         timeoutMs: 20_000,
       });
-
-      await expect(home).toBeHidden({ timeout: 20_000 });
+      expect(dialogResult).toMatchObject({ status: 'submitted', valueVerified: true, dialogClosed: true });
+      const openObservation = await waitForStoryOpenObservation(page, basename(storyPath));
+      expect(openObservation.status, openObservation.detail).toBe('opened');
       await expectGraphFirstWorkspace(page);
 
       // Prove the known E001 is visible and navigate through the user-facing
@@ -193,7 +195,6 @@ test.describe('blackbox Graph-first user journeys', () => {
       await missingTargetDiagnostic.click();
       await expect(page.getByTestId('graph-inspector-node-title')).toHaveValue('入口');
 
-      await page.getByTestId('graph-inspector-tab-routes').click();
       const targetSelect = page.getByTestId('graph-inspector-option-target-0');
       const exitOption = targetSelect.locator('option').filter({ hasText: '第一章 / 出口' });
       await expect(exitOption).toHaveCount(1);
@@ -203,7 +204,6 @@ test.describe('blackbox Graph-first user journeys', () => {
       await expect(page.getByTestId('problem-panel-item-E001')).toHaveCount(0, { timeout: 10_000 });
       await expectGraphFirstWorkspace(page);
 
-      await page.getByTestId('graph-inspector-tab-node').click();
       const bodyField = page.getByTestId('graph-inspector-node-body');
       const initialBody = await bodyField.inputValue();
       await bodyField.fill(repairedBody);
@@ -239,7 +239,6 @@ test.describe('blackbox Graph-first user journeys', () => {
       await expectGraphFirstWorkspace(page);
       await waitForGraphNode(page, '入口');
       await page.getByTestId('graph-lab-outline-node').filter({ hasText: '入口' }).click();
-      await page.getByTestId('graph-inspector-tab-node').click();
       await expect(page.getByTestId('graph-inspector-node-body')).toHaveValue(repairedBody);
       await expect(page.getByTestId('graph-lab-undo')).toBeDisabled();
       await expect(page.getByTestId('graph-lab-redo')).toBeDisabled();
@@ -247,7 +246,11 @@ test.describe('blackbox Graph-first user journeys', () => {
       await page.getByTestId('toolbar-export').click();
       await expect(page.locator('.export-dialog__overlay')).toBeVisible({ timeout: 10_000 });
       await page.getByTestId('export-dialog-submit').click({ noWaitAfter: true });
-      await completeNativeFileDialog({ filePath: exportPath, timeoutMs: 20_000 });
+      await completeNativeFileDialog({
+        filePath: exportPath,
+        ownerProcessId: launched.app.process().pid,
+        timeoutMs: 20_000,
+      });
 
       await expect.poll(async () => (await stat(exportPath).catch(() => null))?.size ?? 0).toBeGreaterThan(20);
       const exported = JSON.parse(await readFile(exportPath, 'utf-8')) as {

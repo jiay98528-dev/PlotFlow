@@ -40,43 +40,38 @@ describe('site content', () => {
       development: developmentCopy.zh,
       officialThemes: officialThemes.zh,
     }).join('\n');
-    expect(zhSource).toMatch(/PlotFlow/);
+    expect(zhSource).toMatch(/维叙（Fablevia）/);
     expect(zhSource).toMatch(/\.mdstory/);
     expect(zhSource).toMatch(/Windows/);
     expect(zhSource).toMatch(/Graph Lab/);
     expect(zhSource).toMatch(/JSON \/ HTML \/ TXT/);
     expect(zhSource).toMatch(/Godot/);
     expect(zhSource).toMatch(/叙事工作台/);
-    expect(zhSource).toMatch(/霓虹档案/);
+    expect(zhSource).toMatch(/棱镜铸造台/);
+    expect(zhSource).toMatch(/引擎遥测台/);
     expect(zhSource).toMatch(/安装态、真实引擎 smoke、人工巡检和发行签名待完成/);
   });
 
-  it('describes official free themes without exposing local import or payment', () => {
+  it('describes exactly the three bundled themes without claiming remote availability', () => {
     expect(officialThemes.zh.items.map((item) => item.id)).toEqual([
+      'plotflow-prism-foundry',
       'plotflow-narrative-workbench',
-      'plotflow-neon-dossier',
+      'plotflow-engine-telemetry',
     ]);
     const visible = collectVisibleStrings(officialThemes.zh).join('\n');
-    expect(visible).toContain('官方免费主题');
-    expect(visible).toContain('浏览官方免费主题');
-    expect(visible).toContain('免费主题');
+    expect(visible).toContain('官方内置主题');
+    expect(visible).toContain('远程主题 registry、下载、安装和代码加载已暂停');
+    expect(visible).not.toContain('霓虹档案');
     expect(visible).not.toContain('.pf-theme');
     expect(visible).not.toContain('购买');
     expect(visible).not.toContain('授权');
     expect(visible).not.toContain('社区');
   });
 
-  it('ships a static official theme registry with free labels', () => {
+  it('publishes an empty remote theme registry while the runtime is paused', () => {
     const registryPath = path.resolve(__dirname, '../../public/data/official-themes.json');
     const registry = readJsonFile(registryPath) as { themes: Array<Record<string, unknown>> };
-    expect(registry.themes.length).toBeGreaterThan(0);
-    expect(registry.themes[0]).toMatchObject({
-      id: 'plotflow-neon-dossier',
-      priceLabel: '免费主题',
-      themeApiVersion: 1,
-    });
-    expect(registry.themes[0].bundleUrl).toMatch(/\.pf-official-theme\.zip$/);
-    expect(registry.themes[0].sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(registry.themes).toEqual([]);
   });
 
   it('has generated project status data for the development page', () => {

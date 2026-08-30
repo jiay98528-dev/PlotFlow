@@ -369,74 +369,46 @@ html[data-theme-id] {
 }
 
 .official-theme-preview {
+  display: grid;
   min-height: 180px;
+  aspect-ratio: 16 / 9;
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--theme-node-border);
   border-radius: var(--radius-md);
   background: var(--theme-graph-lab-paper);
 }
 
-.official-theme-preview__canvas {
-  position: relative;
-  min-height: 100%;
-  padding: var(--space-4);
-  background: var(--theme-blueprint-canvas);
-  background-size: var(--theme-grid-size) var(--theme-grid-size), var(--theme-grid-size) var(--theme-grid-size), auto;
-}
-
-.official-theme-preview__node {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  gap: var(--space-1);
-  min-width: 116px;
-  padding: var(--space-3);
-  border: 1px solid var(--theme-node-border);
-  border-radius: var(--theme-card-radius);
-  color: var(--theme-node-ink);
-  background: var(--theme-node-surface);
-  box-shadow: var(--theme-workbench-shadow);
-}
-
-.official-theme-preview__node span {
-  width: 30px;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--theme-port-fill);
-}
-
-.official-theme-preview__node strong {
-  font-size: var(--text-xs);
-}
-
-.official-theme-preview__node em {
-  color: var(--theme-node-muted);
-  font-size: var(--text-2xs);
-  font-style: normal;
-}
-
-.official-theme-preview-node-main {
-  top: 36px;
-  left: 28px;
-}
-
-.official-theme-preview-node-leaf {
-  right: 28px;
-  bottom: 34px;
-}
-
-.official-theme-preview svg {
-  position: absolute;
-  inset: 0;
+.official-theme-preview__image {
+  display: block;
   width: 100%;
   height: 100%;
+  min-height: 180px;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
 }
 
-.official-theme-preview path {
-  fill: none;
-  stroke: var(--theme-graph-cable-default);
-  stroke-linecap: round;
-  stroke-width: 4;
+.official-theme-preview__fallback {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-2);
+  min-height: 180px;
+  padding: var(--space-4);
+  color: var(--theme-node-muted);
+  background: var(--theme-blueprint-canvas);
+  text-align: center;
+}
+
+.official-theme-preview__fallback span {
+  color: var(--theme-node-ink);
+  font-size: var(--text-sm);
+  font-weight: 780;
+}
+
+.official-theme-preview__fallback small {
+  font-size: var(--text-2xs);
 }
 
 .official-theme-preview[data-preview-theme-id='plotflow-narrative-workbench'] {
@@ -686,6 +658,20 @@ html[data-theme-id] {
   padding-left: 38px;
 }
 
+.official-graph-node .node-route-preview--default-next {
+  min-height: 30px;
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--theme-port-fill), transparent 72%);
+  color: var(--theme-node-muted);
+  background: color-mix(in oklch, var(--theme-panel-surface), transparent 56%);
+  box-shadow: none;
+}
+
+.official-graph-node .node-route-preview--default-next:hover {
+  border-color: color-mix(in oklch, var(--theme-port-fill), transparent 56%);
+  background: color-mix(in oklch, var(--theme-panel-surface), var(--theme-node-surface) 32%);
+}
+
 .official-graph-node .node-route-preview--overflow {
   min-height: 28px;
   padding-right: 8px;
@@ -725,6 +711,15 @@ html[data-theme-id] {
   border-color: transparent;
   color: var(--theme-node-muted);
   background: color-mix(in oklch, var(--color-success-subtle), transparent 54%);
+}
+
+.official-graph-node .node-route-preview--default-next .node-route-preview__label {
+  color: var(--theme-node-muted);
+}
+
+.official-graph-node .node-route-preview--default-next .node-route-preview__chip {
+  color: var(--theme-node-muted);
+  background: transparent;
 }
 
 .official-node-port {
@@ -1203,34 +1198,6 @@ html[data-theme-id='plotflow-engine-telemetry'] .engine-telemetry-theme-center__
   border-radius: var(--radius-md);
 }
 
-html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-telemetry .official-theme-preview__canvas {
-  border: 1px solid var(--theme-telemetry-separator);
-  background:
-    linear-gradient(90deg, var(--theme-telemetry-canvas-grid) 1px, transparent 1px),
-    linear-gradient(0deg, var(--theme-telemetry-canvas-grid) 1px, transparent 1px),
-    var(--theme-blueprint-canvas);
-  background-size: 28px 28px;
-}
-
-html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-telemetry .official-theme-preview__node {
-  border-radius: var(--radius-sm);
-  border-color: var(--theme-telemetry-separator);
-  background: var(--theme-telemetry-panel-strong);
-}
-
-html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-telemetry .official-theme-preview-node-main {
-  border-color: var(--theme-signal-line);
-}
-
-html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-telemetry .official-theme-preview-node-leaf {
-  border-color: var(--theme-status-amber);
-}
-
-html[data-theme-id='plotflow-engine-telemetry'] .official-theme-preview--engine-telemetry path {
-  stroke: var(--theme-signal-line);
-  filter: none;
-}
-
 html[data-theme-id='plotflow-engine-telemetry'] .official-graph-node--engine-telemetry {
   overflow: hidden;
   border-radius: var(--theme-ux-node-radius, 10px);
@@ -1529,36 +1496,6 @@ html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-pris
   --theme-workbench-shadow: 0 14px 34px oklch(36% 0.055 280deg / 16%);
 }
 
-html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview__canvas {
-  background:
-    radial-gradient(circle at 82% 16%, oklch(90% 0.095 284deg / 58%), transparent 31%),
-    linear-gradient(90deg, oklch(64.5% 0.135 205deg / 12%) 1px, transparent 1px),
-    linear-gradient(0deg, oklch(58.5% 0.19 290deg / 10%) 1px, transparent 1px),
-    var(--theme-blueprint-canvas);
-  background-size: auto, 28px 28px, 28px 28px, auto;
-}
-
-html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview__node {
-  border-radius: 14px;
-  border-color: color-mix(in oklch, var(--theme-node-border), var(--theme-port-fill) 18%);
-  background: var(--theme-node-surface);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0deg / 74%),
-    var(--theme-workbench-shadow);
-}
-
-html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview-node-main {
-  border-color: color-mix(in oklch, var(--theme-port-fill), var(--theme-node-border) 38%);
-}
-
-html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] .official-theme-preview-node-leaf {
-  border-color: color-mix(in oklch, var(--theme-graph-cable-default), var(--theme-node-border) 38%);
-}
-
-html[data-theme-id] .official-theme-preview[data-preview-theme-id='plotflow-prism-foundry'] path {
-  stroke: var(--theme-graph-cable-default);
-}
-
 html[data-theme-id='plotflow-prism-foundry'] {
   --theme-prism-reader: var(--theme-node-surface, oklch(99.2% 0.009 284deg));
   --theme-prism-warning: var(--theme-warning-leaf, var(--theme-status-amber, var(--color-warning, oklch(70% 0.15 77deg))));
@@ -1620,7 +1557,7 @@ html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-logo {
   box-shadow: 0 0 0 3px var(--theme-prism-violet-glow);
 }
 
-html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .app-title {
+html[data-theme-id='plotflow-prism-foundry'] .prism-foundry-toolbar .brand-lockup__primary {
   color: var(--theme-prism-ink);
 }
 
@@ -2460,6 +2397,24 @@ html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry
   border-color: color-mix(in oklch, var(--theme-prism-separator), transparent 34%);
   background: var(--theme-prism-control-surface);
   box-shadow: inset 0 1px 0 oklch(100% 0 0deg / 60%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--theme-prism-signal), transparent 56%);
+  color: var(--theme-prism-muted);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 94%);
+  box-shadow: none;
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next:hover {
+  border-color: color-mix(in oklch, var(--theme-prism-signal), transparent 38%);
+  background: color-mix(in oklch, var(--theme-prism-signal), transparent 89%);
+}
+
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next .node-route-preview__label,
+html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--default-next .node-route-preview__chip {
+  color: var(--theme-prism-muted);
 }
 
 html[data-theme-id='plotflow-prism-foundry'] .official-graph-node--prism-foundry .node-route-preview--conditional .node-route-preview--requirement {

@@ -5,7 +5,7 @@ import { BUILTIN_TEMPLATES } from './builtinTemplates';
 
 const TEMPLATE_VARS = {
   title: 'M6 Verification',
-  author: 'PlotFlow Test',
+  author: 'Fablevia Test',
   engine: 'generic',
 } as const;
 
@@ -17,7 +17,7 @@ const TEMPLATE_FILES = [
 ] as const;
 
 describe('built-in templates', () => {
-  it('all app templates parse as PlotFlow stories', () => {
+  it('all app templates parse as Fablevia stories', () => {
     for (const template of BUILTIN_TEMPLATES) {
       const rendered = applyTemplate(template.content, {
         ...TEMPLATE_VARS,
@@ -36,7 +36,7 @@ describe('built-in templates', () => {
     }
   });
 
-  it('all repository template files parse as PlotFlow stories', () => {
+  it('all repository template files parse as Fablevia stories', () => {
     for (const path of TEMPLATE_FILES) {
       const raw = readFileSync(new URL(path, import.meta.url), 'utf8');
       const rendered = applyTemplate(raw, {

@@ -1,13 +1,14 @@
 import React, { useCallback } from 'react';
-import { ExternalLink, FilePlus2, FolderOpen, GitBranch, Palette, Play } from 'lucide-react';
+import { FilePlus2, FolderOpen, GitBranch, Palette, Play } from 'lucide-react';
 import { useThemePlatform } from '../ThemePlatformProvider';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUIStore } from '../../stores/uiStore';
-import { clearRecentStory, readRecentStory, rememberOpenedStory } from '../../services/recentFileService';
-import { loadSavedStorySession } from '../../services/storySessionService';
-import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
+import { clearRecentStory, readRecentStory } from '../../services/recentFileService';
+import { FileService } from '../../services/fileService';
+import { runStoryReplacement } from '../../services/storyTransactionService';
 import { useAppText } from '../../i18n/appI18n';
 import { requestWorkspaceMode } from '../../services/workspaceModeService';
+import { BrandLockup } from '../brand/BrandLockup';
 
 export function HomeSurface(): React.ReactElement | null {
   const isOpen = useUIStore((state) => state.isHomeSurfaceOpen);
@@ -22,10 +23,6 @@ export function HomeSurface(): React.ReactElement | null {
   const Surface = activeTheme.surfaces.HomeSurface;
   const text = useAppText();
 
-  const loadStory = useCallback((path: string, storyContent: string, hash: string, modifiedAt: number) => {
-    loadSavedStorySession({ filePath: path, content: storyContent, hash, modifiedAt, closeHome: true });
-  }, []);
-
   const continueEditing = useCallback(async () => {
     if (filePath) {
       setHomeSurfaceOpen(false);
@@ -39,40 +36,64 @@ export function HomeSurface(): React.ReactElement | null {
       return;
     }
 
-    const canReplace = await confirmBeforeReplacingCurrentStory('open');
-    if (!canReplace) return;
-
     if (!window.plotflow?.file?.readByPath) {
       setStatusMessage(text('file.readIpcUnavailable'));
       return;
     }
 
-    const result = await window.plotflow.file.readByPath(recent.filePath);
-    if (!result) {
-      clearRecentStory();
-      setStatusMessage(text('file.cannotRead', { path: recent.filePath }));
-      return;
-    }
-
-    rememberOpenedStory(result);
-    const normalizedPath = result.filePath.replace(/\\/g, '/');
-    loadStory(normalizedPath, result.content, result.hash, result.modifiedAt);
+    let openedPath = recent.filePath;
+    let changedOnDisk = false;
+    const replacement = await runStoryReplacement('open', async () => {
+      const result = await window.plotflow.file.readByPath(recent.filePath);
+      if (!result) {
+        clearRecentStory();
+        setStatusMessage(text('file.cannotRead', { path: recent.filePath }));
+        return null;
+      }
+      openedPath = result.filePath.replace(/\\/g, '/');
+      changedOnDisk = result.hash !== recent.hash;
+      return {
+        kind: 'saved',
+        filePath: openedPath,
+        content: result.content,
+        hash: result.hash,
+        modifiedAt: result.modifiedAt,
+        closeHome: true,
+      } as const;
+    });
+    if (replacement.status !== 'committed') return;
     setStatusMessage(
-      result.hash !== recent.hash
-        ? text('home.continueLoadedCurrent', { path: normalizedPath })
-        : text('status.opened', { path: normalizedPath }),
+      changedOnDisk
+        ? text('home.continueLoadedCurrent', { path: openedPath })
+        : text('status.opened', { path: openedPath }),
     );
-  }, [filePath, loadStory, setHomeSurfaceOpen, setStatusMessage, text]);
+  }, [filePath, setHomeSurfaceOpen, setStatusMessage, text]);
 
   const openFile = useCallback(async () => {
-    const canReplace = await confirmBeforeReplacingCurrentStory('open');
-    if (!canReplace) return;
-
-    const { FileService } = await import('../../services/fileService');
-    const result = await new FileService().openFile();
-    loadStory(result.path, result.content, result.hash, result.modifiedAt);
-    setStatusMessage(text('status.opened', { path: result.path }));
-  }, [loadStory, setStatusMessage, text]);
+    let openedPath = '';
+    const replacement = await runStoryReplacement('open', async () => {
+      try {
+        const result = await new FileService().openFile();
+        openedPath = result.path;
+        return {
+          kind: 'saved',
+          filePath: result.path,
+          content: result.content,
+          hash: result.hash,
+          modifiedAt: result.modifiedAt,
+          closeHome: true,
+        } as const;
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('取消')) return null;
+        throw error;
+      }
+    });
+    if (replacement.status === 'failed') {
+      setStatusMessage(replacement.error instanceof Error ? replacement.error.message : String(replacement.error));
+    } else if (replacement.status === 'committed') {
+      setStatusMessage(text('status.opened', { path: openedPath }));
+    }
+  }, [setStatusMessage, text]);
 
   if (!isOpen) return null;
 
@@ -83,7 +104,8 @@ export function HomeSurface(): React.ReactElement | null {
     <Surface
       heroCopy={(
         <>
-          <p className="home-surface__eyebrow">{text('home.eyebrow')}</p>
+          <BrandLockup variant="hero" />
+          <span className="home-surface__version">{text('appShell.version')}</span>
           <h2>{text('home.title')}</h2>
           <p>
             {text('home.body')}
@@ -109,12 +131,8 @@ export function HomeSurface(): React.ReactElement | null {
             type="button"
             className="button button--secondary"
             onClick={() => {
-              void (async () => {
-                const canReplace = await confirmBeforeReplacingCurrentStory('new');
-                if (!canReplace) return;
-                openNewFileDialog();
-                setHomeSurfaceOpen(false);
-              })();
+              openNewFileDialog();
+              setHomeSurfaceOpen(false);
             }}
           >
             <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
@@ -144,12 +162,7 @@ export function HomeSurface(): React.ReactElement | null {
           <button type="button" className="home-action-card" data-testid="home-open-theme-center" onClick={openThemeCenter}>
             <Palette aria-hidden="true" size={20} strokeWidth={2} />
             <span>{text('home.themeCenterTitle')}</span>
-            <small>{text('home.themeCenterDesc')}</small>
-          </button>
-          <button type="button" className="home-action-card" data-testid="home-open-theme-store" onClick={openThemeCenter}>
-            <ExternalLink aria-hidden="true" size={20} strokeWidth={2} />
-            <span>{text('home.themeStoreTitle')}</span>
-            <small>{text('home.themeStoreDesc')}</small>
+            <small>{text('themeCenter.note')}</small>
           </button>
         </>
       )}

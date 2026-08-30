@@ -1,4 +1,4 @@
-# PlotFlow
+# Fablevia（维叙）
 
 > **面向独立游戏开发者的叙事分支管理工具。**
 >
@@ -14,7 +14,7 @@
 
 ## 这是什么？
 
-PlotFlow 是一款**本地优先的叙事分支编辑器**。Graph Lab 是主要且默认的创作工作区，用户在全屏流程图、节点面板、Inspector 和 Source Drawer 中完成 GUI 图形化创作；Split 在顶栏并列保留，作为辅助与高级的完整 Markdown 方言源码投影。`.mdstory` 始终是唯一磁盘真相源。
+维叙（Fablevia）是一款**本地优先的叙事分支编辑器**。Graph Lab 是主要且默认的创作工作区，用户在全屏流程图、节点面板、Inspector 和 Source Drawer 中完成 GUI 图形化创作；Split 在顶栏并列保留，作为辅助与高级的完整 Markdown 方言源码投影。`.mdstory` 始终是唯一磁盘真相源。
 
 **目标用户**：独立游戏开发者（1-5 人团队）、游戏设计院校师生、视觉小说/互动小说制作者。
 
@@ -32,7 +32,7 @@ PlotFlow 是一款**本地优先的叙事分支编辑器**。Graph Lab 是主要
 
 | 模块 | 说明 |
 |------|------|
-| 📝 **Monaco 编辑器** | VS Code 内核，PlotFlow 语法高亮 + 智能补全 |
+| 📝 **Monaco 编辑器** | VS Code 内核，Fablevia 语法高亮 + 智能补全 |
 | 🌳 **实时分支图** | React Flow 可拖拽节点图，文本 ↔ 图形双向同步 |
 | 🧭 **Graph Lab** | 全屏流程图优先编辑，Palette 创建节点，Inspector 编辑内容/选项/条件/效果/变量，章节标签切换，Source Drawer 按章节切片编辑 |
 | 🔧 **条件编辑器** | 双侧类型化操作数，支持 AND / OR / NOT、literal-left 与三层嵌套；Split 弹窗具备完整键盘焦点语义 |
@@ -145,4 +145,4 @@ Copyright © 2026. Proprietary — 商业买断软件。
 
 ---
 
-*PlotFlow: 让文案写分支，让程序拿数据。*
+*维叙（Fablevia）：让文案写分支，让程序拿数据。*

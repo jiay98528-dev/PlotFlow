@@ -30,6 +30,12 @@ export interface EditorState {
   /** 当前故事会话的单调递增标识；新建、打开或外部重载时变化。 */
   readonly storySessionId: number;
 
+  /** 当前故事 canonical 文本的单调递增版本。 */
+  readonly contentRevision: number;
+
+  /** Graph Lab Source Drawer 草稿的单调递增版本。 */
+  readonly sourceDraftRevision: number;
+
   /** 自上次保存后是否有未保存的修改 */
   readonly isDirty: boolean;
 
@@ -65,10 +71,16 @@ export interface EditorState {
   setContent: (content: string) => void;
 
   /** 开始新的故事会话，使所有仅属于当前会话的 UI 草稿失效。 */
-  beginStorySession: () => void;
+  beginStorySession: (content?: string) => void;
+
+  /** 记录 Source Drawer 草稿输入、提交、还原或 controller 生命周期变化。 */
+  bumpSourceDraftRevision: () => void;
 
   /** 标记为已保存（清除脏状态） */
   markSaved: () => void;
+
+  /** 将当前故事标记为未保存；用于新故事会话即使文本恰好相同的情况。 */
+  markDirty: () => void;
 
   /** 设置当前文件路径 */
   setFilePath: (path: string | null) => void;
@@ -101,6 +113,8 @@ export interface EditorState {
 
 const initialState = {
   storySessionId: 0,
+  contentRevision: 0,
+  sourceDraftRevision: 0,
   isDirty: false,
   content: '',
   filePath: null,
@@ -112,7 +126,23 @@ const initialState = {
   diagnostics: [],
   activeNodeId: null,
   editorInstance: null,
-} as const satisfies Omit<EditorState, 'setContent' | 'beginStorySession' | 'markSaved' | 'setFilePath' | 'setFileBaseline' | 'setPendingExternalChange' | 'clearPendingExternalChange' | 'setCursorPosition' | 'setDiagnostics' | 'setActiveNodeId' | 'setEditorInstance' | 'reset'>;
+} as const satisfies Omit<
+  EditorState,
+  | 'setContent'
+  | 'beginStorySession'
+  | 'bumpSourceDraftRevision'
+  | 'markSaved'
+  | 'markDirty'
+  | 'setFilePath'
+  | 'setFileBaseline'
+  | 'setPendingExternalChange'
+  | 'clearPendingExternalChange'
+  | 'setCursorPosition'
+  | 'setDiagnostics'
+  | 'setActiveNodeId'
+  | 'setEditorInstance'
+  | 'reset'
+>;
 
 // ============================================================================
 // Store
@@ -128,40 +158,66 @@ export const useEditorStore = create<EditorState>()(
 
       setContent: (content: string) =>
         set(
-          { content, isDirty: true },
+          (state) =>
+            content === state.content
+              ? state
+              : {
+                  content,
+                  contentRevision: state.contentRevision + 1,
+                  isDirty: true,
+                },
           false,
           'editor/setContent',
         ),
 
-      beginStorySession: () =>
+      beginStorySession: (content?: string) =>
         set(
-          (state) => ({ storySessionId: state.storySessionId + 1 }),
+          (state) => {
+            const contentChanged = content !== undefined && content !== state.content;
+            return {
+              storySessionId: state.storySessionId + 1,
+              sourceDraftRevision: state.sourceDraftRevision + 1,
+              ...(contentChanged
+                ? {
+                    content,
+                    contentRevision: state.contentRevision + 1,
+                    isDirty: true,
+                  }
+                : {}),
+            };
+          },
           false,
           'editor/beginStorySession',
         ),
 
-      markSaved: () =>
+      bumpSourceDraftRevision: () =>
         set(
-          { isDirty: false },
+          (state) => ({ sourceDraftRevision: state.sourceDraftRevision + 1 }),
           false,
-          'editor/markSaved',
+          'editor/bumpSourceDraftRevision',
         ),
+
+      markSaved: () => set({ isDirty: false }, false, 'editor/markSaved'),
+
+      markDirty: () => set({ isDirty: true }, false, 'editor/markDirty'),
 
       setFilePath: (path: string | null) =>
         set(
           path === null
-            ? { filePath: null, baseFileHash: null, baseModifiedAt: null, pendingExternalChange: null, isSaveBlockedByConflict: false }
+            ? {
+                filePath: null,
+                baseFileHash: null,
+                baseModifiedAt: null,
+                pendingExternalChange: null,
+                isSaveBlockedByConflict: false,
+              }
             : { filePath: path },
           false,
           'editor/setFilePath',
         ),
 
       setFileBaseline: (hash: string | null, modifiedAt: number | null) =>
-        set(
-          { baseFileHash: hash, baseModifiedAt: modifiedAt },
-          false,
-          'editor/setFileBaseline',
-        ),
+        set({ baseFileHash: hash, baseModifiedAt: modifiedAt }, false, 'editor/setFileBaseline'),
 
       setPendingExternalChange: (event: FileExternalChangeEvent) =>
         set(
@@ -178,36 +234,25 @@ export const useEditorStore = create<EditorState>()(
         ),
 
       setCursorPosition: (line: number, column: number) =>
-        set(
-          { cursorPosition: { line, column } },
-          false,
-          'editor/setCursorPosition',
-        ),
+        set({ cursorPosition: { line, column } }, false, 'editor/setCursorPosition'),
 
       setDiagnostics: (diagnostics: Diagnostic[]) =>
-        set(
-          { diagnostics },
-          false,
-          'editor/setDiagnostics',
-        ),
+        set({ diagnostics }, false, 'editor/setDiagnostics'),
 
       setActiveNodeId: (id: string | null) =>
-        set(
-          { activeNodeId: id },
-          false,
-          'editor/setActiveNodeId',
-        ),
+        set({ activeNodeId: id }, false, 'editor/setActiveNodeId'),
 
       setEditorInstance: (editor: monaco.editor.IStandaloneCodeEditor | null) =>
-        set(
-          { editorInstance: editor },
-          false,
-          'editor/setEditorInstance',
-        ),
+        set({ editorInstance: editor }, false, 'editor/setEditorInstance'),
 
       reset: () =>
         set(
-          (state) => ({ ...initialState, storySessionId: state.storySessionId + 1 }),
+          (state) => ({
+            ...initialState,
+            storySessionId: state.storySessionId + 1,
+            contentRevision: state.contentRevision + 1,
+            sourceDraftRevision: state.sourceDraftRevision + 1,
+          }),
           false,
           'editor/reset',
         ),

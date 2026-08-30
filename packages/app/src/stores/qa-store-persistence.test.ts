@@ -711,12 +711,13 @@ describe('uiStore — 状态流 (ST-11~ST-15)', () => {
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
-  it('[ST-13] setActiveThemeId() -> 任意字符串 ID 直接接受', () => {
+  it('[ST-13] setActiveThemeId() -> 未知或远程 ID 回退到 Prism Foundry', () => {
     useUIStore.getState().setActiveThemeId(PRISM_FOUNDRY_THEME_ID);
     expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
 
     useUIStore.getState().setActiveThemeId('custom-official-theme');
-    expect(useUIStore.getState().activeThemeId).toBe('custom-official-theme');
+    expect(useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
   });
 
   // --------------------------------------------------------------------------
@@ -913,6 +914,18 @@ describe('localStorage 持久化 (DATA-03)', () => {
       expect(window.localStorage.getItem('plotflow:themeId')).toBe(themeId);
       expect(fresh.useUIStore.getState().activeThemeId).toBe(themeId);
     }
+
+    vi.resetModules();
+    await import('./uiStore');
+  });
+
+  it('[DATA-03-18i] stored remote theme ID falls back and is corrected on disk', async () => {
+    window.localStorage.setItem('plotflow:themeId', 'plotflow-neon-dossier');
+    vi.resetModules();
+    const fresh = await import('./uiStore');
+
+    expect(fresh.useUIStore.getState().activeThemeId).toBe(PRISM_FOUNDRY_THEME_ID);
+    expect(window.localStorage.getItem('plotflow:themeId')).toBe(PRISM_FOUNDRY_THEME_ID);
 
     vi.resetModules();
     await import('./uiStore');

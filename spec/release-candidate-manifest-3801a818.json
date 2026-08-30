@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "LOCAL_PREFLIGHT_ONLY",
+  "candidateCommit": "3801a8181645f99b45ffb612ac04fbace13aa25b",
+  "packagedFromCleanWorktree": true,
+  "createdAt": "2026-07-15T01:44:57.9549520+08:00",
+  "version": "0.1.0",
+  "artifacts": [
+    {
+      "path": "release/PlotFlow Setup 0.1.0.exe",
+      "sha256": "be61590492fef964fd465958909f8094124875c4cefb69910456fc6d7ff623e5",
+      "bytes": 103976081,
+      "authenticode": "NotSigned"
+    },
+    {
+      "path": "release/win-unpacked/PlotFlow.exe",
+      "sha256": "4bcc43a7377bab2a5204620c2436ad2c1556046babbed6248b1e5afe226f0baa",
+      "bytes": 232393216,
+      "authenticode": "NotSigned"
+    }
+  ],
+  "localPreflightEvidence": {
+    "unpacked": {
+      "summary": "spec/release-evidence/3801a8181645f99b45ffb612ac04fbace13aa25b/local-unpacked/summary.json",
+      "playwrightResultsSha256": "a8235eea298e12c998bb3aaf489a8791ab38ef2d7b17f7f01d84d5e098f783fe",
+      "expected": 17,
+      "unexpected": 0,
+      "skipped": 0
+    },
+    "installed": {
+      "summary": "spec/release-evidence/3801a8181645f99b45ffb612ac04fbace13aa25b/local-installed/summary.json",
+      "playwrightResultsSha256": "db5c895e63791ef3c679f82690610bc7f4b453c8ad4795cc767accadd6477c3f",
+      "expected": 17,
+      "unexpected": 0,
+      "skipped": 0
+    }
+  },
+  "ciArtifactId": null,
+  "releaseDecision": "PENDING_INDEPENDENT_REVIEW"
+}

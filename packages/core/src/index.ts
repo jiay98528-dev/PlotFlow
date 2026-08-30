@@ -150,7 +150,7 @@ import { validate as runAllRules } from './validator/index.js';
 /**
  * 验证 PlotFlowData 中间表示，返回诊断信息。
  *
- * 运行全部 17 条检测规则（E001-E008 + W001-W006 + I001-I003）。
+ * 运行全部 18 条检测规则（E001-E009 + W001-W006 + I001-I003）。
  * 返回 ParseResult 模式：ok 携带通过验证的 AST，fail 携带错误诊断。
  *
  * @param data - 解析后的 PlotFlowData AST
@@ -171,7 +171,7 @@ export function validate(data: PlotFlowData): ParseResult<PlotFlowData> {
 }
 
 /**
- * 运行完整的 17 条验证规则，返回 ValidationResult（不包装 ParseResult）。
+ * 运行完整的 18 条验证规则，返回 ValidationResult（不包装 ParseResult）。
  *
  * @param data - 解析后的 PlotFlowData AST
  * @returns ValidationResult 结构
@@ -206,6 +206,7 @@ export {
   checkE006,
   checkE007,
   checkE008,
+  checkE009,
   computeSummary,
 } from './validator/index.js';
 

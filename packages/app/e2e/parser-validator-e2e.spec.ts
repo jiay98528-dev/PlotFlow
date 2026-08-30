@@ -21,7 +21,6 @@ import fs from 'fs';
 // ============================================================================
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
-const RENDER_WAIT_MS = 1000;
 const TEARDOWN_TIMEOUT_MS = 15_000;
 
 // ============================================================================
@@ -127,7 +126,6 @@ async function waitForGraphStatus(
     status,
     { timeout: 10_000 },
   );
-  await page.waitForTimeout(RENDER_WAIT_MS);
 }
 
 /**
@@ -248,11 +246,15 @@ async function getDiagnosticItems(page: Page): Promise<Array<{
 async function getGraphNodeStatuses(page: Page): Promise<Record<string, string>> {
   return page.evaluate(() => {
     const statusMap: Record<string, string> = {};
+    const semanticStatuses = new Set(['normal', 'orphan', 'deadend', 'error', 'root']);
     const nodes = document.querySelectorAll('.react-flow__node');
 
     nodes.forEach((node) => {
       const classList = Array.from(node.querySelector('.official-graph-node')?.classList ?? (node.classList as unknown as DOMTokenList));
-      const statusClass = classList.find((c) => c.startsWith('official-graph-node--') && !c.includes('workbench'));
+      const statusClass = classList.find((className) => {
+        if (!className.startsWith('official-graph-node--')) return false;
+        return semanticStatuses.has(className.replace('official-graph-node--', ''));
+      });
       const status = statusClass ? statusClass.replace('official-graph-node--', '') : 'unknown';
       // React Flow v12 使用 data-id；回退到 id 属性或 aria-label
       const dataId =

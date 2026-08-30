@@ -46,7 +46,7 @@
         name: 'Windows packaged smoke',
         status: 'pass',
         result: 'PASS',
-        detail: 'release/win-unpacked/PlotFlow.exe 可启动；命令行打开 .mdstory、Graph Lab 图形编辑、Source Drawer、导出 JSON 成功',
+        detail: 'release/win-unpacked/Fablevia.exe 可启动；命令行打开 .mdstory、Graph Lab 图形编辑、Source Drawer、导出 JSON 成功',
       },
     ],
     stableFeatures: [
@@ -149,7 +149,7 @@
         eyebrow: '本地优先的叙事分支工作台',
         title: '在画布上编排剧情分支，再把干净数据交给引擎。',
         subtitle:
-          'PlotFlow 面向独立游戏团队，默认用 Graph Lab 完成图形化创作，同时把所有内容可靠保存为开放的 .mdstory 纯文本。',
+          '维叙（Fablevia）面向独立游戏团队，默认用 Graph Lab 完成图形化创作，同时把所有内容可靠保存为开放的 .mdstory 纯文本。',
         primary: '阅读使用说明',
         secondary: '查看开发进度',
         status: 'Graph-first 源码态与 Windows 解包态门禁已通过；安装态、人工巡检和发行签名待完成。',
@@ -175,7 +175,7 @@
         title: '从第一份 .mdstory 到可交付导出',
         intro: '这份指南按默认 Graph-first 旅程组织：创建文件、画布编排、修复问题、保存并导出给引擎或团队成员。',
         sections: [
-          ['创建或打开故事文件', 'PlotFlow 的磁盘真相源是 .mdstory 剧情源文件；首次启动、新建、打开和继续编辑默认进入 Graph Lab。', ['启动应用后选择新建文件、打开现有 .mdstory，或通过命令行/文件关联打开故事文件。', '确认默认显示 Graph Lab 画布；文件仍可用普通文本编辑器查看。', '保存后，后续编辑、图形状态、导出结果都从同一份 .mdstory 解析得到。']],
+          ['创建或打开故事文件', '维叙（Fablevia）的磁盘真相源是 .mdstory 剧情源文件；首次启动、新建、打开和继续编辑默认进入 Graph Lab。', ['启动应用后选择新建文件、打开现有 .mdstory，或通过命令行/文件关联打开故事文件。', '确认默认显示 Graph Lab 画布；文件仍可用普通文本编辑器查看。', '保存后，后续编辑、图形状态、导出结果都从同一份 .mdstory 解析得到。']],
           ['在 Graph Lab 编排剧情', '使用 Palette、节点卡片、连线和 Inspector 创建章节、节点、正文与选项。', ['用章节标签组织大段剧情。', '在 Inspector 中写对白、旁白和行动描述。', '拖线连接目标节点，并在字段化面板维护条件和效果。', '通过诊断入口检查死胡同、孤立节点和语法问题。']],
           ['按需使用 Split 源码投影', 'Split 在顶栏并列保留，提供完整 .mdstory 的精确编辑、透明性与恢复能力，但不是默认工作区。', ['显式切换到 Split 查看完整文件。', '修改文本后等待解析管线同步 Graph Lab。', '确认图形编辑与源码编辑始终落回同一文件。', '完成高级源码操作后可随时返回 Graph Lab。']],
           ['处理错误、警告和建议', '诊断分为错误、警告和建议。错误通常会阻断可靠导出；警告常见于孤立节点、死胡同或潜在逻辑问题。', ['查看编辑器波浪线和右侧节点颜色，定位问题发生在哪里。', '打开问题面板，按诊断代码跳转到具体文本位置。', '优先修复未定义目标、重复标识、条件语法错误等错误级问题。', '再处理孤立节点、死胡同和建议级质量问题。']],
@@ -202,7 +202,7 @@
         eyebrow: 'A local-first branching narrative workspace',
         title: 'Shape branches on the canvas, then ship clean data to your engine.',
         subtitle:
-          'PlotFlow defaults to a complete Graph Lab workflow while saving every story to an open, local .mdstory text file.',
+          'Fablevia defaults to a complete Graph Lab workflow while saving every story to an open, local .mdstory text file.',
         primary: 'Read the guide',
         secondary: 'See development',
         status: 'Graph-first source and Windows unpacked gates pass; installed-app, manual patrol, and signing gates remain.',
@@ -354,8 +354,8 @@
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
     document.title =
       locale === 'zh'
-        ? 'PlotFlow - 叙事分支工作台'
-        : 'PlotFlow - Narrative Branching Workspace';
+        ? '维叙（Fablevia）- 叙事分支工作台'
+        : 'Fablevia - Narrative Branching Workspace';
     render();
   }
 
@@ -365,8 +365,8 @@
     return `
       <header class="site-header">
         <button class="brand-mark" data-page="home" type="button">
-          <span class="brand-mark__sigil">PF</span>
-          <span><strong>PlotFlow</strong><small>${state.locale === 'zh' ? '叙事分支工作台' : 'Branching narrative workspace'}</small></span>
+          <img class="brand-mark__icon" src="./fablevia-icon.svg" alt="" aria-hidden="true">
+          <span class="brand-lockup brand-lockup--${state.locale}" aria-label="${state.locale === 'zh' ? '维叙（Fablevia）' : 'Fablevia'}"><strong>${state.locale === 'zh' ? '维叙' : 'Fablevia'}</strong>${state.locale === 'zh' ? '<small>Fablevia</small>' : ''}</span>
         </button>
         <nav class="nav-links" aria-label="${state.locale === 'zh' ? '主导航' : 'Main navigation'}">
           ${t.nav
@@ -389,7 +389,7 @@
     const labels =
       state.locale === 'zh'
         ? {
-            aria: 'PlotFlow 界面预览',
+            aria: '维叙（Fablevia）界面预览',
             file: '第一章.mdstory',
             saved: '已自动保存',
             chapter: '第一章',
@@ -411,7 +411,7 @@
             exportC: 'TXT 校对',
           }
         : {
-            aria: 'PlotFlow interface preview',
+            aria: 'Fablevia interface preview',
             file: 'chapter-one.mdstory',
             saved: 'autosaved',
             chapter: 'Chapter One',
@@ -656,7 +656,7 @@ The guard stops you.
   function footer() {
     return `
       <footer class="site-footer">
-        <div><strong>PlotFlow</strong><p>${state.locale === 'zh' ? '本地优先，不锁数据，面向独立游戏叙事生产。' : 'Local-first, source-readable, built for branching narrative production.'}</p></div>
+        <div><span class="brand-lockup brand-lockup--${state.locale}" aria-label="${state.locale === 'zh' ? '维叙（Fablevia）' : 'Fablevia'}"><strong>${state.locale === 'zh' ? '维叙' : 'Fablevia'}</strong>${state.locale === 'zh' ? '<small>Fablevia</small>' : ''}</span><p>${state.locale === 'zh' ? '本地优先，不锁数据，面向独立游戏叙事生产。' : 'Local-first, source-readable, built for branching narrative production.'}</p></div>
         <button class="footer-link" data-page="guide" type="button">${state.locale === 'zh' ? '开始阅读' : 'Start reading'} →</button>
       </footer>
     `;

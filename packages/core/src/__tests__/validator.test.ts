@@ -561,16 +561,16 @@ describe('validateAll - 一站式验证', () => {
 describe('computeSummary', () => {
   it('正确统计各严重级别的数量', () => {
     const result = validateAll(createMinimalData({ chapters: [] }));
-    // 无章节无节点 → 0 诊断
-    expect(result.summary).toEqual({ errors: 0, warnings: 0, infos: 0, total: 0 });
+    // 无章节无节点 → E009 阻止导出
+    expect(result.summary).toEqual({ errors: 1, warnings: 0, infos: 0, total: 1 });
   });
 });
 
 // ============================================================================
-// validate — 主验证函数（17 条规则）
+// validate — 主验证函数（18 条规则）
 // ============================================================================
 
-describe('validate - 17 条规则一站式验证', () => {
+describe('validate - 18 条规则一站式验证', () => {
   it('至少检测出 3 种不同类型的诊断', () => {
     // 构造数据触发多种诊断：
     // E001: 选项指向不存在的节点
@@ -668,5 +668,32 @@ describe('validate - 17 条规则一站式验证', () => {
 
     expect(resultA.diagnostics.length).toBe(resultB.diagnostics.length);
     expect(resultA.summary).toEqual(resultB.summary);
+  });
+
+  it('重复验证幂等并覆盖过期节点状态', () => {
+    const root = createNode('root', '开始', '正文', [createOption('继续', 'next')]);
+    const next = createNode('next', '结束', '正文', [], {
+      diagnostics: {
+        isRoot: true,
+        isOrphan: true,
+        isDeadEnd: false,
+        diagnosticIds: ['E005-parse'],
+      },
+    });
+    const data = createMinimalData({
+      chapters: [createChapter('ch1', '第一章', [root, next])],
+    });
+
+    const first = validate(data);
+    const firstNodeDiagnostics = data.chapters[0]!.nodes.map((node) => ({
+      ...node.diagnostics,
+      diagnosticIds: [...node.diagnostics.diagnosticIds],
+    }));
+    const second = validate(data);
+
+    expect(second).toEqual(first);
+    expect(data.chapters[0]!.nodes.map((node) => node.diagnostics)).toEqual(firstNodeDiagnostics);
+    expect(next.diagnostics).toMatchObject({ isRoot: false, isOrphan: false, isDeadEnd: true });
+    expect(next.diagnostics.diagnosticIds).toContain('E005-parse');
   });
 });

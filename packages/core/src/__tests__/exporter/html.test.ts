@@ -66,6 +66,26 @@ vars:
   效果: (拥有钥匙=true)
 
 [选项] 离开 -> 节点：森林入口
+
+## 节点：村庄广场
+
+你回到了村庄。
+
+## 节点：战斗结果
+
+战斗结束。
+
+## 节点：驯服狼
+
+巨狼成为了伙伴。
+
+## 节点：井水效果
+
+井水恢复了你的力量。
+
+## 节点：符文秘密
+
+符文揭示了秘密。
 `;
 
 describe('exportHTML', () => {
@@ -75,7 +95,7 @@ describe('exportHTML', () => {
     if (!parseResult.ok) return;
 
     const result = exportHTML(parseResult.data);
-    expect(result.ok).toBe(true);
+    expect(result.ok, result.ok ? undefined : JSON.stringify(result.errors)).toBe(true);
     if (!result.ok) return;
 
     const html = result.data;
@@ -155,6 +175,50 @@ describe('exportHTML', () => {
     expect(html).toContain('拥有钥匙');
   });
 
+  it('HTML 使用解析器归一化后的嵌套 object 默认值', () => {
+    const input = `---
+vars:
+  玩家:
+    type: object
+    default:
+      属性:
+        生命: 80
+    fields:
+      名称:
+        type: string
+        default: 无名者
+      属性:
+        type: object
+        fields:
+          生命:
+            type: int
+            default: 100
+          存活: bool
+---
+
+# 章
+
+## 节点：开始
+
+正文。
+`;
+    const parsed = parseStory(input);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    const exported = exportHTML(parsed.data);
+    expect(exported.ok).toBe(true);
+    if (!exported.ok) return;
+    const storyMatch = exported.data.match(/var STORY = ({.*?});/s);
+    expect(storyMatch?.[1]).toBeDefined();
+    const runtime = JSON.parse(storyMatch![1]!) as { vars: Record<string, unknown> };
+    expect(runtime.vars['玩家']).toEqual({
+      名称: '无名者',
+      属性: { 生命: 80, 存活: false },
+    });
+    expect(runtime.vars['玩家']).toEqual(parsed.data.variables[0]!.defaultValue);
+  });
+
   it('空数据返回错误', () => {
     const parseResult = parseStory('');
     expect(parseResult.ok).toBe(true);
@@ -165,7 +229,7 @@ describe('exportHTML', () => {
     if (result.ok) return;
 
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors[0]!.code).toBe('E005');
+    expect(result.errors[0]!.code).toBe('E009');
   });
 
   it('HTML 不含外部资源引用（自包含）', () => {

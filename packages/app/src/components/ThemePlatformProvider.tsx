@@ -13,7 +13,7 @@
  * @module components/ThemePlatformProvider
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import * as monaco from 'monaco-editor';
 import { THEME_DARK, THEME_LIGHT } from '../editor/setupEditor';
 import { useUIStore, type Language } from '../stores/uiStore';
@@ -22,7 +22,6 @@ import { registerTheme, getThemeOrDefault, listThemes } from '../theme-platform/
 import { createMonacoThemeName, resolveMonacoTheme } from '../theme-platform/bridge';
 import type { ThemeDescriptor, ThemeId } from '../theme-platform/types';
 import { builtinThemes } from '../theme/builtin/index';
-import { getInstalledOfficialThemeDescriptor } from '../theme/officialRemoteThemes';
 
 // ============================================================================
 // Context
@@ -32,7 +31,6 @@ export interface ThemePlatformContextValue {
   readonly activeTheme: ThemeDescriptor;
   readonly themes: readonly ThemeDescriptor[];
   readonly activeThemeId: ThemeId;
-  readonly refreshOfficialThemes: () => Promise<void>;
 }
 
 const ThemePlatformContext = createContext<ThemePlatformContextValue | null>(null);
@@ -64,37 +62,16 @@ export interface ThemePlatformProviderProps {
 export function ThemePlatformProvider({ children }: ThemePlatformProviderProps): React.ReactElement {
   const language: Language = useUIStore((state) => state.language);
   const activeThemeId: ThemeId = useUIStore((state) => state.activeThemeId);
-  const [themes, setThemes] = useState<readonly ThemeDescriptor[]>(() => listThemes());
-  const refreshOfficialThemes = React.useCallback(async () => {
-    const installed = await window.plotflow?.theme?.listOfficialInstalled?.();
-    let changed = false;
-    for (const summary of installed ?? []) {
-      const descriptor = await getInstalledOfficialThemeDescriptor(summary);
-      if (!descriptor) continue;
-      registerTheme(descriptor);
-      changed = true;
-    }
-    if (changed) setThemes(listThemes());
-  }, []);
+  const setActiveThemeId = useUIStore((state) => state.setActiveThemeId);
+  const themes = useMemo<readonly ThemeDescriptor[]>(() => listThemes(), []);
 
-  const activeTheme = useMemo(
-    () => getThemeOrDefault(activeThemeId),
-    [activeThemeId, themes],
-  );
+  const activeTheme = useMemo(() => getThemeOrDefault(activeThemeId), [activeThemeId]);
 
+  // Persisted remote/unknown IDs are corrected to the bundled default. Existing
+  // theme directories on disk are deliberately ignored and left untouched.
   useEffect(() => {
-    let cancelled = false;
-    void refreshOfficialThemes()
-      .then(() => {
-        if (cancelled) return;
-      })
-      .catch(() => {
-        // Remote official themes are optional; builtin themes remain the safe baseline.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshOfficialThemes]);
+    if (activeThemeId !== activeTheme.id) setActiveThemeId(activeTheme.id);
+  }, [activeTheme.id, activeThemeId, setActiveThemeId]);
 
   // --- Effect 1: CSS 应用 ---
   useEffect(() => {
@@ -130,9 +107,8 @@ export function ThemePlatformProvider({ children }: ThemePlatformProviderProps):
       activeTheme,
       themes,
       activeThemeId: activeTheme.id,
-      refreshOfficialThemes,
     }),
-    [activeTheme, themes, refreshOfficialThemes],
+    [activeTheme, themes],
   );
 
   return (

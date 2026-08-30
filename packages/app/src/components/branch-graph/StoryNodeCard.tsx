@@ -353,6 +353,7 @@ export const StoryNodeCard: React.FC<StoryNodeCardProps> = ({ data, selected }) 
               data-source-full-id={data.fullId}
               data-option-index={optionIndex}
               data-testid={isDefaultNextRoute ? 'story-node-default-next-handle' : `story-node-option-handle-${optionIndex}`}
+              tabIndex={-1}
               title={summary.ariaLabel}
             >
               <Handle

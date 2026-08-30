@@ -5,12 +5,16 @@
  * bundled into the desktop app. Keep `files` as an allowlist.
  */
 
+const path = require('node:path');
+
+const releaseOutput = process.env.PLOTFLOW_RELEASE_OUTPUT?.trim();
+
 module.exports = {
   appId: 'com.plotflow.app',
-  productName: 'PlotFlow',
+  productName: 'Fablevia',
 
   directories: {
-    output: 'release',
+    output: releaseOutput ? path.resolve(releaseOutput) : 'release',
     buildResources: 'build',
   },
 
@@ -21,10 +25,7 @@ module.exports = {
   npmRebuild: false,
   asar: true,
 
-  files: [
-    'out/**/*',
-    'package.json',
-  ],
+  files: ['out/**/*', 'package.json'],
 
   extraResources: [
     {
@@ -40,8 +41,8 @@ module.exports = {
   fileAssociations: [
     {
       ext: 'mdstory',
-      name: 'PlotFlow Story',
-      description: 'PlotFlow story branch file',
+      name: 'Fablevia.Story',
+      description: 'Fablevia Story',
       icon: 'build/file-icon.ico',
       role: 'Editor',
       isPackage: false,
@@ -55,7 +56,7 @@ module.exports = {
 
   nsis: {
     oneClick: false,
-    artifactName: 'PlotFlow Setup ${version}.${ext}',
+    artifactName: 'Fablevia Setup ${version}.${ext}',
     guid: '74fc8b73-b58d-5573-82e7-75efc9ec526f',
     include: 'build/installer.nsh',
 
@@ -66,8 +67,8 @@ module.exports = {
     createDesktopShortcut: 'always',
     createStartMenuShortcut: true,
     runAfterFinish: true,
-    shortcutName: 'PlotFlow',
-    uninstallDisplayName: 'PlotFlow',
+    shortcutName: 'Fablevia',
+    uninstallDisplayName: 'Fablevia',
 
     installerIcon: 'build/icon.ico',
     uninstallerIcon: 'build/icon.ico',

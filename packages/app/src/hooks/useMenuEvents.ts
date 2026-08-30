@@ -22,10 +22,11 @@ import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { saveAsCurrentFile, saveOrSaveAs } from '../services/autoSaveService';
 import { FileService } from '../services/fileService';
-import { loadSavedStorySession } from '../services/storySessionService';
-import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
+import { runStoryReplacement } from '../services/storyTransactionService';
+import { requestExportDialog } from '../services/exportSnapshotService';
 import { appT } from '../i18n/appI18n';
 import { redoGraphEdit, undoGraphEdit } from '../services/graphHistoryService';
+import { requestFeedbackDialog } from '../services/feedbackDialogService';
 
 // ============================================================================
 // 模块级实例
@@ -74,32 +75,33 @@ export function useMenuEvents(): void {
     // 文件菜单
     // ====================================================================
 
-    menu.onEvent('menu:file:new', async () => {
-      const canReplace = await confirmBeforeReplacingCurrentStory('new');
-      if (!canReplace) return;
+    menu.onEvent('menu:file:new', () => {
       useUIStore.getState().openNewFileDialog();
     });
 
     menu.onEvent('menu:file:open', async () => {
       try {
-        const canReplace = await confirmBeforeReplacingCurrentStory('open');
-        if (!canReplace) return;
-
-        const result = await fileService.openFile();
-        if (!result) return; // 用户取消了文件打开对话框
-
-        // 清除防抖定时器
-        // 重新获取最新的 editor 引用（saveOrSaveAs 可能已更新路径）
-        // 清除旧 AST 数据（新内容将在解析后自动更新）
-        // 状态栏反馈
-        loadSavedStorySession({
-          filePath: result.path,
-          content: result.content,
-          hash: result.hash,
-          modifiedAt: result.modifiedAt,
-          closeHome: true,
+        const replacement = await runStoryReplacement('open', async () => {
+          try {
+            const result = await fileService.openFile();
+            return {
+              kind: 'saved',
+              filePath: result.path,
+              content: result.content,
+              hash: result.hash,
+              modifiedAt: result.modifiedAt,
+              closeHome: true,
+            } as const;
+          } catch (error) {
+            if (error instanceof Error && error.message.includes('取消')) return null;
+            throw error;
+          }
         });
-        useUIStore.getState().setStatusMessage(menuText('status.opened', { path: result.path }));
+        if (replacement.status === 'failed') throw replacement.error;
+        if (replacement.status === 'committed') {
+          const path = useEditorStore.getState().filePath ?? '';
+          useUIStore.getState().setStatusMessage(menuText('status.opened', { path }));
+        }
       } catch (error) {
         // 用户取消操作属正常行为，不显示为"失败"
         handleError('menu.openError', error);
@@ -170,9 +172,11 @@ export function useMenuEvents(): void {
       // 切换分支图面板的显示/隐藏
       const nextPanel = ui.activeRightPanel === 'graph' ? 'none' : 'graph';
       ui.setActiveRightPanel(nextPanel);
-      useUIStore.getState().setStatusMessage(
-        nextPanel === 'graph' ? menuText('menu.graphShown') : menuText('menu.graphHidden'),
-      );
+      useUIStore
+        .getState()
+        .setStatusMessage(
+          nextPanel === 'graph' ? menuText('menu.graphShown') : menuText('menu.graphHidden'),
+        );
     });
 
     menu.onEvent('menu:view:toggleProblems', () => {
@@ -188,29 +192,28 @@ export function useMenuEvents(): void {
     // ====================================================================
 
     menu.onEvent('menu:export:json', () => {
-      useUIStore.getState().openExportDialog('json');
+      requestExportDialog('json');
     });
 
     menu.onEvent('menu:export:html', () => {
-      useUIStore.getState().openExportDialog('html');
+      requestExportDialog('html');
     });
 
     menu.onEvent('menu:export:txt', () => {
-      useUIStore.getState().openExportDialog('txt');
+      requestExportDialog('txt');
     });
 
     // ====================================================================
     // 帮助菜单
     // ====================================================================
 
+    menu.onEvent('menu:help:feedback', () => {
+      requestFeedbackDialog();
+    });
+
     menu.onEvent('menu:help:about', () => {
       // M7 启用：使用 dialog.showMessageBox 显示完整关于信息
       useUIStore.getState().setStatusMessage(menuText('menu.about'));
-    });
-
-    menu.onEvent('menu:help:docs', () => {
-      // M7 启用：使用 shell.openExternal 或 shell.openPath 打开文档
-      useUIStore.getState().setStatusMessage(menuText('menu.docs'));
     });
 
     // ── 组件卸载时清理所有监听器 ──

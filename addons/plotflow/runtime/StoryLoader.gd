@@ -2,7 +2,7 @@
 class_name PlotFlowStoryLoader
 extends RefCounted
 
-## Loads a PlotFlow JSON export and builds a traversable node tree.
+## Loads a Fablevia JSON export and builds a traversable node tree.
 ##
 ## Usage:
 ##   var loader := PlotFlowStoryLoader.new()
@@ -30,7 +30,7 @@ var start_node: PlotFlowStoryNode:
 func load_file(json_path: String) -> Dictionary:
 	var file := FileAccess.open(json_path, FileAccess.READ)
 	if not file:
-		push_error("PlotFlow StoryLoader: cannot open ", json_path)
+		push_error("Fablevia StoryLoader: cannot open ", json_path)
 		return {}
 
 	var text := file.get_as_text()
@@ -39,12 +39,12 @@ func load_file(json_path: String) -> Dictionary:
 	var json := JSON.new()
 	var err := json.parse(text)
 	if err != OK:
-		push_error("PlotFlow StoryLoader: JSON parse error: ", json.get_error_message())
+		push_error("Fablevia StoryLoader: JSON parse error: ", json.get_error_message())
 		return {}
 
 	var data := json.data
 	if typeof(data) != TYPE_DICTIONARY:
-		push_error("PlotFlow StoryLoader: root is not a dictionary.")
+		push_error("Fablevia StoryLoader: root is not a dictionary.")
 		return {}
 
 	return _load_from_dict(data)
@@ -156,10 +156,10 @@ func _load_nodes(raw_nodes: Variant, inherited_chapter_id: String) -> void:
 			continue
 		var node := PlotFlowStoryNode.from_dict(raw, inherited_chapter_id)
 		if node.full_id.is_empty():
-			push_warning("PlotFlow StoryLoader: skipping node without id/fullId")
+			push_warning("Fablevia StoryLoader: skipping node without id/fullId")
 			continue
 		if nodes.has(node.full_id):
-			push_warning("PlotFlow StoryLoader: duplicate fullId '%s'; last node wins" % node.full_id)
+			push_warning("Fablevia StoryLoader: duplicate fullId '%s'; last node wins" % node.full_id)
 		nodes[node.full_id] = node
 		var candidates: Array = _node_ids.get(node.id, [])
 		candidates.append(node.full_id)
@@ -175,7 +175,7 @@ func _warn_for_schema_version(data: Dictionary) -> void:
 	var version := _read_schema_version(data)
 	if version == "0.1" or version == "0.2" or version.begins_with("0.1.") or version.begins_with("0.2."):
 		return
-	push_warning("PlotFlow StoryLoader: story version '%s' is newer or unknown; loading supported fields only" % version)
+	push_warning("Fablevia StoryLoader: story version '%s' is newer or unknown; loading supported fields only" % version)
 
 
 func _read_schema_version(data: Dictionary) -> String:

@@ -31,6 +31,13 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore, type ExportFormat } from '../../stores/uiStore';
 import { useAppText } from '../../i18n/appI18n';
+import {
+  clearPreparedExportSnapshot,
+  getPreparedExportSnapshot,
+  refreshPreparedExportSnapshot,
+  requestExportDialog,
+  subscribePreparedExportSnapshot,
+} from '../../services/exportSnapshotService';
 
 // ============================================================================
 // 类型定义
@@ -136,9 +143,16 @@ export function ExportDialog(): React.ReactElement | null {
   const requestedFormat = useUIStore((s) => s.exportDialogFormat);
   const closeExportDialog = useUIStore((s) => s.closeExportDialog);
   const setGlobalStatusMessage = useUIStore((s) => s.setStatusMessage);
-  const storyData = useStoryStore((s) => s.plotFlowData);
+  const storeStoryData = useStoryStore((s) => s.plotFlowData);
   const filePath = useEditorStore((s) => s.filePath);
-  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const storeDiagnostics = useEditorStore((s) => s.diagnostics);
+  const preparedSnapshot = React.useSyncExternalStore(
+    subscribePreparedExportSnapshot,
+    getPreparedExportSnapshot,
+    getPreparedExportSnapshot,
+  );
+  const storyData = preparedSnapshot?.data ?? storeStoryData;
+  const diagnostics = preparedSnapshot?.diagnostics ?? storeDiagnostics;
   const blockingErrorCount = useMemo(
     () => countBlockingExportErrors(diagnostics),
     [diagnostics],
@@ -151,6 +165,9 @@ export function ExportDialog(): React.ReactElement | null {
 
   // P0-5: 导出成功自动关闭 timer ref（组件卸载时可清理）
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   // ========================================================================
   // 键盘快捷键：Ctrl+E 打开/关闭导出对话框
@@ -158,14 +175,22 @@ export function ExportDialog(): React.ReactElement | null {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const store = useUIStore.getState();
+      const otherModalIsOpen = [...document.querySelectorAll<HTMLElement>('[aria-modal="true"], [role="dialog"]')]
+        .some((element) => !element.classList.contains('export-dialog__overlay'));
+      if (!store.isExportDialogOpen && otherModalIsOpen) return;
+      const target = e.target;
+      if (!store.isExportDialogOpen && target instanceof HTMLElement && (
+        target.isContentEditable || target.matches('input, textarea, select, [contenteditable="true"]')
+      )) return;
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyE') {
         e.preventDefault();
         e.stopPropagation();
-        const store = useUIStore.getState();
         if (store.isExportDialogOpen) {
           store.closeExportDialog();
         } else {
-          store.openExportDialog();
+          requestExportDialog();
         }
       }
     };
@@ -176,12 +201,45 @@ export function ExportDialog(): React.ReactElement | null {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => closeButtonRef.current?.focus({ preventScroll: true }));
+    const handleModalKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const nextIndex = event.shiftKey
+        ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+        : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+      event.preventDefault();
+      focusable[nextIndex]?.focus();
+    };
+    document.addEventListener('keydown', handleModalKeyDown, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleModalKeyDown, true);
+      const opener = openerRef.current;
+      window.setTimeout(() => {
+        if (opener?.isConnected) opener.focus({ preventScroll: true });
+      }, 0);
+    };
+  }, [isOpen]);
+
   // ========================================================================
   // 重置状态（格式变化或对话框重新打开时）
   // ========================================================================
 
   useEffect(() => {
     if (isOpen) {
+      if (!getPreparedExportSnapshot()) refreshPreparedExportSnapshot();
       setSelectedFormat(requestedFormat);
       setExportStatus('idle');
       setStatusMessage('');
@@ -190,6 +248,8 @@ export function ExportDialog(): React.ReactElement | null {
         clearTimeout(autoCloseTimerRef.current);
         autoCloseTimerRef.current = undefined;
       }
+    } else {
+      clearPreparedExportSnapshot();
     }
   }, [isOpen, requestedFormat]);
 
@@ -217,25 +277,34 @@ export function ExportDialog(): React.ReactElement | null {
   // ========================================================================
 
   const handleExport = useCallback(async () => {
-    if (!storyData) {
+    const prepared = refreshPreparedExportSnapshot();
+    if (!prepared.ok) {
       setExportStatus('error');
-      setStatusMessage(text('exportDialog.noStory'));
+      setStatusMessage(text(
+        prepared.reason === 'stale'
+          ? 'sourceDock.switchBlockedStale'
+          : 'exportDialog.failed',
+      ));
       return;
     }
 
-    if (blockingErrorCount > 0) {
+    const snapshot = prepared.snapshot;
+    const currentBlockingErrorCount = countBlockingExportErrors(snapshot.diagnostics);
+    if (currentBlockingErrorCount > 0) {
       setExportStatus('error');
-      setStatusMessage(text('exportDialog.blockedByErrors', { count: blockingErrorCount }));
+      setStatusMessage(text('exportDialog.blockedByErrors', { count: currentBlockingErrorCount }));
       return;
     }
 
     setExportStatus('exporting');
     setStatusMessage('');
+    const extension = FORMAT_OPTIONS.find((option) => option.key === selectedFormat)?.extension ?? 'json';
+    const currentDefaultFileName = `${buildExportBaseName(snapshot.data.meta?.title, filePath)}.${extension}`;
 
     try {
       // ── 根据格式调用对应的导出器 ──
       const result = exportContent(
-        storyData,
+        snapshot.data,
         selectedFormat,
         (format) => text('exportDialog.unsupportedFormat', { format }),
       );
@@ -258,7 +327,7 @@ export function ExportDialog(): React.ReactElement | null {
         const blob = new Blob([content], { type: mimeType(selectedFormat) });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = defaultFileName; a.click();
+        a.href = url; a.download = currentDefaultFileName; a.click();
         URL.revokeObjectURL(url);
         setExportStatus('idle');
         closeExportDialog();
@@ -266,7 +335,7 @@ export function ExportDialog(): React.ReactElement | null {
       }
       const saveResult = await plotflow.file.saveExport({
         content,
-        defaultPath: defaultFileName,
+        defaultPath: currentDefaultFileName,
         filters: [{ name: filterName, extensions: [ext] }],
         format: selectedFormat,
       });
@@ -298,7 +367,7 @@ export function ExportDialog(): React.ReactElement | null {
       setExportStatus('error');
       setStatusMessage(text('exportDialog.exception', { message }));
     }
-  }, [blockingErrorCount, storyData, selectedFormat, defaultFileName, closeExportDialog, setGlobalStatusMessage, text]);
+  }, [selectedFormat, filePath, closeExportDialog, setGlobalStatusMessage, text]);
 
   // ========================================================================
   // 点击遮罩层关闭
@@ -350,6 +419,7 @@ export function ExportDialog(): React.ReactElement | null {
 
   return (
     <div
+      ref={dialogRef}
       className="export-dialog__overlay"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
@@ -357,6 +427,7 @@ export function ExportDialog(): React.ReactElement | null {
       role="dialog"
       aria-modal="true"
       aria-label={text('exportDialog.aria')}
+      tabIndex={-1}
     >
       <div className="export-dialog__panel" style={panelStyle}>
         {/* ── 标题栏 ── */}
@@ -364,9 +435,11 @@ export function ExportDialog(): React.ReactElement | null {
           <span style={headerTitleStyle}>{text('exportDialog.title')}</span>
           <span style={shortcutHintStyle}>Ctrl+E</span>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={closeExportDialog}
             title={text('exportDialog.close')}
+            aria-label={text('exportDialog.close')}
             style={closeButtonStyle}
           >
             ✕
@@ -419,6 +492,9 @@ export function ExportDialog(): React.ReactElement | null {
           {/* ── 状态消息 ── */}
           {statusMessage && (
             <div
+              data-testid="export-status-message"
+              role={exportStatus === 'error' ? 'alert' : 'status'}
+              aria-live="polite"
               style={{
                 ...statusStyle,
                 color:

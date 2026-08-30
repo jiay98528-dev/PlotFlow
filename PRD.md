@@ -1,10 +1,14 @@
-# PlotFlow 产品需求文档 (PRD)
+# Fablevia（维叙）产品需求文档 (PRD)
+
+> 品牌补充（2026-07-17）：产品对外名称为 Fablevia，中文名为“维叙”。中文 UI 主显示“维叙”并以小字辅助 `Fablevia`；英文 UI 只显示 `Fablevia`。`plotflow` 保留为 Schema、包、API、主题和本地数据的兼容技术命名空间，详见 ADR-015。
 
 **版本**：V0.1  
 **日期**：2026年6月10日  
 **状态**：需求确认完成，待开发
 
 > **V0.3 合同补充（2026-07-11）**：ADR-013 将 canonical FullID 定义为编码组件加单一斜杠的 opaque key，并将当前 JSON 写出合同提升为 Schema 0.2；`.mdstory` 的系统管理 `plotflow` 仍为 0.1。源文件、Inspector 与内部 AST 的 engine 枚举为 `generic | godot | unity | unreal`，JSON 0.2 输出枚举为 `none | godot | unity | unreal`，导出器执行 `generic → none`。P1 源码与严格 unpacked Graph-first/Ajv 旅程已通过；installed、人工巡检、真实引擎工具链 smoke 与签名门禁仍待完成，不得宣称 release-candidate-passed 或公共正式发行。
+
+> **0.1.1 主题安全补充（2026-08-02）**：当前发行只启用 `plotflow-prism-foundry`、`plotflow-narrative-workbench` 与 `plotflow-engine-telemetry` 三套编译内置主题。官方远程 registry、下载、安装、`plotflow-theme://` 协议与 JavaScript 主题运行时全部暂停；历史远程主题 ID 回退并持久化为 Prism Foundry，既有磁盘主题目录保留但不会扫描或执行。详见 ADR-016。
 
 ---
 
@@ -32,11 +36,11 @@
 
 ### 1.1 产品定位
 
-PlotFlow 是一个面向独立游戏开发者的**叙事分支管理工具**，以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并在顶栏并列保留 Split 完整源码投影，以多格式导出为目标。产品的核心价值是成为**文案策划、叙事设计师、程序开发三者之间的工作流桥梁**。
+Fablevia（维叙）是一个面向独立游戏开发者的**叙事分支管理工具**，以 `.mdstory` 纯文本文件为唯一磁盘真相源，以 Graph Lab 作为主要且默认的图优先创作工作区，并在顶栏并列保留 Split 完整源码投影，以多格式导出为目标。产品的核心价值是成为**文案策划、叙事设计师、程序开发三者之间的工作流桥梁**。
 
 ### 1.2 核心差异化
 
-| 维度 | PlotFlow | 竞品 |
+| 维度 | Fablevia（维叙） | 竞品 |
 |------|----------|------|
 | 学习成本 | Markdown 方言，零代码 | Ink 需学脚本语言，Articy 需培训 |
 | 可视化 | Graph Lab 默认图优先工作区 + Split 实时分支图源码投影 | Twine 可视化但不可编辑连线 |
@@ -73,13 +77,13 @@ PlotFlow 是一个面向独立游戏开发者的**叙事分支管理工具**，�
 ### 2.2 典型使用场景
 
 **场景 1：独立开发者单人创作**
-> 小明在开发一款像素风 RPG。他打开 PlotFlow，在 VSCode 风格的编辑器中用 Markdown 写剧情分支。写完一个章节后，右侧分支图自动显示所有节点关系。他发现"狼穴"节点没有出口选项（死胡同警告），于是补了一个逃跑选项。写完导出 JSON，丢进 Godot 项目，对话系统直接跑起来。
+> 小明在开发一款像素风 RPG。他打开 Fablevia（维叙），在 VSCode 风格的编辑器中用 Markdown 写剧情分支。写完一个章节后，右侧分支图自动显示所有节点关系。他发现"狼穴"节点没有出口选项（死胡同警告），于是补了一个逃跑选项。写完导出 JSON，丢进 Godot 项目，对话系统直接跑起来。
 
 **场景 2：文案+程序双人协作**
-> 文案小红在独立模式下写 `.mdstory`，用幽灵补全加速写作。写完推送到 Git。程序员小刚在 Godot 中通过 PlotFlow 插件打开同一个文件，发现小红引用了一个未在引擎中定义的变量 `$好感度`，编辑器标红提示。他告诉小红加了变量定义，小红那边的补全自动开始推荐 `$好感度`。
+> 文案小红在独立模式下写 `.mdstory`，用幽灵补全加速写作。写完推送到 Git。程序员小刚在 Godot 中通过 Fablevia 插件打开同一个文件，发现小红引用了一个未在引擎中定义的变量 `$好感度`，编辑器标红提示。他告诉小红加了变量定义，小红那边的补全自动开始推荐 `$好感度`。
 
 **场景 3：Game Jam 快速原型**
-> 48小时 Game Jam，3人小队。一人用 PlotFlow 写叙事脚本（单文件模式），用了内置的"视觉小说模板"。写完直接导出 HTML 可玩版，队友在浏览器里点一遍验证所有分支。确认无误后导出 JSON，拖进 Unity 项目，15分钟完成对话系统接入。
+> 48小时 Game Jam，3人小队。一人用 Fablevia（维叙）写叙事脚本（单文件模式），用了内置的"视觉小说模板"。写完直接导出 HTML 可玩版，队友在浏览器里点一遍验证所有分支。确认无误后导出 JSON，拖进 Unity 项目，15分钟完成对话系统接入。
 
 ---
 
@@ -88,7 +92,7 @@ PlotFlow 是一个面向独立游戏开发者的**叙事分支管理工具**，�
 ### 3.1 功能总览
 
 ```
-PlotFlow V0.1
+Fablevia（维叙）V0.1
 ├── 核心编辑
 │   ├── F3.1.1 Markdown 编辑器（语法高亮、自动补全括号）
 │   ├── F3.1.2 分支图实时渲染（React Flow 自上而下树状布局）
@@ -124,7 +128,7 @@ PlotFlow V0.1
 | 属性 | 规格 |
 |------|------|
 | **基础能力** | 支持标准 Markdown 语法（标题、加粗、斜体、列表、分隔线） |
-| **PlotFlow 语法高亮** | `# 节点：` 蓝色标记，`[选项]` 绿色标记，`[条件]` 橙色标记，`$变量` 紫色标记 |
+| **Fablevia 语法高亮** | `# 节点：` 蓝色标记，`[选项]` 绿色标记，`[条件]` 橙色标记，`$变量` 紫色标记 |
 | **括号自动闭合** | `[选项]` 输入 `[` 后自动提示补全 |
 | **节点折叠** | 可折叠/展开单个节点块（方便长文档导航） |
 | **大纲视图** | 左侧边栏显示节点树（基于标题层级），点击跳转 |
@@ -251,14 +255,14 @@ PlotFlow V0.1
 | 属性 | 规格 |
 |------|------|
 | **文件格式** | 单个 `.mdstory` 文件（UTF-8 编码的纯文本） |
-| **项目 = 文件** | 双击 .mdstory → PlotFlow 打开，无额外配置文件 |
+| **项目 = 文件** | 双击 .mdstory → Fablevia 打开，无额外配置文件 |
 | **适用场景** | 短篇作品、个人项目、Game Jam |
 
 #### F3.4.2 插件模式（引擎嵌入式）
 
 | 属性 | 规格 |
 |------|------|
-| **触发** | 从 Godot/Unity 编辑器中启动 PlotFlow |
+| **触发** | 从 Godot/Unity 编辑器中启动 Fablevia |
 | **文件位置** | .mdstory 文件直接存放在引擎项目目录中 |
 | **变量同步** | 编辑器从引擎读取已注册的变量列表，不允许自行创建新变量 |
 | **导出路径** | JSON 自动输出到引擎项目的资源目录 |
@@ -277,13 +281,13 @@ PlotFlow V0.1
 
 | 属性 | 规格 |
 |------|------|
-| **默认官方主题** | `plotflow-narrative-workbench`（叙事工作台 / Narrative Workbench），暖纸工作台 + 蓝图线缆 |
-| **第二官方主题** | `plotflow-blueprint-nightwatch`（夜航蓝图 / Blueprint Nightwatch），低光编辑室 + 发光线缆 |
-| **暗色/亮色模式** | 继续保留基础明暗切换；官方主题决定节点、线缆、端口、面板、Monaco 配色和动效 |
+| **默认官方主题** | `plotflow-prism-foundry`（棱镜铸造台 / Prism Foundry），冷白棱镜 + 紫罗兰控制 + 青色信号 |
+| **其他内置主题** | `plotflow-narrative-workbench`（叙事工作台）与 `plotflow-engine-telemetry`（引擎遥测台） |
+| **明暗模式** | 由三套内置主题各自的 `defaultMode`、tokens 与 Monaco 定义控制 |
 | **切换** | 顶部“主题”入口打开官方主题中心；主题启用即时生效，不修改 `.mdstory` |
-| **主题架构** | 官方主题采用编译内置模块热插拔，包含 manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta 与 React slots |
-| **产品边界** | 当前只发行官方主题；社区主题、本地 `.pf-theme.zip` 导入和远程下载暂不开放 |
-| **市场路径** | 首版只提供“购买更多官方主题”外部官网/商店跳转；后续再做授权、下载、主题市场 |
+| **主题架构** | 当前仅注册随应用编译的内置模块，包含 manifest、tokens、Monaco、assets、layoutRecipe、motionRecipe、storeMeta 与 React slots |
+| **产品边界** | 0.1.1 不请求 registry，不提供下载/安装 IPC，不注册主题协议，不扫描或执行磁盘上的 `.mjs`；社区主题和本地导入同样不开放 |
+| **兼容处理** | 历史远程或未知主题 ID 回退并持久化为 Prism Foundry；既有主题目录不删除，只在当前版本中忽略 |
 
 #### F3.5.2 国际化
 
@@ -511,7 +515,7 @@ vars:
 ---
 plotflow: "0.1"
 title: "暗夜森林·试玩版"
-author: "PlotFlow Team"
+author: "Fablevia Team"
 engine: "godot"
 vars:
   好感度: int
@@ -754,7 +758,7 @@ vars:
 
 ```
 ┌──────────────────────────────────────────┐
-│              PlotFlow 编辑器              │
+│            Fablevia（维叙）编辑器          │
 │  ┌──────────────────────────────────┐    │
 │  │        补全管理器                 │    │
 │  │  ┌──────────┐  ┌──────────────┐  │    │
@@ -834,7 +838,7 @@ vars:
      │
      ▼
 ┌─────────────┐
-│  PlotFlow   │
+│  Fablevia   │
 │  解析器     │
 └──────┬──────┘
        │ PlotFlowData (内部中间表示)
@@ -969,7 +973,7 @@ vars:
 
 | 路径 | 类型 | 必须 | 说明 |
 |------|------|------|------|
-| `meta.plotflow` | string | ✅ | PlotFlow 版本号 |
+| `meta.plotflow` | string | ✅ | 格式版本号（保留的 `plotflow` 兼容字段） |
 | `meta.title` | string | ✅ | 故事标题 |
 | `meta.author` | string | ❌ | 作者名 |
 | `meta.engine` | string | ✅ | JSON 输出目标：`godot`/`unity`/`unreal`/`none`；源/内部 `generic` 映射为 `none` |
@@ -1002,7 +1006,7 @@ Schema 0.2 的机器合同位于 `packages/core/schema/0.2/story.json` 并镜像
 | 插件入口 | `addons/plotflow/plugin.gd` | 注册插件，添加 Dock 面板 |
 | Dock 面板 | `addons/plotflow/PlotFlowDock.gd` | 管理 .mdstory 文件列表、变量同步、一键导出 |
 | 变量同步器 | `addons/plotflow/VariableSync.gd` | 读取 Godot 项目中的变量定义，写入 .mdstory Frontmatter |
-| 导出触发器 | `addons/plotflow/ExportTrigger.gd` | 调用 PlotFlow 编辑器命令行接口导出 JSON |
+| 导出触发器 | `addons/plotflow/ExportTrigger.gd` | 调用 Fablevia 编辑器命令行接口导出 JSON |
 
 #### 运行时库组件
 
@@ -1251,19 +1255,19 @@ PlotFlowData AST (中间表示)
 变量声明
 ---                          ← YAML Frontmatter 结束
                              ← 空行
-Markdown 正文（节点+选项）    ← 符合 PlotFlow 语法规范
+Markdown 正文（节点+选项）    ← 符合 Fablevia 语法规范
 ```
 
 **扩展名注册**：
-- Windows: `.mdstory` 关联到 PlotFlow.exe
-- macOS: `.mdstory` 关联到 PlotFlow.app
+- Windows: `.mdstory` 关联到 Fablevia.exe
+- macOS: `.mdstory` 关联到 Fablevia.app
 - Linux: `.mdstory` 关联到 plotflow 命令
 
 ### 11.2 独立模式（单文件）
 
 ```
 项目目录/（由用户自由组织）
-├── my_story.mdstory          ← 双击用 PlotFlow 打开
+├── my_story.mdstory          ← 双击用 Fablevia 打开
 ├── my_story_exports/         ← 导出产物默认目录
 │   ├── story.json
 │   ├── story.html
@@ -1276,11 +1280,11 @@ Markdown 正文（节点+选项）    ← 符合 PlotFlow 语法规范
 ```
 godot_project/                ← Godot 项目根目录
 ├── project.godot
-├── story/                    ← PlotFlow 脚本目录（插件自动识别）
+├── story/                    ← Fablevia 脚本目录（插件自动识别）
 │   ├── chapter_01.mdstory
 │   ├── chapter_02.mdstory
 │   └── plotflow.config.json  ← 引擎变量映射配置
-├── addons/plotflow/          ← PlotFlow Godot 插件
+├── addons/plotflow/          ← Fablevia Godot 插件（保留兼容目录名）
 │   ├── plugin.cfg
 │   ├── plugin.gd
 │   ├── PlotFlowDock.gd
@@ -1411,7 +1415,7 @@ PlotFlow/
 
 | 编号 | 交付物 | 形态 | 责任人 |
 |------|--------|------|--------|
-| D1 | PlotFlow 桌面应用 | Windows/macOS/Linux 安装包 | 开发 |
+| D1 | Fablevia（维叙）桌面应用 | Windows/macOS/Linux 安装包 | 开发 |
 | D2 | Markdown 语法手册 | PDF + 在线文档 | 产品+开发 |
 | D3 | 模板使用指南 | PDF + 在线文档 | 产品 |
 | D4 | Godot 插件（编辑器+运行时） | Godot Asset Library 安装包 | 开发 |
@@ -1453,7 +1457,7 @@ PlotFlow/
 
 | 模块 | 范围 |
 |------|------|
-| 编辑器 | Monaco 编辑器 + PlotFlow 语法高亮 + 大纲视图 |
+| 编辑器 | Monaco 编辑器 + Fablevia 语法高亮 + 大纲视图 |
 | 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线） |
 | 条件编辑 | 内联图形化条件编辑器 + 双向文本同步 |
 | 错误检测 | 三级错误标记（红色/黄色/蓝色波浪线） |
@@ -1461,7 +1465,7 @@ PlotFlow/
 | 导出 | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
 | 插件 | Godot 编辑器插件+运行时库完整实现 |
 | 项目 | 独立单文件模式 + 4个模板 |
-| UI | 官方深度主题中心（叙事工作台 / 夜航蓝图）+ 暗色/亮色模式 + 中英双语 + 自动保存 |
+| UI | 三套编译内置主题（棱镜铸造台 / 叙事工作台 / 引擎遥测台）+ 主题中心 + 中英双语 + 自动保存；远程主题暂停 |
 
 ### V0.2 — 增强（目标：2026年9月）
 
@@ -1491,7 +1495,7 @@ PlotFlow/
 
 | 编号 | 日期 | 决策 | 理由 |
 |------|------|------|------|
-| D001 | 2026-06-10 | 产品命名为 PlotFlow | 双重语义（Plot+Flow），中英文友好，域名可用 |
+| D001 | 2026-06-10 | 产品命名为 PlotFlow（已被 ADR-015 supersede） | 历史命名决策；当前品牌为 Fablevia（维叙） |
 | D002 | 2026-06-10 | 变量类型支持复杂类型（enum/object，最多3层嵌套） | 满足美式 RPG 需求（如神界原罪2），条件判定涉及数据结构和枚举 |
 | D003 | 2026-06-10 | 条件编辑采用纯图形化（Airtable 风格），底层保留文本语法 | 降低非技术人员门槛，同时保持 Git diff 友好 |
 | D004 | 2026-06-10 | V0.1 版本号修正为 V0.1（非 V1.0） | 遵循语义化版本规范，MVP ≠ 正式版 |
@@ -1507,7 +1511,7 @@ PlotFlow/
 | D014 | 2026-06-10 | 翻译格式仅 TXT（非 Word/PDF） | Word/PDF 并非程序员或翻译工具的主要需求，优先做 JSON+HTML |
 | D015 | 2026-06-10 | 预留方案 B（多文件项目目录）扩展为轻量级视觉小说引擎 | 基于 .mdstory 格式可直接开发 galgame/互动小说运行时 |
 | D016 | 2026-06-23 | Graph-first Dual Projection | `.mdstory` 是磁盘真相源，split 源文本编辑与 Graph Lab GUI 编辑是同一故事数据的双投影；其中“实验入口/不替代 Split 默认”条款已由 D018 覆盖 |
-| D017 | 2026-06-25 | 官方主题采用编译内置模块热插拔 | 当前只发行官方主题，社区主题与本地导入暂不开放；首版购买入口跳转官网，后续再做主题市场与授权 |
+| D017 | 2026-06-25 | 官方主题采用编译内置模块热插拔 | 0.1.1 只启用三套内置主题；远程 registry、下载、安装与代码运行时由 ADR-016 暂停 |
 | D018 | 2026-07-10 | Graph Lab 作为主要且默认工作区 | 首次启动、新建、打开与继续编辑默认进入 Graph Lab；Split 顶栏并列保留为完整源码投影；详见 ADR-012 |
 | D019 | 2026-07-11 | encoded-slash canonical FullID 与 JSON Schema 0.2 | FullID 为 opaque key；旧 layout 仅唯一匹配迁移；章节变量显式归属；详见 ADR-013 |
 

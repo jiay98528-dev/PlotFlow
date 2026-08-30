@@ -4,6 +4,7 @@ import { defaultThemeSurfaces } from '../../surfaces/defaultSurfaces';
 import raw from './theme.json';
 
 const data = raw as Record<string, unknown>;
+const previewUrl = new URL('./assets/preview.png', import.meta.url).href;
 
 function asRecord<T = Record<string, unknown>>(val: unknown, fallback: T): T {
   if (val && typeof val === 'object') return val as T;
@@ -26,12 +27,12 @@ export const narrativeWorkbenchTheme: ThemeDescriptor = {
   id: asString(data['id'], 'plotflow-narrative-workbench'),
   name: asLocale(data['name'], 'Narrative Workbench', '叙事工作台'),
   tagline: asLocale(data['tagline'], 'Warm paper workspace with blueprint cables', '暖纸工作台与蓝图线缆'),
-  description: asLocale(data['description'], 'The default official theme for long-form narrative editing.', 'PlotFlow 默认官方主题。'),
+  description: asLocale(data['description'], 'The default official theme for long-form narrative editing.', '维叙（Fablevia）默认官方主题。'),
   version: asString(data['version'], '1.0.0'),
   defaultMode: (data['defaultMode'] as 'light' | 'dark') ?? 'light',
   tokens: asRecord(data['tokens'], { shared: {}, light: {}, dark: {} }),
   monacoTheme: data['monacoTheme'] as Record<string, unknown> | undefined,
-  assets: asRecord(data['assets'], { preview: '' }),
+  assets: { ...asRecord(data['assets'], { preview: previewUrl }), preview: previewUrl },
   layoutRecipe: asRecord(data['layoutRecipe'], { density: 'comfortable' }),
   uxRecipe: asRecord(data['uxRecipe'], {}),
   entryRecipe: asRecord(data['entryRecipe'], {
@@ -53,7 +54,7 @@ export const narrativeWorkbenchTheme: ThemeDescriptor = {
   }),
   storeMeta: asRecord(data['storeMeta'], {
     availability: 'bundled',
-    priceLabel: '已随 PlotFlow 内置',
+    priceLabel: '已随维叙（Fablevia）内置',
     storeUrl: 'https://plotflow.app/themes',
   }),
   slots: narrativeWorkbenchSlots,

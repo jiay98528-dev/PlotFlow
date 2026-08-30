@@ -35,26 +35,33 @@ import {
   applyExternalFileContent,
   hasCurrentStoryUnsavedChanges,
   overwritePendingExternalChange,
+  prepareCurrentStoryForDestructiveExit,
   saveAsCurrentFile,
   saveOrSaveAs,
 } from '../services/autoSaveService';
 import { parsePipelineNow } from '../services/parsePipeline';
-import { loadSavedStorySession, startUnsavedStorySession } from '../services/storySessionService';
-import { confirmBeforeReplacingCurrentStory } from '../services/storyReplaceGuard';
+import { startUnsavedStorySession } from '../services/storySessionService';
+import { runStoryReplacement } from '../services/storyTransactionService';
+import { requestExportDialog } from '../services/exportSnapshotService';
+import { isGraphShortcutBlocked } from '../services/graphKeyboardGuard';
 import type { StoryFlowNodeData } from '../components/branch-graph/adapter';
 import { useAppText } from '../i18n/appI18n';
-import { requestWorkspaceMode, toggleRequestedWorkspaceMode } from '../services/workspaceModeService';
+import {
+  requestWorkspaceMode,
+  toggleRequestedWorkspaceMode,
+} from '../services/workspaceModeService';
 import type { PendingOpenFileResult } from '../types/electron';
 import { createOrderedAsyncDispatcher } from '../shared/orderedAsyncDispatcher';
+import { BrandLockup } from '../components/brand/BrandLockup';
+import { FeedbackDialogHost } from '../components/feedback/FeedbackDialog';
+import { createLatestOnlyExternalChangeCoordinator } from '../services/externalChangeCoordinator';
 
 // ============================================================================
-// P0-5: 鏆撮湶缁欎富杩涚▼鐨勮剰鐘舵€佹煡璇笌寮哄埗淇濆瓨鎺ュ彛
+// 暴露给主进程的脏状态查询与保存接口。
 // ============================================================================
 //
-// 涓昏繘绋嬮€氳繃 mainWindow.webContents.executeJavaScript 璋冪敤杩欎簺鍑芥暟锛?
-// 鐢ㄤ簬绐楀彛鍏抽棴/搴旂敤閫€鍑烘椂鐨勮剰鐘舵€佹鏌ヤ笌淇濆瓨娴佺▼銆?
-// 娓叉煋杩涚▼閫氳繃 window.plotflow.dialog.confirm() 璋冪敤鍘熺敓瀵硅瘽妗嗗鐞?
-// 鏂板缓/鎵撳紑鏂囦欢鏃剁殑鑴忕姸鎬佺‘璁ゃ€?
+// 主进程在窗口关闭或应用退出时调用这些函数；渲染进程继续复用现有
+// 原生确认框处理未保存故事。
 
 window.__getEditorDirtyState__ = () => {
   const editor = useEditorStore.getState();
@@ -64,6 +71,8 @@ window.__getEditorDirtyState__ = () => {
 window.__forceSave__ = async () => {
   return saveOrSaveAs();
 };
+
+window.__prepareDiscard__ = async () => prepareCurrentStoryForDestructiveExit();
 
 function normalizeStoryPath(path: string): string {
   return path.replace(/\\/g, '/');
@@ -96,7 +105,6 @@ function AppContent(): React.ReactElement {
   const toggleConditionEditor = useUIStore((state) => state.toggleConditionEditor);
   const conditionEditorNodeId = useUIStore((state) => state.conditionEditorNodeId);
   const conditionEditorOptionIndex = useUIStore((state) => state.conditionEditorOptionIndex);
-  const openExportDialog = useUIStore((state) => state.openExportDialog);
   const openCorpusManager = useUIStore((state) => state.openCorpusManager);
   const openThemeCenter = useUIStore((state) => state.openThemeCenter);
   const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
@@ -109,31 +117,32 @@ function AppContent(): React.ReactElement {
   const viewMode = useGraphStore((state) => state.viewMode);
   const toggleViewMode = useGraphStore((state) => state.toggleViewMode);
 
-  // storyStore 鈫?graphStore 瀹夊叏缃戯紙parsePipeline 宸茬洿鎺ヨ皟鐢?syncFromAST锛?
-  // 姝ゅ浠呭鐞嗙洿鎺ヨ皟鐢?setPlotFlowData 鐨勬梺璺矾寰勶級
+  // storyStore → graphStore 安全网：覆盖绕过 parsePipeline 直接发布 AST 的路径。
   useEffect(() => {
-    const unsubscribe = useStoryStore.subscribe(
-      (state, prevState) => {
-        if (state.plotFlowData !== prevState.plotFlowData) {
-          if (!useGraphStore.getState().isEditing) {
-            useGraphStore.getState().syncFromAST(state.plotFlowData);
+    const unsubscribe = useStoryStore.subscribe((state, prevState) => {
+      if (state.plotFlowData !== prevState.plotFlowData) {
+        if (!useGraphStore.getState().isEditing) {
+          const projection = useGraphStore.getState().syncFromAST(state.plotFlowData);
+          if (!projection.ok) {
+            setStatusMessage(text('parse.graphRenderFailed'));
           }
         }
-      },
-    );
+      }
+    });
 
-    return () => { unsubscribe(); };
-  }, []);
+    return () => {
+      unsubscribe();
+    };
+  }, [setStatusMessage, text]);
 
-  // P0-1: graphStore.selectedNodeId 鈫?editorStore 鍗曞悜鍚屾
-  // 鍒嗘敮鍥捐妭鐐归€変腑鏃惰嚜鍔ㄨ仈鍔ㄥぇ绾查珮浜笌鍏夋爣浣嶇疆
-  // 璁㈤槄鏀惧湪 App.tsx 鍏ㄥ眬灞傜‘淇濅笉鍙?GraphCanvas 鏉′欢娓叉煋锛坢inimap/split 鍒囨崲锛夊奖鍝?
+  // graphStore.selectedNodeId → editorStore 单向同步。
+  // 全局订阅不受 GraphCanvas 条件渲染和视图切换影响。
   useEffect(() => {
     const unsubscribe = useGraphStore.subscribe(
       (state) => state.selectedNodeId,
       (selectedNodeId, prevSelectedNodeId) => {
         if (selectedNodeId === prevSelectedNodeId) return;
-        if (useGraphStore.getState().isEditing) return; // 杩炵嚎鎷栨嫿绛夋搷浣滀腑璺宠繃
+        if (useGraphStore.getState().isEditing) return; // 连线拖拽期间跳过联动。
 
         if (!selectedNodeId) {
           useEditorStore.getState().setActiveNodeId(null);
@@ -152,24 +161,21 @@ function AppContent(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  // P0: isEditing 閿侀噴鏀?鈫?鑷姩閲嶈В鏋愶紙闃叉缂栬緫閿佹湡闂寸殑鍐呭鍙樻洿涓㈠け锛?
+  // 操作锁释放后立即重解析，避免锁期间的源码变化丢失。
   useEffect(() => {
     const unsub = useGraphStore.subscribe(
       (s) => s.isEditing,
       (editing, wasEditing) => {
         if (wasEditing && !editing) {
           const content = useEditorStore.getState().content;
-          if (content) {
-            parsePipelineNow(content);
-          }
+          parsePipelineNow(content);
         }
       },
     );
     return unsub;
   }, []);
 
-  // P0-6: 鎸傝浇鏃舵鏌ョ郴缁熷弻鍑?鍛戒护琛屼紶鍏ョ殑寰呮墦寮€鏂囦欢 (M7-08)
-  // 绐楀彛棣栨鎸傝浇鏃惰皟鐢?getPendingOpenFile()锛屾秷璐规枃浠舵墦寮€绯荤粺浜嬩欢銆?
+  // 首次挂载时消费系统双击传入的待打开文件。
   useEffect(() => {
     let cancelled = false;
     const consume = async (result: PendingOpenFileResult): Promise<void> => {
@@ -178,16 +184,16 @@ function AppContent(): React.ReactElement {
         setStatusMessage(text('file.pendingOpenFailed', { path: result.path, code: result.code }));
         return;
       }
-      const canReplace = await confirmBeforeReplacingCurrentStory('open');
-      if (cancelled || !canReplace) return;
       const normalizedPath = normalizeStoryPath(result.story.filePath);
-      loadSavedStorySession({
+      const replacement = await runStoryReplacement('open', async () => ({
+        kind: 'saved',
         filePath: normalizedPath,
         content: result.story.content,
         hash: result.story.hash,
         modifiedAt: result.story.modifiedAt,
         closeHome: true,
-      });
+      }));
+      if (cancelled || replacement.status !== 'committed') return;
       setHomeSurfaceOpen(false);
       setStatusMessage(text('status.opened', { path: normalizedPath }));
     };
@@ -205,62 +211,70 @@ function AppContent(): React.ReactElement {
     };
   }, [setHomeSurfaceOpen, setStatusMessage, text]);
 
-  // P0-6: 杩愯鏃剁洃鍚郴缁熸枃浠舵墦寮€閫氱煡锛堝簲鐢ㄥ凡杩愯锛岀敤鎴峰弻鍑?.mdstory 鏂囦欢鏃惰Е鍙戯級
+  // 运行时监听当前 .mdstory 的外部磁盘变化。
   useEffect(() => {
     if (!window.plotflow?.file?.onExternalChange) return;
 
-    const cleanup = window.plotflow.file.onExternalChange(async (event) => {
-      const normalizedEvent = {
-        ...event,
-        filePath: event.filePath.replace(/\\/g, '/'),
-      };
-      const editor = useEditorStore.getState();
-      const currentFilePath = editor.filePath ? normalizeStoryPath(editor.filePath) : null;
-      if (currentFilePath && currentFilePath !== normalizedEvent.filePath) return;
-
-      if (!hasCurrentStoryUnsavedChanges()) {
-        applyExternalFileContent(normalizedEvent);
-        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
-        return;
-      }
-
-      editor.setPendingExternalChange(normalizedEvent);
-      const choice = await window.plotflow.dialog.confirm({
-        type: 'warning',
-        message: text('appShell.externalChangeTitle'),
-        detail: text('appShell.externalChangeDetail', { path: normalizedEvent.filePath }),
-        buttons: [
-          text('appShell.saveCopy'),
-          text('appShell.reloadDisk'),
-          text('appShell.overwriteDisk'),
-          text('appShell.keepEditing'),
-        ],
-      });
-
-      if (choice === 0) {
-        const saved = await saveAsCurrentFile();
-        if (saved) {
-          setStatusMessage(text('appShell.copySaved'));
+    const coordinator = createLatestOnlyExternalChangeCoordinator({
+      getLease: () => {
+        const editor = useEditorStore.getState();
+        return {
+          storySessionId: editor.storySessionId,
+          filePath: editor.filePath ? normalizeStoryPath(editor.filePath) : null,
+        };
+      },
+      hasUnsavedChanges: hasCurrentStoryUnsavedChanges,
+      isCurrentFile: (filePath) => {
+        const currentPath = useEditorStore.getState().filePath;
+        return (
+          currentPath !== null && normalizeStoryPath(currentPath) === normalizeStoryPath(filePath)
+        );
+      },
+      setPending: (event) => useEditorStore.getState().setPendingExternalChange(event),
+      confirm: (event) =>
+        window.plotflow.dialog.confirm({
+          type: 'warning',
+          message: text('appShell.externalChangeTitle'),
+          detail: text('appShell.externalChangeDetail', { path: event.filePath }),
+          buttons: [
+            text('appShell.saveCopy'),
+            text('appShell.reloadDisk'),
+            text('appShell.overwriteDisk'),
+            text('appShell.keepEditing'),
+          ],
+        }),
+      reload: async (event) => {
+        if (await applyExternalFileContent(event)) {
+          setStatusMessage(text('appShell.externalReloaded', { path: event.filePath }));
         }
-      } else if (choice === 1) {
-        applyExternalFileContent(normalizedEvent);
-        setStatusMessage(text('appShell.externalReloaded', { path: normalizedEvent.filePath }));
-      } else if (choice === 2) {
-        void overwritePendingExternalChange();
-      } else {
-        setStatusMessage(text('appShell.externalPending'));
-      }
+      },
+      overwrite: async (event) => {
+        await overwritePendingExternalChange(event);
+      },
+      saveCopy: async () => {
+        if (await saveAsCurrentFile()) setStatusMessage(text('appShell.copySaved'));
+      },
+      showPending: () => setStatusMessage(text('appShell.externalPending')),
     });
 
-    return cleanup;
+    const cleanup = window.plotflow.file.onExternalChange((event) => {
+      void coordinator.enqueue({ ...event, filePath: normalizeStoryPath(event.filePath) });
+    });
+
+    return () => {
+      coordinator.dispose();
+      cleanup();
+    };
   }, [setStatusMessage, text]);
 
   const handleTemplateSelected = useCallback(
     async (template: string, meta: { readonly title: string; readonly author: string }) => {
-      const canReplace = await confirmBeforeReplacingCurrentStory('new');
-      if (!canReplace) return;
-
-      startUnsavedStorySession({ content: template, closeHome: true });
+      const replacement = await runStoryReplacement('new', async () => ({
+        kind: 'unsaved',
+        content: template,
+        closeHome: true,
+      }));
+      if (replacement.status !== 'committed') return;
       setHomeSurfaceOpen(false);
       setStatusMessage(text('file.created', { title: meta.title }));
     },
@@ -281,10 +295,17 @@ function AppContent(): React.ReactElement {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's') {
+        if (
+          event.defaultPrevented ||
+          document.querySelector('[aria-modal="true"], [role="dialog"]')
+        )
+          return;
         event.preventDefault();
         void saveOrSaveAs();
         return;
       }
+
+      if (isGraphShortcutBlocked(event)) return;
 
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'g') {
         event.preventDefault();
@@ -304,10 +325,11 @@ function AppContent(): React.ReactElement {
     window.__test_store__ = {
       getEditorContent: () => useEditorStore.getState().content,
       getDiagnostics: () => useEditorStore.getState().diagnostics,
-      getGraphNodes: () => useGraphStore.getState().nodes.map((node) => ({
-        id: node.id,
-        position: { ...node.position },
-      })),
+      getGraphNodes: () =>
+        useGraphStore.getState().nodes.map((node) => ({
+          id: node.id,
+          position: { ...node.position },
+        })),
       getGraphZoom: () => useGraphStore.getState().zoomLevel,
       setEditorContent: (content: string) => {
         startUnsavedStorySession({ content, closeHome: true });
@@ -317,7 +339,10 @@ function AppContent(): React.ReactElement {
         parsePipelineNow(content);
       },
       applyExternalFileContent: (event) => {
-        applyExternalFileContent(event);
+        const editor = useEditorStore.getState();
+        editor.setFilePath(event.filePath);
+        editor.setPendingExternalChange(event);
+        return applyExternalFileContent(event);
       },
       openConditionEditor: (nodeId: string, optionIndex: number) => {
         useUIStore.getState().openConditionEditor(nodeId, optionIndex);
@@ -349,7 +374,7 @@ function AppContent(): React.ReactElement {
       getThemeId: () => useUIStore.getState().activeThemeId,
       openThemeCenter: () => useUIStore.getState().openThemeCenter(),
       setHomeSurfaceOpen: (open: boolean) => useUIStore.getState().setHomeSurfaceOpen(open),
-      /** 鐩存帴閫変腑鍒嗘敮鍥捐妭鐐瑰苟鑱斿姩缂栬緫鍣紝缁曞紑 DOM 鐐瑰嚮/鍐掓场/浜嬩欢濮旀墭渚濊禆 */
+      /** 直接选中图节点并联动编辑器，供测试桥使用。 */
       selectNode: (nodeId: string) => {
         useGraphStore.getState().selectNode(nodeId);
         useEditorStore.getState().setActiveNodeId(nodeId);
@@ -368,162 +393,167 @@ function AppContent(): React.ReactElement {
   const { activeTheme } = useThemePlatform();
   const Surfaces = activeTheme.surfaces;
   return (
-      <Surfaces.AppShell workspaceMode={workspaceMode} topbar={null} overlays={null} statusBar={null}>
-        <Surfaces.Toolbar
-          brand={(
+    <Surfaces.AppShell workspaceMode={workspaceMode} topbar={null} overlays={null} statusBar={null}>
+      <Surfaces.Toolbar
+        brand={
+          <button
+            type="button"
+            className="app-topbar__brand app-topbar-brand-button"
+            data-testid="toolbar-home"
+            onClick={() => setHomeSurfaceOpen(true)}
+          >
+            <BrandLockup variant="compact" />
+            <span className="app-subtitle">{text('toolbar.phase')}</span>
+            <span className="app-version">{text('appShell.version')}</span>
+            <Home aria-hidden="true" size={15} strokeWidth={2} />
+          </button>
+        }
+        fileControls={
+          <>
+            <button type="button" className="button button--primary" onClick={openNewFileDialog}>
+              <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
+              <span>{text('toolbar.newFile')}</span>
+            </button>
             <button
               type="button"
-              className="app-topbar__brand app-topbar-brand-button"
-              data-testid="toolbar-home"
-              onClick={() => setHomeSurfaceOpen(true)}
+              className="toolbar-button"
+              data-testid="toolbar-export"
+              onClick={() => requestExportDialog()}
             >
-              <span className="app-logo" aria-hidden="true">
-                {text('appShell.brandMark')}
-              </span>
-              <div>
-                <h1 className="app-title">{text('appShell.version')}</h1>
-                <p className="app-subtitle">{text('toolbar.phase')}</p>
-              </div>
-              <Home aria-hidden="true" size={15} strokeWidth={2} />
+              <Download aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('toolbar.export')}</span>
             </button>
-          )}
-          fileControls={(
-            <>
-              <button type="button" className="button button--primary" onClick={openNewFileDialog}>
-                <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-                <span>{text('toolbar.newFile')}</span>
-              </button>
-              <button type="button" className="toolbar-button" data-testid="toolbar-export" onClick={() => openExportDialog()}>
-                <Download aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('toolbar.export')}</span>
-              </button>
-            </>
-          )}
-          viewControls={(
-            <>
-              <button
-                type="button"
-                className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
-                data-testid="workspace-mode-split"
-                onClick={() => {
-                  requestWorkspaceMode('split');
-                  setHomeSurfaceOpen(false);
-                }}
-                aria-pressed={workspaceMode === 'split'}
-              >
-                <FileText aria-hidden="true" size={15} strokeWidth={2} />
-                <span>Split</span>
-              </button>
-              <button
-                type="button"
-                className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
-                data-testid="workspace-mode-graph-lab"
-                onClick={() => {
-                  requestWorkspaceMode('graphLab');
-                  setHomeSurfaceOpen(false);
-                }}
-                aria-pressed={workspaceMode === 'graphLab'}
-              >
-                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-                <span>Graph Lab</span>
-                <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
-              </button>
-              <button type="button" className="toolbar-button" onClick={openCorpusManager}>
-                <Database aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('toolbar.corpus')}</span>
-              </button>
-              <button
-                type="button"
-                className="toolbar-button"
-                data-testid="toolbar-theme-center"
-                onClick={openThemeCenter}
-                title={text('toolbar.themeCenter')}
-              >
-                <Palette aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('toolbar.theme')}</span>
-              </button>
-            </>
-          )}
-          preferenceControls={(
-            <label className="toolbar-select">
-              <Languages aria-hidden="true" size={15} strokeWidth={2} />
-              <span className="visually-hidden">{text('toolbar.language')}</span>
-              <select
-                className="language-select"
-                aria-label={text('toolbar.language')}
-                value={language}
-                onChange={handleLanguageChange}
-              >
-                <option value="zh-CN">{text('appShell.languageChinese')}</option>
-                <option value="en-US">{text('appShell.languageEnglish')}</option>
-              </select>
-            </label>
-          )}
-        />
+          </>
+        }
+        viewControls={
+          <>
+            <button
+              type="button"
+              className={`toolbar-button toolbar-button--state${workspaceMode === 'split' ? ' is-active' : ''}`}
+              data-testid="workspace-mode-split"
+              onClick={() => {
+                requestWorkspaceMode('split');
+                setHomeSurfaceOpen(false);
+              }}
+              aria-pressed={workspaceMode === 'split'}
+            >
+              <FileText aria-hidden="true" size={15} strokeWidth={2} />
+              <span>Split</span>
+            </button>
+            <button
+              type="button"
+              className={`toolbar-button toolbar-button--state${workspaceMode === 'graphLab' ? ' is-active' : ''}`}
+              data-testid="workspace-mode-graph-lab"
+              onClick={() => {
+                requestWorkspaceMode('graphLab');
+                setHomeSurfaceOpen(false);
+              }}
+              aria-pressed={workspaceMode === 'graphLab'}
+            >
+              <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+              <span>Graph Lab</span>
+              <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
+            </button>
+            <button type="button" className="toolbar-button" onClick={openCorpusManager}>
+              <Database aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('toolbar.corpus')}</span>
+            </button>
+            <button
+              type="button"
+              className="toolbar-button"
+              data-testid="toolbar-theme-center"
+              onClick={openThemeCenter}
+              title={text('toolbar.themeCenter')}
+            >
+              <Palette aria-hidden="true" size={15} strokeWidth={2} />
+              <span>{text('toolbar.theme')}</span>
+            </button>
+          </>
+        }
+        preferenceControls={
+          <label className="toolbar-select">
+            <Languages aria-hidden="true" size={15} strokeWidth={2} />
+            <span className="visually-hidden">{text('toolbar.language')}</span>
+            <select
+              className="language-select"
+              aria-label={text('toolbar.language')}
+              value={language}
+              onChange={handleLanguageChange}
+            >
+              <option value="zh-CN">{text('appShell.languageChinese')}</option>
+              <option value="en-US">{text('appShell.languageEnglish')}</option>
+            </select>
+          </label>
+        }
+      />
 
-        <HomeSurface />
-        {workspaceMode === 'graphLab' ? (
-          <GraphLabWorkspace />
-        ) : (
-          <Surfaces.SplitShell
-            viewbar={(
-              <div className="split-viewbar" aria-label={text('appShell.splitControls')}>
-                <div className="split-viewbar__label">
-                  <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-                  <span>{text('toolbar.graph')}</span>
-                </div>
-                <button
-                  type="button"
-                  className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
-                  data-testid="toolbar-graph-view-toggle"
-                  onClick={toggleViewMode}
-                  title={viewMode === 'split' ? text('toolbar.minimap') : text('toolbar.splitGraph')}
-                  aria-pressed={viewMode === 'split'}
-                >
-                  {viewMode === 'split' ? (
-                    <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
-                  ) : (
-                    <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
-                  )}
-                  <span>{text('toolbar.graph')}: {graphModeLabel}</span>
-                </button>
+      <HomeSurface />
+      {workspaceMode === 'graphLab' ? (
+        <GraphLabWorkspace />
+      ) : (
+        <Surfaces.SplitShell
+          viewbar={
+            <div className="split-viewbar" aria-label={text('appShell.splitControls')}>
+              <div className="split-viewbar__label">
+                <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
+                <span>{text('toolbar.graph')}</span>
               </div>
-            )}
-            outline={<OutlinePanel onNodeClick={navigateToNode} />}
-            editor={<MonacoEditor />}
-            graph={showSplitGraph ? (
+              <button
+                type="button"
+                className={`toolbar-button toolbar-button--state split-viewbar__toggle${viewMode === 'split' ? ' is-active' : ''}`}
+                data-testid="toolbar-graph-view-toggle"
+                onClick={toggleViewMode}
+                title={viewMode === 'split' ? text('toolbar.minimap') : text('toolbar.splitGraph')}
+                aria-pressed={viewMode === 'split'}
+              >
+                {viewMode === 'split' ? (
+                  <PanelRightClose aria-hidden="true" size={15} strokeWidth={2} />
+                ) : (
+                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+                )}
+                <span>
+                  {text('toolbar.graph')}: {graphModeLabel}
+                </span>
+              </button>
+            </div>
+          }
+          outline={<OutlinePanel onNodeClick={navigateToNode} />}
+          editor={<MonacoEditor />}
+          graph={
+            showSplitGraph ? (
               <aside className="graph-pane" aria-label={text('toolbar.graph')}>
                 <GraphCanvas viewMode="split" />
               </aside>
-            ) : null}
-            minimap={showMinimap ? (
+            ) : null
+          }
+          minimap={
+            showMinimap ? (
               <div className="minimap-shell" aria-label={text('appShell.minimap')}>
                 <GraphCanvas viewMode="minimap" />
               </div>
-            ) : null}
-          />
-        )}
+            ) : null
+          }
+        />
+      )}
 
-        {isConditionEditorOpen && (
-          <ConditionEditor
-            onClose={toggleConditionEditor}
-            nodeId={conditionEditorNodeId ?? undefined}
-            optionIndex={conditionEditorOptionIndex ?? undefined}
-          />
-        )}
-        <ExportDialog />
-        <ProblemPanel />
-        <CorpusManager />
-        <ThemeCenter />
+      {isConditionEditorOpen && (
+        <ConditionEditor
+          onClose={toggleConditionEditor}
+          nodeId={conditionEditorNodeId ?? undefined}
+          optionIndex={conditionEditorOptionIndex ?? undefined}
+        />
+      )}
+      <ExportDialog />
+      <ProblemPanel />
+      <CorpusManager />
+      <ThemeCenter />
+      <FeedbackDialogHost />
 
-        {isNewFileDialogOpen && (
-          <NewFileDialog
-            onClose={closeNewFileDialog}
-            onTemplateSelected={handleTemplateSelected}
-          />
-        )}
+      {isNewFileDialogOpen && (
+        <NewFileDialog onClose={closeNewFileDialog} onTemplateSelected={handleTemplateSelected} />
+      )}
 
-        <StatusBar />
-      </Surfaces.AppShell>
+      <StatusBar />
+    </Surfaces.AppShell>
   );
 }

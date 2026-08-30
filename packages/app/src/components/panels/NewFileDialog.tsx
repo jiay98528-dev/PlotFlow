@@ -16,7 +16,7 @@ export interface NewFileDialogProps {
 }
 
 const DEFAULT_TITLE = 'Untitled Story';
-const DEFAULT_AUTHOR = 'PlotFlow Writer';
+const DEFAULT_AUTHOR = 'Fablevia Writer';
 
 const TEMPLATE_DESCRIPTION_KEY: Record<BuiltinTemplate['id'], string> = {
   blank: 'newFile.descriptions.blank',

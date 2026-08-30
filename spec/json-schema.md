@@ -94,6 +94,8 @@
 | `variables` | object | **是** | 所有变量定义，key 为变量名 |
 | `chapters` | array | **是** | 章节数组，至少 1 个章节 |
 
+零章节、零节点或任一空章节均产生 `E009`（Error），JSON/HTML/TXT 导出必须在打开原生保存对话框前统一阻断。JSON 导出器还必须对序列化结果执行完整 Schema 0.2 校验；任何 Schema 违规均返回失败，不得以 Warning 写出。
+
 ---
 
 ## 3. Meta 对象
@@ -355,7 +357,7 @@ PlotFlow 支持 6 种变量类型：
 | 字段 | 类型 | 必须 | 说明 |
 |------|------|------|------|
 | `id` | string | **是** | 章节标识符，取自 H1 标题（如 `第一章`） |
-| `title` | string | **是** | 章节显示名称（如 `村庄`） |
+| `title` | string | **是** | 章节显示名称（如 `村庄`）；匿名章节导出时使用稳定 ID `_anonymous`，保证非空 |
 | `nodes` | array | **是** | 该章节下的节点数组，至少 1 个节点 |
 
 ---
@@ -1001,6 +1003,7 @@ PlotFlow 支持 6 种变量类型：
 | V03 | 有且只有一个 `isRoot: true` 的节点 | 🔴 Error | 统计 `isRoot` 为 `true` 的节点数，不等于 1 则错误 |
 | V04 | `Node.chapterId` 必须匹配其所属 `Chapter.id` | 🔴 Error | 检查 `chapterId` 与容器 Chapter 的 `id` 一致 |
 | V05 | `Node.fullId` 必须等于共享 helper 对 chapterId/id 生成的 encoded-slash canonical ID | 🔴 Error | 调用同一 helper 比较；禁止手写模板或拆分 FullID |
+| V06 | 故事至少包含一个章节，且每个章节至少包含一个节点 | 🔴 E009 | 同时执行语义 validator 与 Schema 0.2 `minItems` 校验；失败时禁止写盘 |
 
 ### 7.2 变量与类型规则
 

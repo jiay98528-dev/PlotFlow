@@ -1,6 +1,4 @@
 import { test, expect, _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
-import { createHash } from 'crypto';
-import { createServer, type Server } from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -8,8 +6,6 @@ import { compositeOnBackground, contrastRatio, type RgbaColor, type RgbColor } f
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 const MAIN_JS = path.join(PROJECT_ROOT, 'out', 'main', 'main.js');
-const REMOTE_THEME_ROOT = path.join(PROJECT_ROOT, 'website', 'public', 'themes', 'plotflow-neon-dossier');
-const REMOTE_THEME_ZIP = path.join(REMOTE_THEME_ROOT, 'plotflow-neon-dossier-1.0.0.pf-official-theme.zip');
 const FONT_ENV_SNAPSHOTS = new Set([
   'narrative-workbench-390x844.png',
   'prism-foundry-source-open-1440x900.png',
@@ -121,64 +117,49 @@ async function expectCompactCommandbarActions(page: Page): Promise<void> {
   }
 }
 
-async function startOfficialThemeServer(): Promise<{ server: Server; registryUrl: string }> {
-  const bundleBytes = fs.readFileSync(REMOTE_THEME_ZIP);
-  const sha256 = createHash('sha256').update(bundleBytes).digest('hex');
+async function waitForGraphViewportStable(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const startedAt = performance.now();
+        let previousSignature = '';
+        let stableSince = startedAt;
 
-  const server = createServer((request, response) => {
-    const url = request.url ?? '/';
-    if (url === '/data/official-themes.json') {
-      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-      response.end(JSON.stringify({
-        themes: [
-          {
-            id: 'plotflow-neon-dossier',
-            name: { 'zh-CN': '霓虹档案', 'en-US': 'Neon Dossier' },
-            version: '1.0.0',
-            channel: 'stable',
-            priceLabel: '免费主题',
-            manifestUrl: 'http://127.0.0.1:0/themes/plotflow-neon-dossier/manifest.json',
-            bundleUrl: 'http://127.0.0.1:0/themes/plotflow-neon-dossier/plotflow-neon-dossier-1.0.0.pf-official-theme.zip',
-            sha256,
-            minAppVersion: '0.1.0',
-            themeApiVersion: 1,
-            previewUrl: 'http://127.0.0.1:0/themes/plotflow-neon-dossier/assets/preview.svg',
-            changelog: '官方远程 ZIP 代码主题 E2E fixture。',
-          },
-        ],
-      }).replaceAll('127.0.0.1:0', request.headers.host ?? '127.0.0.1'));
-      return;
-    }
-    if (url === '/themes/plotflow-neon-dossier/plotflow-neon-dossier-1.0.0.pf-official-theme.zip') {
-      response.writeHead(200, { 'content-type': 'application/zip' });
-      response.end(bundleBytes);
-      return;
-    }
-    if (url === '/themes/plotflow-neon-dossier/manifest.json') {
-      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-      response.end(fs.readFileSync(path.join(REMOTE_THEME_ROOT, 'manifest.json')));
-      return;
-    }
-    if (url === '/themes/plotflow-neon-dossier/assets/preview.svg') {
-      response.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8' });
-      response.end(fs.readFileSync(path.join(REMOTE_THEME_ROOT, 'assets', 'preview.svg')));
-      return;
-    }
-    response.writeHead(404);
-    response.end('not found');
-  });
+        const sample = () => {
+          const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
+          if (!viewport) {
+            reject(new Error('React Flow viewport is missing.'));
+            return;
+          }
+          const nodeRects = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].map(
+            (node) => {
+              const rect = node.getBoundingClientRect();
+              return [rect.x, rect.y, rect.width, rect.height].map((value) => value.toFixed(2));
+            },
+          );
+          const signature = JSON.stringify([
+            getComputedStyle(viewport).transform,
+            viewport.getBoundingClientRect().width.toFixed(2),
+            viewport.getBoundingClientRect().height.toFixed(2),
+            nodeRects,
+          ]);
+          const now = performance.now();
+          if (signature !== previousSignature) stableSince = now;
+          previousSignature = signature;
+          if (now - startedAt >= 250 && now - stableSince >= 200) {
+            resolve();
+            return;
+          }
+          if (now - startedAt > 5_000) {
+            reject(new Error('React Flow viewport did not settle within 5 seconds.'));
+            return;
+          }
+          requestAnimationFrame(sample);
+        };
 
-  await new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const address = server.address();
-  if (!address || typeof address === 'string') {
-    throw new Error('无法启动官方主题测试服务器');
-  }
-  return {
-    server,
-    registryUrl: `http://127.0.0.1:${address.port}/data/official-themes.json`,
-  };
+        requestAnimationFrame(sample);
+      }),
+  );
 }
 
 async function launchApp(env: Record<string, string> = {}): Promise<{ app: ElectronApplication; page: Page }> {
@@ -233,17 +214,11 @@ async function closeElectronApp(app: ElectronApplication | undefined, page: Page
 test.describe('Official Theme Center E2E', () => {
   let app: ElectronApplication;
   let page: Page;
-  let server: Server;
   let testUserDataDir: string;
 
   test.beforeAll(async () => {
-    const officialThemeServer = await startOfficialThemeServer();
-    server = officialThemeServer.server;
     testUserDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plotflow-theme-e2e-'));
-    const launched = await launchApp({
-      PLOTFLOW_OFFICIAL_THEME_REGISTRY_URL: officialThemeServer.registryUrl,
-      PLOTFLOW_TEST_USER_DATA_DIR: testUserDataDir,
-    });
+    const launched = await launchApp({ PLOTFLOW_TEST_USER_DATA_DIR: testUserDataDir });
     app = launched.app;
     page = launched.page;
     await page.evaluate(() => {
@@ -254,22 +229,24 @@ test.describe('Official Theme Center E2E', () => {
 
   test.afterAll(async () => {
     await closeElectronApp(app, page);
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    if (testUserDataDir) {
-      fs.rmSync(testUserDataDir, { recursive: true, force: true });
-    }
+    if (testUserDataDir) fs.rmSync(testUserDataDir, { recursive: true, force: true });
   });
 
   test('opens Home and Theme Center without exposing local theme import', async () => {
     await page.getByTestId('toolbar-home').click();
-    await expect(page.getByTestId('home-surface')).toBeVisible();
+    const homeSurface = page.getByTestId('home-surface');
+    await expect(homeSurface).toBeVisible();
+    await expect(homeSurface.getByTestId('home-open-theme-store')).toHaveCount(0);
     await page.getByTestId('home-open-theme-center').click();
 
     const themeCenter = page.getByTestId('theme-center');
     await expect(themeCenter).toBeVisible();
     await expect(themeCenter.getByText('官方主题中心')).toBeVisible();
     await expect(themeCenter.getByRole('heading', { name: '叙事工作台' })).toBeVisible();
-    await expect(themeCenter.getByText('浏览官方免费主题')).toBeVisible();
+    await expect(themeCenter.locator('.official-theme-card')).toHaveCount(3);
+    await expect(themeCenter.getByTestId('theme-center-store')).toHaveCount(0);
+    await expect(themeCenter.getByTestId('theme-center-refresh-remote')).toHaveCount(0);
+    await expect(themeCenter.getByTestId('official-remote-theme-card')).toHaveCount(0);
     await expect(page.getByText('导入主题包')).toHaveCount(0);
     await expect(page.getByText('.pf-theme')).toHaveCount(0);
 
@@ -306,7 +283,13 @@ test.describe('Official Theme Center E2E', () => {
       { name: '390x844', width: 390, height: 844 },
     ]) {
       await page.setViewportSize(viewport);
+      await expect.poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight])).toEqual([
+        viewport.width,
+        viewport.height,
+      ]);
+      await waitForGraphViewportStable(page);
       await page.keyboard.press('Control+0');
+      await waitForGraphViewportStable(page);
       if (viewport.width <= 900) await expectCompactCommandbarActions(page);
       await expect(graphLab).toHaveScreenshot(visualSnapshotName(`narrative-workbench-${viewport.name}.png`), {
         animations: 'disabled',
@@ -328,6 +311,30 @@ test.describe('Official Theme Center E2E', () => {
     const workbenchCard = page.locator('[data-theme-card-id="plotflow-narrative-workbench"]');
     const telemetryCard = page.locator('[data-theme-card-id="plotflow-engine-telemetry"]');
     await expect(prismCard).toBeVisible({ timeout: 5_000 });
+
+    const readRenderedPreview = async (card: Locator) => {
+      const preview = card.locator('[data-preview-source="rendered-workspace"]');
+      const image = preview.getByTestId('theme-rendered-preview');
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
+      return image.evaluate((element: HTMLImageElement) => ({
+        src: element.currentSrc || element.src,
+        naturalWidth: element.naturalWidth,
+        naturalHeight: element.naturalHeight,
+      }));
+    };
+
+    const [prismPreview, workbenchPreview, telemetryPreview] = await Promise.all([
+      readRenderedPreview(prismCard),
+      readRenderedPreview(workbenchCard),
+      readRenderedPreview(telemetryCard),
+    ]);
+    for (const preview of [prismPreview, workbenchPreview, telemetryPreview]) {
+      expect(preview.src).not.toMatch(/\.svg(?:$|\?)/u);
+      expect(preview.naturalWidth).toBeGreaterThanOrEqual(1_000);
+      expect(preview.naturalHeight).toBeGreaterThanOrEqual(600);
+    }
+    expect(new Set([prismPreview.src, workbenchPreview.src, telemetryPreview.src]).size).toBe(3);
 
     const readPreviewTokens = async (card: Locator) =>
       card.locator('.official-theme-preview').evaluate((element) => {
@@ -361,6 +368,8 @@ test.describe('Official Theme Center E2E', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(prismCard).toHaveClass(/is-active/);
+    expect((await readRenderedPreview(workbenchCard)).src).toBe(workbenchPreview.src);
+    expect((await readRenderedPreview(telemetryCard)).src).toBe(telemetryPreview.src);
 
     const palette = await readPrismContrastPalette(page);
     const paper = opaque(palette.paper, { red: 255, green: 255, blue: 255 });
@@ -481,8 +490,13 @@ test.describe('Official Theme Center E2E', () => {
       { name: '390x844', width: 390, height: 844 },
     ]) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await expect.poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight])).toEqual([
+        viewport.width,
+        viewport.height,
+      ]);
+      await waitForGraphViewportStable(page);
       await page.keyboard.press('Control+0');
-      await page.waitForTimeout(240);
+      await waitForGraphViewportStable(page);
       await expect(graphLab).toBeVisible();
       await expect(graphLab.locator(':scope > .graph-lab__commandbar')).toBeVisible();
       await expect(graphLab.locator(':scope > .graph-lab__canvas')).toBeVisible();
@@ -595,7 +609,13 @@ test.describe('Official Theme Center E2E', () => {
       { name: '390x844', width: 390, height: 844 },
     ]) {
       await page.setViewportSize(viewport);
+      await expect.poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight])).toEqual([
+        viewport.width,
+        viewport.height,
+      ]);
+      await waitForGraphViewportStable(page);
       await page.keyboard.press('Control+0');
+      await waitForGraphViewportStable(page);
       if (viewport.width <= 900) await expectCompactCommandbarActions(page);
       await expect(graphLab).toHaveScreenshot(visualSnapshotName(`engine-telemetry-source-${viewport.name}.png`), {
         animations: 'disabled',
@@ -605,24 +625,25 @@ test.describe('Official Theme Center E2E', () => {
     await page.setViewportSize(originalViewport);
   });
 
-  test('downloads and applies an official remote code theme package', async () => {
+  test('falls back a persisted remote theme ID without exposing a theme bridge', async () => {
+    await page.evaluate(() => {
+      window.localStorage.setItem('plotflow:themeId', 'plotflow-neon-dossier');
+    });
+    await page.reload();
+    await page.waitForSelector('.app-shell', { timeout: 20_000 });
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-prism-foundry');
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('plotflow:themeId')))
+      .toBe('plotflow-prism-foundry');
+    await expect.poll(() => page.evaluate(
+      () => 'theme' in (window.plotflow as unknown as Record<string, unknown>),
+    )).toBe(false);
+
+    await page.evaluate(() => window.__test_store__?.setHomeSurfaceOpen(false));
     await page.getByTestId('toolbar-theme-center').click();
-    await expect(page.getByTestId('theme-center')).toBeVisible();
-
-    const remoteCard = page.getByTestId('official-remote-theme-card').filter({ hasText: '霓虹档案' });
-    await expect(remoteCard).toBeVisible({ timeout: 10_000 });
-    await expect(remoteCard.getByText('免费主题')).toBeVisible();
-
-    await remoteCard.getByTestId('theme-center-remote-action').click();
-    const installedRemoteCard = page.locator('.official-theme-card').filter({ hasText: '远程代码包' });
-    await expect(installedRemoteCard).toBeVisible({ timeout: 20_000 });
-
-    await expect(remoteCard.getByTestId('theme-center-remote-action')).toContainText('启用', { timeout: 20_000 });
-    await remoteCard.getByTestId('theme-center-remote-action').click();
-
-    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-neon-dossier', { timeout: 20_000 });
-    await expect(page.locator('[data-theme-surface="neon-dossier-graph-lab-shell"]')).toBeVisible();
-    await expect(page.locator('[data-remote-slot="neon-dossier-node"]').first()).toBeVisible();
-    await expect(page.locator('[data-remote-slot="neon-dossier-edge"]').first()).toBeVisible();
+    const themeCenter = page.getByTestId('theme-center');
+    await expect(themeCenter).toBeVisible();
+    await expect(themeCenter.locator('.official-theme-card')).toHaveCount(3);
+    await expect(themeCenter.getByTestId('official-remote-theme-card')).toHaveCount(0);
   });
 });

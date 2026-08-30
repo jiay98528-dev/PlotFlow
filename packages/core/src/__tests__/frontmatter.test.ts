@@ -18,6 +18,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseFrontmatter } from '../parser/frontmatter.js';
+import { parseStory } from '../parser/parser.js';
 
 // ============================================================================
 // 辅助：快速构建完整的 .mdstory 文本（包含 --- 边界）
@@ -245,6 +246,44 @@ vars:
         武器: '剑',
         耐久度: 0,
       });
+    }
+  });
+
+  it('单行对象按顶层分隔，保留枚举逗号和嵌套对象', () => {
+    const result = parseFrontmatter(fm(`title: "测试"
+vars:
+  状态: object{ 标签: enum["战斗,中", 探索], 属性: object{ 生命: int, 比例: float }, 名称: string }`));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const status = result.data.variables[0]!;
+      expect(status.defaultValue).toEqual({
+        标签: '战斗,中',
+        属性: { 生命: 0, 比例: 0 },
+        名称: '',
+      });
+      expect(status.fields?.[0]?.enumValues).toEqual(['战斗,中', '探索']);
+      expect(status.fields?.[1]?.fields).toHaveLength(2);
+    }
+  });
+
+  it('未闭合对象产生 E005，parseStory 仍保留已解析字段', () => {
+    const input = fm(`title: "测试"
+vars:
+  状态: object{
+    生命: int
+    名称: string`);
+    const frontmatter = parseFrontmatter(input);
+    expect(frontmatter.ok).toBe(false);
+    if (!frontmatter.ok) {
+      expect(frontmatter.errors.some((error) => error.code === 'E005')).toBe(true);
+    }
+
+    const story = parseStory(input);
+    expect(story.ok).toBe(true);
+    if (story.ok) {
+      expect(story.diagnostics.some((error) => error.code === 'E005')).toBe(true);
+      expect(story.data.variables[0]?.defaultValue).toEqual({ 生命: 0, 名称: '' });
     }
   });
 

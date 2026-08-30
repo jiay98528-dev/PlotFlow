@@ -10,6 +10,20 @@
 
 import type { ThemeDescriptor } from './types';
 
+const CONTROLLED_UX_SCOPES = [
+  'appShell',
+  'home',
+  'themeCenter',
+  'graphLab',
+  'split',
+  'toolbar',
+  'panel',
+  'dock',
+  'node',
+  'edge',
+  'typography',
+] as const;
+
 // ============================================================================
 // 公共函数
 // ============================================================================
@@ -35,6 +49,9 @@ export function applyThemeToRoot(
   mode: 'light' | 'dark',
 ): void {
   // ---- 1. data-* 属性 ----
+  for (const scope of CONTROLLED_UX_SCOPES) {
+    delete root.dataset[`themeUx${scope.charAt(0).toUpperCase()}${scope.slice(1)}`];
+  }
   root.dataset['theme'] = mode;
   root.dataset['themeId'] = theme.id;
 
@@ -46,7 +63,8 @@ export function applyThemeToRoot(
     root.dataset['themeCard'] = graphLab.nodeCardStyle;
     root.dataset['themeSourceDock'] = graphLab.sourceDock;
     root.dataset['themeCable'] = graphLab.cableStyle;
-    root.dataset['themeMotion'] = graphLab.motionIntensity ?? theme.motionRecipe?.intensity ?? 'subtle';
+    root.dataset['themeMotion'] =
+      graphLab.motionIntensity ?? theme.motionRecipe?.intensity ?? 'subtle';
   } else {
     delete root.dataset['themeCard'];
     delete root.dataset['themeSourceDock'];
@@ -83,7 +101,10 @@ export function applyThemeToRoot(
       root.style.setProperty('--theme-graph-lab-inspector-width', `${graphLab.inspectorWidth}px`);
     }
     if (graphLab.sourceDockHeight) {
-      root.style.setProperty('--theme-graph-lab-source-dock-height', `${graphLab.sourceDockHeight}px`);
+      root.style.setProperty(
+        '--theme-graph-lab-source-dock-height',
+        `${graphLab.sourceDockHeight}px`,
+      );
     }
   }
 

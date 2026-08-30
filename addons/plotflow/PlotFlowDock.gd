@@ -30,14 +30,14 @@ func setup_ui() -> void:
 
 	# ---- Root VBox ----
 	var vbox := VBoxContainer.new()
-	vbox.name = "PlotFlowDock"
+	vbox.name = "PlotFlowDock" # brand-compat: scene/runtime node identity
 	vbox.anchor_right = 1.0
 	vbox.anchor_bottom = 1.0
 	add_child(vbox)
 
 	# ---- Title ----
 	var title := Label.new()
-	title.text = "PlotFlow"
+	title.text = "Fablevia"
 	title.theme_type_variation = "TitleLabel"
 	vbox.add_child(title)
 

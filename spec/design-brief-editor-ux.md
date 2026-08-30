@@ -1,14 +1,16 @@
-# PlotFlow 编辑器 UX 设计简报
+# Fablevia（维叙）编辑器 UX 设计简报
+
+> 品牌展示合同：中文界面以“维叙”为主名、`Fablevia` 为小字辅助，读屏名为“维叙（Fablevia）”；英文界面只显示 `Fablevia`。沿用现有软件图标，移除 `PF` 文字标记。
 
 > 版本：V0.3
-> 更新日期：2026-07-11
+> 更新日期：2026-07-12
 > 状态：当前 UX 设计唯一真相源
-> 范围：PlotFlow 桌面编辑器、Split 工作区、Graph Lab、Source Drawer、主题系统、导出和发行验收口径。
+> 范围：Fablevia（维叙）桌面编辑器、Split 工作区、Graph Lab、Source Drawer、主题系统、导出和发行验收口径。
 > 默认工作区决策：Graph Lab 是主要且默认工作区；Split 顶栏并列保留为辅助与高级源码投影。详见 `doc/adr/ADR-012-graph-lab-default-workspace.md`。
 
 ## 1. 产品定位
 
-PlotFlow 是面向独立游戏开发者的本地优先叙事分支管理工具。用户默认在 Graph Lab 以流程图优先的完整 GUI 工作流搭建、检查和调整剧情结构，也可以切换到 Split 直接编辑完整 `.mdstory` 源文本。`.mdstory` 始终是唯一磁盘真相源，所有 GUI 操作都必须写回同一个纯文本文件；文件真相源不等于文本编辑器是默认 UX。
+Fablevia（维叙）是面向独立游戏开发者的本地优先叙事分支管理工具。用户默认在 Graph Lab 以流程图优先的完整 GUI 工作流搭建、检查和调整剧情结构，也可以切换到 Split 直接编辑完整 `.mdstory` 源文本。`.mdstory` 始终是唯一磁盘真相源，所有 GUI 操作都必须写回同一个纯文本文件；文件真相源不等于文本编辑器是默认 UX。
 
 核心体验目标：
 
@@ -38,14 +40,14 @@ Graph Lab 工作区：
 
 - 顶部命令栏显示当前文件、统计、诊断入口、Source Drawer 开关。
 - 顶部第二行固定显示章节标签栏。
-- 左侧 rail 包含工作区浏览器、Outline 和创建工具。
+- 左侧 rail 是全局编辑区，依次包含快速创建、章节 Outline、故事/变量编辑与折叠的工作区浏览器。
 - 中间 React Flow 画布显示当前章节图。
-- 右侧 Inspector 编辑故事、节点、变量、选项、条件和效果。
+- 右侧 Inspector 只编辑当前节点及其下一步、选项、条件和效果。
 - 底部 Source Drawer 编辑当前章节源码切片。
 
 ## 4. 视觉原则
 
-PlotFlow 的视觉风格应安静、清晰、工作导向。它是叙事生产工具，不是营销页面。
+Fablevia（维叙）的视觉风格应安静、清晰、工作导向。它是叙事生产工具，不是营销页面。
 
 颜色必须通过设计 token 和主题变量表达，不在组件、文档示例或测试夹具中写直接色值。语义颜色按用途命名：
 
@@ -113,9 +115,11 @@ Source Drawer 在 Graph Lab 中显示当前章节源码切片。Split 模式仍�
 - 如果当前切片 stale，阻止切换并提示用户先还原或重新载入，避免用过期 offset 覆盖完整源码。
 - `Ctrl/Cmd+S` 保存当前切片；`Escape` 在 dirty 或 stale 时还原切片。
 
-### 6.3 Inspector
+### 6.3 Inspector 与全局编辑区
 
-Inspector 是 Graph Lab 的主编辑面板。
+右侧 Inspector 是 Graph Lab 的当前节点编辑面板，使用静态“节点”上下文标题，不使用只有一个项目的伪标签栏。选中节点后，节点字段、默认“下一步”、选项、条件和效果必须在同一滚动流中连续出现，避免把同一节点的路线操作割裂为另一层语义。
+
+左侧 rail 的全局编辑区使用“故事｜变量”标签，承载不依赖当前节点选择的故事 frontmatter 和顶层变量编辑。未选节点时，这两个全局编辑路径仍必须完整可用。标签遵循标准 roving tabindex 模型：`ArrowLeft` / `ArrowRight` 循环切换并移动焦点，`Home` / `End` 跳到首尾，非激活标签不能因 `tabIndex=-1` 而失去键盘进入路径。
 
 必须支持：
 
@@ -125,11 +129,12 @@ Inspector 是 Graph Lab 的主编辑面板。
 - 选项描述、目标、排序和删除。
 - 条件字段化编辑。
 - 效果字段化编辑。
+- Inspector 内的效果编辑器必须按面板实际可用宽度收敛，而不是按窗口宽度猜测。变量、操作、值、删除与提交操作均不得被 Inspector 的局部滚动容器裁切；效果值输入聚焦时，`Enter` 必须与可见提交按钮调用同一提交路径。
 - `vars:` 顶层变量的新增、修改和删除，包括完整类型、默认值、description、scope，以及 chapter scope 的章节选择。
 
 变量声明集中存放在当前 `.mdstory` frontmatter，不引入数据库或隐藏项目状态。顶层省略 scope 时视为 global；选择 chapter scope 后必须选择真实章节，切回 global 必须清除旧 `chapter`。chapter-scoped 值随故事会话持久化，但仅在归属章节的节点、条件和效果上下文中可见；其他章节的下拉不得暴露该变量。object 嵌套 fields 继承顶层 scope/chapter，Inspector 不提供字段级 scope/chapter 控件。
 
-条件编辑器对合法 Condition AST 必须无损往返。JSON 0.2 Comparison 使用 typed `left/right` operands：variable operand 显示变量/字段选择器，literal operand 显示按变量类型约束的值控件。导入历史 0.1 `variable/value` Comparison 时先在读取边界规范化为 typed operands，编辑和后续导出均使用 0.2；损坏或未知语法才进入只读保留态并引导源码修复。
+条件编辑器对合法 Condition AST 必须无损往返。JSON 0.2 Comparison 使用 typed `left/right` operands：variable operand 显示变量/字段选择器，literal operand 显示按变量类型约束的值控件。导入历史 0.1 `variable/value` Comparison 时先在读取边界规范化为 typed operands，编辑和后续导出均使用 0.2；损坏或未知语法才进入只读保留态并引导源码修复。条件内的变量和运算符下拉必须作为顶层浮层渲染，不能被 Inspector 或条件容器裁切；浮层随触发器重定位，外点与 Escape 可关闭，Escape 恢复触发器焦点。当条件编辑器以 `aria-modal` 对话框打开时，Portal 菜单必须纳入同一可访问焦点域：运算符选项可由键盘直接进入和选择，`Tab` / `Shift+Tab` 不得越过菜单进入背景界面。
 
 节点和目标身份遵循 ADR-013：canonical FullID 由 core 以 encoded-slash 组件生成并作为 opaque key 使用。UI 只显示可读的“章节 / 节点”标签，不展示百分号编码，也不得拆分 FullID 反推章节。旧 hyphen layout 只有唯一匹配时才恢复坐标；碰撞时显示可操作的歧义诊断，引导用户 Relayout 或拖拽，不静默猜测。
 
@@ -182,6 +187,7 @@ Graph Lab 节点卡片必须承担“流程性节点模块”的职责，而不�
 - 效果预览显示前两个变量变化，超出后用 `+N` 汇总。raw 效果不可结构化时仍显示原文摘要。
 - 目标可解析时显示目标节点标题；目标缺失显示 `目标缺失`；未连接显示 `待连接`；终端显示 `终端节点`。
 - 默认最多展示 3 条路线，超出显示 `+N 条路线`；隐藏路线仍必须保留 React Flow source handle，避免已有连线丢失。
+- 默认 `下一步` 路线必须明显区别于普通选项：它是低强调的流程续接轨道，不使用选项卡片的表面、阴影和交互暗示；仍保留“下一步”可访问名称、目标预览和 `next` handle。
 
 端口与交互：
 
@@ -245,7 +251,7 @@ Graph Lab V0.3 的视觉目标是“Codex + macOS 风格的次世代游戏叙事
 - Graph Lab 默认视距必须保证节点卡片的路线摘要可读。初始视图优先居中 active node 或第一节点，默认缩放约 0.78；fit-all 只能作为用户可触发的导航能力，不能让主信息长期缩到不可读。
 - 诊断反馈不得遮挡主导航。画布内部只允许低噪声状态条或入口提示；完整诊断列表放在底部 ProblemPanel dock 中，使用图标、代码、文本和形状共同表达 severity，不使用大面积红色横幅或 emoji。
 - Source Dock 打开后必须稳定占据底部 grid 区域，不压断 Inspector 表单和保存/删除等操作按钮；Source Dock 内部诊断行应低噪声、可点击、可键盘聚焦。
-- Theme Center 的每个主题预览必须按该主题自身 token 呈现，不能被当前激活主题污染。底部 footer 是正常 panel row，不得覆盖列表内容。
+- Home 与 Theme Center 的每个内置主题预览必须使用真实的主题节点、连线和画布组件渲染，禁止以手绘 SVG 或仿制节点占位；预览按该主题自身 token 隔离，不能被当前激活主题污染，也不得反向修改故事、选择或画布状态。底部 footer 是正常 panel row，不得覆盖列表内容。
 - 所有 Graph Lab 控件必须具备 default、hover、focus-visible、active、disabled 状态；icon-only 控件必须有 `aria-label`，仅有 `title` 不足以通过验收。
 - Engine Telemetry 保留深色遥测身份，但必须降噪：青绿只用于连接信号和 focus，琥珀只用于条件/警告，红色只用于 fault；禁止强发光、大面积高饱和色块、装饰 blur 或 HUD 化背景。
 - 截图门禁必须覆盖 Home、Graph Lab 默认主题（Prism Foundry）、Narrative Workbench、Engine Telemetry、Source Dock 展开、ProblemPanel 打开、Theme Center；验收时检查无底层泄漏、无文本裁切、无控件遮挡、无窗口级滚动、节点路线摘要可读。
@@ -274,24 +280,27 @@ Prism Foundry（棱镜铸造台）是内置官方亮色主题与新安装默认�
 
 - 模式切换：Toolbar、菜单和快捷键统一调用 `requestWorkspaceMode(mode)`。Graph → Split 前先处理 Source Drawer；dirty 切片必须先提交到内存 `.mdstory` 文本，stale 切片必须阻断切换并保留草稿与恢复操作。
 - 故事会话：新建、打开、命令行打开、Continue 和外部重载均开始新的递增 `storySessionId`。变量草稿按会话重置；效果草稿按会话、节点 FullID 和路线 identity 重置，禁止跨故事或选项重排串用。
-- 信息架构：第一行 Command Bar 只承载故事标题、节点搜索、诊断、Undo/Redo、保存和 Source 操作；第二行只承载可横向滚动的章节标签。Palette 顺序为快速创建、章节大纲、折叠的工作区浏览器，不重复故事 hero。Inspector 使用 `节点 / 路线 / 变量 / 故事` 四个互斥标签页。
-- 节点搜索：`Ctrl/Cmd+K` 打开非模态 combobox，匹配节点标题、ID、正文和选项文字。结果显示章节与最高诊断级别；Enter 切章、选中、打开节点 Inspector 并居中到可读缩放，不得重新布局或修改 AST。方向键、Escape、无结果状态和焦点恢复均为必需状态。
+- 信息架构：第一行 Command Bar 只承载故事标题、节点搜索、诊断、Undo/Redo、保存和 Source 操作；第二行只承载可横向滚动的章节标签。Palette 顺序为快速创建、章节大纲、故事/变量全局编辑、折叠的工作区浏览器，不重复故事 hero。Inspector 是单一“节点”上下文，连续承载节点字段、下一步和选项路线。
+- 节点搜索：`Ctrl/Cmd+K` 打开非模态 combobox，匹配节点标题、ID、正文和选项文字。结果显示章节与最高诊断级别；Enter 切章、选中、打开节点 Inspector 并居中到可读缩放，不得重新布局或修改 AST。画布直接点击节点只改变选择，绝不自动平移、缩放或重新居中。方向键、Escape、无结果状态和焦点恢复均为必需状态。
 - 响应式：`≥1180px` 使用完整三栏；`901–1179px` 使用紧凑三栏且 Inspector 表单单列化；`≤900px` 使用 canvas-first，Palette 与 Inspector 变为互斥侧边抽屉，不能堆叠到画布下方。Source Drawer 始终是受视口高度约束的底部工具，不与侧边抽屉重叠。
 - 节点拖动：卡片 header 提供统一 Grip、grab/grabbing 光标、本地化名称和拖动状态；输入、端口和按钮继续使用 `nodrag`。非交互 header 区域仍可拖动。
 - 层级与动效：新增 dropdown、canvas overlay、panel、modal 语义层级 token，禁止任意 z-index、fallback z-index 和组件内联层级。状态过渡保持 150–250ms 指数缓出；reduced-motion 下移除非必要空间位移。
+- 右键菜单：节点、连线和画布右键菜单必须可由菜单外主键点击关闭，且不能阻断该次画布操作；Escape 关闭后回到原触发控件。菜单保留 Arrow/Home/End 和菜单项操作，不产生持久浮层。
 - 导出反馈：导出成功后对话框可关闭，但应用状态区必须保留成功状态与目标路径，直到下一次用户操作；取消或失败不得伪装为成功。
 - i18n：GraphCanvas、GraphContextMenu、ConditionEditor、Outline、Source Drawer、外部冲突、诊断与状态反馈必须使用统一字典。UI 字面量门禁仅检查 JSXText、`title`、`aria-label`、`placeholder` 以及明确的状态/对话框参数，并对白名单产品名、格式名与 schema 枚举放行。
 - 视觉验收：1440×900、1280×720、900×720、390×844 均不得出现窗口级横向滚动。窄屏首屏保留可用画布；Palette、Inspector 和 Source Drawer 均可由键盘打开、关闭且不重叠。
 
 ## 8. 主题系统
 
-当前只支持官方主题：
+0.1.1 只支持三套随应用编译发布的官方内置主题：
 
-- 内置官方主题随应用发布。
-- 官方远程免费主题通过官方 registry 下载 `.pf-official-theme.zip`，校验后使用 `plotflow-theme://` 加载。
-- 不开放第三方上传、社区市场、本地导入、购买或授权。
-- 主题可以控制视觉、布局 recipe、React surfaces、React slots、Monaco 配色、CSS 和 assets。
-- 主题不得改变 `.mdstory` 语义、保存流程、导出语义、parser、validator 或 Graph Lab 命令层。
+- `plotflow-prism-foundry`（默认）、`plotflow-narrative-workbench` 与 `plotflow-engine-telemetry`。
+- Theme Center 只展示和切换这三套主题，不显示商店、远程目录、下载、更新或安装操作。
+- 启动时不得请求官方 registry，不得扫描已安装主题目录，也不得动态 import 或执行任何磁盘 `.mjs`。
+- renderer/preload/main 不提供主题 registry、下载、安装或商店 IPC；应用 CSP 不允许 `plotflow-theme:` 脚本、样式或图片源。
+- 历史远程或未知持久化主题 ID 必须回退并改写为 Prism Foundry。已有磁盘主题目录不得被迁移过程删除，但当前版本完全忽略其内容。
+- 内置主题可以控制视觉、布局 recipe、React surfaces、React slots、Monaco 配色、CSS 和 assets；不得改变 `.mdstory` 语义、保存流程、导出语义、parser、validator 或 Graph Lab 命令层。
+- 第三方上传、社区市场、本地导入、购买和授权继续不开放。未来远程主题必须先通过独立 ADR 批准带签名、声明式且不可执行 JavaScript 的交付模型。
 
 Engine Telemetry 是官方主题之一。它可以改变 Graph Lab 外观、节点卡、线缆、Inspector 和 Source Drawer 视觉，但必须保留所有功能、i18n 和截图门禁。
 
@@ -368,7 +377,7 @@ Home 的 `Continue editing` 必须优先重新读取最近保存的 `.mdstory`�
 
 - Integration passed：只代表 `test:e2e` 通过。
 - Source blackbox passed：代表源码构建黑盒通过。
-- Unpacked blackbox passed：代表 `release/win-unpacked/PlotFlow.exe` 通过。
+- Unpacked blackbox passed：代表 `release/win-unpacked/Fablevia.exe` 通过。
 - Installed blackbox passed：代表新安装路径通过。
 - Release candidate passed：必须 package、unpacked、installed、manual patrol 全部通过。
 
@@ -376,7 +385,7 @@ ADR-013 的 FullID、旧布局迁移、Schema 0.2、chapter 变量可见性与�
 
 ## 14. 反目标
 
-PlotFlow 不做以下事情：
+Fablevia（维叙）不做以下事情：
 
 - 不引入数据库作为 `.mdstory` 内容真相源。
 - 不把 Graph Lab 变成专有二进制格式编辑器。
@@ -394,4 +403,4 @@ PlotFlow 不做以下事情：
 - 主题开发标准：`doc/standards-theme-development.md`
 - 进度状态：`spec/progress.md`
 
-本文件是 PlotFlow 编辑器 UX 设计的当前权威来源。实现、测试和审计发现冲突时，以本文件和对应技术规格的最新版本为准。
+本文件是 Fablevia（维叙）编辑器 UX 设计的当前权威来源。实现、测试和审计发现冲突时，以本文件和对应技术规格的最新版本为准。

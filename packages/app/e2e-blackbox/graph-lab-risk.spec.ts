@@ -130,6 +130,24 @@ function maxRelativeNodeDrift(before: NodeSnapshot[], after: NodeSnapshot[]): nu
   return max;
 }
 
+async function waitForRelativeNodePositionsToSettle(page: Page, count: number): Promise<NodeSnapshot[]> {
+  let previous = await snapshotFirstNodes(page, count);
+  let stableSamples = 0;
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(100);
+    const current = await snapshotFirstNodes(page, count);
+    if (maxRelativeNodeDrift(previous, current) <= 1) {
+      stableSamples += 1;
+      if (stableSamples >= 3) return current;
+    } else {
+      stableSamples = 0;
+    }
+    previous = current;
+  }
+  throw new Error('Graph node positions did not settle within 5 seconds.');
+}
+
 test.describe('blackbox Graph Lab high-risk GUI behavior', () => {
   test('wire drop menu closes, live wire is visible, Source Dock does not trap the workspace, and layout stays stable @journey', async () => {
     const workspace = await createBlackboxWorkspace('graph-lab-risk');
@@ -158,7 +176,7 @@ test.describe('blackbox Graph Lab high-risk GUI behavior', () => {
 
       const initialNodeCount = await page.locator('.react-flow__node').count();
       expect(initialNodeCount).toBeGreaterThan(1);
-      const before = await snapshotFirstNodes(page, Math.min(initialNodeCount, 3));
+      const before = await waitForRelativeNodePositionsToSettle(page, Math.min(initialNodeCount, 3));
 
       await dragFromHandleTo(page, await blankCanvasPoint(page));
       await expect(page.getByTestId('wire-drop-menu')).toBeVisible({ timeout: 5_000 });
@@ -177,7 +195,7 @@ test.describe('blackbox Graph Lab high-risk GUI behavior', () => {
       await expect.poll(async () => page.locator('.react-flow__node').count()).toBeGreaterThan(initialNodeCount);
       await expect(page.getByTestId('wire-drop-menu')).toHaveCount(0);
 
-      const after = await snapshotFirstNodes(page, before.length);
+      const after = await waitForRelativeNodePositionsToSettle(page, before.length);
       expect(maxRelativeNodeDrift(before, after)).toBeLessThanOrEqual(24);
     } finally {
       await closeBlackboxApp(launched.app);

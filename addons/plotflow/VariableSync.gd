@@ -4,7 +4,7 @@ extends RefCounted
 ## Reads variables from Godot project settings and injects them into the
 ## YAML frontmatter of a .mdstory file.
 ##
-## Expected project settings keys (set via Project → Project Settings → PlotFlow):
+## Expected project settings keys (set via Project → Project Settings → Fablevia):
 ##   plotflow/variables — a Dictionary of variable_name → default_value
 
 
@@ -33,12 +33,12 @@ func read_project_variables() -> Dictionary:
 func sync_to_story(file_path: String) -> bool:
 	var variables := read_project_variables()
 	if variables.is_empty():
-		push_warning("PlotFlow VariableSync: no variables found in project settings.")
+		push_warning("Fablevia VariableSync: no variables found in project settings.")
 		return false
 
 	var file := FileAccess.open(file_path, FileAccess.READ)
 	if not file:
-		push_error("PlotFlow VariableSync: cannot read ", file_path)
+		push_error("Fablevia VariableSync: cannot read ", file_path)
 		return false
 
 	var content := file.get_as_text()
@@ -50,7 +50,7 @@ func sync_to_story(file_path: String) -> bool:
 
 	file = FileAccess.open(file_path, FileAccess.WRITE)
 	if not file:
-		push_error("PlotFlow VariableSync: cannot write ", file_path)
+		push_error("Fablevia VariableSync: cannot write ", file_path)
 		return false
 
 	file.store_string(new_content)

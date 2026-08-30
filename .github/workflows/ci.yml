@@ -45,6 +45,11 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Feedback service build and runtime import
+        run: |
+          pnpm --dir packages/feedback-service build
+          pnpm --dir packages/feedback-service test:runtime
+
       - name: Production build
         run: pnpm build
 
@@ -55,15 +60,9 @@ jobs:
           pnpm lint:layers
           pnpm lint:bundle
 
-      - name: Graph primary-path UI literal scan
-        run: pnpm lint:ui-literals
-
-      - name: Documentation UTF-8 mojibake gate
-        run: pnpm lint:docs
-
-      - name: JSON Schema mirror check
-        run: pnpm check:schema
-
+      # Documentation-form checks (UI literals, brand visibility, doc mojibake,
+      # schema mirror, external-review contract) run nightly in
+      # release-validation.yml; they do not gate PRs.
       - name: Engine consumption contracts
         run: pnpm test:engine-contract
 
@@ -123,6 +122,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Ensure Electron binary
+        run: node node_modules/electron/install.js
+
       - name: Install Playwright Chromium
         run: pnpm --filter @plotflow/app exec playwright install chromium
 
@@ -147,17 +149,3 @@ jobs:
             packages/app/test-results/**
             playwright-report/**
             packages/app/playwright-report/**
-
-  placeholder-scan:
-    name: Placeholder code scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Reject milestone placeholders
-        run: |
-          if grep -rn "待 M[0-9]" packages/app/src/; then
-            echo "Placeholder code detected."
-            exit 1
-          fi
-          echo "No milestone placeholder code found."

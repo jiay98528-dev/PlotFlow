@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditorStore } from '../stores/editorStore';
 import { useGraphStore } from '../stores/graphStore';
 import { useStoryStore } from '../stores/storyStore';
@@ -14,6 +14,7 @@ import {
   undoGraphEdit,
 } from './graphHistoryService';
 import { parsePipelineNow } from './parsePipeline';
+import { StorySourceEditService } from './storySourceEditService';
 
 const STORY = `---
 plotflow: 0.1
@@ -158,5 +159,24 @@ describe('Graph Lab history integration', () => {
 
     await undoGraphEdit();
     expect(useStoryStore.getState().getNodeByFullId('Chapter/Start')?.position).toBeUndefined();
+  });
+
+  it('does not record history when Monaco rejects an edit', () => {
+    const model = {
+      getValue: () => STORY,
+      getPositionAt: () => ({ lineNumber: 1, column: 1 }),
+    };
+    const editor = {
+      getValue: () => STORY,
+      getModel: () => model,
+      pushUndoStop: vi.fn(),
+      executeEdits: vi.fn(() => false),
+    };
+    useEditorStore.setState({ editorInstance: editor as never });
+
+    expect(() => StorySourceEditService.commit(`${STORY}\nChanged.`, 'test-rejected-edit'))
+      .toThrow('Monaco rejected the source text edit');
+    expect(getGraphHistoryState()).toMatchObject({ undoDepth: 0, redoDepth: 0 });
+    expect(useEditorStore.getState().content).toBe(STORY);
   });
 });

@@ -1,9 +1,10 @@
 ﻿/**
- * PlotFlow Theme Platform 鈥?鏍稿績绫诲瀷瀹氫箟
+ * PlotFlow Theme Platform — 核心类型定义
  *
- * 鏈枃浠跺畾涔?ThemeDescriptor 鍙婃墍鏈夊瓙鎺ュ彛銆傝繖鏄钩鍙扮殑瀵瑰绫诲瀷鍚堝悓銆? * 璁捐绾︽潫锛? * - ThemeId = string锛堥潪灏侀棴鑱斿悎锛夛紝杩愯鏃堕€氳繃 Registry.validateId 鏍￠獙
- * - 闆跺鍏ユ潵鑷」鐩唴閮ㄦ棫涓婚鎴?branch-graph 璺緞
- * - ThemeSlots 浣跨敤娉涘瀷 NodeProps / EdgeProps锛屼笉缁戝畾 StoryFlowNodeData 鎴?StoryEdgeType
+ * 定义 ThemeDescriptor 及全部子接口，是主题平台的类型合同。
+ * - ThemeId 保持开放字符串，并由 Registry.validateId 在运行时校验
+ * - 不依赖旧主题或 branch-graph 的具体实现类型
+ * - ThemeSlots 使用通用 NodeProps / EdgeProps
  *
  * @module theme-platform/types
  */
@@ -12,14 +13,15 @@ import type React from 'react';
 import type { EdgeProps, NodeProps } from '@xyflow/react';
 
 // ============================================================================
-// 鏍稿績 ID
+// 核心 ID
 // ============================================================================
 
-/** 涓婚鍞竴鏍囪瘑绗︺€備换浣曞敮涓€瀛楃涓插潎鍙敞鍐岋紝瀹為檯 ID 鐢?Registry.validateId 鏍￠獙銆?*/
+/** 主题唯一标识符；具体格式由 Registry.validateId 校验。 */
 export type ThemeId = string;
 
 // ============================================================================
-// 澶氳瑷€瀛楃涓?// ============================================================================
+// 多语言字符串
+// ============================================================================
 
 export interface ThemeLocaleString {
   readonly 'zh-CN': string;
@@ -37,7 +39,8 @@ export interface ThemeTokens {
 }
 
 // ============================================================================
-// Monaco 缂栬緫鍣ㄤ富棰?// ============================================================================
+// Monaco 编辑器主题
+// ============================================================================
 
 export interface ThemeMonacoTokenRule {
   readonly token: string;
@@ -57,7 +60,7 @@ export interface ThemeMonacoDefinition {
 }
 
 // ============================================================================
-// 甯冨眬閰嶆柟
+// 布局配方
 // ============================================================================
 
 export interface ThemeGraphLabLayout {
@@ -109,7 +112,7 @@ export interface ThemeUxRecipe {
 }
 
 // ============================================================================
-// 鍔ㄦ晥閰嶆柟
+// 动效配方
 // ============================================================================
 
 export interface ThemeMotionRecipe {
@@ -120,7 +123,7 @@ export interface ThemeMotionRecipe {
 }
 
 // ============================================================================
-// 浜や簰閰嶆柟
+// 交互配方
 // ============================================================================
 
 export interface ThemeInteractionRecipe {
@@ -131,7 +134,7 @@ export interface ThemeInteractionRecipe {
 }
 
 // ============================================================================
-// 鍏ュ彛閰嶆柟
+// 入口配方
 // ============================================================================
 
 export interface ThemeEntryRecipe {
@@ -141,7 +144,7 @@ export interface ThemeEntryRecipe {
 }
 
 // ============================================================================
-// 璧勪骇
+// 资产
 // ============================================================================
 
 export interface ThemeAssets {
@@ -151,106 +154,23 @@ export interface ThemeAssets {
 }
 
 // ============================================================================
-// 鍟嗗簵鍏冩暟鎹?// ============================================================================
+// 商店元数据
+// ============================================================================
 
 export interface ThemeStoreMeta {
-  readonly availability: 'bundled' | 'officialRemote';
+  readonly availability: 'bundled';
   readonly priceLabel: string;
   readonly storeUrl: string;
 }
 
-export interface OfficialThemeRegistryEntry {
-  readonly id: string;
-  readonly name: ThemeLocaleString;
-  readonly version: string;
-  readonly channel: 'stable' | 'preview';
-  readonly priceLabel: '免费主题';
-  readonly manifestUrl: string;
-  readonly bundleUrl: string;
-  readonly sha256: string;
-  readonly minAppVersion: string;
-  readonly themeApiVersion: number;
-  readonly previewUrl: string;
-  readonly changelog: string;
-}
-
-export interface OfficialThemeRuntimeManifest {
-  readonly id: string;
-  readonly version: string;
-  readonly themeApiVersion: number;
-  readonly entry: string;
-  readonly styles?: readonly string[];
-  readonly assetsBase?: string;
-}
-
-export interface InstalledOfficialThemeRuntime {
-  readonly moduleUrl: string;
-  readonly styleUrls: readonly string[];
-  readonly assetBaseUrl: string;
-}
-
-export interface OfficialThemeCatalogResult {
-  readonly ok: boolean;
-  readonly entries: readonly OfficialThemeRegistryEntry[];
-  readonly message?: string;
-}
-
-export interface InstalledOfficialThemeSummary {
-  readonly id: string;
-  readonly version: string;
-  readonly name: ThemeLocaleString;
-  readonly priceLabel: '免费主题';
-  readonly installedAt: number;
-  readonly runtime: InstalledOfficialThemeRuntime;
-}
-
-export type OfficialThemeRemoteStatus = 'installed' | 'updateAvailable' | 'notInstalled';
-
-export interface OfficialThemeRemoteView extends OfficialThemeRegistryEntry {
-  readonly status: OfficialThemeRemoteStatus;
-  readonly installedVersion?: string;
-}
-
-export interface OfficialThemeDownloadResult {
-  readonly ok: boolean;
-  readonly id?: string;
-  readonly version?: string;
-  readonly message: string;
-  readonly errors?: readonly string[];
-}
-
-export interface OfficialThemeRuntimeHost {
-  readonly React: typeof React;
-  readonly createElement: typeof React.createElement;
-  readonly Fragment: typeof React.Fragment;
-  readonly defaultThemeSurfaces: ThemeSurfaces;
-  readonly baseSlots: ThemeSlots;
-  readonly assetUrl: (path: string) => string;
-  readonly themeId: string;
-  readonly version: string;
-  readonly apiVersion: number;
-}
-
-export interface OfficialThemeRuntimeResult {
-  readonly descriptor: ThemeDescriptor;
-  readonly cssText?: string;
-  readonly styleUrls?: readonly string[];
-}
-
-export interface OfficialThemeRuntimeModule {
-  readonly createTheme: (
-    host: OfficialThemeRuntimeHost,
-  ) => OfficialThemeRuntimeResult | Promise<OfficialThemeRuntimeResult>;
-}
-
 // ============================================================================
-// React 缁勪欢鎻掓Ы
+// React 组件插槽
 // ============================================================================
 
 /**
- * 涓婚鍙浛鎹㈢殑 React 缁勪欢鎻掓Ы銆? *
- * 浣跨敤娉涘瀷 NodeProps / EdgeProps 鑰岄潪鍏蜂綋 StoryFlowNodeData / StoryEdgeType锛? * 浣垮钩鍙扮被鍨嬬嫭绔嬩簬浠讳綍鍏蜂綋缁勪欢瀹炵幇銆傜被鍨嬪吋瀹规€у湪 GraphCanvas 鐨?nodeTypes/edgeTypes
- * 璧嬪€煎鐢?TypeScript 妫€鏌ャ€? */
+ * 主题可替换的 React 组件插槽。使用通用 Flow 类型，避免平台合同
+ * 依赖任一具体节点或连线实现；GraphCanvas 组装时由 TypeScript 校验兼容性。
+ */
 export interface ThemeSlots {
   readonly StoryNodeCard: React.FC<NodeProps>;
   readonly StoryEdge: React.FC<EdgeProps>;
@@ -306,7 +226,6 @@ export interface ThemeCenterSurfaceProps {
   readonly header: React.ReactNode;
   readonly sidebar: React.ReactNode;
   readonly installedThemes: React.ReactNode;
-  readonly remoteThemes: React.ReactNode;
   readonly footer: React.ReactNode;
 }
 
@@ -329,11 +248,12 @@ export interface ThemeSurfaces {
 }
 
 // ============================================================================
-// 涓婚鎻忚堪绗︼紙椤跺眰锛?// ============================================================================
+// 主题描述符（顶层）
+// ============================================================================
 
 /**
- * 涓€涓畬鏁寸殑涓婚瀹氫箟銆? *
- * 娉ㄥ唽鍒?ThemeRegistry 鍚庨€氳繃 ThemePlatformProvider 婵€娲汇€? * 鎵€鏈夊瓧娈靛繀闇€锛堟棤鍙€夊閿級锛岀‘淇濇敞鍐屾椂鍗冲彲鏍￠獙瀹屾暣鎬с€? */
+ * 完整主题定义。注册到 ThemeRegistry 后由 ThemePlatformProvider 激活。
+ */
 // ============================================================================
 
 export interface ThemeDescriptor {

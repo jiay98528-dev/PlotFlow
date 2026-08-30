@@ -1,5 +1,7 @@
 # PlotFlow 项目开发工作流
 
+> 对外产品品牌为 Fablevia（维叙）；中文 UI 主显示“维叙”并用小字辅助 `Fablevia`，英文 UI 只显示 `Fablevia`。项目路径和 `plotflow` 技术命名空间为兼容合同，不随品牌机械改名。`CLAUDE.md` 是指向本文件的指针，不再维护独立内容。
+
 > 版本：V0.3 | 日期：2026-06-23 | 基于 MarkLuck 实战工作流模板构建
 > 适用于：单人 + AI 协作的独立游戏开发工具项目
 
@@ -112,27 +114,45 @@
 
 详见 `spec/progress.md`（进度权威来源）。
 
-**当前进度（2026-06-24 V0.3）**：
+**当前进度（2026-08-10 V0.3）**：
 - M0-M7 历史任务明细：132 个 ✅、9 个 ⏭️、1 个 ❌，总进度 **132/142（92.96%）**
 - M0 1 项历史 E2E 框架任务已移除；M4/M5 各 1 项延后；M7 7 项平台发布任务延后
-- 基础门禁：lint/typecheck/test/build/lint:css/lint:tokens/lint:bundle/UI literal/Schema/engine/website/audit 均通过；`pnpm.cmd test` 为 68 files / 1376 tests
-- 当前发行门禁：Graph-first/P2 完整 app 集成 E2E 79/79、source blackbox 11 passed / 6 目标专属 skipped、全新 Windows package 和 unpacked blackbox 16 passed / 1 installed-only skipped 均通过。远程 CI、installed blackbox、30 分钟人工巡检、真实引擎 smoke 和 Authenticode 签名仍待完成，不得宣称公共正式发行完成；详见 `spec/release-blackbox-gate.md`
+- 当前源码基线：lint（0 error / 9 个既有 warning）、typecheck、87 files / 1474 tests、build、CSS 与 bundle 定向检查通过。当前机器缺少 Electron 二进制且下载 `fetch failed`，源码 Electron E2E 为 `NOT_RUN`；命令现会在约 1 秒内明确失败并给出恢复指令。
+- 发行边界：普通开发不受候选证据链阻塞；Windows RC 需要同一候选的 unpacked + installed 黑盒，公共发行还需要最终 Authenticode 与签名后哈希。五包外审只在用户明确要求正式独立审查时启用；详见 `spec/release-blackbox-gate.md`。
 - M8 Graph Lab Core：18 项新增图优先任务，当前 18/18（源码与文档级），不混入旧 142 项统计
 
 ### V0.1 核心交付范围
 
 | 模块 | 内容 |
 |------|------|
-| 编辑器 | Monaco 编辑器 + PlotFlow 语法高亮 + 大纲视图 |
-| 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线，点击跳转） |
+| 编辑器 | Monaco 编辑器 + Fablevia 语法高亮 + 大纲视图 + 自动保存 |
+| 分支图 | React Flow 可编辑分支图（自上而下布局，拖拽连线，点击跳转，小地图） |
 | Graph Lab Core | 图优先正式入口：全屏画布、节点 palette、Inspector、Source Drawer，支持完整 GUI 操控并序列化回 `.mdstory` |
 | 条件编辑 | 内联图形化条件编辑器（Airtable 风格），双向文本同步 |
-| 错误检测 | 三级错误标记（红色错误/黄色警告/蓝色建议波浪线） |
-| 补全 | 四维幽灵补全 + 本地语料学习 + 用户导入 |
+| 错误检测 | 三级错误标记（8E/6W/3I 波浪线）+ 问题面板 |
 | 导出 | JSON（标准格式）+ HTML（可玩版）+ TXT（纯文本） |
-| 插件 | Godot 编辑器插件+运行时库完整实现 |
-| 项目 | 独立单文件模式（A）+ 插件模式（C）+ 4个内置模板 |
-| UI | 暗色/亮色主题 + 中英双语 + 实时自动保存 |
+| 模板 | 4 个内置模板（RPG/视觉小说/解谜/Godot 示例）+ 新建文件对话框 |
+| UI | 暗色/亮色双主题 + 海洋蓝/暖金双强调色 + 中英双语 |
+
+### V0.2-V0.3 已交付（截至 2026-06-20）
+
+| 模块 | 内容 |
+|------|------|
+| 连线交互 | StoryEdge 全交互升级（Alt+删除/双击→条件编辑器/右键菜单/hover 高亮） |
+| 画布交互 | 双击节点内联重命名 |
+| GhostText | 幽灵补全接线（4维触发/英文语料152句/Tab/Esc/Ctrl+Space） |
+| 条件编辑器 | 集成连线双击触发 + AST 自动加载已有条件 |
+| Edge ID | encodeURIComponent 编码加固 + parseEdgeId 确定性解码 |
+| 引擎插件 | Godot 编辑器插件+运行时库（8文件）、Unity C# 接口（2文件）、Unreal 数据模型 |
+| 学习管道 | N-gram 增量学习器（90天衰减）+ 语料导入器 + 预处理 + 持久化 + CorpusManager面板 |
+| Bug 修复 | 章节标题正则（monaco-tokenizer）/ CorpusLoader API / 条件编辑器初始状态 / QA审计2 CRITICAL+8 HIGH全部修复 |
+
+### V0.3 延后交付
+
+| 模块 | 内容 |
+|------|------|
+| 语料 | 中文语料包扩展至 3.5MB（当前 45KB）、英文语料包扩展至 1.5MB（当前 30KB） |
+| 打包 | Electron 三平台构建 (.exe/.dmg/.AppImage) + 自动更新 + 首次启动引导 |
 
 ---
 
@@ -142,7 +162,7 @@
 
 | # | 文档 | 内容 | 状态 |
 |---|------|------|:---:|
-| 0 | `CLAUDE.md` | 本文件——项目元指令与开发工作流 | ✅ |
+| 0 | `AGENTS.md` | 本文件——项目元指令与开发工作流（唯一权威源；`CLAUDE.md` 为指针） | ✅ |
 | 1 | `PRD.md` | 产品需求规格（15章，50+功能点） | ✅ |
 | 2 | `COMPETITIVE_ANALYSIS.md` | 竞品分析（51功能矩阵，6竞品六维评分） | ✅ |
 | 3 | `MARKLUCK_REFERENCE.md` | MarkLuck 工作流与代码复用参考 | ✅ |
@@ -158,7 +178,7 @@
 `spec/design-brief-editor-ux.md` 是 PlotFlow 编辑器所有 UI/UX 设计的**唯一真相源（Single Source of Truth）**。
 
 - 所有 UI 组件实现必须对照此文档中的设计决策
-- 任何视觉变更、交互调整、布局修改必须先更新此文档，再改代码
+- 只有改变产品视觉方向、交互合同或主题能力边界时，才需要同步更新此文档；可访问性修复、缺陷修复和既有规则内的局部实现不以文档更新为前置条件
 - 代码审查时，此文档中的规则与 `CLAUDE.md` 代码约束具有同等效力
 - 关键设计决策摘要：**语义多色策略** / **默认亮色主题** / **shadcn/ui 组件库** / **迷你地图+并排均衡双模式** / **游戏化入门任务** / **反目标：不学 Articy 臃肿**
 
@@ -172,11 +192,11 @@
 
 ### 5.1 CI 自动检查
 
-L1（TypeScript 编译 + ESLint）和 L2（Vitest 单元测试）由 GitHub Actions 在 push 时自动执行。本地开发依赖 pre-commit hook 触发 lint。具体配置见 `.github/workflows/ci.yml`。
+PR/push 必须门禁只包含可复现产品行为缺陷的检查：ESLint、TypeScript、Vitest、build、CSS/token/layer/bundle、引擎合同、依赖审计、网站构建，以及 PR 的 Windows E2E 与 source blackbox（`.github/workflows/ci.yml`）。文档形式类检查（UI 字面量、品牌字面量、文档乱码、Schema 镜像、外审合同）只在 nightly `release-validation.yml` 运行，不阻断 PR。本地开发依赖 pre-commit hook 触发 lint。
 
 ### 5.2 里程碑复审
 
-每个里程碑完成后，必须人工走查完整的 **写→检查→导出→引擎加载** 闭环，确认所有用户故事可独立完成。
+正式里程碑或发行候选完成时，人工走查受影响的 **写→检查→导出→引擎加载** 闭环。局部修复只验证直接受影响路径；除非存在跨模块风险，不强制重跑完整闭环。
 
 ### 5.3 核心数据流
 
@@ -263,7 +283,8 @@ PlotFlowData AST (中间表示)
 
 ```
 PlotFlow/
-├── CLAUDE.md                      ← 本文件（项目元指令）
+├── AGENTS.md                      ← 本文件（项目元指令，唯一权威源）
+├── CLAUDE.md                      ← 指向 AGENTS.md 的指针
 ├── PRD.md                         ← 产品需求规格
 ├── COMPETITIVE_ANALYSIS.md        ← 竞品分析报告
 ├── MARKLUCK_REFERENCE.md          ← MarkLuck 工作流与代码复用参考
@@ -350,31 +371,18 @@ PlotFlow/
 
 ## 九、交互规范
 
-### 9.1 需求采集与确认（强制）
+### 9.1 需求确认
 
-所有需求采集、需求确认、方案选择、设计决策等需要用户输入的场合，**必须使用 `AskUserQuestion` 工具**进行结构化提问，不得以纯文本对话方式收集用户意图。
-
-**触发场景**（包括但不限于）：
-- 功能优先级排序
-- 技术方案二选一/多选一
-- UI/UX 设计偏好确认
-- 里程碑范围界定
-- API/接口设计选择
-- 用户故事验收标准确认
-
-**禁止做法**：
-- ❌ 在对话中直接问"你觉得这样做可以吗？"等待文本回复
-- ❌ 对模糊需求自行脑补后直接实现
-- ❌ 多项选择题用纯文本罗列让用户打字回复
-
-**正确做法**：
-- ✅ 使用 `AskUserQuestion` 工具，设置清晰的 `header` 和 `options`
-- ✅ 每个选项附带 `description` 说明选择后果
-- ✅ 必要时使用 `multiSelect` 支持多选
+- 普通技术细节在用户目标内直接决定，不把确认流程作为开始实现的前置门槛。
+- 只有产品方向、高影响破坏、实际费用、对外发布或无法安全推断的关键事实需要用户选择时才提问。
+- 当前会话有结构化提问工具时优先使用；工具不可用时可以简洁文本提问，不得因固定工具名缺失而阻塞开发。
+- 可逆、低风险且不改变产品方向的模糊点，采用最保守的合理假设继续，并在交付时说明。
 
 ---
 
 ## 十、工作流与模型分配策略
+
+> 本节的模型表仅是历史能力参考，不构成当前会话的能力证明或自动委派授权。默认由当前 Agent 直接实现；只有用户明确要求子智能体或并行委派，且当前工具确实可用时，才按下述风险边界分工。不得为了开发先创建 Workflow、任务书或调度文件。
 
 ### 10.1 模型路由映射
 
@@ -423,11 +431,9 @@ PlotFlow/
 
 ### 10.4 Workflow 脚本规范
 
-- 每个里程碑对应一个 Workflow 脚本：`scripts/workflows/<milestone>.workflow.md`
-- 脚本使用 `parallel()` 派发 V4Flash 子 agent，`agent()` 串行执行 V4Pro 任务
-- V4Flash agent 统一使用 `{model: "haiku"}`（最轻量）或 `{model: "sonnet"}`（需轻量推理）
-- V4Pro 任务不指定 model 参数（继承主模型）
-- 子 agent 数量上限：haiku ≤15, sonnet ≤8, 默认 ≤5（单次 Workflow 调用）
+- Workflow 脚本不是里程碑必需产物。只有用户明确要求可复用的自动化调度，且确有重复执行价值时才创建。
+- 一次性开发直接修改产品代码并运行相称验证，不先写 `scripts/workflows/<milestone>.workflow.md`。
+- 委派时以当前实际可用模型和工具为准；不存在的静态路由名不得阻塞任务。
 
 ### 10.5 禁止事项
 
@@ -481,31 +487,29 @@ PlotFlow/
 - `必须为零的 grep`
 - `完成后停止并提交摘要`
 
-### 10.8 里程碑验收标准（不可变）
+### 10.8 验收范围
 
-每个里程碑完成**必须通过以下全部检查**，缺一不可标记为 100%：
+正式里程碑或发行候选按下表选择与声明直接相关的检查；局部修复默认只跑能够捕获对应回归的定向检查。只有共享依赖、安全边界或发行产物受影响时才升级为全量验证。
 
 | 层级 | 检查 | 工具 |
 |:---:|------|------|
 | L1 | TypeScript 编译零错误 | `tsc --noEmit` |
 | L1 | ESLint 零错误 | `eslint` |
 | L2 | 单元测试全部 PASS | `vitest run` |
-| L3 | 占位代码扫描零结果 | `grep -r "待 M[0-9]" packages/` |
 | L3 | 入口可达性检查 | 每个组件必须被 App.tsx 或 setupEditor.ts 引用 |
-| L3 | progress.md 总览=细项校验 | 脚本比较总览计数 vs 细项 ✅ 计数 |
-| L4 | 人工端到端复审 | 打开 `.mdstory` → 编辑 → 看分支图 → 导出 → 引擎加载 |
+| L3 | progress.md 总览=细项校验 | 仅在用户要求更新里程碑统计时运行 |
+| L4 | 人工端到端复审 | 正式里程碑/发行候选走查受影响的完整业务闭环 |
 
 ---
 
 ## 十一、质量防线（自动化 + 约束）
 
-### 11.1 占位代码阻断
+### 11.1 门禁分级原则（强制）
 
-CI 中新增扫描步骤，阻断所有 `"待 M*"` 占位文本进入主分支：
-
-```bash
-grep -rn "待 M[0-9]" packages/app/src/ && echo "❌ 占位代码阻断" && exit 1 || echo "✅"
-```
+- 只有失败能对应**可复现的产品行为缺陷**（测试红、构建红、类型红）的检查，才能作为 PR 必须门禁。
+- 文档形式类检查（文档乱码、品牌字面量、Schema 文档镜像、UI 字面量、占位文本扫描）一律不阻断代码合并；当前在 nightly `release-validation.yml` 中运行。
+- 发行证据链只约束 RC/公共发行声明，不作为普通开发的完成条件。
+- 新增任何静态扫描或规则门禁前，必须证明它能以低误报捕获已发生 ≥2 次的同类真实缺陷；不得为单个局部缺陷同时扩张多层门禁。
 
 ### 11.2 TSX 内联样式 Token 约束
 
@@ -520,18 +524,14 @@ ESLint `no-restricted-syntax` 规则拦截 TSX 中的裸 hex 色值：
 
 ### 11.3 V4Flash 交叉验证
 
-每里程碑结束后，V4Pro 必须审查所有 V4Flash 产出：
+发生实际子智能体委派时，主线程按风险审查其产出：
 - `main.ts` 路径 → 对比 electron-vite 输出结构
 - `index.html` CSP → 对比 Monaco/React 资源需求
 - 所有组件 → `grep '#[0-9a-fA-F]\{6\}'` 扫描裸 hex
 
 ### 11.4 错题本联动
 
-每个 BUG 修复后必须回答：
-1. 能否用 ESLint rule 预防？→ 加规则
-2. 能否用 CI 扫描预防？→ 加扫描
-3. 能否用 smoke test 预防？→ 加 Playwright 用例
-4. 以上都不能？→ 加入 L4 人工复审清单
+BUG 修复优先补最小、直接的回归测试。只有同类错误容易重复且规则能低误报地捕获时，才增加 ESLint、CI 扫描或人工清单；不得为单个局部缺陷同时扩张多层门禁。
 
 ---
 

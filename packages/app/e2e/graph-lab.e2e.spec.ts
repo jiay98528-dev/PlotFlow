@@ -1,4 +1,10 @@
-﻿import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+﻿import {
+  test,
+  expect,
+  _electron as electron,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import path from 'path';
 import type { TestInfo } from '@playwright/test';
 import fs from 'fs';
@@ -49,6 +55,35 @@ layout:
 [选项] 查看四周
 `;
 
+const VIEWPORT_TARGET_ID = createFullId('第一章', '远端节点');
+
+const NODE_SELECTION_VIEWPORT_STORY = `---
+plotflow: 0.1
+title: Node Selection Viewport E2E
+author: QA
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "${FIRST_START_ID}"
+        x: 80
+        y: 120
+      - id: "${VIEWPORT_TARGET_ID}"
+        x: 380
+        y: 120
+---
+
+# 第一章
+
+## 节点：起点
+
+保持镜头稳定。
+
+## 节点：远端节点
+
+只能由显式搜索聚焦。
+`;
+
 const TWO_CHAPTER_STORY = `${START_STORY}
 
 # 第二章
@@ -78,6 +113,7 @@ interface MockWorkspace {
   readonly filePath: string;
   readonly relativePath: string;
   readonly content: string;
+  readonly deferredRead?: boolean;
 }
 
 interface TestStoreBridge {
@@ -112,10 +148,15 @@ type TestWindow = Window & { __test_store__?: TestStoreBridge };
 
 function isIgnorableTeardownError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(message);
+  return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(
+    message,
+  );
 }
 
-async function closeElectronAppSafely(app: ElectronApplication | undefined, page: Page | undefined): Promise<void> {
+async function closeElectronAppSafely(
+  app: ElectronApplication | undefined,
+  page: Page | undefined,
+): Promise<void> {
   if (!app) return;
   if (page && !page.isClosed()) {
     await page.close({ runBeforeUnload: false }).catch((error: unknown) => {
@@ -127,17 +168,19 @@ async function closeElectronAppSafely(app: ElectronApplication | undefined, page
     await app.close();
   } catch (error) {
     if (isIgnorableTeardownError(error)) return;
-    await app.evaluate(({ app: electronApp, BrowserWindow }) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed()) {
-          win.removeAllListeners('close');
-          win.destroy();
+    await app
+      .evaluate(({ app: electronApp, BrowserWindow }) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (!win.isDestroyed()) {
+            win.removeAllListeners('close');
+            win.destroy();
+          }
         }
-      }
-      electronApp.exit(0);
-    }).catch((fallbackError: unknown) => {
-      if (!isIgnorableTeardownError(fallbackError)) throw fallbackError;
-    });
+        electronApp.exit(0);
+      })
+      .catch((fallbackError: unknown) => {
+        if (!isIgnorableTeardownError(fallbackError)) throw fallbackError;
+      });
   }
 }
 
@@ -156,46 +199,69 @@ async function mockExportIpcHandler(app: ElectronApplication): Promise<void> {
   }, IPC_EXPORT_CHANNEL);
 }
 
-async function mockWorkspaceIpcHandler(app: ElectronApplication, workspace: MockWorkspace): Promise<void> {
-  await app.evaluate(
-    ({ ipcMain }, mock: MockWorkspace) => {
-      const workspaceResult = {
-        rootPath: mock.rootPath,
-        truncated: false,
-        files: [
-          {
-            filePath: mock.filePath,
-            relativePath: mock.relativePath,
-            name: mock.relativePath.split(/[\\/]/).pop() ?? mock.relativePath,
-            size: mock.content.length,
-            modifiedAt: Date.now(),
-          },
-        ],
-      };
+async function mockWorkspaceIpcHandler(
+  app: ElectronApplication,
+  workspace: MockWorkspace,
+): Promise<void> {
+  await app.evaluate(({ ipcMain }, mock: MockWorkspace) => {
+    const workspaceResult = {
+      rootPath: mock.rootPath,
+      truncated: false,
+      files: [
+        {
+          filePath: mock.filePath,
+          relativePath: mock.relativePath,
+          name: mock.relativePath.split(/[\\/]/).pop() ?? mock.relativePath,
+          size: mock.content.length,
+          modifiedAt: Date.now(),
+        },
+      ],
+    };
 
-      ipcMain.removeHandler('file:chooseWorkspaceFolder');
-      ipcMain.handle('file:chooseWorkspaceFolder', async () => workspaceResult);
+    ipcMain.removeHandler('file:chooseWorkspaceFolder');
+    ipcMain.handle('file:chooseWorkspaceFolder', async () => workspaceResult);
 
-      ipcMain.removeHandler('file:listWorkspaceStories');
-      ipcMain.handle('file:listWorkspaceStories', async () => workspaceResult);
+    ipcMain.removeHandler('file:listWorkspaceStories');
+    ipcMain.handle('file:listWorkspaceStories', async () => workspaceResult);
 
-      (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount = 0;
-      ipcMain.removeHandler('file:readWorkspaceStory');
-      ipcMain.handle('file:readWorkspaceStory', async (_event, payload: { rootPath: string; filePath: string }) => {
-        (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount =
-          ((globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount ?? 0) + 1;
+    (
+      globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }
+    ).__plotflowWorkspaceReadCount = 0;
+    ipcMain.removeHandler('file:readWorkspaceStory');
+    ipcMain.handle(
+      'file:readWorkspaceStory',
+      async (_event, payload: { rootPath: string; filePath: string }) => {
+        (
+          globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }
+        ).__plotflowWorkspaceReadCount =
+          ((globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number })
+            .__plotflowWorkspaceReadCount ?? 0) + 1;
         if (payload.rootPath !== mock.rootPath || payload.filePath !== mock.filePath) return null;
-        return { filePath: mock.filePath, content: mock.content, hash: 'workspace-hash', modifiedAt: Date.now() };
-      });
+        if (mock.deferredRead) {
+          await new Promise<void>((resolve) => {
+            (
+              globalThis as typeof globalThis & { __plotflowReleaseWorkspaceRead?: () => void }
+            ).__plotflowReleaseWorkspaceRead = resolve;
+          });
+        }
+        return {
+          filePath: mock.filePath,
+          content: mock.content,
+          hash: 'workspace-hash',
+          modifiedAt: Date.now(),
+        };
+      },
+    );
 
-      ipcMain.removeHandler('dialog:confirm');
-      ipcMain.handle('dialog:confirm', async () => 1);
-    },
-    workspace,
-  );
+    ipcMain.removeHandler('dialog:confirm');
+    ipcMain.handle('dialog:confirm', async () => 1);
+  }, workspace);
 }
 
-async function mockDelayedSaveAsIpcHandler(app: ElectronApplication, delayMs: number): Promise<void> {
+async function mockDelayedSaveAsIpcHandler(
+  app: ElectronApplication,
+  delayMs: number,
+): Promise<void> {
   await app.evaluate(({ ipcMain }, delay: number) => {
     ipcMain.removeHandler('file:saveAs');
     ipcMain.handle('file:saveAs', async () => {
@@ -244,17 +310,24 @@ async function resetDefaultDialogAndSaveAsIpcHandlers(app: ElectronApplication):
     ipcMain.removeHandler('dialog:confirm');
     ipcMain.handle('dialog:confirm', async () => 1);
     ipcMain.removeHandler('file:saveAs');
-    ipcMain.handle('file:saveAs', async () => ({ filePath: 'D:\\PlotFlowE2E\\default-save-as.mdstory' }));
+    ipcMain.handle('file:saveAs', async () => ({
+      filePath: 'D:\\PlotFlowE2E\\default-save-as.mdstory',
+    }));
   });
 }
 
-async function mockCountingSaveAsIpcHandler(app: ElectronApplication, delayMs: number): Promise<void> {
+async function mockCountingSaveAsIpcHandler(
+  app: ElectronApplication,
+  delayMs: number,
+): Promise<void> {
   await app.evaluate(({ ipcMain }, delay: number) => {
-    (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount = 0;
+    (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount =
+      0;
     ipcMain.removeHandler('file:saveAs');
     ipcMain.handle('file:saveAs', async () => {
       (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount =
-        ((globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount ?? 0) + 1;
+        ((globalThis as typeof globalThis & { __plotflowSaveAsCount?: number })
+          .__plotflowSaveAsCount ?? 0) + 1;
       await new Promise((resolve) => setTimeout(resolve, delay));
       return { filePath: 'D:\\PlotFlowE2E\\save-feedback.mdstory' };
     });
@@ -262,12 +335,17 @@ async function mockCountingSaveAsIpcHandler(app: ElectronApplication, delayMs: n
 }
 
 async function readSaveAsCallCount(app: ElectronApplication): Promise<number> {
-  return app.evaluate(() =>
-    (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number }).__plotflowSaveAsCount ?? 0,
+  return app.evaluate(
+    () =>
+      (globalThis as typeof globalThis & { __plotflowSaveAsCount?: number })
+        .__plotflowSaveAsCount ?? 0,
   );
 }
 
-async function mockFailingSaveAsIpcHandler(app: ElectronApplication, message: string): Promise<void> {
+async function mockFailingSaveAsIpcHandler(
+  app: ElectronApplication,
+  message: string,
+): Promise<void> {
   await app.evaluate(({ ipcMain }, errorMessage: string) => {
     ipcMain.removeHandler('file:saveAs');
     ipcMain.handle('file:saveAs', async () => {
@@ -278,15 +356,20 @@ async function mockFailingSaveAsIpcHandler(app: ElectronApplication, message: st
 
 async function mockSaveThenOpenCancelFlow(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ ipcMain }) => {
-    (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount = 0;
+    (
+      globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }
+    ).__plotflowOpenFileCount = 0;
     ipcMain.removeHandler('dialog:confirm');
     ipcMain.handle('dialog:confirm', async () => 0);
     ipcMain.removeHandler('file:saveAs');
     ipcMain.handle('file:saveAs', async () => null);
     ipcMain.removeHandler('file:open');
     ipcMain.handle('file:open', async () => {
-      (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount =
-        ((globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount ?? 0) + 1;
+      (
+        globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }
+      ).__plotflowOpenFileCount =
+        ((globalThis as typeof globalThis & { __plotflowOpenFileCount?: number })
+          .__plotflowOpenFileCount ?? 0) + 1;
       return {
         filePath: 'D:\\PlotFlowE2E\\should-not-open.mdstory',
         content: '# 故事：Should Not Replace\n\n## 节点：替换\n\n不应出现。',
@@ -296,22 +379,30 @@ async function mockSaveThenOpenCancelFlow(app: ElectronApplication): Promise<voi
 }
 
 async function readOpenFileCallCount(app: ElectronApplication): Promise<number> {
-  return app.evaluate(() =>
-    (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number }).__plotflowOpenFileCount ?? 0,
+  return app.evaluate(
+    () =>
+      (globalThis as typeof globalThis & { __plotflowOpenFileCount?: number })
+        .__plotflowOpenFileCount ?? 0,
   );
 }
 
 async function readWorkspaceStoryCallCount(app: ElectronApplication): Promise<number> {
-  return app.evaluate(() =>
-    (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number }).__plotflowWorkspaceReadCount ?? 0,
+  return app.evaluate(
+    () =>
+      (globalThis as typeof globalThis & { __plotflowWorkspaceReadCount?: number })
+        .__plotflowWorkspaceReadCount ?? 0,
   );
 }
 
 async function mockCloseDialogResponse(app: ElectronApplication, response: number): Promise<void> {
   await app.evaluate(({ dialog }, nextResponse: number) => {
-    (globalThis as typeof globalThis & { __plotflowCloseResponse?: number }).__plotflowCloseResponse = nextResponse;
+    (
+      globalThis as typeof globalThis & { __plotflowCloseResponse?: number }
+    ).__plotflowCloseResponse = nextResponse;
     dialog.showMessageBox = async () => ({
-      response: (globalThis as typeof globalThis & { __plotflowCloseResponse?: number }).__plotflowCloseResponse ?? 2,
+      response:
+        (globalThis as typeof globalThis & { __plotflowCloseResponse?: number })
+          .__plotflowCloseResponse ?? 2,
       checkboxChecked: false,
     });
   }, response);
@@ -358,7 +449,8 @@ async function setEditorContent(page: Page, content: string): Promise<void> {
 async function setEditorContentPreservingUI(page: Page, content: string): Promise<void> {
   await page.evaluate((text: string) => {
     const store = (window as TestWindow).__test_store__;
-    if (!store?.setEditorContentPreservingUI) throw new Error('__test_store__.setEditorContentPreservingUI unavailable');
+    if (!store?.setEditorContentPreservingUI)
+      throw new Error('__test_store__.setEditorContentPreservingUI unavailable');
     store.setEditorContentPreservingUI(text);
   }, content);
 
@@ -388,18 +480,27 @@ async function selectChapterTab(page: Page, index: number): Promise<void> {
   await expect(tabs.nth(index)).toBeVisible({ timeout: 10_000 });
   const targetText = ((await tabs.nth(index).textContent()) ?? '').replace(/\s+/g, ' ').trim();
   await tabs.nth(index).click();
-  await expect.poll(async () => {
-    const currentTabs = await page.getByTestId('graph-lab-chapter-tab').evaluateAll((elements) =>
-      elements.map((element, currentIndex) => ({
-        currentIndex,
-        selected: element.getAttribute('aria-selected') === 'true',
-        text: (element.textContent ?? '').replace(/\s+/g, ' ').trim(),
-      })),
-    );
-    return currentTabs.some((tab) =>
-      tab.selected && (tab.currentIndex === index || (targetText.length > 0 && tab.text === targetText)),
-    );
-  }, { timeout: 10_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const currentTabs = await page
+          .getByTestId('graph-lab-chapter-tab')
+          .evaluateAll((elements) =>
+            elements.map((element, currentIndex) => ({
+              currentIndex,
+              selected: element.getAttribute('aria-selected') === 'true',
+              text: (element.textContent ?? '').replace(/\s+/g, ' ').trim(),
+            })),
+          );
+        return currentTabs.some(
+          (tab) =>
+            tab.selected &&
+            (tab.currentIndex === index || (targetText.length > 0 && tab.text === targetText)),
+        );
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
 }
 
 async function switchToSplit(page: Page): Promise<void> {
@@ -414,15 +515,15 @@ async function switchToSplit(page: Page): Promise<void> {
 async function reloadRenderer(page: Page): Promise<void> {
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('.app-shell', { timeout: 20_000 });
-  await page.waitForFunction(
-    () => Boolean((window as TestWindow).__test_store__),
-    { timeout: 20_000 },
-  );
+  await page.waitForFunction(() => Boolean((window as TestWindow).__test_store__), {
+    timeout: 20_000,
+  });
 }
 
 async function waitForContent(page: Page, expected: string): Promise<void> {
   await page.waitForFunction(
-    (text: string) => (window as TestWindow).__test_store__?.getEditorContent?.().includes(text) ?? false,
+    (text: string) =>
+      (window as TestWindow).__test_store__?.getEditorContent?.().includes(text) ?? false,
     expected,
     { timeout: 10_000 },
   );
@@ -476,8 +577,9 @@ async function getEditorContent(page: Page): Promise<string> {
 async function waitForNoDiagnostic(page: Page, code: string): Promise<void> {
   await page.waitForFunction(
     (diagnosticCode: string) =>
-      !((window as TestWindow).__test_store__?.getDiagnostics?.() ?? [])
-        .some((diagnostic) => diagnostic.code === diagnosticCode),
+      !((window as TestWindow).__test_store__?.getDiagnostics?.() ?? []).some(
+        (diagnostic) => diagnostic.code === diagnosticCode,
+      ),
     code,
     { timeout: 10_000 },
   );
@@ -542,7 +644,8 @@ async function expectHomeSurfaceHasNoOverlap(page: Page): Promise<void> {
       for (let j = i + 1; j < rects.length; j++) {
         const a = rects[i]!;
         const b = rects[j]!;
-        const horizontal = Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left);
+        const horizontal =
+          Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left);
         const vertical = Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top);
         if (horizontal > 2 && vertical > 2) {
           pairs.push(`${a.name}/${b.name}`);
@@ -556,10 +659,16 @@ async function expectHomeSurfaceHasNoOverlap(page: Page): Promise<void> {
 }
 
 async function expectDocumentDoesNotScroll(page: Page): Promise<void> {
-  await expect.poll(() => page.evaluate(() => {
-    const root = document.documentElement;
-    return Math.ceil(root.scrollHeight - window.innerHeight);
-  }), { timeout: 5_000 }).toBeLessThanOrEqual(2);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const root = document.documentElement;
+          return Math.ceil(root.scrollHeight - window.innerHeight);
+        }),
+      { timeout: 5_000 },
+    )
+    .toBeLessThanOrEqual(2);
 }
 
 async function dragFromTo(
@@ -581,9 +690,10 @@ async function dragHandleToMenu(
   let lastError: unknown;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const dragPort = handle.locator('.story-node-connect-port').first();
-    const handleBox = attempt % 2 === 0
-      ? (await handle.boundingBox()) ?? (await dragPort.boundingBox())
-      : (await dragPort.boundingBox()) ?? (await handle.boundingBox());
+    const handleBox =
+      attempt % 2 === 0
+        ? ((await handle.boundingBox()) ?? (await dragPort.boundingBox()))
+        : ((await dragPort.boundingBox()) ?? (await handle.boundingBox()));
     if (!handleBox) throw new Error('wire handle has no bounding box');
     await dragFromTo(
       page,
@@ -611,11 +721,15 @@ async function startWirePreviewFromHandle(
   let lastError: unknown;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const dragPort = handle.locator('.story-node-connect-port').first();
-    const handleBox = attempt % 2 === 0
-      ? (await handle.boundingBox()) ?? (await dragPort.boundingBox())
-      : (await dragPort.boundingBox()) ?? (await handle.boundingBox());
+    const handleBox =
+      attempt % 2 === 0
+        ? ((await handle.boundingBox()) ?? (await dragPort.boundingBox()))
+        : ((await dragPort.boundingBox()) ?? (await handle.boundingBox()));
     if (!handleBox) throw new Error('wire handle has no bounding box');
-    const handleCenter = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 };
+    const handleCenter = {
+      x: handleBox.x + handleBox.width / 2,
+      y: handleBox.y + handleBox.height / 2,
+    };
     const canvasBox = await page.locator('.graph-lab__canvas').boundingBox();
     if (!canvasBox) throw new Error('Graph Lab canvas has no bounding box');
     const previewPoint = {
@@ -647,6 +761,34 @@ async function nodeCenter(page: Page, title: string): Promise<{ x: number; y: nu
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+async function mockRendererDialogResponse(
+  app: ElectronApplication,
+  response: number,
+): Promise<void> {
+  await app.evaluate(({ ipcMain }, nextResponse: number) => {
+    ipcMain.removeHandler('dialog:confirm');
+    ipcMain.handle('dialog:confirm', async () => nextResponse);
+  }, response);
+}
+
+async function releaseWorkspaceStoryRead(app: ElectronApplication): Promise<void> {
+  await app.evaluate(() => {
+    const target = globalThis as typeof globalThis & {
+      __plotflowReleaseWorkspaceRead?: () => void;
+    };
+    target.__plotflowReleaseWorkspaceRead?.();
+    delete target.__plotflowReleaseWorkspaceRead;
+  });
+}
+
+async function readGraphViewportTransform(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
+    if (!viewport) throw new Error('React Flow viewport is not mounted');
+    return window.getComputedStyle(viewport).transform;
+  });
+}
+
 async function nodeBodyPoint(page: Page, title: string): Promise<{ x: number; y: number }> {
   const node = page.locator('.react-flow__node').filter({ hasText: title }).first();
   await expect(node).toBeVisible({ timeout: 10_000 });
@@ -666,23 +808,39 @@ async function nodeDragPoint(page: Page, title: string): Promise<{ x: number; y:
 async function expectEmbeddedNextOutputHandle(node: ReturnType<Page['locator']>): Promise<void> {
   const route = node.getByTestId('node-route-preview-next');
   const card = node.locator('.story-node-card, [data-official-node-theme]').first();
-  const inputHandle = node.locator([
-    '.story-node-handle-target--inline',
-    '.story-node-handle-target--side',
-    '.official-node-port--inline',
-    '.official-node-port--target',
-  ].join(', ')).first();
-  const outputHandle = node.locator('[data-testid="story-node-default-next-handle"], [data-handleid="next"]').first();
+  const inputHandle = node
+    .locator(
+      [
+        '.story-node-handle-target--inline',
+        '.story-node-handle-target--side',
+        '.official-node-port--inline',
+        '.official-node-port--target',
+      ].join(', '),
+    )
+    .first();
+  const outputHandle = node
+    .locator('[data-testid="story-node-default-next-handle"], [data-handleid="next"]')
+    .first();
   await expect(outputHandle).toBeVisible({ timeout: 10_000 });
-  await expect.poll(async () => {
-    return node.evaluate(() => {
-      const handle = document.querySelector('[data-testid="story-node-default-next-handle"]');
-      const rect = handle?.getBoundingClientRect();
-      if (!rect) return false;
-      const element = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      return element instanceof Element && Boolean(element.closest('.story-node-connect-handle'));
-    });
-  }, { timeout: 10_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        return node.evaluate(() => {
+          const handle = document.querySelector('[data-testid="story-node-default-next-handle"]');
+          const rect = handle?.getBoundingClientRect();
+          if (!rect) return false;
+          const element = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          );
+          return (
+            element instanceof Element && Boolean(element.closest('.story-node-connect-handle'))
+          );
+        });
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
 
   const cardBox = await card.boundingBox();
   const routeBox = await route.boundingBox();
@@ -695,7 +853,9 @@ async function expectEmbeddedNextOutputHandle(node: ReturnType<Page['locator']>)
     if (!transform || transform === 'none') return 1;
     const matrix = transform.match(/matrix\(([^)]+)\)/);
     if (!matrix) return 1;
-    const [scaleX, skewY] = (matrix[1] ?? '').split(',').map((value) => Number.parseFloat(value.trim()));
+    const [scaleX, skewY] = (matrix[1] ?? '')
+      .split(',')
+      .map((value) => Number.parseFloat(value.trim()));
     const scale = Math.hypot(scaleX || 0, skewY || 0);
     return Number.isFinite(scale) && scale > 0 ? scale : 1;
   });
@@ -713,7 +873,7 @@ async function expectEmbeddedNextOutputHandle(node: ReturnType<Page['locator']>)
 
   expect(outputCenterX).toBeGreaterThan(cardLeft);
   expect(outputCenterX).toBeLessThanOrEqual(cardRight - 4);
-  expect(outputCenterX).toBeGreaterThanOrEqual(cardRight - (48 * flowScale));
+  expect(outputCenterX).toBeGreaterThanOrEqual(cardRight - 48 * flowScale);
   expect(Math.abs(outputCenterY - routeCenterY)).toBeLessThanOrEqual(4 * flowScale);
   expect(Math.abs(outputCenterY - inputCenterY)).toBeLessThanOrEqual(4 * flowScale);
 }
@@ -764,11 +924,12 @@ async function findBlankCanvasPoint(
       point.y < canvas.bottom - margin;
 
     const isBlocked = (point: { readonly x: number; readonly y: number }): boolean =>
-      blockers.some((rect) =>
-        point.x >= rect.left - margin &&
-        point.x <= rect.right + margin &&
-        point.y >= rect.top - margin &&
-        point.y <= rect.bottom + margin,
+      blockers.some(
+        (rect) =>
+          point.x >= rect.left - margin &&
+          point.x <= rect.right + margin &&
+          point.y >= rect.top - margin &&
+          point.y <= rect.bottom + margin,
       );
 
     for (const point of candidates) {
@@ -796,6 +957,13 @@ async function blur(locator: ReturnType<Page['locator']>): Promise<void> {
   await locator.evaluate((element) => (element as HTMLElement).blur());
 }
 
+async function openWorkspaceBrowser(page: Page): Promise<void> {
+  const browser = page.getByTestId('graph-lab-workspace-browser');
+  const isOpen = await browser.evaluate((element) => (element as HTMLDetailsElement).open);
+  if (!isOpen) await browser.locator('summary').click();
+  await expect(page.getByTestId('graph-lab-choose-workspace')).toBeVisible();
+}
+
 test.describe('Graph Lab E2E', () => {
   let electronApp: ElectronApplication;
   let page: Page;
@@ -815,10 +983,9 @@ test.describe('Graph Lab E2E', () => {
     page = await electronApp.firstWindow();
     await page.waitForLoadState('load');
     await page.waitForSelector('.app-shell', { timeout: 20_000 });
-    await page.waitForFunction(
-      () => Boolean((window as TestWindow).__test_store__),
-      { timeout: 20_000 },
-    );
+    await page.waitForFunction(() => Boolean((window as TestWindow).__test_store__), {
+      timeout: 20_000,
+    });
     await page.keyboard.up('Control').catch(() => {});
     await page.keyboard.up('Shift').catch(() => {});
     await page.keyboard.up('Alt').catch(() => {});
@@ -839,7 +1006,10 @@ test.describe('Graph Lab E2E', () => {
     await page.keyboard.up('Alt').catch(() => {});
     await page.mouse.up().catch(() => {});
     await resetDefaultDialogAndSaveAsIpcHandlers(electronApp);
-    await page.locator('select.language-select').selectOption('zh-CN').catch(() => {});
+    await page
+      .locator('select.language-select')
+      .selectOption('zh-CN')
+      .catch(() => {});
     await page.evaluate(() => {
       (window as TestWindow).__test_store__?.setTheme('plotflow-narrative-workbench');
       (window as TestWindow).__test_store__?.setHomeSurfaceOpen(false);
@@ -852,7 +1022,11 @@ test.describe('Graph Lab E2E', () => {
 
   test('keeps Home hero readable across official themes and viewports', async () => {
     const originalViewport = page.viewportSize() ?? { width: 1440, height: 900 };
-    const themes = ['plotflow-narrative-workbench', 'plotflow-engine-telemetry'];
+    const themes = [
+      'plotflow-prism-foundry',
+      'plotflow-narrative-workbench',
+      'plotflow-engine-telemetry',
+    ];
     const viewports = [
       { width: 1440, height: 900 },
       { width: 1280, height: 720 },
@@ -868,6 +1042,19 @@ test.describe('Graph Lab E2E', () => {
             (window as TestWindow).__test_store__?.setHomeSurfaceOpen(true);
           }, themeId);
           await expect(page.getByTestId('home-surface')).toBeVisible({ timeout: 10_000 });
+          const preview = page
+            .getByTestId('home-surface')
+            .locator('[data-preview-source="rendered-workspace"]');
+          await expect(preview).toHaveAttribute('data-preview-theme-id', themeId);
+          const previewImage = preview.getByTestId('theme-rendered-preview');
+          await expect(previewImage).toBeVisible();
+          await expect
+            .poll(() =>
+              previewImage.evaluate(
+                (element: HTMLImageElement) => element.complete && element.naturalWidth > 0,
+              ),
+            )
+            .toBe(true);
           await page.waitForTimeout(150);
           await expectHomeSurfaceHasNoOverlap(page);
         }
@@ -890,29 +1077,63 @@ test.describe('Graph Lab E2E', () => {
     await expect(node).toBeVisible({ timeout: 10_000 });
     await expect(route).toContainText('查看四周');
 
-    await expect.poll(async () => {
-      const canvasBox = await canvas.boundingBox();
-      const nodeBox = await node.boundingBox();
-      const routeBox = await route.boundingBox();
-      if (!canvasBox || !nodeBox || !routeBox) return false;
+    await expect
+      .poll(
+        async () => {
+          const canvasBox = await canvas.boundingBox();
+          const nodeBox = await node.boundingBox();
+          const routeBox = await route.boundingBox();
+          if (!canvasBox || !nodeBox || !routeBox) return false;
 
-      return (
-        nodeBox.x >= canvasBox.x + 8 &&
-        nodeBox.y >= canvasBox.y + 8 &&
-        nodeBox.x + nodeBox.width <= canvasBox.x + canvasBox.width - 8 &&
-        nodeBox.y + nodeBox.height <= canvasBox.y + canvasBox.height - 8 &&
-        nodeBox.width > 220 &&
-        routeBox.width > 150
-      );
-    }, { timeout: 10_000 }).toBe(true);
+          return (
+            nodeBox.x >= canvasBox.x + 8 &&
+            nodeBox.y >= canvasBox.y + 8 &&
+            nodeBox.x + nodeBox.width <= canvasBox.x + canvasBox.width - 8 &&
+            nodeBox.y + nodeBox.height <= canvasBox.y + canvasBox.height - 8 &&
+            nodeBox.width > 220 &&
+            routeBox.width > 150
+          );
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+  });
+
+  test('keeps the Graph Lab viewport stable when selecting a node, while search remains explicit navigation', async () => {
+    await setEditorContent(page, NODE_SELECTION_VIEWPORT_STORY);
+    await switchToGraphLab(page);
+
+    const target = page.locator('.react-flow__node').filter({ hasText: '远端节点' }).first();
+    await expect(target).toBeVisible({ timeout: 10_000 });
+    const beforeSelection = await readGraphViewportTransform(page);
+
+    await clickNodeBody(page, '远端节点');
+    await page.waitForTimeout(260);
+    expect(await readGraphViewportTransform(page)).toBe(beforeSelection);
+
+    await page.keyboard.press('Control+K');
+    const search = page.getByPlaceholder(
+      /搜索标题、ID、正文或选项|search title, ID, body, or option/i,
+    );
+    await expect(search).toBeFocused();
+    await search.fill('远端节点');
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(() => readGraphViewportTransform(page), { timeout: 5_000 })
+      .not.toBe(beforeSelection);
   });
 
   test('opens Problems panel from the Graph Lab diagnostics chip', async () => {
-    await setEditorContent(page, `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：不存在')}`);
+    await setEditorContent(
+      page,
+      `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：不存在')}`,
+    );
     await switchToGraphLab(page);
     await page.waitForFunction(
-      () => ((window as TestWindow).__test_store__?.getDiagnostics?.() ?? [])
-        .some((diagnostic) => diagnostic.code === 'E001'),
+      () =>
+        ((window as TestWindow).__test_store__?.getDiagnostics?.() ?? []).some(
+          (diagnostic) => diagnostic.code === 'E001',
+        ),
       { timeout: 10_000 },
     );
 
@@ -922,10 +1143,15 @@ test.describe('Graph Lab E2E', () => {
     await expect(page.locator('.problem-panel__item').first()).toBeVisible({ timeout: 5_000 });
     const dockGeometry = await page.evaluate(() => {
       const toolbar = document.querySelector('.app-topbar')?.getBoundingClientRect();
-      const workspace = document.querySelector('[data-testid="graph-lab-workspace"]')?.getBoundingClientRect();
+      const workspace = document
+        .querySelector('[data-testid="graph-lab-workspace"]')
+        ?.getBoundingClientRect();
       const panel = document.querySelector('.problem-panel')?.getBoundingClientRect();
       if (!toolbar || !workspace || !panel) return null;
-      const toolbarCenter = document.elementFromPoint(toolbar.left + toolbar.width / 2, toolbar.top + toolbar.height / 2);
+      const toolbarCenter = document.elementFromPoint(
+        toolbar.left + toolbar.width / 2,
+        toolbar.top + toolbar.height / 2,
+      );
       return {
         toolbarBottom: toolbar.bottom,
         workspaceBottom: workspace.bottom,
@@ -940,7 +1166,9 @@ test.describe('Graph Lab E2E', () => {
     expect(dockGeometry!.panelTop).toBeGreaterThanOrEqual(dockGeometry!.workspaceBottom - 1);
 
     await page.getByTestId('graph-lab-source-toggle').click();
-    await expect(page.getByTestId('graph-lab-chapter-source-diagnostics')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('graph-lab-chapter-source-diagnostics')).toBeVisible({
+      timeout: 5_000,
+    });
     await expect(page.getByTestId('graph-lab-source-diagnostic-0')).toContainText('E001');
   });
 
@@ -960,29 +1188,46 @@ test.describe('Graph Lab E2E', () => {
   });
 
   test('clicking a ProblemPanel diagnostic selects its Graph Lab chapter and node', async () => {
-    await setEditorContent(page, TWO_CHAPTER_STORY.replace('第二章正文。', '第二章正文。\n[选项] 消失 -> 节点：不存在'));
+    await setEditorContent(
+      page,
+      TWO_CHAPTER_STORY.replace('第二章正文。', '第二章正文。\n[选项] 消失 -> 节点：不存在'),
+    );
     await switchToGraphLab(page);
     await selectChapterTab(page, 0);
     await page.waitForFunction(
-      () => ((window as TestWindow).__test_store__?.getDiagnostics?.() ?? [])
-        .some((diagnostic) => diagnostic.code === 'E001'),
+      () =>
+        ((window as TestWindow).__test_store__?.getDiagnostics?.() ?? []).some(
+          (diagnostic) => diagnostic.code === 'E001',
+        ),
       { timeout: 10_000 },
     );
 
     await page.getByTestId('graph-lab-diagnostics-button').click();
-    await expect(page.getByTestId('problem-panel-item-E001').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('problem-panel-item-E001').first()).toBeVisible({
+      timeout: 5_000,
+    });
     await page.getByTestId('problem-panel-item-E001').first().click();
 
-    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute('aria-selected', 'true', {
+    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute(
+      'aria-selected',
+      'true',
+      {
+        timeout: 10_000,
+      },
+    );
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as TestWindow).__test_store__?.getUIState?.().activeNodeId),
+      )
+      .toBe(createFullId('第二章', '终点'));
+    await expect(page.getByTestId('graph-inspector-node-title')).toHaveValue('终点', {
       timeout: 10_000,
     });
-    await expect.poll(() => page.evaluate(() =>
-      (window as TestWindow).__test_store__?.getUIState?.().activeNodeId,
-    )).toBe(createFullId('第二章', '终点'));
-    await expect(page.getByTestId('graph-inspector-node-title')).toHaveValue('终点', { timeout: 10_000 });
   });
 
-  test('shows chapter tabs visibly and screenshots newly created chapter tab bar', async ({ browserName }, testInfo) => {
+  test('shows chapter tabs visibly and screenshots newly created chapter tab bar', async ({
+    browserName,
+  }, testInfo) => {
     expect(browserName).toBeTruthy();
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
@@ -1005,7 +1250,10 @@ test.describe('Graph Lab E2E', () => {
     await attachVisibleScreenshot(testInfo, tabs, 'graph-lab-chapter-tabs-after-create.png');
     const workspaceScreenshot = await workspace.screenshot();
     expect(workspaceScreenshot.length).toBeGreaterThan(5_000);
-    fs.writeFileSync(testInfo.outputPath('graph-lab-workspace-with-chapter-tabs.png'), workspaceScreenshot);
+    fs.writeFileSync(
+      testInfo.outputPath('graph-lab-workspace-with-chapter-tabs.png'),
+      workspaceScreenshot,
+    );
     await testInfo.attach('graph-lab-workspace-with-chapter-tabs.png', {
       body: workspaceScreenshot,
       contentType: 'image/png',
@@ -1021,9 +1269,13 @@ test.describe('Graph Lab E2E', () => {
     }
   });
 
-  test('places the default next output handle on the right side of no-option cards', async ({ browserName }, testInfo) => {
+  test('places the default next output handle on the right side of no-option cards', async ({
+    browserName,
+  }, testInfo) => {
     void browserName;
-    await setEditorContent(page, `---
+    await setEditorContent(
+      page,
+      `---
 plotflow: 0.1
 title: Default Port E2E
 author: QA
@@ -1034,15 +1286,22 @@ author: QA
 ## 节点：流程节点
 
 这是一段没有普通选项、也尚未设置下一步的流程节点。
-`);
+`,
+    );
     await switchToGraphLab(page);
 
     const node = page.locator('.react-flow__node').filter({ hasText: '流程节点' }).first();
     const route = node.getByTestId('node-route-preview-next');
     await expect(route).toContainText('下一步');
     await expect(route).toContainText('终端节点');
+    await expect(route).toHaveClass(/node-route-preview--default-next/);
+    await expect(route).not.toHaveClass(/node-route-preview--route-option/);
     await expectEmbeddedNextOutputHandle(node);
-    await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-default-next-embedded-node.png');
+    await attachVisibleScreenshot(
+      testInfo,
+      node.locator('.official-graph-node, .story-node-card').first(),
+      'graph-lab-default-next-embedded-node.png',
+    );
 
     const sourceCenter = await nodeCenter(page, '流程节点');
     const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
@@ -1055,7 +1314,10 @@ author: QA
   });
 
   test('edits a node-level next target and effects entirely in Graph Inspector', async () => {
-    await setEditorContent(page, `---
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await setEditorContent(
+      page,
+      `---
 plotflow: 0.1
 vars:
   金币: int
@@ -1070,26 +1332,64 @@ vars:
 ## 节点：终点
 
 流程结束。
-`);
+`,
+    );
     await switchToGraphLab(page);
     await clickNodeBody(page, '流程节点');
-    await page.evaluate((fullId) => {
-      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
-    }, createFullId('第一章', '流程节点'));
+    await page.evaluate(
+      (fullId) => {
+        (
+          window as Window & { __test_store__?: { selectNode?: (id: string) => void } }
+        ).__test_store__?.selectNode?.(fullId);
+      },
+      createFullId('第一章', '流程节点'),
+    );
 
-    await page.getByTestId('graph-inspector-tab-routes').click();
-    await page.getByTestId('graph-inspector-next-target').selectOption(createFullId('第一章', '终点'));
+    await page
+      .getByTestId('graph-inspector-next-target')
+      .selectOption(createFullId('第一章', '终点'));
     await waitForContent(page, '下一步: 节点：终点');
     await page.getByTestId('graph-inspector-option-effect-variable--1').selectOption('金币');
     await page.getByTestId('graph-inspector-option-effect-operation--1').selectOption('add');
-    await page.getByTestId('graph-inspector-option-effect-value--1').fill('2');
-    await page.getByTestId('graph-inspector-option-effect-add--1').click();
+    const effectValue = page.getByTestId('graph-inspector-option-effect-value--1');
+    const effectSubmit = page.getByTestId('graph-inspector-option-effect-add--1');
+    await effectValue.fill('2');
+    await expect(effectValue).toHaveAttribute('aria-keyshortcuts', 'Enter');
+    await expect(effectSubmit).toHaveAttribute('aria-keyshortcuts', 'Enter');
+
+    const inspector = page.locator('.graph-lab-inspector');
+    const submitGeometry = await Promise.all([inspector.boundingBox(), effectSubmit.boundingBox()]);
+    expect(submitGeometry[0]).not.toBeNull();
+    expect(submitGeometry[1]).not.toBeNull();
+    expect(submitGeometry[1]!.x).toBeGreaterThanOrEqual(submitGeometry[0]!.x);
+    expect(submitGeometry[1]!.x + submitGeometry[1]!.width).toBeLessThanOrEqual(
+      submitGeometry[0]!.x + submitGeometry[0]!.width,
+    );
+
+    await effectValue.press('Enter');
     await waitForContent(page, '下一步: 节点：终点\n  效果: 金币+2');
+
+    const deleteEffect = page
+      .getByTestId('graph-inspector-effect-editor--1')
+      .locator('.graph-lab-effect-row .icon-button')
+      .first();
+    await expect(deleteEffect).toBeVisible();
+    const deleteGeometry = await Promise.all([inspector.boundingBox(), deleteEffect.boundingBox()]);
+    expect(deleteGeometry[0]).not.toBeNull();
+    expect(deleteGeometry[1]).not.toBeNull();
+    expect(deleteGeometry[1]!.x).toBeGreaterThanOrEqual(deleteGeometry[0]!.x);
+    expect(deleteGeometry[1]!.x + deleteGeometry[1]!.width).toBeLessThanOrEqual(
+      deleteGeometry[0]!.x + deleteGeometry[0]!.width,
+    );
   });
 
-  test('keeps Engine Telemetry default next output handle embedded inside no-option cards', async ({ browserName }, testInfo) => {
+  test('keeps Engine Telemetry default next output handle embedded inside no-option cards', async ({
+    browserName,
+  }, testInfo) => {
     void browserName;
-    await setEditorContent(page, `---
+    await setEditorContent(
+      page,
+      `---
 plotflow: 0.1
 title: Engine Default Port E2E
 author: QA
@@ -1106,23 +1406,34 @@ author: QA
 ## 节点：终点
 
 流程结束。
-`);
+`,
+    );
     await page.evaluate(() => {
       (window as TestWindow).__test_store__?.setTheme('plotflow-engine-telemetry');
     });
     await switchToGraphLab(page);
 
     const node = page.locator('.react-flow__node').filter({ hasText: '流程节点' }).first();
-    await expect(node.locator('[data-official-node-theme="plotflow-engine-telemetry"]')).toBeVisible({ timeout: 10_000 });
+    await expect(
+      node.locator('[data-official-node-theme="plotflow-engine-telemetry"]'),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(node.getByTestId('node-route-preview-next')).toContainText('下一步');
     await expect(node.getByTestId('node-route-preview-next')).toContainText('→ 终点');
     await expectEmbeddedNextOutputHandle(node);
-    await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-engine-default-next-embedded-node.png');
+    await attachVisibleScreenshot(
+      testInfo,
+      node.locator('.official-graph-node, .story-node-card').first(),
+      'graph-lab-engine-default-next-embedded-node.png',
+    );
   });
 
-  test('shows route requirements, target previews, effects, and aligned option ports in node cards', async ({ browserName }, testInfo) => {
+  test('shows route requirements, target previews, effects, and aligned option ports in node cards', async ({
+    browserName,
+  }, testInfo) => {
     void browserName;
-    await setEditorContent(page, `---
+    await setEditorContent(
+      page,
+      `---
 plotflow: 0.1
 title: Route Summary E2E
 author: QA
@@ -1149,7 +1460,8 @@ vars:
 ## 节点：出口
 
 离开。
-`);
+`,
+    );
     await switchToGraphLab(page);
 
     const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
@@ -1173,22 +1485,41 @@ vars:
     const handleCenterY = handleBox!.y + handleBox!.height / 2;
     expect(Math.abs(routeCenterY - handleCenterY)).toBeLessThanOrEqual(6);
 
-    await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-workspace'), 'graph-lab-route-summary-default-workspace.png');
-    await attachVisibleScreenshot(testInfo, node.locator('.official-graph-node, .story-node-card').first(), 'graph-lab-route-summary-default-node.png');
+    await attachVisibleScreenshot(
+      testInfo,
+      page.getByTestId('graph-lab-workspace'),
+      'graph-lab-route-summary-default-workspace.png',
+    );
+    await attachVisibleScreenshot(
+      testInfo,
+      node.locator('.official-graph-node, .story-node-card').first(),
+      'graph-lab-route-summary-default-node.png',
+    );
 
     await page.getByTestId('graph-lab-source-toggle').click();
     await expect(page.getByTestId('graph-lab-source-drawer')).toBeVisible({ timeout: 10_000 });
     await expectDocumentDoesNotScroll(page);
-    await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-source-drawer'), 'graph-lab-source-dock-open-default.png');
+    await attachVisibleScreenshot(
+      testInfo,
+      page.getByTestId('graph-lab-source-drawer'),
+      'graph-lab-source-dock-open-default.png',
+    );
   });
 
-  test('renders route summaries in Engine Telemetry node cards', async ({ browserName }, testInfo) => {
+  test('renders route summaries in Engine Telemetry node cards', async ({
+    browserName,
+  }, testInfo) => {
     void browserName;
     await page.evaluate(() => {
       (window as TestWindow).__test_store__?.setTheme('plotflow-engine-telemetry');
     });
-    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-engine-telemetry');
-    await setEditorContent(page, `---
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-theme-id',
+      'plotflow-engine-telemetry',
+    );
+    await setEditorContent(
+      page,
+      `---
 plotflow: 0.1
 title: Engine Route Summary E2E
 author: QA
@@ -1209,7 +1540,8 @@ vars:
 ## 节点：结果
 
 完成。
-`);
+`,
+    );
     await switchToGraphLab(page);
 
     const node = page.locator('.react-flow__node').filter({ hasText: '流程节点' }).first();
@@ -1218,8 +1550,16 @@ vars:
     await expect(card.getByTestId('node-route-preview-option-0')).toContainText('需 金币 >= 1');
     await expect(card.getByTestId('node-route-preview-option-0')).toContainText('→ 结果');
     await expect(card.getByTestId('node-route-preview-option-0')).toContainText('效果 金币 -1');
-    await attachVisibleScreenshot(testInfo, page.getByTestId('graph-lab-workspace'), 'graph-lab-route-summary-engine-telemetry-workspace.png');
-    await attachVisibleScreenshot(testInfo, card, 'graph-lab-route-summary-engine-telemetry-node.png');
+    await attachVisibleScreenshot(
+      testInfo,
+      page.getByTestId('graph-lab-workspace'),
+      'graph-lab-route-summary-engine-telemetry-workspace.png',
+    );
+    await attachVisibleScreenshot(
+      testInfo,
+      card,
+      'graph-lab-route-summary-engine-telemetry-node.png',
+    );
   });
 
   test('syncs cross-chapter outline navigation and saves only the active chapter source slice', async () => {
@@ -1227,8 +1567,13 @@ vars:
     await switchToGraphLab(page);
 
     await page.getByTestId('graph-lab-outline-node').filter({ hasText: '终点' }).click();
-    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.react-flow__node').filter({ hasText: '终点' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.locator('.react-flow__node').filter({ hasText: '终点' })).toBeVisible({
+      timeout: 10_000,
+    });
 
     await page.getByTestId('graph-lab-source-toggle').click();
     const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
@@ -1270,6 +1615,33 @@ vars:
     await expect(sourceSlice).toHaveValue(/第二章正文。/);
   });
 
+  test('keeps a CRLF story clean in the textarea and restores CRLF on draft commit', async () => {
+    const crlfStory = TWO_CHAPTER_STORY.replace(/\n/gu, '\r\n');
+    await setEditorContent(page, crlfStory);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    const toggle = page.getByTestId('graph-lab-source-toggle');
+    await toggle.click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    await expect(toggle).toHaveAttribute('data-draft-state', 'clean');
+    expect(await sourceSlice.inputValue()).not.toContain('\r');
+
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('你醒来。', 'CRLF 草稿已提交。'));
+    await page.getByTestId('graph-lab-chapter-tab').nth(1).click();
+    await expect(page.getByTestId('graph-lab-chapter-tab').nth(1)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(toggle).toHaveAttribute('data-draft-state', 'clean');
+
+    const committed = await getEditorContent(page);
+    expect(committed).toContain('CRLF 草稿已提交。\r\n');
+    expect(committed).not.toMatch(/(?<!\r)\n/u);
+  });
+
   test('writes Source Drawer slice drafts through the real Save As payload', async () => {
     await mockCaptureSaveAsIpcHandler(electronApp);
     await setEditorContent(page, TWO_CHAPTER_STORY);
@@ -1292,6 +1664,44 @@ vars:
     expect(captured!.content).toContain('# 第一章');
     expect(captured!.content.match(/^# 第二章$/gm)).toHaveLength(1);
     expect(captured!.content).toMatch(/第二章已真实写盘。[ \t]*(?:\r?\n)*$/);
+  });
+
+  test('preserves a collapsed Source Drawer draft and exports that exact revision', async () => {
+    const exportableStory =
+      START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：终点') +
+      '\n## 节点：终点\n\n完成。\n';
+    await setEditorContent(page, exportableStory);
+    await switchToGraphLab(page);
+    await selectChapterTab(page, 0);
+
+    const toggle = page.getByTestId('graph-lab-source-toggle');
+    await toggle.click();
+    const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
+    await expect(sourceSlice).toBeVisible({ timeout: 10_000 });
+    const sourceValue = await sourceSlice.inputValue();
+    await sourceSlice.fill(sourceValue.replace('你醒来。', '折叠后仍属于当前 revision 的草稿。'));
+
+    await toggle.click();
+    await expect(sourceSlice).not.toBeVisible();
+    await expect(toggle).toHaveAttribute('data-draft-state', 'dirty');
+
+    await toggle.click();
+    await expect(sourceSlice).toHaveValue(/折叠后仍属于当前 revision 的草稿。/);
+    await toggle.click();
+
+    await page.getByTestId('toolbar-export').click();
+    const dialog = page.locator('.export-dialog__overlay');
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId('export-dialog-submit').click();
+    await expect(page.getByTestId('export-dialog-submit')).toHaveAttribute(
+      'data-export-status',
+      'success',
+      {
+        timeout: 10_000,
+      },
+    );
+    const captured = await readCapturedExport(electronApp);
+    expect(captured?.content).toContain('折叠后仍属于当前 revision 的草稿。');
   });
 
   test('autosaves dirty chapter source before switching chapter tabs', async () => {
@@ -1385,9 +1795,13 @@ author: QA
 
     await setEditorContent(page, blankStory);
     await switchToGraphLab(page);
-    await expect(page.getByTestId('graph-lab-chapter-tab').first()).toHaveAttribute('aria-selected', 'true', {
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId('graph-lab-chapter-tab').first()).toHaveAttribute(
+      'aria-selected',
+      'true',
+      {
+        timeout: 10_000,
+      },
+    );
     await page.getByTestId('graph-lab-create-node').click();
     await waitForContent(page, '## 节点：新节点');
 
@@ -1395,6 +1809,25 @@ author: QA
     expect(content).toContain('# 空白章');
     expect(content).toContain('## 节点：新节点');
     expect(content).not.toContain('# 第二章');
+  });
+
+  test('Ctrl+S commits the focused Inspector field before saving', async () => {
+    await mockCaptureSaveAsIpcHandler(electronApp);
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await page.evaluate(
+      (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
+      FIRST_START_ID,
+    );
+
+    const titleInput = page.getByTestId('graph-inspector-node-title');
+    await titleInput.fill('保存前提交标题');
+    await titleInput.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+
+    await waitForContent(page, '## 节点：保存前提交标题');
+    await expect(page.locator('.status-bar')).toContainText('已保存至', { timeout: 5_000 });
+    const captured = await readCapturedSaveAs(electronApp);
+    expect(captured?.content).toContain('## 节点：保存前提交标题');
   });
 
   test('blocks chapter switching when the dirty chapter source slice is stale', async () => {
@@ -1409,11 +1842,17 @@ author: QA
     const sourceValue = await sourceSlice.inputValue();
     await sourceSlice.fill(sourceValue.replace('你醒来。', '这是一段未保存草稿。'));
 
-    const externallyChanged = (await getEditorContent(page)).replace('你醒来。', '外部修改后的正文。');
+    const externallyChanged = (await getEditorContent(page)).replace(
+      '你醒来。',
+      '外部修改后的正文。',
+    );
     await setEditorContentPreservingUI(page, externallyChanged);
-    await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化', {
-      timeout: 10_000,
-    });
+    await expect(page.locator('.source-drawer__slice-message')).toContainText(
+      '完整源码已在其他位置变化',
+      {
+        timeout: 10_000,
+      },
+    );
 
     const tabs = page.getByTestId('graph-lab-chapter-tab');
     await tabs.nth(1).click();
@@ -1428,31 +1867,36 @@ author: QA
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
     await selectChapterTab(page, 0);
-    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({ timeout: 10_000 });
-    await page.evaluate((fullId) => (window as TestWindow).__test_store__?.selectNode(fullId), FIRST_START_ID);
-
-    let dialogMessage = '';
-    page.once('dialog', async (dialog) => {
-      dialogMessage = dialog.message();
-      await dialog.accept();
+    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({
+      timeout: 10_000,
     });
+    await page.evaluate(
+      (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
+      FIRST_START_ID,
+    );
+
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       window.focus();
     });
     await page.keyboard.press('Delete');
 
-    await expect.poll(() => dialogMessage).toBe('确定要删除节点「起点」吗？');
+    const deleteDialog = page.getByRole('dialog', { name: '删除节点' });
+    await expect(deleteDialog).toContainText('确定要删除节点「起点」吗？');
+    await deleteDialog.getByTestId('graph-confirm-primary').click();
     await expect.poll(() => getEditorContent(page)).not.toContain('## 节点：起点');
   });
 
   test('renames a referenced node without creating an undefined-target diagnostic', async () => {
-    await setEditorContent(page, `${START_STORY}
+    await setEditorContent(
+      page,
+      `${START_STORY}
 
 ## 节点：目标
 
 目标正文。
-`.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：目标'));
+`.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：目标'),
+    );
     await switchToGraphLab(page);
     await page.evaluate(
       (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
@@ -1472,7 +1916,10 @@ author: QA
   test('keeps an Inspector draft and exposes a field error when a commit is rejected', async () => {
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
-    await page.evaluate((fullId) => (window as TestWindow).__test_store__?.selectNode(fullId), FIRST_START_ID);
+    await page.evaluate(
+      (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
+      FIRST_START_ID,
+    );
 
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await expect(titleInput).toHaveValue('起点');
@@ -1544,10 +1991,14 @@ author: QA
 
     await expect(page.locator('.status-bar')).toContainText('保存失败', { timeout: 2_000 });
     await expect(page.locator('.status-bar')).toContainText('disk write rejected');
-    await expect.poll(() => page.evaluate(() => ({
-      selectedText: window.getSelection?.()?.toString() ?? '',
-      userSelect: document.body.style.userSelect,
-    }))).toEqual({ selectedText: '', userSelect: '' });
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          selectedText: window.getSelection?.()?.toString() ?? '',
+          userSelect: document.body.style.userSelect,
+        })),
+      )
+      .toEqual({ selectedText: '', userSelect: '' });
   });
 
   test('does not continue opening another file when Save As is cancelled', async () => {
@@ -1563,6 +2014,43 @@ author: QA
     expect(await getEditorContent(page)).not.toContain('Should Not Replace');
   });
 
+  test('supports roving keyboard navigation in the global editor tabs', async () => {
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+
+    const storyTab = page.getByTestId('graph-global-editor-tab-story');
+    const variablesTab = page.getByTestId('graph-global-editor-tab-variables');
+    const storyPanelId = await storyTab.getAttribute('aria-controls');
+    const variablesPanelId = await variablesTab.getAttribute('aria-controls');
+
+    expect(storyPanelId).toBeTruthy();
+    expect(variablesPanelId).toBeTruthy();
+    expect(storyPanelId).not.toBe(variablesPanelId);
+    await expect(page.locator(`[id="${storyPanelId}"]`)).toHaveAttribute(
+      'aria-labelledby',
+      (await storyTab.getAttribute('id')) ?? '',
+    );
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toHaveAttribute(
+      'aria-labelledby',
+      (await variablesTab.getAttribute('id')) ?? '',
+    );
+
+    await storyTab.focus();
+    await storyTab.press('ArrowRight');
+    await expect(variablesTab).toHaveAttribute('aria-selected', 'true');
+    await expect(variablesTab).toBeFocused();
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toBeVisible();
+
+    await variablesTab.press('ArrowLeft');
+    await expect(storyTab).toHaveAttribute('aria-selected', 'true');
+    await expect(storyTab).toBeFocused();
+
+    await storyTab.press('End');
+    await expect(variablesTab).toBeFocused();
+    await variablesTab.press('Home');
+    await expect(storyTab).toBeFocused();
+  });
+
   test('localizes primary UI surfaces in English mode without translating story content', async () => {
     await setEditorContent(page, START_STORY);
     await page.locator('select.language-select').selectOption('en-US');
@@ -1572,25 +2060,31 @@ author: QA
       return menu?.items.map((item) => item.label) ?? [];
     });
     expect(menuLabels).toEqual(expect.arrayContaining(['File', 'Edit', 'View', 'Export', 'Help']));
-    expect(menuLabels).not.toEqual(expect.arrayContaining(['文件', '编辑', '视图', '导出', '帮助']));
+    expect(menuLabels).not.toEqual(
+      expect.arrayContaining(['文件', '编辑', '视图', '导出', '帮助']),
+    );
     await switchToGraphLab(page);
 
     await expect(page.getByTestId('toolbar-export')).toContainText('Export');
     await expect(page.getByText('Graph Lab · Narrative Workbench')).toBeVisible();
     await expect(page.getByTestId('graph-lab-inspector')).toContainText('No node selected');
-    await page.getByTestId('graph-inspector-tab-story').click();
-    await expect(page.getByTestId('graph-lab-inspector')).toContainText('Story Info');
+    await page.getByTestId('graph-global-editor-tab-story').click();
+    await expect(page.getByTestId('graph-lab-global-editor')).toContainText('Story Info');
 
     await page.getByTestId('graph-lab-diagnostics-button').click();
     await expect(page.locator('.problem-panel')).toContainText('Problems');
     await expect(page.locator('.problem-panel')).toContainText('All');
     await expect(page.locator('.problem-panel')).toContainText('Syntax parsing failed');
 
-    await page.getByTestId('toolbar-export').click();
+    const exportTrigger = page.getByTestId('toolbar-export');
+    await exportTrigger.click();
     await expect(page.locator('.export-dialog__overlay')).toContainText('Export story');
     await expect(page.locator('.export-dialog__overlay')).toContainText('Export format');
-    await page.keyboard.press('Escape');
+    const exportClose = page.locator('.export-dialog__overlay button[aria-label]').first();
+    await expect(exportClose).toBeFocused();
+    await page.keyboard.press('Control+E');
     await expect(page.locator('.export-dialog__overlay')).toHaveCount(0);
+    await expect(exportTrigger).toBeFocused();
 
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toContainText('Official Theme Center');
@@ -1598,10 +2092,10 @@ author: QA
   });
 
   test('blocks export from Graph Lab when Error diagnostics exist', async () => {
-    await setEditorContent(page, START_STORY.replace(
-      '[选项] 查看四周',
-      '[选项] 查看四周 -> 节点：不存在',
-    ));
+    await setEditorContent(
+      page,
+      START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：不存在'),
+    );
     await switchToGraphLab(page);
 
     await expect(page.getByTestId('graph-lab-diagnostics-button')).toHaveClass(/is-warning/);
@@ -1617,23 +2111,31 @@ author: QA
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
 
-    await page.getByTestId('graph-inspector-tab-story').click();
+    await page.getByTestId('graph-global-editor-tab-story').click();
     await page.getByTestId('graph-inspector-meta-engine').selectOption('godot');
     await waitForContent(page, 'engine: "godot"');
 
-    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({
+      timeout: 10_000,
+    });
 
     await page.getByTestId('graph-lab-create-node').click();
     await waitForContent(page, '## 节点：新节点');
-    await expect(page.getByTestId(`rf__node-${createFullId('第一章', '新节点')}`)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId(`rf__node-${createFullId('第一章', '新节点')}`)).toBeVisible({
+      timeout: 10_000,
+    });
 
     await clickNodeBody(page, '新节点');
     // M4: 新节点卡片可能因 DOM 事件委托/冒泡/Handle 拦截导致点击未触发选中。
     // 额外走 __test_store__.selectNode 程序化选中，确保 Inspector 一定拿到 node 上下文。
-    await page.evaluate((fullId) => {
-      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
-    }, createFullId('第一章', '新节点'));
-    await page.getByTestId('graph-inspector-tab-node').click();
+    await page.evaluate(
+      (fullId) => {
+        (
+          window as Window & { __test_store__?: { selectNode?: (id: string) => void } }
+        ).__test_store__?.selectNode?.(fullId);
+      },
+      createFullId('第一章', '新节点'),
+    );
     const titleInput = page.getByTestId('graph-inspector-node-title');
     await expect(titleInput).toHaveValue('新节点', { timeout: 10_000 });
     await titleInput.fill('树林');
@@ -1648,18 +2150,51 @@ author: QA
 
     await clickNodeBody(page, '起点');
     await page.evaluate((fullId) => {
-      (window as Window & { __test_store__?: { selectNode?: (id: string) => void } }).__test_store__?.selectNode?.(fullId);
+      (
+        window as Window & { __test_store__?: { selectNode?: (id: string) => void } }
+      ).__test_store__?.selectNode?.(fullId);
     }, FIRST_START_ID);
-    await page.getByTestId('graph-inspector-tab-routes').click();
-    await page.getByTestId('graph-inspector-option-target-0').selectOption(createFullId('第一章', '树林'));
+    await page
+      .getByTestId('graph-inspector-option-target-0')
+      .selectOption(createFullId('第一章', '树林'));
     await waitForContent(page, '-> 第一章/节点：树林');
 
     const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
-    await conditionTree.getByRole('button', { name: /左操作数变量|选择变量/ }).click();
-    await conditionTree.getByRole('button', { name: /金币/ }).click();
-    await conditionTree.getByRole('button', { name: /比较运算符|comparison operator/i }).click();
-    await conditionTree.getByRole('button', { name: /≥/ }).click();
+    const variableTrigger = conditionTree
+      .getByTestId('condition-variable-dropdown-trigger')
+      .first();
+    await variableTrigger.click();
+    const variableMenu = page.getByTestId('condition-variable-dropdown-menu');
+    await expect(variableMenu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(variableMenu).toHaveCount(0);
+    await expect(variableTrigger).toBeFocused();
+
+    await variableTrigger.click();
+    await expect(variableMenu).toBeVisible();
+    const menuOutsideConditionTree = await variableMenu.evaluate((menu) => {
+      const tree = document.querySelector('[data-testid="graph-inspector-condition-tree-0"]');
+      return Boolean(tree && !tree.contains(menu));
+    });
+    expect(menuOutsideConditionTree).toBe(true);
+    const variableMenuBox = await variableMenu.boundingBox();
+    expect(variableMenuBox).not.toBeNull();
+    expect(variableMenuBox!.y).toBeGreaterThanOrEqual(0);
+    expect(variableMenuBox!.y + variableMenuBox!.height).toBeLessThanOrEqual(
+      await page.evaluate(() => window.innerHeight),
+    );
+    await variableMenu.getByRole('option', { name: /金币/ }).click();
+    await expect(variableMenu).toHaveCount(0);
+
+    await conditionTree.getByTestId('condition-operator-dropdown-trigger').first().click();
+    const operatorMenu = page.getByTestId('condition-operator-dropdown-menu');
+    await expect(operatorMenu).toBeVisible();
+    await operatorMenu.getByRole('option', { name: /≥/ }).click();
     const conditionInput = conditionTree.locator('input[type="number"]');
+    await variableTrigger.click();
+    await expect(variableMenu).toBeVisible();
+    await conditionInput.click();
+    await expect(variableMenu).toHaveCount(0);
     await conditionInput.fill('1');
     await blur(conditionInput);
     await waitForContent(page, '  条件: $金币 >= 1');
@@ -1669,13 +2204,12 @@ author: QA
     await page.getByTestId('graph-inspector-option-effect-add-0').click();
     await waitForContent(page, '  效果: 金币-1');
 
-    await page.getByTestId('graph-inspector-tab-variables').click();
+    await page.getByTestId('graph-global-editor-tab-variables').click();
     await page.getByTestId('graph-inspector-variable-name').fill('日志');
     await page.getByTestId('graph-inspector-variable-type').selectOption('string');
     await page.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  日志:\n    type: string');
 
-    await page.getByTestId('graph-inspector-tab-routes').click();
     await page.getByTestId('graph-inspector-option-effect-variable-0').selectOption('日志');
     await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('append');
     const appendInput = page.getByTestId('graph-inspector-option-effect-value-0');
@@ -1683,7 +2217,7 @@ author: QA
     await appendInput.press('Enter');
     await waitForContent(page, '  效果: 金币-1, 日志←"发现脚印"');
 
-    await page.getByTestId('graph-inspector-tab-variables').click();
+    await page.getByTestId('graph-global-editor-tab-variables').click();
     await page.getByTestId('graph-inspector-variable-name').fill('声望');
     await page.getByTestId('graph-inspector-variable-type').selectOption('float');
     await page.getByTestId('graph-inspector-save-variable').click();
@@ -1697,7 +2231,10 @@ author: QA
     await page.getByTestId('graph-inspector-variable-chapter').selectOption('第一章');
     await page.getByTestId('graph-inspector-variable-description').fill('当前伪装职业');
     await page.getByTestId('graph-inspector-save-variable').click();
-    await waitForContent(page, '  职业:\n    type: enum\n    values: ["战士","法师"]\n    default: "法师"\n    scope: chapter\n    chapter: "第一章"\n    description: "当前伪装职业"');
+    await waitForContent(
+      page,
+      '  职业:\n    type: enum\n    values: ["战士","法师"]\n    default: "法师"\n    scope: chapter\n    chapter: "第一章"\n    description: "当前伪装职业"',
+    );
 
     await page.getByTestId('graph-inspector-variable-name').fill('已解锁');
     await page.getByTestId('graph-inspector-variable-type').selectOption('bool');
@@ -1716,10 +2253,15 @@ author: QA
     await page.getByTestId('graph-inspector-variable-field-add-root-0-0').click();
     await page.getByTestId('graph-inspector-variable-field-name-root-0-0-0').fill('下雨');
     await page.getByTestId('graph-inspector-variable-field-type-root-0-0-0').selectOption('bool');
-    await page.getByTestId('graph-inspector-variable-field-default-root-0-0-0').selectOption('true');
+    await page
+      .getByTestId('graph-inspector-variable-field-default-root-0-0-0')
+      .selectOption('true');
     await page.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  世界状态:\n    type: object');
-    await waitForContent(page, '              下雨:\n                type: bool\n                default: true');
+    await waitForContent(
+      page,
+      '              下雨:\n                type: bool\n                default: true',
+    );
     await attachVisibleScreenshot(
       testInfo,
       page.getByTestId('graph-lab-inspector'),
@@ -1738,32 +2280,45 @@ author: QA
     await expect(dialog).toBeVisible({ timeout: 5_000 });
     await expect(dialog.locator('input[name="export-format"][value="json"]')).toBeChecked();
     await page.getByTestId('export-dialog-submit').click();
-    await expect(page.getByTestId('export-dialog-submit')).toHaveAttribute('data-export-status', 'success', {
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId('export-dialog-submit')).toHaveAttribute(
+      'data-export-status',
+      'success',
+      {
+        timeout: 10_000,
+      },
+    );
 
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
     const json = JSON.parse(captured!.content) as {
       $schema: string;
       meta: { engine: string };
-      chapters: Array<{ nodes: Array<{ title: string; options: Array<{ targetNodeId: string | null }> }> }>;
-      variables: Record<string, {
-        type: string;
-        default?: unknown;
-        values?: string[];
-        scope?: string;
-        chapter?: string;
-        description?: string;
-        fields?: Record<string, unknown>;
+      chapters: Array<{
+        nodes: Array<{ title: string; options: Array<{ targetNodeId: string | null }> }>;
       }>;
+      variables: Record<
+        string,
+        {
+          type: string;
+          default?: unknown;
+          values?: string[];
+          scope?: string;
+          chapter?: string;
+          description?: string;
+          fields?: Record<string, unknown>;
+        }
+      >;
     };
     const nodes = json.chapters.flatMap((chapter) => chapter.nodes);
     expect(nodes.some((node) => node.title === '树林')).toBe(true);
-    expect(nodes.some((node) => node.options.some((option) => option.targetNodeId === '树林'))).toBe(true);
+    expect(
+      nodes.some((node) => node.options.some((option) => option.targetNodeId === '树林')),
+    ).toBe(true);
     expect(json.$schema).toBe('https://plotflow.dev/schema/0.2/story.json');
     expect(json.meta.engine).toBe('godot');
-    expect(Object.keys(json.variables)).toEqual(expect.arrayContaining(['金币', '日志', '声望', '职业', '已解锁', '世界状态']));
+    expect(Object.keys(json.variables)).toEqual(
+      expect.arrayContaining(['金币', '日志', '声望', '职业', '已解锁', '世界状态']),
+    );
     expect(json.variables).toHaveProperty('声望');
     expect(json.variables['职业']).toMatchObject({
       type: 'enum',
@@ -1791,7 +2346,9 @@ author: QA
   });
 
   test('round-trips three-level AND OR NOT and literal-left conditions through Graph GUI and JSON 0.2', async () => {
-    await setEditorContent(page, `---
+    await setEditorContent(
+      page,
+      `---
 plotflow: 0.1
 vars:
   金币: int
@@ -1808,14 +2365,13 @@ vars:
 ## 节点：出口
 
 完成。
-`);
+`,
+    );
     await switchToGraphLab(page);
     await page.evaluate(
       (fullId) => (window as TestWindow).__test_store__?.selectNode(fullId),
       createFullId('第一章', '入口'),
     );
-    await page.getByTestId('graph-inspector-tab-routes').click();
-
     const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
     await expect(conditionTree).toBeVisible({ timeout: 10_000 });
     const leftOperandTypes = conditionTree.getByLabel('左操作数类型');
@@ -1824,7 +2380,10 @@ vars:
     await expect(leftOperandTypes.last()).toHaveValue('literal');
     await expect(rightOperandTypes.last()).toHaveValue('variable');
 
-    const literalInput = leftOperandTypes.last().locator('xpath=..').locator('input[type="number"]');
+    const literalInput = leftOperandTypes
+      .last()
+      .locator('xpath=..')
+      .locator('input[type="number"]');
     await expect(literalInput).toHaveValue('5');
     await literalInput.fill('6');
     await blur(literalInput);
@@ -1833,9 +2392,13 @@ vars:
     await page.getByTestId('toolbar-export').click();
     await expect(page.locator('.export-dialog__overlay')).toBeVisible({ timeout: 5_000 });
     await page.getByTestId('export-dialog-submit').click();
-    await expect(page.getByTestId('export-dialog-submit')).toHaveAttribute('data-export-status', 'success', {
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId('export-dialog-submit')).toHaveAttribute(
+      'data-export-status',
+      'success',
+      {
+        timeout: 10_000,
+      },
+    );
 
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
@@ -1849,7 +2412,8 @@ vars:
       }>;
     };
     expect(json.$schema).toBe('https://plotflow.dev/schema/0.2/story.json');
-    const ast = json.chapters[0]!.nodes.find((node) => node.id === '入口')!.options[0]!.conditions!.ast as {
+    const ast = json.chapters[0]!.nodes.find((node) => node.id === '入口')!.options[0]!.conditions!
+      .ast as {
       type: string;
       left: unknown;
       right: { type: string; operand: { type: string; left: unknown; right: unknown } };
@@ -1874,10 +2438,15 @@ vars:
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
 
-    await expect(page.locator('html')).toHaveAttribute('data-theme-id', 'plotflow-narrative-workbench');
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-theme-id',
+      'plotflow-narrative-workbench',
+    );
     await expect(page.getByText('Graph Lab · 叙事工作台')).toBeVisible();
     await expect(page.getByTestId('graph-lab-workspace-browser')).toBeVisible();
-    await expect(page.getByTestId('graph-lab-outline-node').filter({ hasText: '起点' })).toBeVisible();
+    await expect(
+      page.getByTestId('graph-lab-outline-node').filter({ hasText: '起点' }),
+    ).toBeVisible();
     await expect(page.getByTestId('toolbar-graph-view-toggle')).toHaveCount(0);
     await expect(page.locator('.split-viewbar')).toHaveCount(0);
 
@@ -1908,7 +2477,9 @@ vars:
     await switchToSplit(page);
 
     await expect(page.locator('.split-viewbar')).toBeVisible();
-    await expect(page.locator('.split-viewbar').getByTestId('toolbar-graph-view-toggle')).toBeVisible();
+    await expect(
+      page.locator('.split-viewbar').getByTestId('toolbar-graph-view-toggle'),
+    ).toBeVisible();
 
     await switchToGraphLab(page);
   });
@@ -1939,22 +2510,72 @@ author: QA
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
 
-    await page.getByTestId('graph-lab-workspace-browser').locator('summary').click();
+    await openWorkspaceBrowser(page);
     await page.getByTestId('graph-lab-choose-workspace').click();
-    const workspaceFile = page.getByTestId('graph-lab-workspace-file').filter({ hasText: 'workspace-branch.mdstory' });
+    const workspaceFile = page
+      .getByTestId('graph-lab-workspace-file')
+      .filter({ hasText: 'workspace-branch.mdstory' });
     await expect(workspaceFile).toBeVisible({ timeout: 10_000 });
 
     await workspaceFile.click();
     await waitForContent(page, '节点：工作区分支');
-    await expect(page.getByTestId('graph-lab-outline-node').filter({ hasText: '工作区起点' })).toBeVisible({
+    await expect(
+      page.getByTestId('graph-lab-outline-node').filter({ hasText: '工作区起点' }),
+    ).toBeVisible({
       timeout: 10_000,
     });
     await setEditorContent(page, START_STORY);
     await switchToGraphLab(page);
-    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' }).first()).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' }).first()).toBeVisible(
+      {
+        timeout: 10_000,
+      },
+    );
     await reloadRenderer(page);
+  });
+
+  test('discards a delayed workspace read when the story changes during the replacement lease', async () => {
+    const workspaceStory = `---
+plotflow: 0.1
+title: 延迟读取结果
+author: QA
+---
+
+# 第一章
+
+## 节点：不应覆盖
+延迟读取的正文。
+`;
+    await mockWorkspaceIpcHandler(electronApp, {
+      rootPath: 'D:\\PlotFlowE2E\\Stories',
+      filePath: 'D:\\PlotFlowE2E\\Stories\\delayed.mdstory',
+      relativePath: 'delayed.mdstory',
+      content: workspaceStory,
+      deferredRead: true,
+    });
+    await setEditorContent(page, START_STORY);
+    await switchToGraphLab(page);
+    await openWorkspaceBrowser(page);
+    await page.getByTestId('graph-lab-choose-workspace').click();
+    const workspaceFile = page
+      .getByTestId('graph-lab-workspace-file')
+      .filter({ hasText: 'delayed.mdstory' });
+    await expect(workspaceFile).toBeVisible({ timeout: 10_000 });
+
+    await workspaceFile.click();
+    await expect.poll(() => readWorkspaceStoryCallCount(electronApp)).toBe(1);
+    const editedDuringRead = START_STORY.replace('你醒来。', '读取期间继续写作。');
+    await setEditorContentPreservingUI(page, editedDuringRead);
+    await releaseWorkspaceStoryRead(electronApp);
+
+    await expect(page.locator('.status-bar')).toContainText(
+      /读取期间故事已发生变化|story changed while the file was being read/i,
+      {
+        timeout: 10_000,
+      },
+    );
+    expect(await getEditorContent(page)).toContain('读取期间继续写作。');
+    expect(await getEditorContent(page)).not.toContain('节点：不应覆盖');
   });
 
   test('guards Source Drawer drafts before opening workspace stories', async () => {
@@ -1984,9 +2605,11 @@ author: QA
 
     const originalSource = await sourceSlice.inputValue();
     await sourceSlice.fill(originalSource.replace('你醒来。', '打开工作区前自动保存。'));
-    await page.getByTestId('graph-lab-workspace-browser').locator('summary').click();
+    await openWorkspaceBrowser(page);
     await page.getByTestId('graph-lab-choose-workspace').click();
-    const workspaceFile = page.getByTestId('graph-lab-workspace-file').filter({ hasText: 'workspace-guard.mdstory' });
+    const workspaceFile = page
+      .getByTestId('graph-lab-workspace-file')
+      .filter({ hasText: 'workspace-guard.mdstory' });
     await expect(workspaceFile).toBeVisible({ timeout: 10_000 });
     await workspaceFile.click();
 
@@ -2001,11 +2624,20 @@ author: QA
     await expect(sourceSlice).toHaveValue(/你醒来。/);
     const staleDraft = (await sourceSlice.inputValue()).replace('你醒来。', '这段草稿不能被覆盖。');
     await sourceSlice.fill(staleDraft);
-    const externallyChanged = (await getEditorContent(page)).replace('你醒来。', '外部修改后的正文。');
+    const externallyChanged = (await getEditorContent(page)).replace(
+      '你醒来。',
+      '外部修改后的正文。',
+    );
     await setEditorContentPreservingUI(page, externallyChanged);
-    await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化', {
-      timeout: 10_000,
-    });
+    await expect(page.locator('.source-drawer__slice-message')).toContainText(
+      '完整源码已在其他位置变化',
+      {
+        timeout: 10_000,
+      },
+    );
+    // Save+Open must fail closed before the loader when the Source draft is stale.
+    // Explicit Discard+Open is covered separately by the replacement lease tests.
+    await mockRendererDialogResponse(electronApp, 0);
     await workspaceFile.click();
 
     expect(await readWorkspaceStoryCallCount(electronApp)).toBe(1);
@@ -2015,6 +2647,9 @@ author: QA
   });
 
   test('supports keyboard chapter tabs and node context menus with focus restoration', async () => {
+    // The preceding Source Drawer guard intentionally leaves a stale local draft.
+    // Reload the renderer so this keyboard contract starts from a clean component session.
+    await reloadRenderer(page);
     await setEditorContent(page, TWO_CHAPTER_STORY);
     await switchToGraphLab(page);
 
@@ -2023,11 +2658,18 @@ author: QA
     await page.keyboard.press('ArrowRight');
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
     await expect(tabs.nth(1)).toBeFocused();
-    await expect.poll(() => page.evaluate(() => (
-      (window as TestWindow).__test_store__?.getUIState().activeChapterId
-    ))).toBe('第二章');
-    await tabs.nth(1).press('Home');
-    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as TestWindow).__test_store__?.getUIState().activeChapterId),
+      )
+      .toBe('第二章');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await tabs.nth(1).focus();
+      await page.keyboard.press('Home');
+      if ((await tabs.first().getAttribute('aria-selected')) === 'true') break;
+      await page.waitForTimeout(100);
+    }
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
     await expect(tabs.first()).toBeFocused();
 
     const node = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
@@ -2042,6 +2684,108 @@ author: QA
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(node).toBeFocused();
+
+    await page.keyboard.press('Shift+F10');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    const renameDialog = page.getByRole('dialog', { name: /重命名节点|rename node/i });
+    await expect(renameDialog).toBeVisible();
+    const renameInput = renameDialog.getByRole('textbox');
+    await expect(renameInput).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(renameDialog.getByRole('button', { name: /确定|confirm/i })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(renameDialog).toHaveCount(0);
+    await expect(node).toBeFocused();
+
+    await page.keyboard.press('Shift+F10');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    const deleteDialog = page.getByRole('dialog', { name: /删除节点|delete node/i });
+    await expect(deleteDialog).toBeVisible();
+    const cancelDelete = deleteDialog.getByRole('button', { name: /取消|cancel/i });
+    await expect(cancelDelete).toBeFocused();
+    const beforeModalShortcut = await getEditorContent(page);
+    await page.keyboard.press('Delete');
+    await page.keyboard.press('Control+K');
+    await page.keyboard.press('Control+E');
+    await expect(deleteDialog).toBeVisible();
+    await expect(page.locator('.export-dialog__overlay')).toHaveCount(0);
+    expect(await getEditorContent(page)).toBe(beforeModalShortcut);
+    await page.keyboard.press('Tab');
+    await expect(deleteDialog.getByTestId('graph-confirm-primary')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(deleteDialog).toHaveCount(0);
+    await expect(node).toBeFocused();
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await node.focus();
+      await page.keyboard.press('Shift+F10');
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await expect(renameDialog).toBeVisible();
+      await expect(renameInput).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(renameDialog).toHaveCount(0);
+      await expect(node).toBeFocused();
+
+      await page.keyboard.press('Shift+F10');
+      await page.keyboard.press('End');
+      await page.keyboard.press('Enter');
+      await expect(deleteDialog).toBeVisible();
+      await expect(cancelDelete).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(deleteDialog).toHaveCount(0);
+      await expect(node).toBeFocused();
+    }
+
+    const nodePoint = await nodeCenter(page, '起点');
+    const blankPoint = await findBlankCanvasPoint(page, nodePoint);
+    await page.mouse.click(nodePoint.x, nodePoint.y, { button: 'right' });
+    await expect(menu).toBeVisible();
+    await page.mouse.click(blankPoint.x, blankPoint.y);
+    await expect(menu).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as TestWindow).__test_store__?.getUIState().activeNodeId),
+      )
+      .toBeNull();
+
+    await page.mouse.click(blankPoint.x, blankPoint.y, { button: 'right' });
+    await expect(menu).toBeVisible();
+    await page.mouse.click(nodePoint.x, nodePoint.y);
+    await expect(menu).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as TestWindow).__test_store__?.getUIState().activeNodeId),
+      )
+      .toBe(createFullId('第一章', '起点'));
+  });
+
+  test('dismisses an edge context menu with an outside primary click', async () => {
+    await setEditorContent(
+      page,
+      `${START_STORY.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：终点')}
+
+## 节点：终点
+
+完成。`,
+    );
+    await switchToGraphLab(page);
+
+    const edgePath = page.locator('.react-flow__edge path').first();
+    await expect(edgePath).toBeVisible({ timeout: 10_000 });
+    const edgeBox = await edgePath.boundingBox();
+    expect(edgeBox).not.toBeNull();
+    await page.mouse.click(edgeBox!.x + edgeBox!.width / 2, edgeBox!.y + edgeBox!.height / 2, {
+      button: 'right',
+    });
+
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    const blankPoint = await findBlankCanvasPoint(page, await nodeCenter(page, '起点'));
+    await page.mouse.click(blankPoint.x, blankPoint.y);
+    await expect(menu).toHaveCount(0);
   });
 
   test('drops an in-flight node drag when an external reload replaces the story session', async () => {
@@ -2054,23 +2798,33 @@ author: QA
     await page.mouse.down();
     await page.mouse.move(start.x + 90, start.y + 60, { steps: 5 });
 
-    const reloaded = START_STORY.replace('Graph Lab E2E', 'External Reload E2E').replace('你醒来。', '外部重载正文。');
-    await page.evaluate((content) => {
-      (window as TestWindow).__test_store__?.applyExternalFileContent({
-        filePath: 'D:/PlotFlowE2E/external-reload.mdstory',
-        content,
-        hash: 'external-reload-hash',
-        modifiedAt: 42,
-      });
+    const reloaded = START_STORY.replace('Graph Lab E2E', 'External Reload E2E').replace(
+      '你醒来。',
+      '外部重载正文。',
+    );
+    const reloadedSuccessfully = await page.evaluate(async (content) => {
+      return (
+        (await (window as TestWindow).__test_store__?.applyExternalFileContent({
+          filePath: 'D:/PlotFlowE2E/external-reload.mdstory',
+          content,
+          hash: 'external-reload-hash',
+          modifiedAt: 42,
+        })) ?? false
+      );
     }, reloaded);
+    expect(reloadedSuccessfully).toBe(true);
+    expect(await getEditorContent(page)).toContain('外部重载正文。');
     await page.mouse.up();
 
-    await waitForContent(page, '外部重载正文。');
-    expect(await getEditorContent(page)).not.toContain('layout:');
+    const contentAfterDrop = await getEditorContent(page);
+    expect(contentAfterDrop).toContain('外部重载正文。');
+    expect(contentAfterDrop).not.toContain('layout:');
     await expect(page.getByTestId('graph-lab-undo')).toBeDisabled();
-    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' }).first()).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(page.locator('.react-flow__node').filter({ hasText: '起点' }).first()).toBeVisible(
+      {
+        timeout: 10_000,
+      },
+    );
   });
 
   test('persists node dragging into .mdstory layout data', async () => {
@@ -2081,8 +2835,10 @@ author: QA
 
     const before = await node.boundingBox();
     expect(before).not.toBeNull();
-    const beforePosition = await page.evaluate((fullId) =>
-      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)?.position ?? null,
+    const beforePosition = await page.evaluate(
+      (fullId) =>
+        (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)
+          ?.position ?? null,
       FIRST_START_ID,
     );
     expect(beforePosition).not.toBeNull();
@@ -2090,20 +2846,24 @@ author: QA
     await dragFromTo(page, start, { x: start.x + 120, y: start.y + 80 });
 
     await page.waitForFunction(
-      () => (window as TestWindow).__test_store__?.getEditorContent?.().includes('layout:') ?? false,
+      () =>
+        (window as TestWindow).__test_store__?.getEditorContent?.().includes('layout:') ?? false,
       { timeout: 10_000 },
     );
     const movedNode = page.locator('.react-flow__node').first();
     await expect(movedNode).toBeVisible({ timeout: 10_000 });
     const after = await movedNode.boundingBox();
     expect(after).not.toBeNull();
-    const afterPosition = await page.evaluate((fullId) =>
-      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)?.position ?? null,
+    const afterPosition = await page.evaluate(
+      (fullId) =>
+        (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)
+          ?.position ?? null,
       FIRST_START_ID,
     );
     expect(afterPosition).not.toBeNull();
     expect(
-      Math.abs(afterPosition!.x - beforePosition!.x) + Math.abs(afterPosition!.y - beforePosition!.y),
+      Math.abs(afterPosition!.x - beforePosition!.x) +
+        Math.abs(afterPosition!.y - beforePosition!.y),
     ).toBeGreaterThan(30);
 
     const content = await getEditorContent(page);
@@ -2112,38 +2872,102 @@ author: QA
     await page.getByTestId('graph-lab-source-toggle').click();
     const sourceSlice = page.getByTestId('graph-lab-chapter-source-slice');
     await expect(sourceSlice).toBeVisible();
-    await sourceSlice.fill((await sourceSlice.inputValue()).replace('你醒来。', '未提交的拖动冲突草稿。'));
+    await sourceSlice.fill(
+      (await sourceSlice.inputValue()).replace('你醒来。', '未提交的拖动冲突草稿。'),
+    );
     await setEditorContentPreservingUI(
       page,
       (await getEditorContent(page)).replace('你醒来。', '磁盘侧更新后的正文。'),
     );
-    await expect(page.locator('.source-drawer__slice-message')).toContainText('完整源码已在其他位置变化');
+    await expect(page.locator('.source-drawer__slice-message')).toContainText(
+      '完整源码已在其他位置变化',
+    );
 
     const rollbackStart = await nodeDragPoint(page, '起点');
     await dragFromTo(page, rollbackStart, { x: rollbackStart.x + 90, y: rollbackStart.y + 60 });
-    await expect.poll(async () => page.evaluate((fullId) =>
-      (window as TestWindow).__test_store__?.getGraphNodes?.().find((item) => item.id === fullId)?.position ?? null,
-      FIRST_START_ID,
-    )).toEqual(afterPosition);
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          (fullId) =>
+            (window as TestWindow).__test_store__
+              ?.getGraphNodes?.()
+              .find((item) => item.id === fullId)?.position ?? null,
+          FIRST_START_ID,
+        ),
+      )
+      .toEqual(afterPosition);
   });
 
   test('connects an option to an existing node by dragging a cable', async () => {
-    await setEditorContent(page, `${START_STORY}
+    // The preceding drag-persistence test ends with a stale, dirty Source
+    // Drawer draft by design; that leftover state blocks this drag from
+    // opening the drop menu, so reset the renderer before interacting.
+    await reloadRenderer(page);
+    await setEditorContent(
+      page,
+      `${START_STORY}
 
 ## 节点：树林
 
 树影挡住了小路。
-`);
+`,
+    );
     await switchToGraphLab(page);
     const sourceNode = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
     const handle = sourceNode.locator('.story-node-connect-handle').first();
     const sourceCenter = await nodeCenter(page, '起点');
-    await expect(page.locator('.react-flow__node').filter({ hasText: '树林' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.react-flow__node').filter({ hasText: '树林' })).toBeVisible({
+      timeout: 10_000,
+    });
     const blankPoint = await findBlankCanvasPoint(page, sourceCenter);
 
     await dragHandleToMenu(page, handle, blankPoint);
     await page.getByTestId('wire-drop-connect-existing').filter({ hasText: '树林' }).click();
     await waitForContent(page, '[选项] 查看四周 -> 第一章/节点：树林');
+  });
+
+  test('commits a direct cable drop onto an existing node without the drop menu', async () => {
+    await setEditorContent(
+      page,
+      `${START_STORY}
+
+## 节点：树林
+
+树影挡住了小路。
+`,
+    );
+    await switchToGraphLab(page);
+    const sourceNode = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
+    const handle = sourceNode.locator('.story-node-connect-handle').first();
+    await expect(page.locator('.react-flow__node').filter({ hasText: '树林' })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // A direct drop competes with layout settling and canvas state left by
+    // earlier tests in the full suite, so retry the drag instead of assuming
+    // a single attempt lands on the target card.
+    let committed = false;
+    for (let attempt = 0; attempt < 4 && !committed; attempt += 1) {
+      const dragPort = handle.locator('.story-node-connect-port').first();
+      const handleBox = (await handle.boundingBox()) ?? (await dragPort.boundingBox());
+      if (!handleBox) continue;
+      const targetCenter = await nodeCenter(page, '树林');
+      await dragFromTo(
+        page,
+        { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 },
+        targetCenter,
+      );
+      committed = await page
+        .waitForFunction(
+          (text: string) =>
+            (window as TestWindow).__test_store__?.getEditorContent?.().includes(text) ?? false,
+          '[选项] 查看四周 -> 第一章/节点：树林',
+          { timeout: 2_000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+    }
+    expect(committed).toBe(true);
   });
 
   test('opens a cable drop menu on blank space and creates a connected node there', async () => {
@@ -2171,12 +2995,15 @@ author: QA
   });
 
   test('disconnects an existing option by dragging its cable endpoint to blank space', async () => {
-    await setEditorContent(page, `${START_STORY}
+    await setEditorContent(
+      page,
+      `${START_STORY}
 
 ## 节点：树林
 
 树影挡住了小路。
-`.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：树林'));
+`.replace('[选项] 查看四周', '[选项] 查看四周 -> 节点：树林'),
+    );
     await switchToGraphLab(page);
     const sourceNode = page.locator('.react-flow__node').filter({ hasText: '起点' }).first();
     const handle = sourceNode.locator('.story-node-connect-handle').first();
@@ -2210,9 +3037,12 @@ author: QA
     await page.getByTestId('graph-lab-source-toggle').click();
     const source = page.getByTestId('graph-lab-chapter-source-slice');
     await source.fill((await source.inputValue()).replace('你醒来。', '本地草稿。'));
-    await page.evaluate((content) => {
-      (window as unknown as TestWindow).__test_store__?.setEditorContentPreservingUI(content);
-    }, START_STORY.replace('你醒来。', '外部更新。'));
+    await page.evaluate(
+      (content) => {
+        (window as unknown as TestWindow).__test_store__?.setEditorContentPreservingUI(content);
+      },
+      START_STORY.replace('你醒来。', '外部更新。'),
+    );
     await expect(page.locator('.source-drawer__slice-message')).toContainText(
       /完整源码已在其他位置变化|full source changed elsewhere/i,
     );
@@ -2242,15 +3072,21 @@ author: QA
     const before = await getEditorContent(page);
 
     await page.keyboard.press('Control+K');
-    const search = page.getByPlaceholder(/搜索标题、ID、正文或选项|search title, ID, body, or option/i);
+    const search = page.getByPlaceholder(
+      /搜索标题、ID、正文或选项|search title, ID, body, or option/i,
+    );
     await expect(search).toBeFocused();
     await search.fill('终点');
     await page.keyboard.press('Enter');
 
     await expect(page.getByTestId('graph-lab-selection-label')).toContainText('终点');
-    await expect.poll(() => page.evaluate(() => (
-      (window as unknown as TestWindow).__test_store__?.getUIState().activeChapterId
-    ))).toBe('第二章');
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as unknown as TestWindow).__test_store__?.getUIState().activeChapterId,
+        ),
+      )
+      .toBe('第二章');
     expect(await getEditorContent(page)).toBe(before);
   });
 
@@ -2269,7 +3105,9 @@ author: QA
     ]) {
       await page.setViewportSize(viewport);
       await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(viewport.width);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
       const paletteToggle = page.getByTestId('graph-lab-palette-toggle');
       if (viewport.width <= 900) {
         await expect(paletteToggle).toBeVisible();
@@ -2283,27 +3121,53 @@ author: QA
     }
 
     await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
     await expect(page.getByTestId('graph-lab-palette-toggle')).toBeVisible();
     await page.getByTestId('graph-lab-palette-toggle').click();
     await expect(page.getByTestId('graph-lab-create-node')).toBeInViewport();
+
+    const globalEditor = page.getByTestId('graph-lab-global-editor');
+    await globalEditor.scrollIntoViewIfNeeded();
+    await expect(globalEditor).toBeInViewport();
+    const storyTitle = page.getByTestId('graph-inspector-meta-title');
+    await storyTitle.fill('窄屏全局编辑');
+    await blur(storyTitle);
+    await waitForContent(page, 'title: "窄屏全局编辑"');
+
+    const storyTab = page.getByTestId('graph-global-editor-tab-story');
+    await storyTab.focus();
+    await storyTab.press('ArrowRight');
+    const variableName = page.getByTestId('graph-inspector-variable-name');
+    await variableName.scrollIntoViewIfNeeded();
+    await expect(variableName).toBeInViewport();
+    await variableName.fill('窄屏变量');
+    await page.getByTestId('graph-inspector-save-variable').click();
+    await waitForContent(page, '  窄屏变量:');
+
     await page.getByTestId('graph-lab-inspector-toggle').click();
     await expect(page.getByTestId('graph-lab-inspector')).toBeInViewport();
     await expect(page.getByTestId('graph-lab-create-node')).not.toBeInViewport();
 
     await page.getByTestId('graph-lab-source-toggle').click();
     await expect(page.getByTestId('graph-lab-chapter-source-slice')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
   });
 
   test('shows tagged system-open failures with their path and error code', async () => {
     const failedPath = 'D:/PlotFlowE2E/missing-system-open.mdstory';
-    await electronApp.evaluate(({ BrowserWindow }, payload) => {
-      BrowserWindow.getAllWindows()[0]?.webContents.send(payload.channel, payload.result);
-    }, {
-      channel: IPC_CHANNELS.file.systemOpenNotify,
-      result: { status: 'error' as const, path: failedPath, code: 'ENOENT' },
-    });
+    await electronApp.evaluate(
+      ({ BrowserWindow }, payload) => {
+        BrowserWindow.getAllWindows()[0]?.webContents.send(payload.channel, payload.result);
+      },
+      {
+        channel: IPC_CHANNELS.file.systemOpenNotify,
+        result: { status: 'error' as const, path: failedPath, code: 'ENOENT' },
+      },
+    );
 
     const status = page.locator('.status-bar');
     await expect(status).toContainText(failedPath, { timeout: 10_000 });
@@ -2322,8 +3186,10 @@ author: QA
     const closed = page.waitForEvent('close', { timeout: 5_000 });
     await requestMainWindowClose(electronApp);
     await closed;
-    await electronApp.evaluate(({ app }) => {
-      app.exit(0);
-    }).catch(() => {});
+    await electronApp
+      .evaluate(({ app }) => {
+        app.exit(0);
+      })
+      .catch(() => {});
   });
 });

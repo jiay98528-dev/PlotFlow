@@ -31,7 +31,7 @@ using Newtonsoft.Json.Linq;
 namespace PlotFlow
 {
     /// <summary>
-    /// PlotFlow JSON 读取器的参考实现。
+    /// Fablevia JSON 读取器的参考实现。
     ///
     /// 实现了 IPlotFlowReader 接口的全部方法。
     /// 使用 Newtonsoft.Json 解析 JSON，支持 Schema §5.4 定义的完整 AST 条件评估。
@@ -282,7 +282,7 @@ namespace PlotFlow
                     return EvaluateFieldAccess(ast, resolver);
 
                 default:
-                    UnityEngine.Debug.LogWarning($"PlotFlow: Unknown AST node type '{type}' — skipping condition");
+                    UnityEngine.Debug.LogWarning($"Fablevia: Unknown AST node type '{type}' — skipping condition");
                     return false;
             }
         }
@@ -602,7 +602,7 @@ namespace PlotFlow
             if (!variables.CanAccess(parts[0]))
             {
                 UnityEngine.Debug.LogWarning(
-                    $"PlotFlow: Cannot apply effect to chapter variable '{parts[0]}' from chapter '{variables.CurrentChapterId}'");
+                    $"Fablevia: Cannot apply effect to chapter variable '{parts[0]}' from chapter '{variables.CurrentChapterId}'");
                 return;
             }
             if (parts.Length == 1)
@@ -610,7 +610,7 @@ namespace PlotFlow
                 if (!variables.TryGetValue(parts[0], out var current))
                     return;
                 if (!variables.TrySet(parts[0], ApplyOperation(current, effect.Operation, value)))
-                    UnityEngine.Debug.LogWarning($"PlotFlow: Effect write denied for variable '{parts[0]}'");
+                    UnityEngine.Debug.LogWarning($"Fablevia: Effect write denied for variable '{parts[0]}'");
                 return;
             }
 
@@ -649,7 +649,7 @@ namespace PlotFlow
                     return string.Concat(current?.ToString() ?? "", value?.ToString() ?? "");
 
                 default:
-                    UnityEngine.Debug.LogWarning($"PlotFlow: Unknown operation '{operation}' — skipping");
+                    UnityEngine.Debug.LogWarning($"Fablevia: Unknown operation '{operation}' — skipping");
                     return current;
             }
         }
@@ -712,21 +712,21 @@ namespace PlotFlow
 
                 if (string.IsNullOrEmpty(def.Type))
                 {
-                    UnityEngine.Debug.LogWarning($"PlotFlow: Variable '{name}' has no type — defaulting to 'string'");
+                    UnityEngine.Debug.LogWarning($"Fablevia: Variable '{name}' has no type — defaulting to 'string'");
                     def.Type = "string";
                 }
 
                 // object 类型必须有 fields
                 if (def.Type == "object" && def.Fields == null)
                 {
-                    UnityEngine.Debug.LogWarning($"PlotFlow: Variable '{name}' is type 'object' but has no fields — initializing empty");
+                    UnityEngine.Debug.LogWarning($"Fablevia: Variable '{name}' is type 'object' but has no fields — initializing empty");
                     def.Fields = new Dictionary<string, VariableDeclaration>();
                 }
 
                 // enum 类型必须有 values
                 if (def.Type == "enum" && (def.Values == null || def.Values.Count == 0))
                 {
-                    UnityEngine.Debug.LogWarning($"PlotFlow: Variable '{name}' is type 'enum' but has no values — defaulting to 'string'");
+                    UnityEngine.Debug.LogWarning($"Fablevia: Variable '{name}' is type 'enum' but has no values — defaulting to 'string'");
                     def.Type = "string";
                 }
             }
@@ -768,11 +768,11 @@ namespace PlotFlow
             var normalized = version.Split('-')[0];
             if (!Version.TryParse(normalized, out var parsed))
             {
-                UnityEngine.Debug.LogWarning($"PlotFlow: Unknown story version '{version}'; loading supported fields only");
+                UnityEngine.Debug.LogWarning($"Fablevia: Unknown story version '{version}'; loading supported fields only");
                 return;
             }
             if (parsed.Major > 0 || parsed.Minor > 2)
-                UnityEngine.Debug.LogWarning($"PlotFlow: Story version '{version}' is newer than the 0.2 runtime contract; unknown fields are ignored");
+                UnityEngine.Debug.LogWarning($"Fablevia: Story version '{version}' is newer than the 0.2 runtime contract; unknown fields are ignored");
         }
 
         private static string ReadSchemaVersion(PlotFlowData data)

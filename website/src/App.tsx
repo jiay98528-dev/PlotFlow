@@ -20,6 +20,20 @@ import { developmentCopy, guide, landing, locales, navigation, officialThemes } 
 import { fallbackProjectStatus } from './data/projectStatusFallback';
 import type { GateStatus, Locale, ProjectStatus, Tone } from './types';
 
+const BRAND = { englishName: 'Fablevia', chineseName: '维叙' } as const;
+
+function BrandLockup({ locale }: { locale: Locale }) {
+  return (
+    <span
+      className={`brand-lockup brand-lockup--${locale}`}
+      aria-label={locale === 'zh' ? `${BRAND.chineseName}（${BRAND.englishName}）` : BRAND.englishName}
+    >
+      <strong>{locale === 'zh' ? BRAND.chineseName : BRAND.englishName}</strong>
+      {locale === 'zh' ? <small>{BRAND.englishName}</small> : null}
+    </span>
+  );
+}
+
 const toneLabels: Record<Locale, Record<Tone, string>> = {
   zh: {
     pass: '通过',
@@ -154,8 +168,8 @@ export default function App() {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
     document.title =
       locale === 'zh'
-        ? 'PlotFlow - 叙事分支工作台'
-        : 'PlotFlow - Narrative Branching Workspace';
+        ? '维叙（Fablevia）- 叙事分支工作台'
+        : 'Fablevia - Narrative Branching Workspace';
     window.localStorage.setItem('plotflow-site-locale', locale);
   }, [locale]);
 
@@ -204,11 +218,8 @@ function Header({
   return (
     <header className="site-header">
       <button className="brand-mark" type="button" onClick={() => navigate('/')}>
-        <span className="brand-mark__sigil">PF</span>
-        <span>
-          <strong>PlotFlow</strong>
-          <small>{locale === 'zh' ? '叙事分支工作台' : 'Branching narrative workspace'}</small>
-        </span>
+        <img className="brand-mark__icon" src={`${import.meta.env.BASE_URL}fablevia-icon.svg`} alt="" aria-hidden="true" />
+        <BrandLockup locale={locale} />
       </button>
       <nav className="nav-links" aria-label={locale === 'zh' ? '主导航' : 'Main navigation'}>
         {navigation[locale].map((item) => (
@@ -573,7 +584,7 @@ function Footer({ locale, navigate }: PageProps & { navigate: (path: string) => 
   return (
     <footer className="site-footer">
       <div>
-        <strong>PlotFlow</strong>
+        <BrandLockup locale={locale} />
         <p>
           {locale === 'zh'
             ? '本地优先，不锁数据，面向独立游戏叙事生产。'

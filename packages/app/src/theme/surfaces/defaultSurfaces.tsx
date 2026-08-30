@@ -19,7 +19,7 @@ export const defaultThemeSurfaces: ThemeSurfaces = {
     return (
       <header className="app-topbar" data-theme-surface="toolbar">
         {brand}
-        <nav className="app-toolbar" aria-label="PlotFlow toolbar">
+        <nav className="app-toolbar" aria-label="Fablevia toolbar">
           <div className="toolbar-group" role="group">
             {fileControls}
           </div>
@@ -84,7 +84,7 @@ export const defaultThemeSurfaces: ThemeSurfaces = {
     );
   },
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+  ThemeCenterSurface({ header, sidebar, installedThemes, footer }) {
     return (
       <section
         className="theme-center"
@@ -100,7 +100,6 @@ export const defaultThemeSurfaces: ThemeSurfaces = {
             {sidebar}
             <div className="theme-center__list">
               {installedThemes}
-              {remoteThemes}
             </div>
           </div>
           {footer}

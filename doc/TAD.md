@@ -1,4 +1,6 @@
-﻿# PlotFlow 鎶€鏈灦鏋勮璁?(TAD)
+﻿# Fablevia（维叙）技术架构设计（TAD）
+
+> **当前产品品牌（2026-07-17）**：对外产品名称为 Fablevia（维叙）。本文旧段落中残留的 PlotFlow 文案属于历史描述；`PlotFlowData`、`@plotflow/*`、Schema URL、IPC、主题 ID、引擎类名和磁盘路径则是 ADR-015 定义的兼容技术标识，必须保留。
 
 > **Graph-first 默认工作区权威口径（2026-07-10）**：ADR-012 将 Graph Lab 定义为主要且默认创作工作区；首次启动、新建、打开、命令行打开和 Continue editing 默认进入 Graph Lab。Split 在顶栏并列保留，作为辅助与高级的完整 `.mdstory` 源码投影。`.mdstory` 继续是唯一磁盘真相源，Graph Lab 命令必须写回同一源文本后再进入 parser、validator 与 exporter。本文旧段落中关于 Split 默认或 Graph Lab 仅为实验/并行入口的描述均为历史口径并已被覆盖。
 

@@ -1,9 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  Menu,
-  type MenuItemConstructorOptions,
-} from 'electron';
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
 import { IPC_CHANNELS } from '../src/shared/ipcChannels';
 import type { MenuEventChannel } from '../src/shared/ipcChannels';
 
@@ -11,35 +6,38 @@ export type AppMenuLanguage = 'zh-CN' | 'en-US';
 
 const IS_MAC = process.platform === 'darwin';
 
-const labels: Record<AppMenuLanguage, {
-  file: string;
-  new: string;
-  open: string;
-  save: string;
-  saveAs: string;
-  quit: string;
-  edit: string;
-  undo: string;
-  redo: string;
-  cut: string;
-  copy: string;
-  paste: string;
-  selectAll: string;
-  find: string;
-  replace: string;
-  view: string;
-  outline: string;
-  branchGraph: string;
-  problems: string;
-  themeCenter: string;
-  export: string;
-  exportJson: string;
-  exportHtml: string;
-  exportTxt: string;
-  help: string;
-  about: string;
-  docs: string;
-}> = {
+const labels: Record<
+  AppMenuLanguage,
+  {
+    file: string;
+    new: string;
+    open: string;
+    save: string;
+    saveAs: string;
+    quit: string;
+    edit: string;
+    undo: string;
+    redo: string;
+    cut: string;
+    copy: string;
+    paste: string;
+    selectAll: string;
+    find: string;
+    replace: string;
+    view: string;
+    outline: string;
+    branchGraph: string;
+    problems: string;
+    themeCenter: string;
+    export: string;
+    exportJson: string;
+    exportHtml: string;
+    exportTxt: string;
+    help: string;
+    feedback: string;
+    about: string;
+  }
+> = {
   'zh-CN': {
     file: '文件',
     new: '新建',
@@ -66,8 +64,8 @@ const labels: Record<AppMenuLanguage, {
     exportHtml: '导出 HTML',
     exportTxt: '导出 TXT',
     help: '帮助',
-    about: '关于 PlotFlow',
-    docs: '文档',
+    feedback: '报告问题…',
+    about: '关于维叙（Fablevia）',
   },
   'en-US': {
     file: 'File',
@@ -95,8 +93,8 @@ const labels: Record<AppMenuLanguage, {
     exportHtml: 'Export HTML',
     exportTxt: 'Export TXT',
     help: 'Help',
-    about: 'About PlotFlow',
-    docs: 'Documentation',
+    feedback: 'Report an Issue…',
+    about: 'About Fablevia',
   },
 };
 
@@ -242,19 +240,20 @@ export function buildMenu(language: AppMenuLanguage = 'zh-CN'): Menu {
     {
       label: text.help,
       submenu: [
+        {
+          id: 'help-feedback',
+          label: text.feedback,
+          click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpFeedback),
+        },
         ...(IS_MAC
           ? []
           : [
+              { type: 'separator' as const },
               {
                 label: text.about,
                 click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpAbout),
               },
-              { type: 'separator' as const },
             ]),
-        {
-          label: text.docs,
-          click: () => sendToRenderer(IPC_CHANNELS.menu.events.helpDocs),
-        },
       ],
     },
   ];

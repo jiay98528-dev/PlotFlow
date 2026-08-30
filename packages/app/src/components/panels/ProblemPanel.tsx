@@ -6,6 +6,7 @@ import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useAppText } from '../../i18n/appI18n';
+import { requestActiveChapter } from '../../services/storyTransactionService';
 import { localizeDiagnostic } from '../../i18n/localizeDiagnostic';
 
 type SeverityFilter = 'all' | DiagnosticSeverity;
@@ -92,10 +93,8 @@ export function ProblemPanel(): React.ReactElement {
       const node = nodeId ? story.getNodeByFullId(nodeId) : undefined;
       const chapterId = node?.chapterId ?? findChapterIdByLine(startLine);
 
+      if (chapterId && !requestActiveChapter(chapterId)) return;
       editor.setCursorPosition(startLine, startColumn);
-      if (chapterId) {
-        ui.setActiveChapterId(chapterId);
-      }
       if (node) {
         graph.selectNode(node.fullId);
         editor.setActiveNodeId(node.fullId);

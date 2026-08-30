@@ -68,6 +68,7 @@ const resources: Readonly<Record<Locale, TranslationTree>> = {
       E006: '嵌套深度超限',
       E007: '节点ID重名',
       E008: '变量重复声明',
+      E009: '故事结构不可导出',
     },
     warnings: {
       W001: '孤立节点',
@@ -146,6 +147,7 @@ const resources: Readonly<Record<Locale, TranslationTree>> = {
       E006: 'Nested depth exceeded',
       E007: 'Duplicate node ID',
       E008: 'Duplicate variable declaration',
+      E009: 'Story structure cannot be exported',
     },
     warnings: {
       W001: 'Orphan node',

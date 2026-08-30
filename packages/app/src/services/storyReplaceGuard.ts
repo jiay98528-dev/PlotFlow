@@ -1,8 +1,11 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { appT } from '../i18n/appI18n';
-import { hasCurrentStoryUnsavedChanges, saveOrSaveAs } from './autoSaveService';
-import { getSourceDraftState } from './sourceDraftCoordinator';
+import {
+  hasCurrentStoryUnsavedChanges,
+  prepareCurrentStoryForDestructiveExit,
+  saveOrSaveAs,
+} from './autoSaveService';
 
 export type StoryReplaceReason = 'open' | 'new' | 'workspace';
 
@@ -12,10 +15,6 @@ function text(key: string, params?: Readonly<Record<string, string | number>>): 
 
 export async function confirmBeforeReplacingCurrentStory(reason: StoryReplaceReason): Promise<boolean> {
   if (!hasCurrentStoryUnsavedChanges()) return true;
-  if (getSourceDraftState().isStale) {
-    useUIStore.getState().setStatusMessage(text('sourceDock.switchBlockedStale'));
-    return false;
-  }
 
   const editor = useEditorStore.getState();
   const isNew = reason === 'new';
@@ -37,5 +36,8 @@ export async function confirmBeforeReplacingCurrentStory(reason: StoryReplaceRea
   if (choice === 0) {
     return saveOrSaveAs();
   }
-  return choice === 1;
+  if (choice === 1) {
+    return prepareCurrentStoryForDestructiveExit();
+  }
+  return false;
 }

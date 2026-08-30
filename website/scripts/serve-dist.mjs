@@ -58,5 +58,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`PlotFlow website preview: http://${host}:${port}/`);
+  console.log(`Fablevia website preview: http://${host}:${port}/`);
 });

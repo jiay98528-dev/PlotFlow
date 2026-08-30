@@ -33,6 +33,23 @@ describe('parseFrontmatter', () => {
     }
   });
 
+  it('按 UTF-8 字节拒绝超过 64 KiB 的 Frontmatter', () => {
+    const oversizedTitle = '叙'.repeat(22_000);
+    const result = parseFrontmatter(`---\ntitle: ${oversizedTitle}\n---\n`);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'E005',
+            message: 'Frontmatter 超过 64 KB 上限',
+          }),
+        ]),
+      );
+    }
+  });
+
   // ==========================================================================
   // 2. 元信息
   // ==========================================================================
@@ -90,8 +107,16 @@ vars:
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.variables).toHaveLength(2);
-      expect(result.data.variables[0]).toMatchObject({ name: '金币', type: 'int', defaultValue: 0 });
-      expect(result.data.variables[1]).toMatchObject({ name: '等级', type: 'int', defaultValue: 0 });
+      expect(result.data.variables[0]).toMatchObject({
+        name: '金币',
+        type: 'int',
+        defaultValue: 0,
+      });
+      expect(result.data.variables[1]).toMatchObject({
+        name: '等级',
+        type: 'int',
+        defaultValue: 0,
+      });
     }
   });
 
@@ -104,8 +129,16 @@ vars:
     const result = parseFrontmatter(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.variables[0]).toMatchObject({ name: '好感度', type: 'float', defaultValue: 0.0 });
-      expect(result.data.variables[1]).toMatchObject({ name: '攻击倍率', type: 'float', defaultValue: 0.0 });
+      expect(result.data.variables[0]).toMatchObject({
+        name: '好感度',
+        type: 'float',
+        defaultValue: 0.0,
+      });
+      expect(result.data.variables[1]).toMatchObject({
+        name: '攻击倍率',
+        type: 'float',
+        defaultValue: 0.0,
+      });
     }
   });
 
@@ -118,8 +151,16 @@ vars:
     const result = parseFrontmatter(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.variables[0]).toMatchObject({ name: '是否存活', type: 'bool', defaultValue: false });
-      expect(result.data.variables[1]).toMatchObject({ name: '已解锁', type: 'bool', defaultValue: false });
+      expect(result.data.variables[0]).toMatchObject({
+        name: '是否存活',
+        type: 'bool',
+        defaultValue: false,
+      });
+      expect(result.data.variables[1]).toMatchObject({
+        name: '已解锁',
+        type: 'bool',
+        defaultValue: false,
+      });
     }
   });
 
@@ -131,7 +172,11 @@ vars:
     const result = parseFrontmatter(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.variables[0]).toMatchObject({ name: '玩家名', type: 'string', defaultValue: '' });
+      expect(result.data.variables[0]).toMatchObject({
+        name: '玩家名',
+        type: 'string',
+        defaultValue: '',
+      });
     }
   });
 

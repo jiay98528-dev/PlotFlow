@@ -21,14 +21,16 @@ import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { layoutNodesInWorker } from '../branch-graph/graphLayoutClient';
 import { graphEditService } from '../../services/graphEditService';
-import { loadSavedStorySession } from '../../services/storySessionService';
-import { confirmBeforeReplacingCurrentStory } from '../../services/storyReplaceGuard';
+import { runStoryReplacement } from '../../services/storyTransactionService';
+import { getCurrentStoryIdentity } from '../../services/sourceDraftCoordinator';
+import { sameStoryIdentity } from '../../services/storySnapshot';
 import { useAppText } from '../../i18n/appI18n';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
+import { sameStoryPath } from '../../services/storyPathIdentity';
+import { GraphLabGlobalEditor } from './GraphLabGlobalEditor';
 
 interface GraphLabPaletteProps {
   readonly onNodeNavigate: (nodeId: string, lineNumber: number, chapterId: string) => void;
-  readonly onBeforeGraphMutation?: () => boolean;
 }
 
 type NodeSeverity = Diagnostic['severity'] | 'normal';
@@ -67,7 +69,9 @@ function resolveTargetChapterTitle(
   fallbackTitle: string,
 ): string {
   const chapters = plotFlowData?.chapters ?? [];
-  const activeChapter = chapters.find((chapter) => chapter.id === activeChapterId || chapter.title === activeChapterId);
+  const activeChapter = chapters.find(
+    (chapter) => chapter.id === activeChapterId || chapter.title === activeChapterId,
+  );
   return activeChapter?.title ?? chapters[0]?.title ?? fallbackTitle;
 }
 
@@ -81,29 +85,25 @@ function formatChineseChapterNumber(value: number): string {
   if (value < 100) {
     const tens = Math.floor(value / 10);
     const ones = value % 10;
-    return `${CHINESE_DIGITS[tens] ?? String(tens)}十${ones > 0 ? CHINESE_DIGITS[ones] ?? String(ones) : ''}`;
+    return `${CHINESE_DIGITS[tens] ?? String(tens)}十${ones > 0 ? (CHINESE_DIGITS[ones] ?? String(ones)) : ''}`;
   }
   return String(value);
 }
 
 function nextChapterTitle(existingTitles: ReadonlySet<string>, language: string): string {
   for (let index = 1; index < 1000; index++) {
-    const title = language === 'zh-CN'
-      ? `第${formatChineseChapterNumber(index)}章`
-      : `Chapter ${index}`;
+    const title =
+      language === 'zh-CN' ? `第${formatChineseChapterNumber(index)}章` : `Chapter ${index}`;
     if (!existingTitles.has(title)) return title;
   }
-  return language === 'zh-CN' ? `章节 ${existingTitles.size + 1}` : `Chapter ${existingTitles.size + 1}`;
+  return language === 'zh-CN'
+    ? `章节 ${existingTitles.size + 1}`
+    : `Chapter ${existingTitles.size + 1}`;
 }
 
-function loadStoryIntoEditor(filePath: string, content: string, hash: string, modifiedAt: number): void {
-  loadSavedStorySession({ filePath, content, hash, modifiedAt, closeHome: true });
-}
-
-export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: GraphLabPaletteProps): React.ReactElement {
+export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React.ReactElement {
   const nodes = useGraphStore((state) => state.nodes);
   const edges = useGraphStore((state) => state.edges);
-  const setNodes = useGraphStore((state) => state.setNodes);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
   const compactGraphPanel = useUIStore((state) => state.compactGraphPanel);
@@ -121,6 +121,7 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
 
   const severityByNode = useMemo(() => {
     const map = new Map<string, NodeSeverity>();
+    if (!plotFlowData) return map;
     for (const diagnostic of diagnostics) {
       const nodeId =
         diagnostic.relatedNodeId ??
@@ -136,42 +137,55 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
   }, [diagnostics, plotFlowData]);
 
   const handleCreateChapter = useCallback(() => {
-    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
     const existing = new Set((plotFlowData?.chapters ?? []).map((chapter) => chapter.title));
     const title = nextChapterTitle(existing, language);
-    graphEditService.createChapter(title);
-    setActiveChapterId(title);
-    setStatusMessage(text('palette.createdChapter'));
-  }, [language, onBeforeGraphMutation, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
+    if (graphEditService.createChapter(title)) {
+      setActiveChapterId(title);
+      setStatusMessage(text('palette.createdChapter'));
+    }
+  }, [language, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
-    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
-    graphEditService.createNode({
-      chapterTitle: resolveTargetChapterTitle(plotFlowData, activeChapterId, text('palette.defaultChapterTitle')),
-      title: text('palette.newNodeTitle'),
-    });
-    setStatusMessage(text('palette.createdNode'));
-  }, [activeChapterId, onBeforeGraphMutation, plotFlowData, setStatusMessage, text]);
+    if (
+      graphEditService.createNode({
+        chapterTitle: resolveTargetChapterTitle(
+          plotFlowData,
+          activeChapterId,
+          text('palette.defaultChapterTitle'),
+        ),
+        title: text('palette.newNodeTitle'),
+      })
+    ) {
+      setStatusMessage(text('palette.createdNode'));
+    }
+  }, [activeChapterId, plotFlowData, setStatusMessage, text]);
 
   const handleCreateEnding = useCallback(() => {
-    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
-    graphEditService.createNode({
-      chapterTitle: resolveTargetChapterTitle(plotFlowData, activeChapterId, text('palette.defaultChapterTitle')),
-      title: text('palette.endingNodeTitle'),
-      isEnding: true,
-    });
-    setStatusMessage(text('palette.createdEnding'));
-  }, [activeChapterId, onBeforeGraphMutation, plotFlowData, setStatusMessage, text]);
+    if (
+      graphEditService.createNode({
+        chapterTitle: resolveTargetChapterTitle(
+          plotFlowData,
+          activeChapterId,
+          text('palette.defaultChapterTitle'),
+        ),
+        title: text('palette.endingNodeTitle'),
+        isEnding: true,
+      })
+    ) {
+      setStatusMessage(text('palette.createdEnding'));
+    }
+  }, [activeChapterId, plotFlowData, setStatusMessage, text]);
 
   const handleRelayout = useCallback(() => {
     if (nodes.length === 0) {
       setStatusMessage(text('palette.noLayoutNodes'));
       return;
     }
+    const layoutIdentity = getCurrentStoryIdentity();
     setStatusMessage(text('palette.relayout'));
     void layoutNodesInWorker(nodes, edges)
       .then((result) => {
-        if (result.stale) return;
+        if (result.stale || !sameStoryIdentity(layoutIdentity, getCurrentStoryIdentity())) return;
         const patches = result.nodes.flatMap((node) => {
           const fullId = typeof node.data?.['fullId'] === 'string' ? node.data['fullId'] : null;
           return fullId ? [{ fullId, position: node.position }] : [];
@@ -180,30 +194,32 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
           setStatusMessage(text('palette.relayoutFailed'));
           return;
         }
-        setNodes(result.nodes);
         setStatusMessage(text('palette.relayoutDone'));
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         setStatusMessage(message);
       });
-  }, [edges, nodes, setNodes, setStatusMessage, text]);
+  }, [edges, nodes, setStatusMessage, text]);
 
-  const refreshWorkspace = useCallback(async (rootPath: string) => {
-    setWorkspaceError(null);
-    setIsScanning(true);
-    try {
-      const result = await window.plotflow.file.listWorkspaceStories(rootPath);
-      setWorkspace(result);
-      setStatusMessage(text('palette.workspaceRefreshed', { count: result.files.length }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setWorkspaceError(message);
-      setStatusMessage(message);
-    } finally {
-      setIsScanning(false);
-    }
-  }, [setStatusMessage, text]);
+  const refreshWorkspace = useCallback(
+    async (rootPath: string) => {
+      setWorkspaceError(null);
+      setIsScanning(true);
+      try {
+        const result = await window.plotflow.file.listWorkspaceStories(rootPath);
+        setWorkspace(result);
+        setStatusMessage(text('palette.workspaceRefreshed', { count: result.files.length }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setWorkspaceError(message);
+        setStatusMessage(message);
+      } finally {
+        setIsScanning(false);
+      }
+    },
+    [setStatusMessage, text],
+  );
 
   const handleChooseWorkspace = useCallback(async () => {
     setWorkspaceError(null);
@@ -222,21 +238,37 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
     }
   }, [setStatusMessage, text]);
 
-  const handleOpenWorkspaceFile = useCallback(async (file: WorkspaceStoryFile) => {
-    if (!workspace) return;
-    if (onBeforeGraphMutation && !onBeforeGraphMutation()) return;
-    const canReplace = await confirmBeforeReplacingCurrentStory('workspace');
-    if (!canReplace) return;
-
-    const result = await window.plotflow.file.readWorkspaceStory(workspace.rootPath, file.filePath);
-    if (!result) {
-      setStatusMessage(text('palette.cannotRead', { path: file.relativePath }));
-      return;
-    }
-
-    loadStoryIntoEditor(result.filePath, result.content, result.hash, result.modifiedAt);
-    setStatusMessage(text('status.opened', { path: file.relativePath }));
-  }, [onBeforeGraphMutation, setStatusMessage, text, workspace]);
+  const handleOpenWorkspaceFile = useCallback(
+    async (file: WorkspaceStoryFile) => {
+      if (!workspace) return;
+      const replacement = await runStoryReplacement('workspace', async () => {
+        const result = await window.plotflow.file.readWorkspaceStory(
+          workspace.rootPath,
+          file.filePath,
+        );
+        if (!result) return null;
+        return {
+          kind: 'saved',
+          filePath: result.filePath,
+          content: result.content,
+          hash: result.hash,
+          modifiedAt: result.modifiedAt,
+          closeHome: true,
+        } as const;
+      });
+      if (replacement.status === 'committed') {
+        setStatusMessage(text('status.opened', { path: file.relativePath }));
+      } else if (replacement.status === 'failed') {
+        const message =
+          replacement.error instanceof Error
+            ? replacement.error.message
+            : String(replacement.error);
+        setWorkspaceError(message);
+        setStatusMessage(message);
+      }
+    },
+    [setStatusMessage, text, workspace],
+  );
 
   const hasOutline = (plotFlowData?.chapters.length ?? 0) > 0;
 
@@ -248,75 +280,50 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
         ? { 'aria-hidden': true, inert: true }
         : {})}
     >
-      <details className="graph-lab-rail__block graph-lab-rail__workspace" data-testid="graph-lab-workspace-browser">
-        <summary className="graph-lab-section__title">
-          <h3>{text('palette.contentBrowser')}</h3>
-          <ChevronDown className="graph-lab-disclosure-icon" aria-hidden="true" size={15} strokeWidth={2} />
-        </summary>
-        <div className="graph-lab-workspace-actions">
+      <section className="graph-lab-rail__block graph-lab-rail__create">
+        <div className="graph-lab-section__title">
+          <h3>{text('palette.create')}</h3>
+          <GitBranchPlus aria-hidden="true" size={15} strokeWidth={2} />
+        </div>
+        <div className="graph-lab-palette__actions">
           <button
             type="button"
-            className="graph-lab-inline-button"
-            data-testid="graph-lab-choose-workspace"
-            onClick={handleChooseWorkspace}
-            title={text('palette.chooseWorkspace')}
-            disabled={isScanning}
+            className="graph-lab-tool"
+            data-testid="graph-lab-create-chapter"
+            onClick={handleCreateChapter}
           >
-            <FolderOpen aria-hidden="true" size={15} strokeWidth={2} />
-            <span>{text('palette.chooseWorkspace')}</span>
+            <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
+            <span>{text('palette.chapter')}</span>
+          </button>
+          <button
+            type="button"
+            className="graph-lab-tool graph-lab-tool--primary"
+            data-testid="graph-lab-create-node"
+            onClick={handleCreateNode}
+          >
+            <Plus aria-hidden="true" size={16} strokeWidth={2} />
+            <span>{text('palette.node')}</span>
+          </button>
+          <button
+            type="button"
+            className="graph-lab-tool"
+            data-testid="graph-lab-create-ending"
+            onClick={handleCreateEnding}
+          >
+            <Square aria-hidden="true" size={15} strokeWidth={2} />
+            <span>{text('palette.ending')}</span>
+          </button>
+          <button
+            type="button"
+            className="graph-lab-tool"
+            data-testid="graph-lab-relayout"
+            onClick={handleRelayout}
+          >
+            <LayoutGrid aria-hidden="true" size={16} strokeWidth={2} />
+            <span>{text('palette.relayout')}</span>
           </button>
         </div>
-
-        {workspace ? (
-          <>
-            <div className="graph-lab-workspace-summary">
-              <FileSearch aria-hidden="true" size={15} strokeWidth={2} />
-              <span title={workspace.rootPath}>{text('palette.workspaceSummary', { count: workspace.files.length })}</span>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => void refreshWorkspace(workspace.rootPath)}
-                title={text('palette.refreshWorkspace')}
-                disabled={isScanning}
-              >
-                <RefreshCw aria-hidden="true" size={14} strokeWidth={2} />
-              </button>
-            </div>
-            {workspace.truncated && (
-              <p className="graph-lab-warning">
-                <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
-                <span>{text('palette.workspaceTruncated')}</span>
-              </p>
-            )}
-            <div className="graph-lab-file-list">
-              {workspace.files.map((file) => {
-                const isActive = file.filePath.replace(/\\/g, '/') === filePath;
-                return (
-                  <button
-                    type="button"
-                    key={file.filePath}
-                    className={`graph-lab-file${isActive ? ' graph-lab-file--active' : ''}`}
-                    data-testid="graph-lab-workspace-file"
-                    onClick={() => void handleOpenWorkspaceFile(file)}
-                    title={`${file.relativePath} · ${formatBytes(file.size)}`}
-                  >
-                    <FileText aria-hidden="true" size={14} strokeWidth={2} />
-                    <span>{file.relativePath}</span>
-                  </button>
-                );
-              })}
-              {workspace.files.length === 0 && (
-                <p className="graph-lab-empty">{text('palette.noWorkspaceFiles')}</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <p className="graph-lab-empty">
-            {isScanning ? text('palette.scanning') : text('palette.noWorkspaceSelected')}
-          </p>
-        )}
-        {workspaceError && <p className="graph-lab-warning">{workspaceError}</p>}
-      </details>
+      </section>
 
       <section className="graph-lab-rail__block">
         <div className="graph-lab-section__title">
@@ -327,7 +334,9 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
           <div className="graph-lab-outline">
             {plotFlowData!.chapters.map((chapter) => (
               <div className="graph-lab-outline__chapter" key={chapter.id}>
-                {!chapter.isAnonymous && <div className="graph-lab-outline__chapter-title">{chapter.title}</div>}
+                {!chapter.isAnonymous && (
+                  <div className="graph-lab-outline__chapter-title">{chapter.title}</div>
+                )}
                 {chapter.nodes.map((node) => {
                   const severity = severityByNode.get(node.fullId) ?? 'normal';
                   const isActive = activeNodeId === node.fullId;
@@ -354,30 +363,96 @@ export function GraphLabPalette({ onNodeNavigate, onBeforeGraphMutation }: Graph
         )}
       </section>
 
-      <section className="graph-lab-rail__block graph-lab-rail__create">
-        <div className="graph-lab-section__title">
-          <h3>{text('palette.create')}</h3>
-          <GitBranchPlus aria-hidden="true" size={15} strokeWidth={2} />
-        </div>
-        <div className="graph-lab-palette__actions">
-          <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-chapter" onClick={handleCreateChapter}>
-            <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
-            <span>{text('palette.chapter')}</span>
-          </button>
-          <button type="button" className="graph-lab-tool graph-lab-tool--primary" data-testid="graph-lab-create-node" onClick={handleCreateNode}>
-            <Plus aria-hidden="true" size={16} strokeWidth={2} />
-            <span>{text('palette.node')}</span>
-          </button>
-          <button type="button" className="graph-lab-tool" data-testid="graph-lab-create-ending" onClick={handleCreateEnding}>
-            <Square aria-hidden="true" size={15} strokeWidth={2} />
-            <span>{text('palette.ending')}</span>
-          </button>
-          <button type="button" className="graph-lab-tool" data-testid="graph-lab-relayout" onClick={handleRelayout}>
-            <LayoutGrid aria-hidden="true" size={16} strokeWidth={2} />
-            <span>{text('palette.relayout')}</span>
-          </button>
-        </div>
+      <section
+        className="graph-lab-rail__block graph-lab-rail__global-editor"
+        aria-label={text('globalEditor.aria')}
+      >
+        <GraphLabGlobalEditor />
       </section>
+
+      <details
+        className="graph-lab-rail__block graph-lab-rail__workspace"
+        data-testid="graph-lab-workspace-browser"
+      >
+        <summary className="graph-lab-section__title">
+          <h3>{text('palette.contentBrowser')}</h3>
+          <ChevronDown
+            className="graph-lab-disclosure-icon"
+            aria-hidden="true"
+            size={15}
+            strokeWidth={2}
+          />
+        </summary>
+        <div className="graph-lab-workspace-actions">
+          <button
+            type="button"
+            className="graph-lab-inline-button"
+            data-testid="graph-lab-choose-workspace"
+            onClick={handleChooseWorkspace}
+            title={text('palette.chooseWorkspace')}
+            disabled={isScanning}
+          >
+            <FolderOpen aria-hidden="true" size={15} strokeWidth={2} />
+            <span>{text('palette.chooseWorkspace')}</span>
+          </button>
+        </div>
+
+        {workspace ? (
+          <>
+            <div className="graph-lab-workspace-summary">
+              <FileSearch aria-hidden="true" size={15} strokeWidth={2} />
+              <span title={workspace.rootPath}>
+                {text('palette.workspaceSummary', { count: workspace.files.length })}
+              </span>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => void refreshWorkspace(workspace.rootPath)}
+                title={text('palette.refreshWorkspace')}
+                disabled={isScanning}
+              >
+                <RefreshCw aria-hidden="true" size={14} strokeWidth={2} />
+              </button>
+            </div>
+            {workspace.truncated && (
+              <p className="graph-lab-warning">
+                <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
+                <span>{text('palette.workspaceTruncated')}</span>
+              </p>
+            )}
+            <div className="graph-lab-file-list">
+              {workspace.files.map((file) => {
+                const isActive = sameStoryPath(
+                  file.filePath,
+                  filePath,
+                  window.plotflow.platform,
+                );
+                return (
+                  <button
+                    type="button"
+                    key={file.filePath}
+                    className={`graph-lab-file${isActive ? ' graph-lab-file--active' : ''}`}
+                    data-testid="graph-lab-workspace-file"
+                    onClick={() => void handleOpenWorkspaceFile(file)}
+                    title={`${file.relativePath} · ${formatBytes(file.size)}`}
+                  >
+                    <FileText aria-hidden="true" size={14} strokeWidth={2} />
+                    <span>{file.relativePath}</span>
+                  </button>
+                );
+              })}
+              {workspace.files.length === 0 && (
+                <p className="graph-lab-empty">{text('palette.noWorkspaceFiles')}</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="graph-lab-empty">
+            {isScanning ? text('palette.scanning') : text('palette.noWorkspaceSelected')}
+          </p>
+        )}
+        {workspaceError && <p className="graph-lab-warning">{workspaceError}</p>}
+      </details>
     </aside>
   );
 }

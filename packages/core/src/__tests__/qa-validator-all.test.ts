@@ -1,5 +1,5 @@
 /**
- * QA 验证器全面测试 — 覆盖全部 17 种诊断类型 (E001-E008, W001-W006, I001-I003)
+ * QA 验证器全面测试 — 覆盖全部 18 种诊断类型 (E001-E009, W001-W006, I001-I003)
  *
  * @packageDocumentation
  * @remarks
@@ -539,8 +539,7 @@ describe('W001 - 孤立节点', () => {
     expect(codes).toContain('W001');
   });
 
-  it('第一个无入边的节点被标记为根节点（非孤立）', () => {
-    // 根节点是第一个无入边的节点，不应标记为 W001
+  it('第一个故事节点被标记为根节点，已解析的后继节点不误报孤立', () => {
     const input = `# 章
 
 ## 节点：根节点
@@ -555,13 +554,10 @@ describe('W001 - 孤立节点', () => {
 `;
     const { parseOk, codes } = runFullPipeline(input);
     expect(parseOk).toBe(true);
-    // 「下一节点」由于 targetFullId 为 null，验证器无法检测入边，
-    // 所以会被标记为孤立节点（W001）
-    expect(codes).toContain('W001');
-    // 但「根节点」由于是第一个节点且无入边，被标记为根节点
-    // 验证器会跳过根节点 → 所以只有 1 条 W001
+    // 解析器已解析出「下一节点」的完整入边；根节点与后继节点都不是孤立节点。
+    expect(codes).not.toContain('W001');
     const w001Count = codes.filter((c) => c === 'W001').length;
-    expect(w001Count).toBe(1);
+    expect(w001Count).toBe(0);
   });
 });
 
@@ -960,11 +956,11 @@ describe('I003 - 无章节归属', () => {
 });
 
 // ============================================================================
-// 综合测试 — 一次性触发所有 17 种诊断
+// 综合测试 — 一次性触发所有 18 种诊断
 // ============================================================================
 
-describe('综合测试 - 17 种诊断集体触发', () => {
-  it('全部 17 种诊断代码至少被测试覆盖（数据驱动）', () => {
+describe('综合测试 - 18 种诊断集体触发', () => {
+  it('全部 18 种诊断代码至少被测试覆盖（数据驱动）', () => {
     // 注意：某些错误（E002/E004/E005/E006/E007/E008）由解析器在 parseStory
     // 阶段捕获，导致 parseStory 失败；其余由验证器在 validateAll 阶段捕获。
     // 本测试统一验证所有诊断代码都能被触发。
@@ -1009,6 +1005,11 @@ describe('综合测试 - 17 种诊断集体触发', () => {
       {
         mdstory: `---\nvars:\n  hp: int\n  hp: int\n---\n# 章\n\n## 节点：A\n\n正文。\n`,
         expectedCodes: ['E008'],
+      },
+      // E009: 故事没有任何章节/节点 → 验证器阻止导出
+      {
+        mdstory: '',
+        expectedCodes: ['E009'],
       },
       // W001: 孤立节点 → 验证器捕获
       {
@@ -1071,17 +1072,17 @@ describe('综合测试 - 17 种诊断集体触发', () => {
 // ============================================================================
 
 describe('边缘情况', () => {
-  it('空故事 → 无诊断', () => {
+  it('空故事 → E009', () => {
     const result = parseStory('');
     expect(result.ok).toBe(true);
     if (result.ok) {
       const vaResult = validateAll(result.data);
-      expect(vaResult.diagnostics).toHaveLength(0);
-      expect(vaResult.summary.total).toBe(0);
+      expect(vaResult.diagnostics.map((item) => item.code)).toEqual(['E009']);
+      expect(vaResult.summary.errors).toBe(1);
     }
   });
 
-  it('仅有 Frontmatter 无节点 → 仅 W003（变量未使用）', () => {
+  it('仅有 Frontmatter 无节点 → E009 + W003', () => {
     // 声明了 hp 但未在任何条件/效果中使用 → W003
     const input = `---
 title: "仅元信息"
@@ -1090,15 +1091,15 @@ vars:
 ---`;
     const { parseOk, codes } = runFullPipeline(input);
     expect(parseOk).toBe(true);
-    expect(codes).toEqual(['W003']);
+    expect(codes).toEqual(['E009', 'W003']);
   });
 
-  it('仅有章节无节点 → 无诊断', () => {
+  it('仅有章节无节点 → E009', () => {
     const input = `# 第一章
 `;
     const { parseOk, codes } = runFullPipeline(input);
     expect(parseOk).toBe(true);
-    expect(codes).toHaveLength(0);
+    expect(codes).toEqual(['E009']);
   });
 
   it('完整双向链故事仅有预期诊断', () => {

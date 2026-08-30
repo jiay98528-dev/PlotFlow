@@ -35,12 +35,14 @@ export function NodeRoutePreview({
     <ol className={classes} aria-label={text('themeNode.routeSummary')} data-testid="node-route-preview">
       {visibleRoutes.map((summary) => {
         const leadingHandle = renderLeadingHandle?.(summary);
+        const isDefaultNext = summary.sourceHandleId === 'next';
         return (
           <li
             key={summary.id}
             className={[
               'node-route-preview__row',
               leadingHandle ? 'node-route-preview--with-input' : '',
+              isDefaultNext ? 'node-route-preview--default-next' : '',
               `node-route-preview--route-${summary.kind}`,
               `node-route-preview--target-${summary.targetState}`,
               summary.isConditional ? 'node-route-preview--conditional' : 'node-route-preview--clear',

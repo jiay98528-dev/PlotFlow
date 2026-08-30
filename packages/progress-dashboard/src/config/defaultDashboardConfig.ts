@@ -36,7 +36,7 @@ export const defaultDashboardConfig: DashboardConfig = {
     sourceHealth: true,
   },
   labels: {
-    dashboardTitle: 'PlotFlow Engineering Dashboard',
+    dashboardTitle: 'Fablevia Engineering Dashboard',
     dashboardSubtitle: '工程作战室 / Progress, Risk, Readiness',
     discrepancyBanner: '文档声明值与明细/实测值存在冲突，页面已按重算结果展示。',
     unknownValue: 'unknown / unavailable',

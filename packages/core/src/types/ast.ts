@@ -219,7 +219,7 @@ export interface NodeNextTarget {
  * 验证器在解析后填充。
  */
 export interface NodeDiagnostics {
-  /** 是否为根节点（无入口选项指向它） */
+  /** 是否为故事根节点（源文件中的第一个节点） */
   isRoot: boolean;
 
   /** 是否为孤立节点（无入口，非根节点） */

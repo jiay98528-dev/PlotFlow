@@ -1,3 +1,5 @@
+import { flushSourceDraft } from './sourceDraftCoordinator';
+
 const GRAPH_HISTORY_LIMIT = 100;
 
 export interface GraphHistoryEntry {
@@ -78,6 +80,7 @@ function emitState(): void {
 
 async function replay(direction: 'undo' | 'redo'): Promise<boolean> {
   if (isReplaying || replayHandler === null) return false;
+  if (!flushSourceDraft('graph').ok) return false;
 
   const sourceStack = direction === 'undo' ? undoStack : redoStack;
   const destinationStack = direction === 'undo' ? redoStack : undoStack;

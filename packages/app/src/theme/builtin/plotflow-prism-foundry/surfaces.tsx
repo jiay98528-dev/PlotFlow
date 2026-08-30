@@ -42,7 +42,7 @@ export const prismFoundrySurfaces: ThemeSurfaces = {
         {brand}
         <nav
           className="app-toolbar prism-foundry-toolbar__nav"
-          aria-label="PlotFlow Prism Foundry command bar"
+          aria-label="Fablevia Prism Foundry command bar"
         >
           <div className="toolbar-group prism-foundry-toolbar__group" role="group">
             {fileControls}
@@ -122,7 +122,7 @@ export const prismFoundrySurfaces: ThemeSurfaces = {
     );
   },
 
-  ThemeCenterSurface({ header, sidebar, installedThemes, remoteThemes, footer }) {
+  ThemeCenterSurface({ header, sidebar, installedThemes, footer }) {
     return (
       <section
         className="theme-center prism-foundry-theme-center"
@@ -139,7 +139,6 @@ export const prismFoundrySurfaces: ThemeSurfaces = {
             {sidebar}
             <div className="theme-center__list prism-foundry-theme-center__list">
               {installedThemes}
-              {remoteThemes}
             </div>
           </div>
           {footer}

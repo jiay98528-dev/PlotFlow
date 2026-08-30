@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -15,7 +15,7 @@ import {
   Save,
   Undo2,
 } from 'lucide-react';
-import { analyzeStorySource } from '@plotflow/core';
+import { analyzeStorySource, type StoryNode } from '@plotflow/core';
 import { GraphCanvas } from '../branch-graph/GraphCanvas';
 import { GraphLabPalette } from './GraphLabPalette';
 import { GraphInspector } from './GraphInspector';
@@ -28,10 +28,21 @@ import { useUIStore } from '../../stores/uiStore';
 import { useThemePlatform } from '../ThemePlatformProvider';
 import { useAppText } from '../../i18n/appI18n';
 import { localizeDiagnostic } from '../../i18n/localizeDiagnostic';
-import { graphEditService, StorySourceEditService, type TextEdit } from '../../services/graphEditService';
+import {
+  graphEditService,
+  StorySourceEditService,
+  type TextEdit,
+} from '../../services/graphEditService';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
 import { saveOrSaveAs } from '../../services/autoSaveService';
-import { registerSourceDraftController } from '../../services/sourceDraftCoordinator';
+import {
+  getCurrentStoryIdentity,
+  getSourceDraftState,
+  registerSourceDraftController,
+} from '../../services/sourceDraftCoordinator';
+import { requestActiveChapter } from '../../services/storyTransactionService';
+import { isGraphShortcutBlocked } from '../../services/graphKeyboardGuard';
+import { ConfirmDialog } from '../branch-graph/GraphContextMenu';
 import {
   canRedo,
   canUndo,
@@ -39,6 +50,11 @@ import {
   subscribeGraphHistory,
   undoGraphEdit,
 } from '../../services/graphHistoryService';
+import {
+  normalizeSourceDraftText,
+  serializeSourceDraftText,
+  type StoryNewline,
+} from '../../services/sourceDraftText';
 
 function getFileName(path: string | null, fallback: string): string {
   if (!path) return fallback;
@@ -53,22 +69,15 @@ interface ChapterSourceSlice {
   readonly startOffset: number;
   readonly endOffset: number;
   readonly text: string;
-  readonly newline: '\n' | '\r\n' | '\r';
+  readonly newline: StoryNewline;
 }
 
-interface ChapterSourceSliceEditorHandle {
-  readonly saveBeforeChapterChange: () => boolean;
-}
-
-const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle>(function ChapterSourceSliceEditor(
-  _props,
-  ref,
-): React.ReactElement {
+function ChapterSourceSliceEditor(): React.ReactElement {
   const content = useEditorStore((state) => state.content);
+  const storySessionId = useEditorStore((state) => state.storySessionId);
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
-  const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
   const language = useUIStore((state) => state.language);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const [draft, setDraft] = useState('');
@@ -79,9 +88,13 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
   const contentRef = useRef(content);
   const isStaleRef = useRef(false);
   const text = useAppText();
-  const setDraftValue = useCallback((value: string) => {
+  const setDraftValue = useCallback((value: string, bumpRevision = false) => {
+    const changed = draftRef.current !== value;
     draftRef.current = value;
     setDraft(value);
+    if (changed && bumpRevision) {
+      useEditorStore.getState().bumpSourceDraftRevision();
+    }
   }, []);
 
   const { activeChapter, activeChapterIndex } = useMemo(() => {
@@ -99,8 +112,9 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
   const slice = useMemo<ChapterSourceSlice | null>(() => {
     if (!activeChapter) return null;
     const source = analyzeStorySource(content);
-    const chapterRange = source.chapters[activeChapterIndex]
-      ?? source.chapters.find((chapter) => chapter.title === activeChapter.title);
+    const chapterRange =
+      source.chapters[activeChapterIndex] ??
+      source.chapters.find((chapter) => chapter.title === activeChapter.title);
     if (!chapterRange) return null;
     return {
       chapterId: activeChapter.id,
@@ -109,82 +123,117 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
       endLine: chapterRange.endLine,
       startOffset: chapterRange.startOffset,
       endOffset: chapterRange.endOffset,
-      text: content.slice(chapterRange.startOffset, chapterRange.endOffset),
+      text: normalizeSourceDraftText(
+        content.slice(chapterRange.startOffset, chapterRange.endOffset),
+      ),
       newline: source.newline,
     };
   }, [activeChapter, activeChapterIndex, content]);
+  const sliceRef = useRef(slice);
+  sliceRef.current = slice;
 
+  // Story session replacement is the sole lifecycle event allowed to discard the
+  // previous controller draft. Content changes are reconciled by the effect above.
   useEffect(() => {
     if (!slice) {
+      const currentBaseline = baselineRef.current;
+      const dirty = currentBaseline !== null && draftRef.current !== currentBaseline.text;
+      if (dirty) return;
+      baselineRef.current = null;
       setBaseline(null);
-      setDraftValue('');
+      setDraftValue('', false);
       return;
     }
 
-    if (!isSourceDrawerOpen) {
-      setDraftValue(slice.text);
-      setBaseline(slice);
-      return;
-    }
+    const current = baselineRef.current;
+    const dirty = current?.chapterId === slice.chapterId && draftRef.current !== current.text;
+    if (dirty) return;
+    baselineRef.current = slice;
+    isStaleRef.current = false;
+    setDraftValue(slice.text, false);
+    setBaseline(slice);
+  }, [setDraftValue, slice]);
 
-    setBaseline((current) => {
-      const dirty = current?.chapterId === slice.chapterId && draftRef.current !== current.text;
-      if (dirty) return current;
-      setDraftValue(slice.text);
-      return slice;
-    });
-  }, [isSourceDrawerOpen, setDraftValue, slice]);
+  useLayoutEffect(() => {
+    const nextBaseline = sliceRef.current;
+    baselineRef.current = nextBaseline;
+    isStaleRef.current = false;
+    setBaseline(nextBaseline);
+    setDraftValue(nextBaseline?.text ?? '', false);
+    if (textareaRef.current) {
+      textareaRef.current.value = nextBaseline?.text ?? '';
+    }
+  }, [setDraftValue, storySessionId]);
 
   const isDirty = baseline ? draft !== baseline.text : false;
   const isStale = Boolean(
-    baseline
-    && slice
-    && (
-      baseline.chapterId !== slice.chapterId
-      || baseline.startOffset !== slice.startOffset
-      || baseline.endOffset !== slice.endOffset
-      || baseline.text !== slice.text
-    ),
+    baseline &&
+    slice &&
+    (baseline.chapterId !== slice.chapterId ||
+      baseline.startOffset !== slice.startOffset ||
+      baseline.endOffset !== slice.endOffset ||
+      baseline.text !== slice.text),
   );
   baselineRef.current = baseline;
   contentRef.current = content;
   isStaleRef.current = isStale;
   const diagnosticsInSlice = useMemo(() => {
     if (!slice) return [];
-    return diagnostics.filter((diagnostic) =>
-      diagnostic.range.startLine >= slice.startLine && diagnostic.range.startLine <= slice.endLine,
+    return diagnostics.filter(
+      (diagnostic) =>
+        diagnostic.range.startLine >= slice.startLine &&
+        diagnostic.range.startLine <= slice.endLine,
     );
   }, [diagnostics, slice]);
   const diagnosticCount = diagnosticsInSlice.length;
-  const statusState = isStale ? 'stale' : isDirty ? 'dirty' : diagnosticCount > 0 ? 'warning' : 'saved';
+  const statusState = isStale
+    ? 'stale'
+    : isDirty
+      ? 'dirty'
+      : diagnosticCount > 0
+        ? 'warning'
+        : 'saved';
 
-  const commitDraft = useCallback((showStatus = true) => {
-    const currentBaseline = baselineRef.current;
-    const currentDraft = textareaRef.current?.value ?? draftRef.current;
-    const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
-    if (!currentBaseline || !dirtyNow || isStaleRef.current) return false;
-    const currentContent = contentRef.current;
-    const nextSlice = currentBaseline.newline === '\n' ? currentDraft : currentDraft.replace(/\n/g, currentBaseline.newline);
-    const nextContent = `${currentContent.slice(0, currentBaseline.startOffset)}${nextSlice}${currentContent.slice(currentBaseline.endOffset)}`;
-    const edit: TextEdit = {
-      range: {
-        startOffset: currentBaseline.startOffset,
-        endOffset: currentBaseline.endOffset,
-      },
-      text: nextSlice,
-    };
-    StorySourceEditService.commit(nextContent, 'graph-lab-save-chapter-source-slice', [edit]);
-    setDraftValue(nextSlice);
-    if (showStatus) {
-      setStatusMessage(text('sourceDock.savedSlice', { title: currentBaseline.chapterTitle }));
-    }
-    setBaseline({
-      ...currentBaseline,
-      endOffset: currentBaseline.startOffset + nextSlice.length,
-      text: nextSlice,
-    });
-    return true;
-  }, [setDraftValue, setStatusMessage, text]);
+  const commitDraft = useCallback(
+    (showStatus = true) => {
+      const currentBaseline = baselineRef.current;
+      const currentDraft = normalizeSourceDraftText(textareaRef.current?.value ?? draftRef.current);
+      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
+      if (!currentBaseline || !dirtyNow || isStaleRef.current) return false;
+      const currentContent = contentRef.current;
+      const nextSlice = serializeSourceDraftText(currentDraft, currentBaseline.newline);
+      const nextContent = `${currentContent.slice(0, currentBaseline.startOffset)}${nextSlice}${currentContent.slice(currentBaseline.endOffset)}`;
+      const edit: TextEdit = {
+        range: {
+          startOffset: currentBaseline.startOffset,
+          endOffset: currentBaseline.endOffset,
+        },
+        text: nextSlice,
+      };
+      try {
+        StorySourceEditService.commit(nextContent, 'graph-lab-save-chapter-source-slice', [edit]);
+      } catch {
+        return false;
+      }
+      const nextBaseline = {
+        ...currentBaseline,
+        endOffset: currentBaseline.startOffset + nextSlice.length,
+        text: currentDraft,
+      };
+      contentRef.current = nextContent;
+      draftRef.current = currentDraft;
+      baselineRef.current = nextBaseline;
+      isStaleRef.current = false;
+      setDraft(currentDraft);
+      setBaseline(nextBaseline);
+      useEditorStore.getState().bumpSourceDraftRevision();
+      if (showStatus) {
+        setStatusMessage(text('sourceDock.savedSlice', { title: currentBaseline.chapterTitle }));
+      }
+      return true;
+    },
+    [setStatusMessage, text],
+  );
 
   const saveSliceToDisk = useCallback(async () => {
     if (isStaleRef.current) {
@@ -193,60 +242,71 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
     }
 
     const currentBaseline = baselineRef.current;
-    const currentDraft = textareaRef.current?.value ?? draftRef.current;
+    const currentDraft = normalizeSourceDraftText(textareaRef.current?.value ?? draftRef.current);
     const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
     if (dirtyNow && !commitDraft(false)) return;
 
     const saved = await saveOrSaveAs();
     if (saved) {
-      const title = baselineRef.current?.chapterTitle ?? currentBaseline?.chapterTitle ?? text('sourceDock.unknownChapter');
+      const title =
+        baselineRef.current?.chapterTitle ??
+        currentBaseline?.chapterTitle ??
+        text('sourceDock.unknownChapter');
       setStatusMessage(text('sourceDock.savedToDisk', { title }));
     }
   }, [commitDraft, setStatusMessage, text]);
 
-  useImperativeHandle(ref, () => ({
-    saveBeforeChapterChange: () => {
-      if (isStaleRef.current) {
-        setStatusMessage(text('sourceDock.switchBlockedStale'));
-        return false;
-      }
-      const currentBaseline = baselineRef.current;
-      const currentDraft = textareaRef.current?.value ?? draftRef.current;
-      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
-      if (dirtyNow) return commitDraft();
-      return true;
-    },
-  }), [commitDraft, setStatusMessage, text]);
-
-  useEffect(() => registerSourceDraftController({
-    getState: () => {
-      const currentBaseline = baselineRef.current;
-      const currentDraft = textareaRef.current?.value ?? draftRef.current;
-      return {
-        isDirty: currentBaseline ? currentDraft !== currentBaseline.text : false,
-        isStale: isStaleRef.current,
-      };
-    },
-    flushDraft: () => {
-      if (isStaleRef.current) {
-        setStatusMessage(text('sourceDock.switchBlockedStale'));
-        return false;
-      }
-      const currentBaseline = baselineRef.current;
-      const currentDraft = textareaRef.current?.value ?? draftRef.current;
-      const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
-      if (!dirtyNow) return true;
-      return commitDraft();
-    },
-  }), [commitDraft, setStatusMessage, text]);
+  useEffect(
+    () =>
+      registerSourceDraftController({
+        getState: () => {
+          const currentBaseline = baselineRef.current;
+          const currentDraft = normalizeSourceDraftText(
+            textareaRef.current?.value ?? draftRef.current,
+          );
+          const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
+          return {
+            isDirty: dirtyNow,
+            // A graph mutation can move the slice before React's synchronization
+            // effect runs. With no user draft, that transient offset change is safe.
+            isStale: isStaleRef.current && dirtyNow,
+          };
+        },
+        flushDraft: () => {
+          if (useGraphStore.getState().isEditing) {
+            return { ok: false, reason: 'graph-edit-active' };
+          }
+          const currentBaseline = baselineRef.current;
+          const currentDraft = normalizeSourceDraftText(
+            textareaRef.current?.value ?? draftRef.current,
+          );
+          const dirtyNow = currentBaseline ? currentDraft !== currentBaseline.text : false;
+          if (!dirtyNow) {
+            return { ok: true, disposition: 'clean', identity: getCurrentStoryIdentity() };
+          }
+          if (isStaleRef.current) {
+            useUIStore.getState().setSourceDrawerOpen(true);
+            setStatusMessage(text('sourceDock.switchBlockedStale'));
+            return { ok: false, reason: 'stale' };
+          }
+          if (!commitDraft()) return { ok: false, reason: 'commit-failed' };
+          return { ok: true, disposition: 'committed', identity: getCurrentStoryIdentity() };
+        },
+      }),
+    [commitDraft, setStatusMessage, text],
+  );
 
   const revert = useCallback(() => {
     const nextBaseline = slice ?? baseline;
     if (!nextBaseline) return;
-    setDraftValue(nextBaseline.text);
+    draftRef.current = nextBaseline.text;
+    baselineRef.current = nextBaseline;
+    isStaleRef.current = false;
+    setDraft(nextBaseline.text);
     setBaseline(nextBaseline);
+    useEditorStore.getState().bumpSourceDraftRevision();
     setStatusMessage(text('sourceDock.revertedSlice', { title: nextBaseline.chapterTitle }));
-  }, [baseline, setDraftValue, setStatusMessage, slice, text]);
+  }, [baseline, setStatusMessage, slice, text]);
 
   const jumpToDiagnostic = useCallback((lineNumber: number) => {
     const editor = useEditorStore.getState();
@@ -259,17 +319,21 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
     }
   }, []);
 
-  const handleEditorKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-      event.preventDefault();
-      void saveSliceToDisk();
-      return;
-    }
-    if (event.key === 'Escape' && (isDirty || isStale)) {
-      event.preventDefault();
-      revert();
-    }
-  }, [isDirty, isStale, revert, saveSliceToDisk]);
+  const handleEditorKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        event.stopPropagation();
+        void saveSliceToDisk();
+        return;
+      }
+      if (event.key === 'Escape' && (isDirty || isStale)) {
+        event.preventDefault();
+        revert();
+      }
+    },
+    [isDirty, isStale, revert, saveSliceToDisk],
+  );
 
   if (!slice && !baseline) {
     return (
@@ -289,7 +353,10 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
           <strong>{displaySlice?.chapterTitle ?? text('sourceDock.unknownChapter')}</strong>
           <span>
             {displaySlice
-              ? text('sourceDock.lineRange', { start: displaySlice.startLine, end: displaySlice.endLine })
+              ? text('sourceDock.lineRange', {
+                  start: displaySlice.startLine,
+                  end: displaySlice.endLine,
+                })
               : text('sourceDock.noLineRange')}
           </span>
         </div>
@@ -311,18 +378,34 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
                   : text('sourceDock.saved')}
           </span>
         </div>
-        <button type="button" className="source-drawer__slice-action" onClick={revert} disabled={!isDirty && !isStale}>
+        <button
+          type="button"
+          className="source-drawer__slice-action"
+          onClick={revert}
+          disabled={!isDirty && !isStale}
+        >
           <RotateCcw aria-hidden="true" size={14} strokeWidth={2} />
           <span>{text('sourceDock.revert')}</span>
         </button>
-        <button type="button" className="source-drawer__slice-action source-drawer__slice-action-primary" onClick={() => { void saveSliceToDisk(); }} disabled={!isDirty || isStale}>
+        <button
+          type="button"
+          className="source-drawer__slice-action source-drawer__slice-action-primary"
+          onClick={() => {
+            void saveSliceToDisk();
+          }}
+          disabled={!isDirty || isStale}
+        >
           <Save aria-hidden="true" size={14} strokeWidth={2} />
           <span>{text('sourceDock.save')}</span>
         </button>
       </div>
       {isStale && <p className="source-drawer__slice-message">{text('sourceDock.staleDetail')}</p>}
       {diagnosticCount > 0 && !isStale && (
-        <div id="graph-lab-chapter-source-diagnostics" className="source-drawer__slice-diagnostics" data-testid="graph-lab-chapter-source-diagnostics">
+        <div
+          id="graph-lab-chapter-source-diagnostics"
+          className="source-drawer__slice-diagnostics"
+          data-testid="graph-lab-chapter-source-diagnostics"
+        >
           <strong>{text('sourceDock.diagnosticsInSlice', { count: diagnosticCount })}</strong>
           <ul>
             {diagnosticsInSlice.slice(0, 4).map((diagnostic, index) => (
@@ -335,13 +418,17 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
                   onClick={() => jumpToDiagnostic(diagnostic.range.startLine)}
                 >
                   <span>{diagnostic.code}</span>
-                  <small>{text('sourceDock.jumpToLine', { line: diagnostic.range.startLine })}</small>
+                  <small>
+                    {text('sourceDock.jumpToLine', { line: diagnostic.range.startLine })}
+                  </small>
                   <em>{localizeDiagnostic(diagnostic, language).message}</em>
                 </button>
               </li>
             ))}
           </ul>
-          {diagnosticCount > 4 && <p>{text('sourceDock.moreDiagnostics', { count: diagnosticCount - 4 })}</p>}
+          {diagnosticCount > 4 && (
+            <p>{text('sourceDock.moreDiagnostics', { count: diagnosticCount - 4 })}</p>
+          )}
         </div>
       )}
       <textarea
@@ -349,7 +436,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
         className="source-drawer__slice-editor"
         data-testid="graph-lab-chapter-source-slice"
         value={draft}
-        onChange={(event) => setDraftValue(event.target.value)}
+        onChange={(event) => setDraftValue(event.target.value, true)}
         onKeyDown={handleEditorKeyDown}
         spellCheck={false}
         aria-label={text('sourceDock.chapterSourceAria')}
@@ -357,7 +444,7 @@ const ChapterSourceSliceEditor = React.forwardRef<ChapterSourceSliceEditorHandle
       />
     </div>
   );
-});
+}
 
 export function GraphLabWorkspace(): React.ReactElement {
   const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
@@ -370,19 +457,23 @@ export function GraphLabWorkspace(): React.ReactElement {
   const setCompactGraphPanel = useUIStore((state) => state.setCompactGraphPanel);
   const isCompactGraphLayout = useCompactGraphLayout();
   const content = useEditorStore((state) => state.content);
+  useEditorStore((state) => state.sourceDraftRevision);
   const diagnostics = useEditorStore((state) => state.diagnostics);
   const filePath = useEditorStore((state) => state.filePath);
+  const storySessionId = useEditorStore((state) => state.storySessionId);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const { activeTheme } = useThemePlatform();
   const Surface = activeTheme.surfaces.GraphLabShell;
   const themeModeLabel = `Graph Lab · ${activeTheme.name[language]}`;
   const text = useAppText();
-  const sourceSliceRef = useRef<ChapterSourceSliceEditorHandle>(null);
   const paletteToggleRef = useRef<HTMLButtonElement>(null);
   const inspectorToggleRef = useRef<HTMLButtonElement>(null);
+  const [pendingDeleteNode, setPendingDeleteNode] = useState<StoryNode | null>(null);
   const canUndoGraph = React.useSyncExternalStore(subscribeGraphHistory, canUndo, canUndo);
   const canRedoGraph = React.useSyncExternalStore(subscribeGraphHistory, canRedo, canRedo);
+
+  useEffect(() => setPendingDeleteNode(null), [storySessionId]);
 
   useEffect(() => {
     if (!isCompactGraphLayout && compactGraphPanel !== null) {
@@ -395,7 +486,8 @@ export function GraphLabWorkspace(): React.ReactElement {
     const closeCompactPanel = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       event.preventDefault();
-      const trigger = compactGraphPanel === 'palette' ? paletteToggleRef.current : inspectorToggleRef.current;
+      const trigger =
+        compactGraphPanel === 'palette' ? paletteToggleRef.current : inspectorToggleRef.current;
       setCompactGraphPanel(null);
       window.setTimeout(() => trigger?.focus({ preventScroll: true }), 0);
     };
@@ -405,39 +497,39 @@ export function GraphLabWorkspace(): React.ReactElement {
 
   const stats = useMemo(() => {
     const chapters = plotFlowData?.chapters.length ?? 0;
-    const nodes = plotFlowData?.chapters.reduce((sum, chapter) => sum + chapter.nodes.length, 0) ?? 0;
+    const nodes =
+      plotFlowData?.chapters.reduce((sum, chapter) => sum + chapter.nodes.length, 0) ?? 0;
     const options =
       plotFlowData?.chapters.reduce(
-        (sum, chapter) => sum + chapter.nodes.reduce((nodeSum, node) => nodeSum + node.options.length, 0),
+        (sum, chapter) =>
+          sum + chapter.nodes.reduce((nodeSum, node) => nodeSum + node.options.length, 0),
         0,
       ) ?? 0;
     return { chapters, nodes, options };
   }, [plotFlowData]);
 
-  const chapters = plotFlowData?.chapters ?? [];
+  const chapters = useMemo(() => plotFlowData?.chapters ?? [], [plotFlowData]);
   const sourceAnalysis = useMemo(() => analyzeStorySource(content), [content]);
-  const saveSourceSliceBeforeChapterChange = useCallback(() => (
-    sourceSliceRef.current?.saveBeforeChapterChange() ?? true
-  ), []);
+  const sourceDraftState = getSourceDraftState();
   const switchActiveChapter = useCallback((chapterId: string) => {
-    if (chapterId === activeChapterId) return true;
-    if (!saveSourceSliceBeforeChapterChange()) return false;
-    setActiveChapterId(chapterId);
-    return true;
-  }, [activeChapterId, saveSourceSliceBeforeChapterChange, setActiveChapterId]);
+    return requestActiveChapter(chapterId);
+  }, []);
 
-  const handleChapterTabKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    let targetIndex: number | null = null;
-    if (event.key === 'ArrowRight') targetIndex = (index + 1) % chapters.length;
-    if (event.key === 'ArrowLeft') targetIndex = (index - 1 + chapters.length) % chapters.length;
-    if (event.key === 'Home') targetIndex = 0;
-    if (event.key === 'End') targetIndex = chapters.length - 1;
-    if (targetIndex === null || chapters.length === 0) return;
-    event.preventDefault();
-    const targetChapter = chapters[targetIndex];
-    if (!targetChapter || !switchActiveChapter(targetChapter.id)) return;
-    document.getElementById(`graph-lab-chapter-tab-${targetIndex}`)?.focus();
-  }, [chapters, switchActiveChapter]);
+  const handleChapterTabKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+      let targetIndex: number | null = null;
+      if (event.key === 'ArrowRight') targetIndex = (index + 1) % chapters.length;
+      if (event.key === 'ArrowLeft') targetIndex = (index - 1 + chapters.length) % chapters.length;
+      if (event.key === 'Home') targetIndex = 0;
+      if (event.key === 'End') targetIndex = chapters.length - 1;
+      if (targetIndex === null || chapters.length === 0) return;
+      event.preventDefault();
+      const targetChapter = chapters[targetIndex];
+      if (!targetChapter || !switchActiveChapter(targetChapter.id)) return;
+      document.getElementById(`graph-lab-chapter-tab-${targetIndex}`)?.focus();
+    },
+    [chapters, switchActiveChapter],
+  );
 
   useEffect(() => {
     if (chapters.length === 0) {
@@ -445,227 +537,277 @@ export function GraphLabWorkspace(): React.ReactElement {
       return;
     }
     if (!activeChapterId || !chapters.some((chapter) => chapter.id === activeChapterId)) {
-      if (saveSourceSliceBeforeChapterChange()) setActiveChapterId(chapters[0]!.id);
+      switchActiveChapter(chapters[0]!.id);
     }
-  }, [activeChapterId, chapters, saveSourceSliceBeforeChapterChange, setActiveChapterId]);
+  }, [activeChapterId, chapters, setActiveChapterId, switchActiveChapter]);
 
-  const handleNodeNavigate = useCallback((nodeId: string, lineNumber: number, chapterId: string) => {
-    if (!switchActiveChapter(chapterId)) return;
-    useGraphStore.getState().selectNode(nodeId);
-    const editor = useEditorStore.getState();
-    editor.setActiveNodeId(nodeId);
-    editor.setCursorPosition(lineNumber, 1);
-    const monaco = editor.editorInstance;
-    if (monaco) {
-      monaco.revealLineInCenter(lineNumber);
-      monaco.setPosition({ lineNumber, column: 1 });
-      monaco.focus();
-    }
-  }, [switchActiveChapter]);
+  const handleNodeNavigate = useCallback(
+    (nodeId: string, lineNumber: number, chapterId: string) => {
+      if (!switchActiveChapter(chapterId)) return;
+      useGraphStore.getState().selectNode(nodeId);
+      const editor = useEditorStore.getState();
+      editor.setActiveNodeId(nodeId);
+      editor.setCursorPosition(lineNumber, 1);
+      const monaco = editor.editorInstance;
+      if (monaco) {
+        monaco.revealLineInCenter(lineNumber);
+        monaco.setPosition({ lineNumber, column: 1 });
+        monaco.focus();
+      }
+    },
+    [switchActiveChapter],
+  );
 
   const selectedLabel = selectedNodeId
-    ? plotFlowData?.chapters
-      .flatMap((chapter) => chapter.nodes)
-      .find((node) => node.fullId === selectedNodeId)?.title ?? text('graphLab.noSelection')
+    ? (plotFlowData?.chapters
+        .flatMap((chapter) => chapter.nodes)
+        .find((node) => node.fullId === selectedNodeId)?.title ?? text('graphLab.noSelection'))
     : text('graphLab.noSelection');
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      if (isGraphShortcutBlocked(event)) return;
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-      const selected = useGraphStore.getState().selectedNodeId ?? useEditorStore.getState().activeNodeId;
+      const selected =
+        useGraphStore.getState().selectedNodeId ?? useEditorStore.getState().activeNodeId;
       if (!selected) return;
       const node = useStoryStore.getState().getNodeByFullId(selected);
       if (!node) return;
-      if (!window.confirm(text('inspector.confirmDeleteNode', { title: node.title }))) return;
       event.preventDefault();
-      graphEditService.deleteNode(node);
-      useGraphStore.getState().selectNode(null);
-      useEditorStore.getState().setActiveNodeId(null);
+      setPendingDeleteNode(node);
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [text]);
 
   return (
-    <Surface
-      isSourceDrawerOpen={isSourceDrawerOpen}
-      commandbar={(
-        <header className="graph-lab__commandbar">
-          <div className="graph-lab__commandbar-top">
-            <div className="graph-lab__commandbar-main">
-              <span className="graph-lab__mark" aria-hidden="true">
-                <GitBranch size={16} strokeWidth={2.2} />
-              </span>
-              <div>
-                <p className="graph-lab__mode">{themeModeLabel}</p>
-                <h2>{getFileName(filePath, text('graphLab.unsavedStory'))}</h2>
+    <>
+      <Surface
+        isSourceDrawerOpen={isSourceDrawerOpen}
+        commandbar={
+          <header className="graph-lab__commandbar">
+            <div className="graph-lab__commandbar-top">
+              <div className="graph-lab__commandbar-main">
+                <span className="graph-lab__mark" aria-hidden="true">
+                  <GitBranch size={16} strokeWidth={2.2} />
+                </span>
+                <div>
+                  <p className="graph-lab__mode">{themeModeLabel}</p>
+                  <h2>{getFileName(filePath, text('graphLab.unsavedStory'))}</h2>
+                </div>
+              </div>
+
+              <GraphNodeSearch />
+
+              <div className="graph-lab__commandbar-stats" aria-label={text('graphLab.statsLabel')}>
+                <span>{text('graphLab.chapters', { count: stats.chapters })}</span>
+                <span>{text('graphLab.nodes', { count: stats.nodes })}</span>
+                <span>{text('graphLab.options', { count: stats.options })}</span>
+                <button
+                  type="button"
+                  className={diagnostics.length > 0 ? 'is-warning' : ''}
+                  data-testid="graph-lab-diagnostics-button"
+                  onClick={() => setProblemPanelOpen(true)}
+                  aria-label={text('graphLab.openProblems', { count: diagnostics.length })}
+                >
+                  {text('graphLab.diagnostics', { count: diagnostics.length })}
+                </button>
+              </div>
+
+              <div className="graph-lab__commandbar-actions">
+                <button
+                  ref={paletteToggleRef}
+                  type="button"
+                  className="graph-lab-dock-toggle graph-lab__compact-toggle"
+                  data-testid="graph-lab-palette-toggle"
+                  aria-pressed={compactGraphPanel === 'palette'}
+                  aria-label={text('graphLab.openPalette')}
+                  onClick={() =>
+                    setCompactGraphPanel(compactGraphPanel === 'palette' ? null : 'palette')
+                  }
+                >
+                  <PanelLeftOpen aria-hidden="true" size={15} strokeWidth={2} />
+                </button>
+                <button
+                  ref={inspectorToggleRef}
+                  type="button"
+                  className="graph-lab-dock-toggle graph-lab__compact-toggle"
+                  data-testid="graph-lab-inspector-toggle"
+                  aria-pressed={compactGraphPanel === 'inspector'}
+                  aria-label={text('graphLab.openInspector')}
+                  onClick={() =>
+                    setCompactGraphPanel(compactGraphPanel === 'inspector' ? null : 'inspector')
+                  }
+                >
+                  <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
+                </button>
+                <span
+                  className="graph-lab__selection"
+                  data-testid="graph-lab-selection-label"
+                  title={selectedLabel}
+                >
+                  <Activity aria-hidden="true" size={14} strokeWidth={2} />
+                  {selectedLabel}
+                </span>
+                <button
+                  type="button"
+                  className="graph-lab-dock-toggle"
+                  data-testid="graph-lab-undo"
+                  onClick={() => {
+                    void undoGraphEdit();
+                  }}
+                  disabled={!canUndoGraph}
+                  aria-label={text('graphLab.undo')}
+                  title={text('graphLab.undo')}
+                >
+                  <Undo2 aria-hidden="true" size={15} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  className="graph-lab-dock-toggle"
+                  data-testid="graph-lab-redo"
+                  onClick={() => {
+                    void redoGraphEdit();
+                  }}
+                  disabled={!canRedoGraph}
+                  aria-label={text('graphLab.redo')}
+                  title={text('graphLab.redo')}
+                >
+                  <Redo2 aria-hidden="true" size={15} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  className="graph-lab-dock-toggle"
+                  data-testid="graph-lab-save"
+                  onClick={() => {
+                    void saveOrSaveAs();
+                  }}
+                  aria-label={text('graphLab.save')}
+                  title={text('graphLab.save')}
+                >
+                  <Save aria-hidden="true" size={15} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  className={`graph-lab-dock-toggle${sourceDraftState.isStale ? ' is-stale' : sourceDraftState.isDirty ? ' is-dirty' : ''}`}
+                  data-testid="graph-lab-source-toggle"
+                  data-draft-state={
+                    sourceDraftState.isStale
+                      ? 'stale'
+                      : sourceDraftState.isDirty
+                        ? 'dirty'
+                        : 'clean'
+                  }
+                  onClick={toggleSourceDrawer}
+                  aria-expanded={isSourceDrawerOpen}
+                  aria-controls="graph-lab-source-drawer"
+                  aria-label={`${text(isSourceDrawerOpen ? 'graphLab.closeSource' : 'graphLab.openSource')}${sourceDraftState.isStale ? `, ${text('sourceDock.stale')}` : sourceDraftState.isDirty ? `, ${text('sourceDock.dirty')}` : ''}`}
+                >
+                  <FileText aria-hidden="true" size={15} strokeWidth={2} />
+                  <span>{text('graphLab.sourceText')}</span>
+                  {isSourceDrawerOpen ? (
+                    <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
+                  ) : (
+                    <PanelBottomOpen aria-hidden="true" size={15} strokeWidth={2} />
+                  )}
+                </button>
               </div>
             </div>
 
-            <GraphNodeSearch />
-
-            <div className="graph-lab__commandbar-stats" aria-label={text('graphLab.statsLabel')}>
-              <span>{text('graphLab.chapters', { count: stats.chapters })}</span>
-              <span>{text('graphLab.nodes', { count: stats.nodes })}</span>
-              <span>{text('graphLab.options', { count: stats.options })}</span>
-              <button
-                type="button"
-                className={diagnostics.length > 0 ? 'is-warning' : ''}
-                data-testid="graph-lab-diagnostics-button"
-                onClick={() => setProblemPanelOpen(true)}
-                aria-label={text('graphLab.openProblems', { count: diagnostics.length })}
-              >
-                {text('graphLab.diagnostics', { count: diagnostics.length })}
-              </button>
-            </div>
-
-            <div className="graph-lab__commandbar-actions">
-              <button
-                ref={paletteToggleRef}
-                type="button"
-                className="graph-lab-dock-toggle graph-lab__compact-toggle"
-                data-testid="graph-lab-palette-toggle"
-                aria-pressed={compactGraphPanel === 'palette'}
-                aria-label={text('graphLab.openPalette')}
-                onClick={() => setCompactGraphPanel(compactGraphPanel === 'palette' ? null : 'palette')}
-              >
-                <PanelLeftOpen aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                ref={inspectorToggleRef}
-                type="button"
-                className="graph-lab-dock-toggle graph-lab__compact-toggle"
-                data-testid="graph-lab-inspector-toggle"
-                aria-pressed={compactGraphPanel === 'inspector'}
-                aria-label={text('graphLab.openInspector')}
-                onClick={() => setCompactGraphPanel(compactGraphPanel === 'inspector' ? null : 'inspector')}
-              >
-                <PanelRightOpen aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <span className="graph-lab__selection" data-testid="graph-lab-selection-label" title={selectedLabel}>
-                <Activity aria-hidden="true" size={14} strokeWidth={2} />
-                {selectedLabel}
-              </span>
-              <button
-                type="button"
-                className="graph-lab-dock-toggle"
-                data-testid="graph-lab-undo"
-                onClick={() => { void undoGraphEdit(); }}
-                disabled={!canUndoGraph}
-                aria-label={text('graphLab.undo')}
-                title={text('graphLab.undo')}
-              >
-                <Undo2 aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                className="graph-lab-dock-toggle"
-                data-testid="graph-lab-redo"
-                onClick={() => { void redoGraphEdit(); }}
-                disabled={!canRedoGraph}
-                aria-label={text('graphLab.redo')}
-                title={text('graphLab.redo')}
-              >
-                <Redo2 aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                className="graph-lab-dock-toggle"
-                data-testid="graph-lab-save"
-                onClick={() => { void saveOrSaveAs(); }}
-                aria-label={text('graphLab.save')}
-                title={text('graphLab.save')}
-              >
-                <Save aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                className="graph-lab-dock-toggle"
-                data-testid="graph-lab-source-toggle"
-                onClick={toggleSourceDrawer}
-                aria-expanded={isSourceDrawerOpen}
-                aria-controls="graph-lab-source-drawer"
-                aria-label={text(isSourceDrawerOpen ? 'graphLab.closeSource' : 'graphLab.openSource')}
-              >
-                <FileText aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('graphLab.sourceText')}</span>
-                {isSourceDrawerOpen ? (
-                  <PanelBottomClose aria-hidden="true" size={15} strokeWidth={2} />
-                ) : (
-                  <PanelBottomOpen aria-hidden="true" size={15} strokeWidth={2} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div
-            className="graph-lab__chapter-tabs"
-            role="tablist"
-            aria-label={text('graphLab.chapterTabsLabel')}
-            data-testid="graph-lab-chapter-tabs"
-          >
-            {chapters.length > 0 ? (
-              chapters.map((chapter, index) => {
-                const chapterSource = sourceAnalysis.chapters[index];
-                const chapterDiagnostics = chapterSource
-                  ? diagnostics.filter((diagnostic) =>
-                    diagnostic.range.startLine >= chapterSource.startLine && diagnostic.range.startLine <= chapterSource.endLine,
-                  ).length
-                  : 0;
-                const selected = chapter.id === activeChapterId;
-                return (
-                  <button
-                    key={chapter.id}
-                    id={`graph-lab-chapter-tab-${index}`}
-                    type="button"
-                    role="tab"
-                    data-testid="graph-lab-chapter-tab"
-                    className={selected ? 'is-active' : ''}
-                    aria-selected={selected}
-                    aria-controls="graph-lab-canvas"
-                    tabIndex={selected ? 0 : -1}
-                    onClick={() => switchActiveChapter(chapter.id)}
-                    onKeyDown={(event) => handleChapterTabKeyDown(event, index)}
-                  >
-                    <span className="graph-lab__chapter-tab-title">{chapter.title || chapter.id}</span>
-                    <span className="graph-lab__chapter-tab-meta">
-                      {text('graphLab.chapterNodeCount', { count: chapter.nodes.length })}
-                    </span>
-                    {chapterDiagnostics > 0 && (
-                      <span className="graph-lab__chapter-tab-diagnostics">
-                        {text('graphLab.chapterDiagnosticCount', { count: chapterDiagnostics })}
+            <div
+              className="graph-lab__chapter-tabs"
+              role="tablist"
+              aria-label={text('graphLab.chapterTabsLabel')}
+              data-testid="graph-lab-chapter-tabs"
+            >
+              {chapters.length > 0 ? (
+                chapters.map((chapter, index) => {
+                  const chapterSource = sourceAnalysis.chapters[index];
+                  const chapterDiagnostics = chapterSource
+                    ? diagnostics.filter(
+                        (diagnostic) =>
+                          diagnostic.range.startLine >= chapterSource.startLine &&
+                          diagnostic.range.startLine <= chapterSource.endLine,
+                      ).length
+                    : 0;
+                  const selected = chapter.id === activeChapterId;
+                  return (
+                    <button
+                      key={chapter.id}
+                      id={`graph-lab-chapter-tab-${index}`}
+                      type="button"
+                      role="tab"
+                      data-testid="graph-lab-chapter-tab"
+                      className={selected ? 'is-active' : ''}
+                      aria-selected={selected}
+                      aria-controls="graph-lab-canvas"
+                      tabIndex={selected ? 0 : -1}
+                      onClick={() => switchActiveChapter(chapter.id)}
+                      onKeyDown={(event) => handleChapterTabKeyDown(event, index)}
+                    >
+                      <span className="graph-lab__chapter-tab-title">
+                        {chapter.title || chapter.id}
                       </span>
-                    )}
-                  </button>
-                );
-              })
-            ) : (
-              <span className="graph-lab__chapter-tabs-empty">{text('palette.outlineEmpty')}</span>
-            )}
-          </div>
-        </header>
-      )}
-      palette={(
-        <GraphLabPalette
-          onNodeNavigate={handleNodeNavigate}
-          onBeforeGraphMutation={saveSourceSliceBeforeChapterChange}
+                      <span className="graph-lab__chapter-tab-meta">
+                        {text('graphLab.chapterNodeCount', { count: chapter.nodes.length })}
+                      </span>
+                      {chapterDiagnostics > 0 && (
+                        <span className="graph-lab__chapter-tab-diagnostics">
+                          {text('graphLab.chapterDiagnosticCount', { count: chapterDiagnostics })}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                <span className="graph-lab__chapter-tabs-empty">
+                  {text('palette.outlineEmpty')}
+                </span>
+              )}
+            </div>
+          </header>
+        }
+        palette={<GraphLabPalette onNodeNavigate={handleNodeNavigate} />}
+        canvas={
+          <section
+            id="graph-lab-canvas"
+            className="graph-lab__canvas"
+            aria-label={text('graphLab.canvasLabel')}
+          >
+            <GraphCanvas viewMode="graphLab" />
+          </section>
+        }
+        inspector={<GraphInspector />}
+        sourceDrawer={
+          <SourceDrawer>
+            <div
+              className={
+                isSourceDrawerOpen
+                  ? 'source-drawer__editor'
+                  : 'source-drawer__editor source-drawer--editor-hidden'
+              }
+            >
+              <ChapterSourceSliceEditor />
+            </div>
+          </SourceDrawer>
+        }
+      />
+      {pendingDeleteNode && (
+        <ConfirmDialog
+          title={text('graphContext.deleteNode')}
+          message={text('inspector.confirmDeleteNode', { title: pendingDeleteNode.title })}
+          confirmLabel={text('common.delete')}
+          danger
+          onCancel={() => setPendingDeleteNode(null)}
+          onConfirm={() => {
+            if (graphEditService.deleteNode(pendingDeleteNode)) {
+              useGraphStore.getState().selectNode(null);
+              useEditorStore.getState().setActiveNodeId(null);
+            }
+            setPendingDeleteNode(null);
+          }}
         />
       )}
-      canvas={(
-        <section id="graph-lab-canvas" className="graph-lab__canvas" aria-label={text('graphLab.canvasLabel')}>
-          <GraphCanvas viewMode="graphLab" />
-        </section>
-      )}
-      inspector={<GraphInspector />}
-      sourceDrawer={(
-        <SourceDrawer>
-          <div className={isSourceDrawerOpen ? 'source-drawer__editor' : 'source-drawer__editor source-drawer--editor-hidden'}>
-            <ChapterSourceSliceEditor ref={sourceSliceRef} />
-          </div>
-        </SourceDrawer>
-      )}
-    />
+    </>
   );
 }

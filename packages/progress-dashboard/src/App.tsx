@@ -191,7 +191,7 @@ export function DashboardApp({
       <main className="dashboard-shell">
         <div className="state-panel">
           <p className="state-panel__eyebrow">Loading</p>
-          <h1>正在装载 PlotFlow 工程驾驶舱</h1>
+          <h1>正在装载维叙工程驾驶舱</h1>
           <p>等待 `dashboard-data.json`。</p>
         </div>
       </main>
@@ -293,7 +293,7 @@ export function DashboardApp({
     <main className="dashboard-shell" data-density={density}>
       <header className="dashboard-hero">
         <div className="dashboard-hero__copy">
-          <p className="dashboard-hero__eyebrow">PlotFlow / Internal Operations</p>
+          <p className="dashboard-hero__eyebrow">维叙 <small>Fablevia</small> / Internal Operations</p>
           <h1>{config.labels.dashboardTitle}</h1>
           <p className="dashboard-hero__subtitle">{config.labels.dashboardSubtitle}</p>
           <div className="dashboard-hero__meta">

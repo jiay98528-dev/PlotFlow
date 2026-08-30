@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useUIStore, type Language } from '../stores/uiStore';
+import { FABLEVIA_BRAND, resolveBrandPresentation } from '../branding/brand';
+import { APP_VERSION_LABEL } from '../shared/productIdentity';
 
 type Primitive = string;
 type TranslationTree = {
@@ -40,9 +42,9 @@ export const appText = {
       exception: '⚠️ 解析器异常，请检查文件格式',
       syntaxErrors: '⚠️ 语法错误 - 分支图可能不完整 ({count} 个错误)',
       graphIncomplete: '编辑器中有 {count} 个语法错误，分支图可能不完整',
+      graphRenderFailed: '⚠️ 分支图渲染失败，已保留当前视图',
     },
     home: {
-      eyebrow: 'PlotFlow Official Workbench',
       title: '用流程图和文本双投影编排互动叙事',
       body: '从 .mdstory 文件进入 Split 或 Graph Lab。故事内容仍是纯文本，官方主题决定工作台的节点、连线、面板、布局和动效表现。',
       currentTheme: '当前官方主题',
@@ -65,6 +67,30 @@ export const appText = {
       discardAndOpen: '不保存并打开',
       noRecentFile: '未找到最近保存的 .mdstory 文件。',
       continueLoadedCurrent: '继续编辑已载入磁盘中的最新版本：{path}',
+    },
+    feedback: {
+      trigger: 'BUG 反馈',
+      eyebrow: '帮助改进 {brand}',
+      title: '提交 BUG 反馈',
+      close: '关闭反馈窗口',
+      messageLabel: '请描述你遇到的问题',
+      placeholder: '发生了什么？你原本期望看到什么？如有复现步骤也请一并说明。',
+      privacyHint: '反馈将通过邮件直接发送给项目维护者。请勿填写密码或其他敏感信息。',
+      send: '发送反馈',
+      sending: '发送中…',
+      sendFailed: '发送失败，请稍后重试。',
+      sentTitle: '反馈已发送',
+      sentDescription: '感谢你的反馈，我们会尽快查看。',
+      errors: {
+        invalid: '反馈内容无效，请检查后重试。',
+        rateLimited: '提交过于频繁，请稍后重试。',
+        offline: '当前处于离线状态，请联网后重试。',
+        unavailable: '反馈服务暂不可用，请稍后重试。',
+      },
+    },
+    storyReplacement: {
+      busy: '另一项故事替换正在处理中，请稍后重试。',
+      changedDuringRead: '读取期间故事已发生变化，请确认后重试。',
     },
     toolbar: {
       phase: '质量打磨与发布',
@@ -99,8 +125,7 @@ export const appText = {
       saveAsError: '另存为失败',
       graphShown: '分支图已显示',
       graphHidden: '分支图已隐藏',
-      about: 'PlotFlow V0.1 - 叙事分支管理工具',
-      docs: '帮助文档 - 请访问 PlotFlow GitHub 仓库',
+      about: '{brand} {versionLabel} - 叙事分支管理工具',
     },
     graphLab: {
       unsavedStory: '未保存故事',
@@ -140,6 +165,8 @@ export const appText = {
       disconnectedNext: 'Graph Lab 已断开“{title}”的下一步',
       disconnectedOption: 'Graph Lab 已断开“{title}”的选项 {index}',
       missingConnectableRoute: '拖拽线缆失败：未找到可连接的路线',
+      interactionStale: '故事已发生变化，本次画布操作已取消',
+      changeNotApplied: '画布操作未能应用，请重试',
       chooseWireTarget: '请选择线缆目标',
       cancelledWireDrag: '已取消线缆拖拽',
       reconnected: 'Graph Lab 已重连到“{title}”',
@@ -167,7 +194,8 @@ export const appText = {
       addNode: '添加节点',
       relayout: '重新布局',
       delete: '删除',
-      deleteNodeMessage: '确定要删除节点“{title}”吗？\n此操作将通过编辑器文本删除节点所有内容，不能直接撤销。',
+      deleteNodeMessage:
+        '确定要删除节点“{title}”吗？\n此操作将通过编辑器文本删除节点所有内容，不能直接撤销。',
       jumpedToNode: '已跳转到：{title}',
       renamedNode: '节点已重命名为：{title}',
       newOption: '新选项',
@@ -243,20 +271,21 @@ export const appText = {
       title: '大纲',
       expand: '展开大纲面板',
       collapse: '折叠大纲面板',
+      resize: '调整大纲面板宽度',
       nodeLocation: '{title}（第 {line} 行）',
       optionCount: '{count} 个选项',
       empty: '打开 .mdstory 文件以查看大纲',
     },
     appShell: {
-      brandMark: 'Pf',
-      version: 'PlotFlow V0.1',
+      version: '{versionLabel}',
       languageChinese: '中文',
       languageEnglish: 'English',
       splitControls: 'Split 工作区控件',
-      minimap: 'PlotFlow 缩略图',
+      minimap: '{brand} 缩略图',
       externalReloaded: '已重新载入外部修改：{path}',
       externalChangeTitle: '文件已在磁盘上更改',
-      externalChangeDetail: '{path}\n\n此文件已在 PlotFlow 外部修改。你可以另存当前编辑、重新载入磁盘版本、覆盖磁盘版本，或保留当前编辑且暂不载入。',
+      externalChangeDetail:
+        '{path}\n\n此文件已在 {brand} 外部修改。你可以另存当前编辑、重新载入磁盘版本、覆盖磁盘版本，或保留当前编辑且暂不载入。',
       saveCopy: '另存副本',
       reloadDisk: '重新载入磁盘版本',
       overwriteDisk: '覆盖磁盘版本',
@@ -285,6 +314,10 @@ export const appText = {
       E006: { message: 'Object 嵌套深度超过最大限制（3 层）' },
       E007: { message: '节点 ID 重复' },
       E008: { message: '变量重复声明' },
+      E009: {
+        message: '故事结构不可导出',
+        detail: '请确保故事至少有一个章节，且每个章节至少有一个节点。',
+      },
       W001: { message: '节点没有入口路线' },
       W002: { message: '节点没有出口路线' },
       W003: { message: '变量在故事中未使用' },
@@ -333,6 +366,14 @@ export const appText = {
       relayoutFailed: '重新布局未保存，请先处理未提交的源码草稿',
       workspaceRefreshed: '已刷新工作区: {count} 个故事文件',
       workspaceSelected: '已选择工作区: {count} 个故事文件',
+    },
+    globalEditor: {
+      aria: '全局编辑',
+      tabsAria: '全局编辑分类',
+      tabs: {
+        story: '故事',
+        variables: '变量',
+      },
     },
     inspector: {
       aria: 'Graph Lab Inspector',
@@ -395,7 +436,9 @@ export const appText = {
       variableDescription: '说明',
       noEnumValues: '请先填写枚举值',
       variableMetadataHint: '默认值、作用域与说明会写入标准 YAML 变量声明。',
-      variableDraftInvalid: '请使用合法且不重复的变量或字段名，并为每个 enum 提供至少一个不重复的值。',
+      variableDraftInvalid:
+        '请使用合法且不重复的变量或字段名，并为每个 enum 提供至少一个不重复的值。',
+      variableNameConflict: '变量名已存在。请选择其他名称；现有变量不会被覆盖。',
       updateRejected: '未保存，请检查输入或先处理源码抽屉中的草稿。',
       noVariables: '暂无变量',
       noVariablesDeclared: '尚未声明变量。先创建变量，再用于条件和效果。',
@@ -512,7 +555,7 @@ export const appText = {
       jumpedToLine: '已定位到第 {line} 行',
     },
     statusBar: {
-      aria: 'PlotFlow 状态栏',
+      aria: '{brand} 状态栏',
       unsaved: '未保存',
       nodes: '节点 {count}',
       options: '选项 {count}',
@@ -609,7 +652,7 @@ export const appText = {
     themeCenter: {
       eyebrow: 'Official Free Themes',
       title: '官方主题中心',
-      intro: 'PlotFlow 只支持官方主题。免费主题可远程下载、更新并立即生效，不会修改 .mdstory 内容。',
+      intro: '{brand} 只支持官方主题。免费主题可远程下载、更新并立即生效，不会修改 .mdstory 内容。',
       close: '关闭主题中心',
       officialFreeThemes: '官方免费主题',
       note: '官方主题可以控制节点、连线、面板、UX 布局、Monaco 配色、透明度、尺寸和动效。',
@@ -620,6 +663,8 @@ export const appText = {
       installed: '已安装官方主题',
       remote: '官方免费主题库',
       price: '状态',
+      bundled: '随 {brand} 内置',
+      free: '免费主题',
       remoteVersion: '远程版本',
       localVersion: '本地版本',
       emptyRemoteLoading: '正在读取官方主题库...',
@@ -660,9 +705,9 @@ export const appText = {
       exception: '⚠️ Parser exception. Check the file format.',
       syntaxErrors: '⚠️ Syntax errors - branch graph may be incomplete ({count} errors)',
       graphIncomplete: 'Graph view has {count} blocking errors',
+      graphRenderFailed: '⚠️ Graph rendering failed. The current view was preserved.',
     },
     home: {
-      eyebrow: 'PlotFlow Official Workbench',
       title: 'Edit interactive stories through graph and text projections',
       body: 'Start from a .mdstory file in Split or Graph Lab. The story remains plain text while official themes shape nodes, cables, panels, layout, and motion.',
       currentTheme: 'Current official theme',
@@ -685,6 +730,33 @@ export const appText = {
       discardAndOpen: 'Open without saving',
       noRecentFile: 'No recent saved .mdstory file was found.',
       continueLoadedCurrent: 'Continue editing loaded the current disk version of {path}.',
+    },
+    feedback: {
+      trigger: 'Report a bug',
+      eyebrow: 'Help improve {brand}',
+      title: 'Submit bug feedback',
+      close: 'Close feedback dialog',
+      messageLabel: 'Describe what happened',
+      placeholder:
+        'What happened? What did you expect instead? Include reproduction steps when possible.',
+      privacyHint:
+        'Feedback is emailed directly to the project maintainer. Do not include passwords or other sensitive information.',
+      send: 'Send feedback',
+      sending: 'Sending…',
+      sendFailed: 'Could not send feedback. Please try again later.',
+      sentTitle: 'Feedback sent',
+      sentDescription: 'Thanks for the report. We will review it as soon as possible.',
+      errors: {
+        invalid: 'The feedback is invalid. Check it and try again.',
+        rateLimited: 'Too many submissions. Please try again later.',
+        offline: 'You are offline. Reconnect and try again.',
+        unavailable: 'The feedback service is unavailable. Please try again later.',
+      },
+    },
+    storyReplacement: {
+      busy: 'Another story replacement is in progress. Please try again shortly.',
+      changedDuringRead:
+        'The story changed while the file was being read. Review it and try again.',
     },
     toolbar: {
       phase: 'Quality and release hardening',
@@ -719,8 +791,7 @@ export const appText = {
       saveAsError: 'Save As failed',
       graphShown: 'Branch graph shown',
       graphHidden: 'Branch graph hidden',
-      about: 'PlotFlow V0.1 - Narrative branch management tool',
-      docs: 'Help docs - visit the PlotFlow GitHub repository',
+      about: '{brand} {versionLabel} - Narrative branch management tool',
     },
     graphLab: {
       unsavedStory: 'Unsaved story',
@@ -760,6 +831,8 @@ export const appText = {
       disconnectedNext: 'Graph Lab disconnected the next route from “{title}”',
       disconnectedOption: 'Graph Lab disconnected option {index} from “{title}”',
       missingConnectableRoute: 'Cable drag failed: no connectable route was found',
+      interactionStale: 'The story changed, so the canvas action was cancelled',
+      changeNotApplied: 'The canvas action could not be applied. Try again',
       chooseWireTarget: 'Choose a cable target',
       cancelledWireDrag: 'Cable drag cancelled',
       reconnected: 'Graph Lab reconnected to “{title}”',
@@ -787,7 +860,8 @@ export const appText = {
       addNode: 'Add node',
       relayout: 'Relayout',
       delete: 'Delete',
-      deleteNodeMessage: 'Delete node “{title}”?\nThis removes all of the node content through the editor text and cannot be directly undone.',
+      deleteNodeMessage:
+        'Delete node “{title}”?\nThis removes all of the node content through the editor text and cannot be directly undone.',
       jumpedToNode: 'Jumped to: {title}',
       renamedNode: 'Node renamed to: {title}',
       newOption: 'New option',
@@ -863,20 +937,21 @@ export const appText = {
       title: 'Outline',
       expand: 'Expand Outline panel',
       collapse: 'Collapse Outline panel',
+      resize: 'Resize Outline panel',
       nodeLocation: '{title} (line {line})',
       optionCount: '{count} options',
       empty: 'Open a .mdstory file to view its outline',
     },
     appShell: {
-      brandMark: 'Pf',
-      version: 'PlotFlow V0.1',
+      version: '{versionLabel}',
       languageChinese: '中文',
       languageEnglish: 'English',
       splitControls: 'Split workspace controls',
-      minimap: 'PlotFlow minimap',
+      minimap: '{brand} minimap',
       externalReloaded: 'Reloaded external changes: {path}',
       externalChangeTitle: 'File changed on disk',
-      externalChangeDetail: '{path}\n\nThis file was modified outside PlotFlow. Save a copy of your edits, reload the disk version, overwrite the disk version, or keep editing without reloading.',
+      externalChangeDetail:
+        '{path}\n\nThis file was modified outside {brand}. Save a copy of your edits, reload the disk version, overwrite the disk version, or keep editing without reloading.',
       saveCopy: 'Save Copy',
       reloadDisk: 'Reload Disk',
       overwriteDisk: 'Overwrite Disk',
@@ -905,6 +980,10 @@ export const appText = {
       E006: { message: 'Object nesting exceeds the maximum depth of 3' },
       E007: { message: 'Duplicate node ID' },
       E008: { message: 'Duplicate variable declaration' },
+      E009: {
+        message: 'Story structure cannot be exported',
+        detail: 'Add at least one chapter and ensure every chapter contains at least one node.',
+      },
       W001: { message: 'Node has no incoming route' },
       W002: { message: 'Node has no outgoing route' },
       W003: { message: 'Variable is not used in the story' },
@@ -926,7 +1005,8 @@ export const appText = {
       workspaceSummary: '{count} .mdstory files',
       workspaceTruncated: 'Many files found. Showing the first 300.',
       noWorkspaceFiles: 'No .mdstory files in this workspace.',
-      noWorkspaceSelected: 'Choose a story folder when needed. Single-file editing remains available.',
+      noWorkspaceSelected:
+        'Choose a story folder when needed. Single-file editing remains available.',
       outline: 'Chapter Outline',
       outlineEmpty: 'Open or create a story to show chapters and nodes here.',
       create: 'Create',
@@ -954,6 +1034,14 @@ export const appText = {
       workspaceRefreshed: 'Workspace refreshed: {count} story files',
       workspaceSelected: 'Workspace selected: {count} story files',
     },
+    globalEditor: {
+      aria: 'Global editor',
+      tabsAria: 'Global editor sections',
+      tabs: {
+        story: 'Story',
+        variables: 'Variables',
+      },
+    },
     inspector: {
       aria: 'Graph Lab Inspector',
       tabsAria: 'Inspector sections',
@@ -980,7 +1068,8 @@ export const appText = {
       nextEffects: 'Next effects',
       options: 'Options',
       add: 'Add',
-      noOptions: 'This node has no options. It can be an ending node, or you can add branch options.',
+      noOptions:
+        'This node has no options. It can be an ending node, or you can add branch options.',
       optionLabel: 'Option {index}',
       targetNode: 'Target node',
       noJump: 'No jump',
@@ -1014,17 +1103,23 @@ export const appText = {
       selectChapter: 'Select a chapter',
       variableDescription: 'Description',
       noEnumValues: 'Add enum values first',
-      variableMetadataHint: 'Defaults, scope, and descriptions are stored in standard YAML variable declarations.',
-      variableDraftInvalid: 'Use valid, unique variable and field names, and provide at least one unique value for every enum.',
+      variableMetadataHint:
+        'Defaults, scope, and descriptions are stored in standard YAML variable declarations.',
+      variableDraftInvalid:
+        'Use valid, unique variable and field names, and provide at least one unique value for every enum.',
+      variableNameConflict:
+        'That variable name already exists. Choose another name; the existing variable will not be overwritten.',
       updateRejected: 'Not saved. Check the value or resolve the pending source draft.',
       noVariables: 'No variables',
-      noVariablesDeclared: 'No variables declared. Create a variable before using conditions or effects.',
+      noVariablesDeclared:
+        'No variables declared. Create a variable before using conditions or effects.',
       conditionVariable: 'Condition variable',
       conditionOperator: 'Condition operator',
       conditionValue: 'Condition value',
       clearCondition: 'Clear condition',
       rawCondition: 'Raw condition',
-      rawConditionHint: 'This condition is damaged or uses unknown syntax. Its source is preserved; repair it in the Source Dock.',
+      rawConditionHint:
+        'This condition is damaged or uses unknown syntax. Its source is preserved; repair it in the Source Dock.',
       rawEffects: 'Raw effects',
       rawEffectsHint: 'These effects use a complex expression and remain editable as raw text.',
       effectVariable: 'Effect variable',
@@ -1062,9 +1157,12 @@ export const appText = {
       dirty: 'Unsaved',
       stale: 'Source changed',
       staleDetail: 'The full source changed elsewhere. Revert or reload the slice before saving.',
-      switchBlockedStale: 'The source slice changed. Revert or reload it before switching chapters.',
-      workspaceSwitchBlockedStale: 'The source draft no longer matches the story. Revert it before switching to Split.',
-      workspaceSwitchBlockedDraft: 'The source draft could not be committed. Review it and try again.',
+      switchBlockedStale:
+        'The source slice changed. Revert or reload it before switching chapters.',
+      workspaceSwitchBlockedStale:
+        'The source draft no longer matches the story. Revert it before switching to Split.',
+      workspaceSwitchBlockedDraft:
+        'The source draft could not be committed. Review it and try again.',
       saved: 'Synced',
       diagnostics: '{count} diagnostics',
       diagnosticsInSlice: '{count} diagnostics in this chapter',
@@ -1132,7 +1230,7 @@ export const appText = {
       jumpedToLine: 'Focused line {line}',
     },
     statusBar: {
-      aria: 'PlotFlow status',
+      aria: '{brand} status',
       unsaved: 'Unsaved',
       nodes: 'Nodes {count}',
       options: 'Options {count}',
@@ -1176,7 +1274,8 @@ export const appText = {
       nodes: '{count} nodes',
       descriptions: {
         blank: 'Minimal editable structure for starting from scratch.',
-        rpgDialogue: 'A village gate, guard questioning, faction variables, conditions, and effects.',
+        rpgDialogue:
+          'A village gate, guard questioning, faction variables, conditions, and effects.',
         visualNovel: 'A short after-school two-route scene for lightweight character branching.',
         puzzle: 'A multi-node condition chain with key, power, code, and exit variables.',
         godot: 'English Godot runtime loader example for engine integration demos.',
@@ -1199,7 +1298,8 @@ export const appText = {
       importTextTitle: 'Import from text (development fallback)',
       sizeLimitReached: 'Corpus total size has reached the limit ({size})',
       ipcUnavailable: 'Simulated import, Electron IPC unavailable',
-      genericImportUnavailable: 'Use text import for now. Generic file dialog is not integrated yet.',
+      genericImportUnavailable:
+        'Use text import for now. Generic file dialog is not integrated yet.',
       importFailed: 'Import failed: {message}',
       importDone: 'Import complete: {added} added, {skipped} duplicates skipped',
       disabledFile: 'Disabled: {file}',
@@ -1221,15 +1321,18 @@ export const appText = {
       confirmDisableTitle: 'Disable corpus source',
       confirmDelete: 'Delete {file}?',
       confirmDisable: 'Disable {file}?',
-      deleteWarning: 'This cannot be undone. All entries from this corpus source will be removed from the engine.',
-      disableHint: 'Disabled corpus sources will not appear in completion suggestions, but data is kept and can be enabled again.',
+      deleteWarning:
+        'This cannot be undone. All entries from this corpus source will be removed from the engine.',
+      disableHint:
+        'Disabled corpus sources will not appear in completion suggestions, but data is kept and can be enabled again.',
       confirmDeleteAction: 'Confirm delete',
       confirmDisableAction: 'Confirm disable',
     },
     themeCenter: {
       eyebrow: 'Official Free Themes',
       title: 'Official Theme Center',
-      intro: 'PlotFlow only supports official themes. Free themes can be downloaded, updated, and applied immediately without changing .mdstory content.',
+      intro:
+        '{brand} only supports official themes. Free themes can be downloaded, updated, and applied immediately without changing .mdstory content.',
       close: 'Close Theme Center',
       officialFreeThemes: 'Official free themes',
       note: 'Official themes can control nodes, cables, panels, UX layout, Monaco colors, opacity, sizing, and motion.',
@@ -1240,11 +1343,14 @@ export const appText = {
       installed: 'Installed official themes',
       remote: 'Official free theme catalog',
       price: 'Status',
+      bundled: 'Bundled with {brand}',
+      free: 'Free theme',
       remoteVersion: 'Remote version',
       localVersion: 'Local version',
       emptyRemoteLoading: 'Reading official theme catalog...',
       emptyRemote: 'Offline or no remote themes available. Installed themes are unaffected.',
-      footer: 'Official themes only: built-in themes and official remote free themes. Local imports and unofficial sources are not available.',
+      footer:
+        'Official themes only: built-in themes and official remote free themes. Local imports and unofficial sources are not available.',
     },
   },
 } as const satisfies Record<Language, TranslationTree>;
@@ -1269,21 +1375,28 @@ export function appT(
   language: Language = 'zh-CN',
 ): string {
   const template =
-    resolveValue(appText[language], key) ??
-    resolveValue(appText['en-US'], key) ??
-    key;
+    resolveValue(appText[language], key) ?? resolveValue(appText['en-US'], key) ?? key;
 
-  if (!params) return template;
+  const replacements: Readonly<Record<string, string | number>> = {
+    brand: resolveBrandPresentation(language).plainTextName,
+    englishBrand: FABLEVIA_BRAND.englishName,
+    versionLabel: APP_VERSION_LABEL,
+    ...params,
+  };
   return template.replace(/\{(\w+)}/g, (match, name: string) => {
-    const value = params[name];
+    const value = replacements[name];
     return value === undefined ? match : String(value);
   });
 }
 
-export function useAppText(): (key: AppTextKey, params?: Readonly<Record<string, string | number>>) => string {
+export function useAppText(): (
+  key: AppTextKey,
+  params?: Readonly<Record<string, string | number>>,
+) => string {
   const language = useUIStore((state) => state.language);
   return useMemo(
-    () => (key: AppTextKey, params?: Readonly<Record<string, string | number>>) => appT(key, params, language),
+    () => (key: AppTextKey, params?: Readonly<Record<string, string | number>>) =>
+      appT(key, params, language),
     [language],
   );
 }

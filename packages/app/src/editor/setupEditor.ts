@@ -138,7 +138,7 @@ export async function setupPlotFlowEditor(): Promise<void> {
     } catch (err) {
       // 语料加载或补全注册失败是非致命的 — 编辑器仍可正常使用
       // eslint-disable-next-line no-console
-      console.warn('[PlotFlow] GhostTextPlugin 初始化失败，补全不可用:', err);
+      console.warn('[Fablevia] GhostTextPlugin 初始化失败，补全不可用:', err);
     }
 
     // 主题

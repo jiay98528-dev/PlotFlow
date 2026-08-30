@@ -13,6 +13,7 @@ import type { PlotFlowData, Option, VariableDeclaration } from '../types/ast.js'
 import type { Diagnostic } from '../types/diagnostic.js';
 import { createDiagnostic, rangeAtLine } from './helpers.js';
 import { buildStoryAdjacency } from './adjacency.js';
+import { deriveNodeStatuses, type DerivedNodeStatus } from './nodeStatus.js';
 
 // ============================================================================
 // W001 — 孤立节点
@@ -26,21 +27,15 @@ import { buildStoryAdjacency } from './adjacency.js';
  * @param data - 解析后的 PlotFlowData AST
  * @returns 诊断列表
  */
-export function checkOrphanNodes(data: PlotFlowData): Diagnostic[] {
+export function checkOrphanNodes(
+  data: PlotFlowData,
+  statuses: ReadonlyMap<string, DerivedNodeStatus> = deriveNodeStatuses(data),
+): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-
-  // 收集所有选项的目标节点 ID（fullId）
-  const adjacency = buildStoryAdjacency(data);
   // 遍历所有节点，找出孤立节点
   for (const chapter of data.chapters) {
     for (const node of chapter.nodes) {
-      // 跳过根节点（根节点由解析器标记）
-      if (node.diagnostics.isRoot) {
-        continue;
-      }
-
-      // 如果没有任何选项指向此节点，且非根节点 → 孤立
-      if (!adjacency.incomingByTargetFullId.has(node.fullId)) {
+      if (statuses.get(node.fullId)?.isOrphan) {
         diagnostics.push(
           createDiagnostic(
             'W001',
@@ -155,9 +150,7 @@ export function checkUnusedVariables(data: PlotFlowData): Diagnostic[] {
  * 扁平化变量声明（含嵌套对象字段），构建完整路径名映射。
  * 与 validator.ts 中 collectDeclaredVariables 的递归模式一致。
  */
-function flattenVars(
-  variables: VariableDeclaration[],
-): Map<string, { lineNumber: number }> {
+function flattenVars(variables: VariableDeclaration[]): Map<string, { lineNumber: number }> {
   const map = new Map<string, { lineNumber: number }>();
   function walk(vars: VariableDeclaration[], prefix: string) {
     for (const v of vars) {
@@ -176,7 +169,12 @@ function flattenVars(
  * 递归收集条件表达式树中引用的所有变量名。
  */
 function collectConditionVariables(
-  condition: { type: string; left?: { variableName?: string }; right?: { variableName?: string }; operands?: unknown[] },
+  condition: {
+    type: string;
+    left?: { variableName?: string };
+    right?: { variableName?: string };
+    operands?: unknown[];
+  },
   collected: Set<string>,
 ): void {
   if (condition.type === 'comparison') {
@@ -191,7 +189,10 @@ function collectConditionVariables(
     // 逻辑表达式：递归检查子表达式
     if (condition.operands) {
       for (const operand of condition.operands) {
-        collectConditionVariables(operand as Parameters<typeof collectConditionVariables>[0], collected);
+        collectConditionVariables(
+          operand as Parameters<typeof collectConditionVariables>[0],
+          collected,
+        );
       }
     }
   }
@@ -399,13 +400,14 @@ export function checkClosedCycles(data: PlotFlowData): Diagnostic[] {
 
   for (const component of components) {
     const componentSet = new Set(component);
-    const isCycle = component.length > 1
-      || (component.length === 1 && (graph.get(component[0]!) ?? []).includes(component[0]!));
+    const isCycle =
+      component.length > 1 ||
+      (component.length === 1 && (graph.get(component[0]!) ?? []).includes(component[0]!));
     if (!isCycle) continue;
 
     const hasExit = component.some((nodeId) =>
-      (adjacency.outgoingBySourceFullId.get(nodeId) ?? []).some((edge) =>
-        edge.targetFullId !== null && !componentSet.has(edge.targetFullId),
+      (adjacency.outgoingBySourceFullId.get(nodeId) ?? []).some(
+        (edge) => edge.targetFullId !== null && !componentSet.has(edge.targetFullId),
       ),
     );
     if (hasExit) continue;

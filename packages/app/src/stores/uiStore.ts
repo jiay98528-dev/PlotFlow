@@ -16,6 +16,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { changeLanguage, type Locale } from '@plotflow/core';
 import type { ThemeId } from '../theme-platform/types';
+import { DEFAULT_THEME_ID } from '../theme-platform/registry';
 
 // ============================================================================
 // 类型定义
@@ -34,8 +35,6 @@ export type RightPanel = 'graph' | 'none';
 export type ExportFormat = 'json' | 'html' | 'txt';
 
 export type WorkspaceMode = 'split' | 'graphLab';
-
-export type InspectorTab = 'node' | 'routes' | 'variables' | 'story';
 
 export type CompactGraphPanel = 'palette' | 'inspector' | null;
 
@@ -76,7 +75,6 @@ export interface UIState {
   readonly isProblemPanelOpen: boolean;
   readonly isSourceDrawerOpen: boolean;
   readonly activeChapterId: string | null;
-  readonly inspectorTab: InspectorTab;
   readonly compactGraphPanel: CompactGraphPanel;
   readonly graphFocusRequest: GraphFocusRequest | null;
 
@@ -91,6 +89,7 @@ export interface UIState {
   readonly isNewFileDialogOpen: boolean;
 
   readonly isThemeCenterOpen: boolean;
+  readonly isFeedbackDialogOpen: boolean;
   readonly isHomeSurfaceOpen: boolean;
 
   // --- Actions ---
@@ -128,7 +127,6 @@ export interface UIState {
   toggleSourceDrawer: () => void;
   setSourceDrawerOpen: (open: boolean) => void;
   setActiveChapterId: (chapterId: string | null) => void;
-  setInspectorTab: (tab: InspectorTab) => void;
   setCompactGraphPanel: (panel: CompactGraphPanel) => void;
   requestGraphFocus: (fullId: string, behavior?: GraphFocusRequest['behavior']) => void;
   consumeGraphFocus: (requestId: number) => void;
@@ -153,6 +151,8 @@ export interface UIState {
 
   openThemeCenter: () => void;
   closeThemeCenter: () => void;
+  openFeedbackDialog: () => void;
+  closeFeedbackDialog: () => void;
   setHomeSurfaceOpen: (open: boolean) => void;
 }
 
@@ -166,6 +166,11 @@ const WORKSPACE_MODE_PREFERENCE_VERSION_KEY = 'plotflow:workspaceModePreferenceV
 const WORKSPACE_MODE_PREFERENCE_VERSION = '2';
 /** M4 — 平台唯一主题持久化键 */
 const THEME_STORAGE_KEY = 'plotflow:themeId';
+const BUNDLED_THEME_IDS = new Set<ThemeId>([
+  DEFAULT_THEME_ID,
+  'plotflow-narrative-workbench',
+  'plotflow-engine-telemetry',
+]);
 let nextGraphFocusRequestId = 0;
 /**
  * 旧版主题键（迁移用，只读不写）。
@@ -214,9 +219,7 @@ function persistWorkspaceMode(mode: WorkspaceMode): void {
  * 其他旧键（officialTheme / themePack）存储的已经是正式 ID。
  */
 export function normalizeLegacyThemeValue(value: string): ThemeId {
-  if (value === 'dark') return 'plotflow-prism-foundry';
-  if (value === 'light') return 'plotflow-prism-foundry';
-  return value;
+  return BUNDLED_THEME_IDS.has(value) ? value : DEFAULT_THEME_ID;
 }
 
 /**
@@ -226,8 +229,7 @@ export function normalizeLegacyThemeValue(value: string): ThemeId {
  * 迁移完成后删除所有旧键。旧 'dark'/'light' 值会规范化后再写入新键。
  */
 function readStoredThemeId(): ThemeId {
-  const DEFAULT_ID = 'plotflow-prism-foundry';
-  if (typeof window === 'undefined') return DEFAULT_ID;
+  if (typeof window === 'undefined') return DEFAULT_THEME_ID;
   try {
     // 1. 当前键
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -247,9 +249,9 @@ function readStoredThemeId(): ThemeId {
       }
     }
 
-    return DEFAULT_ID;
+    return DEFAULT_THEME_ID;
   } catch {
-    return DEFAULT_ID;
+    return DEFAULT_THEME_ID;
   }
 }
 
@@ -287,7 +289,6 @@ const initialState = {
   isProblemPanelOpen: false,
   isSourceDrawerOpen: false,
   activeChapterId: null,
-  inspectorTab: 'node' as InspectorTab,
   compactGraphPanel: null as CompactGraphPanel,
   graphFocusRequest: null as GraphFocusRequest | null,
   isExportDialogOpen: false,
@@ -295,8 +296,9 @@ const initialState = {
   isCorpusManagerOpen: false,
   isNewFileDialogOpen: false,
   isThemeCenterOpen: false,
+  isFeedbackDialogOpen: false,
   isHomeSurfaceOpen: true,
-} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'setInspectorTab' | 'setCompactGraphPanel' | 'requestGraphFocus' | 'consumeGraphFocus' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'setHomeSurfaceOpen'>;
+} as const satisfies Omit<UIState, 'setLanguage' | 'setWorkspaceMode' | 'toggleWorkspaceMode' | 'setActiveThemeId' | 'setActiveRightPanel' | 'setStatusMessage' | 'toggleConditionEditor' | 'openConditionEditor' | 'toggleOutlinePanel' | 'toggleProblemPanel' | 'setProblemPanelOpen' | 'toggleSourceDrawer' | 'setSourceDrawerOpen' | 'setActiveChapterId' | 'setCompactGraphPanel' | 'requestGraphFocus' | 'consumeGraphFocus' | 'openExportDialog' | 'closeExportDialog' | 'openCorpusManager' | 'closeCorpusManager' | 'openNewFileDialog' | 'closeNewFileDialog' | 'openThemeCenter' | 'closeThemeCenter' | 'openFeedbackDialog' | 'closeFeedbackDialog' | 'setHomeSurfaceOpen'>;
 
 // ============================================================================
 // Store
@@ -341,9 +343,10 @@ export const useUIStore = create<UIState>()(
         ),
 
       setActiveThemeId: (themeId: ThemeId) => {
-        persistPreference(THEME_STORAGE_KEY, themeId);
+        const normalizedThemeId = normalizeLegacyThemeValue(themeId);
+        persistPreference(THEME_STORAGE_KEY, normalizedThemeId);
         set(
-          { activeThemeId: themeId },
+          { activeThemeId: normalizedThemeId },
           false,
           'ui/setActiveThemeId',
         );
@@ -436,9 +439,6 @@ export const useUIStore = create<UIState>()(
           'ui/setActiveChapterId',
         ),
 
-      setInspectorTab: (tab: InspectorTab) =>
-        set({ inspectorTab: tab }, false, 'ui/setInspectorTab'),
-
       setCompactGraphPanel: (panel: CompactGraphPanel) =>
         set(
           panel === null
@@ -527,6 +527,20 @@ export const useUIStore = create<UIState>()(
           { isThemeCenterOpen: false },
           false,
           'ui/closeThemeCenter',
+        ),
+
+      openFeedbackDialog: () =>
+        set(
+          { isFeedbackDialogOpen: true },
+          false,
+          'ui/openFeedbackDialog',
+        ),
+
+      closeFeedbackDialog: () =>
+        set(
+          { isFeedbackDialogOpen: false },
+          false,
+          'ui/closeFeedbackDialog',
         ),
 
       setHomeSurfaceOpen: (open: boolean) =>

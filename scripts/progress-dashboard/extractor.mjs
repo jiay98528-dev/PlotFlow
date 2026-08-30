@@ -853,7 +853,7 @@ export async function buildDashboardData({ repoRoot }) {
 
   return {
     meta: {
-      projectName: 'PlotFlow',
+      projectName: 'Fablevia（维叙）',
       schemaVersion: SCHEMA_VERSION,
       generatedAt,
       repoRoot: repoRoot.replace(/\\/g, '/'),

@@ -1,0 +1,101 @@
+---
+plotflow: "0.1"
+title: "黑盒验收旅程"
+author: "GUI QA"
+engine: "godot"
+layout:
+  graph:
+    version: 1
+    nodes:
+      - id: "%E7%AC%AC%E4%BA%8C%E7%AB%A0/%E5%9C%B0%E4%B8%8B%E5%AE%A4"
+        x: -409
+        y: 394
+      - id: "%E7%AC%AC%E4%BA%8C%E7%AB%A0/%E6%A3%AE%E6%9E%97"
+        x: 362
+        y: 473
+      - id: "%E7%AC%AC%E4%BA%8C%E7%AB%A0/%E7%AC%AC%E4%BA%8C%E7%AB%A0%E5%85%A5%E5%8F%A3"
+        x: -70
+        y: 399
+      - id: "%E7%AC%AC%E4%BA%8C%E7%AB%A0/%E7%BB%88%E7%AB%A0"
+        x: 373
+        y: 158
+vars:
+  金币:
+    type: int
+    default: 0
+  分数:
+    type: int
+    default: 0
+  速度:
+    type: float
+    default: 0
+    scope: chapter
+    chapter: "第二章"
+  开门:
+    type: bool
+    default: false
+  角色名:
+    type: string
+    default: ""
+  阵营:
+    type: enum
+    values: ["外来者","村民","商会"]
+    default: "外来者"
+  装备:
+    type: object
+    default: {"装备信息":{"名称":{"显示名":""}}}
+    fields:
+      装备信息:
+        type: object
+        default: {"名称":{"显示名":""}}
+        fields:
+          名称:
+            type: object
+            default: {"显示名":""}
+            fields:
+              显示名:
+                type: string
+                default: ""
+---
+
+# 第一章
+
+## 节点：开始
+写下第一个场景。
+
+下一步: 第二章/节点：第二章入口
+  效果: 金币=5
+[选项] 进入森林 -> 第二章/节点：森林
+  条件: 5 < $金币
+  效果: 金币=3
+# 第二章
+
+
+## 节点：第二章入口
+
+在这里写下剧情正文。
+
+[选项] 调查森林 -> 第二章/节点：森林
+  效果: 金币=1
+## 节点：森林
+
+在这里写下剧情正文。
+
+[选项] 新选项
+  效果: 分数=10
+## 节点：地下室
+
+在这里写下剧情正文。
+
+下一步: 节点：第二章入口
+## 节点：终章
+
+在这里写下剧情正文。
+
+## 节点：新节点 4
+
+在这里写下剧情正文。
+
+## 节点：新节点
+
+新节点的描述内容

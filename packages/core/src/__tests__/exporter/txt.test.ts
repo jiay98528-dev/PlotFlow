@@ -12,13 +12,52 @@ import type { PlotFlowData } from '../../types/ast.js';
 // ==========================================================================
 
 function makeData(overrides?: Partial<PlotFlowData>): PlotFlowData {
-  return {
+  const data: PlotFlowData = {
     sourcePath: null,
     meta: { plotflow: '0.1', title: 'Untitled', author: 'Unknown' },
     variables: [],
     chapters: [],
     ...overrides,
   };
+
+  // Exporter tests focus on TXT formatting. Keep their hand-built AST fixtures
+  // semantically valid now that every public exporter enforces all Error rules.
+  const chapters = data.chapters.map((chapter) => ({
+    ...chapter,
+    nodes: [...chapter.nodes],
+  }));
+  const existingFullIds = new Set(chapters.flatMap((chapter) => chapter.nodes.map((node) => node.fullId)));
+  const referencedVariables = new Set<string>();
+
+  for (const chapter of chapters) {
+    for (const node of [...chapter.nodes]) {
+      for (const option of node.options) {
+        for (const effect of option.sideEffects) referencedVariables.add(effect.variableName);
+        if (!option.targetNodeId || !option.targetFullId || existingFullIds.has(option.targetFullId)) continue;
+        chapter.nodes.push({
+          id: option.targetNodeId,
+          fullId: option.targetFullId,
+          title: option.targetNodeId,
+          body: 'Target.',
+          chapterId: chapter.id,
+          options: [],
+          diagnostics: { isRoot: false, isOrphan: false, isDeadEnd: true, diagnosticIds: [] },
+          lineNumber: option.lineNumber + 1,
+        });
+        existingFullIds.add(option.targetFullId);
+      }
+    }
+  }
+
+  const variables = [...data.variables];
+  const declaredNames = new Set(variables.map((variable) => variable.name));
+  for (const name of referencedVariables) {
+    if (declaredNames.has(name)) continue;
+    variables.push({ name, type: 'int', defaultValue: 0, lineNumber: 1 });
+    declaredNames.add(name);
+  }
+
+  return { ...data, variables, chapters };
 }
 
 // ==========================================================================
@@ -26,24 +65,19 @@ function makeData(overrides?: Partial<PlotFlowData>): PlotFlowData {
 // ==========================================================================
 
 describe('TXT 导出 — 基本功能', () => {
-  it('空数据（无章节）→ 空字符串', () => {
+  it('空数据（无章节）→ E009', () => {
     const result = exportTXT(makeData());
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data).toBe('\n');
-    }
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]?.code).toBe('E009');
   });
 
-  it('有标题无章节 → 仅标题', () => {
+  it('有标题无章节 → E009', () => {
     const data = makeData({
       meta: { plotflow: '0.1', title: '我的故事', author: '测试' },
     });
     const result = exportTXT(data);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      // 标题 + 换行（尾部保证以换行结束）
-      expect(result.data).toBe('我的故事\n\n');
-    }
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]?.code).toBe('E009');
   });
 
   it('单个章节单个节点无选项', () => {
@@ -70,7 +104,7 @@ describe('TXT 导出 — 基本功能', () => {
       ],
     });
     const result = exportTXT(data);
-    expect(result.ok).toBe(true);
+    expect(result.ok, result.ok ? undefined : JSON.stringify(result.errors)).toBe(true);
     if (result.ok) {
       expect(result.data).toBe(`---
 第一章
@@ -412,11 +446,8 @@ describe('TXT 导出 — 选项', () => {
       ],
     });
     const result = exportTXT(data);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data).toContain('选项: 重新开始');
-      expect(result.data).not.toContain('→');
-    }
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.some((error) => error.code === 'E005')).toBe(true);
   });
 });
 
@@ -531,7 +562,7 @@ describe('TXT 导出 — 章节', () => {
 
 describe('TXT 导出 — 端到端集成', () => {
   it('完整故事导出', () => {
-    const data: PlotFlowData = {
+    const data = makeData({
       sourcePath: null,
       meta: { plotflow: '0.1', title: '暗夜森林·试玩版', author: 'PlotFlow Team' },
       variables: [],
@@ -642,7 +673,7 @@ describe('TXT 导出 — 端到端集成', () => {
           ],
         },
       ],
-    };
+    });
 
     const result = exportTXT(data);
     expect(result.ok).toBe(true);

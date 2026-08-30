@@ -61,8 +61,7 @@ const OPERATOR_TO_OPERATION: Readonly<Record<string, SideEffectOperation>> = {
  * 变量名段：不含操作符、分隔符、空白、点的非空字符序列。
  * $ 前缀可选（对应 syntax-formal.md §6.2 LValue = VarName）。
  */
-const EFFECT_OP_RE =
-  /^(\$?[^.=+\-,\s←]+(?:\.[^.=+\-,\s←]+)*)\s*([=+\-←])\s*(.+)$/u;
+const EFFECT_OP_RE = /^(\$?[^.=+\-,\s←]+(?:\.[^.=+\-,\s←]+)*)\s*([=+\-←])\s*(.+)$/u;
 
 // ============================================================================
 // 诊断创建辅助
@@ -226,9 +225,12 @@ function splitEffects(raw: string): string[] {
 /**
  * 值解析结果：成功则含 parsed 值，失败则含 diagnostic。
  */
-type ValueParseResult =
-  | { ok: true; value: VariableValue }
-  | { ok: false; diagnostic: Diagnostic };
+type ValueParseResult = { ok: true; value: VariableValue } | { ok: false; diagnostic: Diagnostic };
+
+const EXACT_INT_LITERAL = /^-?\d+$/;
+const EXACT_FLOAT_LITERAL = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
+const INT32_MIN = -2_147_483_648;
+const INT32_MAX = 2_147_483_647;
 
 /**
  * 根据变量类型，将值原始文本解析为 VariableValue。
@@ -246,15 +248,11 @@ type ValueParseResult =
  * @param lineNumber - 源文件行号
  * @returns 解析结果
  */
-function parseValueByType(
-  raw: string,
-  type: VariableType,
-  lineNumber: number,
-): ValueParseResult {
+function parseValueByType(raw: string, type: VariableType, lineNumber: number): ValueParseResult {
   switch (type) {
     case 'int': {
-      const num = parseInt(raw, 10);
-      if (isNaN(num)) {
+      const num = EXACT_INT_LITERAL.test(raw) ? Number(raw) : Number.NaN;
+      if (!Number.isInteger(num) || num < INT32_MIN || num > INT32_MAX) {
         return {
           ok: false,
           diagnostic: createDiagnostic(
@@ -263,7 +261,7 @@ function parseValueByType(
             1,
             raw.length,
             `无法将 "${raw}" 解析为 int 类型`,
-            '整数值应为数字（如 10），不含引号或非数字字符。',
+            `整数值必须是 ${INT32_MIN} 到 ${INT32_MAX} 之间的完整数字（如 10）。`,
           ),
         };
       }
@@ -271,8 +269,8 @@ function parseValueByType(
     }
 
     case 'float': {
-      const num = parseFloat(raw);
-      if (isNaN(num)) {
+      const num = EXACT_FLOAT_LITERAL.test(raw) ? Number(raw) : Number.NaN;
+      if (!Number.isFinite(num)) {
         return {
           ok: false,
           diagnostic: createDiagnostic(
@@ -369,10 +367,7 @@ function parseValueByType(
 function stripStringQuotes(raw: string): string {
   if (raw.length < 2) return raw;
 
-  if (
-    (raw.startsWith("'") && raw.endsWith("'")) ||
-    (raw.startsWith('"') && raw.endsWith('"'))
-  ) {
+  if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
     return raw.slice(1, -1);
   }
 
@@ -470,14 +465,7 @@ function parseOneEffect(
     }
 
     errors.push(
-      createDiagnostic(
-        'E005',
-        lineNumber,
-        1,
-        raw.length,
-        `效果表达式语法错误: "${raw}"`,
-        detail,
-      ),
+      createDiagnostic('E005', lineNumber, 1, raw.length, `效果表达式语法错误: "${raw}"`, detail),
     );
     return null;
   }
@@ -564,11 +552,7 @@ function parseOneEffect(
 
   const operation = OPERATOR_TO_OPERATION[operatorChar]!;
 
-  const typeCompatibilityError = validateOperationType(
-    operation,
-    varType,
-    lineNumber,
-  );
+  const typeCompatibilityError = validateOperationType(operation, varType, lineNumber);
   if (typeCompatibilityError) {
     errors.push(typeCompatibilityError);
     return null;

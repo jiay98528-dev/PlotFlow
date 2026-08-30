@@ -1,7 +1,7 @@
 @tool
 extends RefCounted
 
-## Calls the PlotFlow CLI to export a .mdstory file to JSON.
+## Calls the Fablevia CLI compatibility command to export a .mdstory file to JSON.
 ##
 ## The CLI executable is assumed to be discoverable via PATH.
 ## Override the path by setting the project setting:
@@ -35,10 +35,10 @@ func export_story(mdstory_path: String) -> bool:
 	var exit_code := OS.execute(cli, args, output, true)
 
 	if exit_code != 0:
-		push_error("PlotFlow ExportTrigger: CLI exited with code %d. Output:\n%s" % [exit_code, "\n".join(output)])
+		push_error("Fablevia ExportTrigger: CLI exited with code %d. Output:\n%s" % [exit_code, "\n".join(output)])
 		return false
 
-	print("PlotFlow ExportTrigger: exported to ", output_path)
+	print("Fablevia ExportTrigger: exported to ", output_path)
 	return true
 
 

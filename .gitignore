@@ -1,7 +1,7 @@
 node_modules/
 dist/
 out/
-release/
+/release/
 .env
 *.log
 .claude/
@@ -11,6 +11,9 @@ test-results/
 # Local manual QA artifacts
 manual-gui-audit*.mdstory
 manual-gui-audit*.json
+
+# Local landing-page design exploration (snapshots and probes)
+/网页/
 
 # OS files
 .DS_Store

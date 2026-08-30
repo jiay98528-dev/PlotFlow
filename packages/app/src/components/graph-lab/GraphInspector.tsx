@@ -1,18 +1,20 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Link2Off, ListPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
-import type {
-  Option,
-  StoryNode,
-  VariableDeclaration,
-  VariableScope,
-  VariableType,
-  VariableValue,
+import {
+  parseEffects,
+  type Option,
+  type StoryNode,
+  type VariableDeclaration,
+  type VariableScope,
+  type VariableType,
+  type VariableValue,
 } from '@plotflow/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useGraphStore } from '../../stores/graphStore';
 import { useStoryStore } from '../../stores/storyStore';
 import { useUIStore } from '../../stores/uiStore';
 import { graphEditService, type VariablePatch } from '../../services/graphEditService';
+import { saveOrSaveAs } from '../../services/autoSaveService';
 import { useAppText } from '../../i18n/appI18n';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
 import {
@@ -28,7 +30,13 @@ interface FieldProps {
   readonly onCommit: (value: string) => boolean;
 }
 
-function EditableField({ label, value, testId, multiline = false, onCommit }: FieldProps): React.ReactElement {
+function EditableField({
+  label,
+  value,
+  testId,
+  multiline = false,
+  onCommit,
+}: FieldProps): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [commitRejected, setCommitRejected] = useState(false);
   const lastCommittedRef = React.useRef(value);
@@ -40,29 +48,51 @@ function EditableField({ label, value, testId, multiline = false, onCommit }: Fi
     setCommitRejected(false);
   }, [value]);
 
-  const commit = useCallback((nextValue: string): boolean => {
-    if (nextValue === lastCommittedRef.current) return true;
-    const committed = onCommit(nextValue);
-    if (committed) {
-      lastCommittedRef.current = nextValue;
-      setCommitRejected(false);
-      return true;
-    }
-    setCommitRejected(true);
-    return false;
-  }, [onCommit]);
+  const commit = useCallback(
+    (nextValue: string): boolean => {
+      if (nextValue === lastCommittedRef.current) return true;
+      const committed = onCommit(nextValue);
+      if (committed) {
+        lastCommittedRef.current = nextValue;
+        setCommitRejected(false);
+        return true;
+      }
+      setCommitRejected(true);
+      return false;
+    },
+    [onCommit],
+  );
 
   const updateDraft = useCallback((nextDraft: string) => {
     setDraft(nextDraft);
     setCommitRejected(false);
   }, []);
 
-  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if ((!multiline && event.key === 'Enter') || (multiline && event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
-      event.preventDefault();
-      if (commit(event.currentTarget.value)) event.currentTarget.blur();
-    }
-  }, [commit, multiline]);
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        // The app-level save handler runs after React's delegated handler. Commit
+        // the visible Inspector draft first; a rejected draft must not allow the
+        // global handler to report a successful save of the older source text.
+        event.preventDefault();
+        event.stopPropagation();
+        if (!commit(event.currentTarget.value)) return;
+        // Graph edits commit the source and revision synchronously. Start the save
+        // from that exact committed revision instead of opening a timer window in
+        // which another global shortcut handler can capture the older text.
+        void saveOrSaveAs();
+        return;
+      }
+      if (
+        (!multiline && event.key === 'Enter') ||
+        (multiline && event.key === 'Enter' && (event.ctrlKey || event.metaKey))
+      ) {
+        event.preventDefault();
+        if (commit(event.currentTarget.value)) event.currentTarget.blur();
+      }
+    },
+    [commit, multiline],
+  );
 
   return (
     <label className="graph-lab-field">
@@ -94,7 +124,8 @@ function EditableField({ label, value, testId, multiline = false, onCommit }: Fi
 }
 
 function getSelectedStoryNode(): StoryNode | undefined {
-  const selectedNodeId = useGraphStore.getState().selectedNodeId ?? useEditorStore.getState().activeNodeId;
+  const selectedNodeId =
+    useGraphStore.getState().selectedNodeId ?? useEditorStore.getState().activeNodeId;
   return selectedNodeId ? useStoryStore.getState().getNodeByFullId(selectedNodeId) : undefined;
 }
 
@@ -104,11 +135,38 @@ function formatVariableDefault(variable: VariableDeclaration): string {
   return String(variable.defaultValue ?? '');
 }
 
-const VARIABLE_TYPES: readonly VariableType[] = ['int', 'float', 'bool', 'string', 'enum', 'object'];
+const VARIABLE_TYPES: readonly VariableType[] = [
+  'int',
+  'float',
+  'bool',
+  'string',
+  'enum',
+  'object',
+];
 const RESERVED_VARIABLE_NAMES = new Set([
-  'int', 'float', 'bool', 'string', 'enum', 'object',
-  'true', 'false', 'AND', 'OR', 'NOT', 'none',
-  'plotflow', 'title', 'author', 'engine', 'layout', 'graph', 'version', 'nodes', 'x', 'y', 'vars',
+  'int',
+  'float',
+  'bool',
+  'string',
+  'enum',
+  'object',
+  'true',
+  'false',
+  'AND',
+  'OR',
+  'NOT',
+  'none',
+  'plotflow',
+  'title',
+  'author',
+  'engine',
+  'layout',
+  'graph',
+  'version',
+  'nodes',
+  'x',
+  'y',
+  'vars',
 ]);
 const VARIABLE_NAME_RE = /^[\p{L}][\p{L}\p{N}_]{0,63}$/u;
 
@@ -156,7 +214,10 @@ function declarationToFieldDraft(variable: VariableDeclaration): VariableFieldDr
 }
 
 function enumValuesFromDraft(raw: string): string[] {
-  return raw.split(/\r?\n/u).map((value) => value.trim()).filter(Boolean);
+  return raw
+    .split(/\r?\n/u)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function variableNameIsValid(name: string): boolean {
@@ -186,7 +247,12 @@ function parseVariableDefault(
   }
   const result: Record<string, unknown> = {};
   for (const field of fields) {
-    const value = parseVariableDefault(field.type, field.defaultValue, field.enumValues, field.fields);
+    const value = parseVariableDefault(
+      field.type,
+      field.defaultValue,
+      field.enumValues,
+      field.fields,
+    );
     if (value === null) return null;
     result[field.name.trim()] = value;
   }
@@ -196,23 +262,36 @@ function parseVariableDefault(
 function fieldDraftIsValid(field: VariableFieldDraft, objectDepth: number): boolean {
   if (!variableNameIsValid(field.name)) return false;
   const enumValues = enumValuesFromDraft(field.enumValues);
-  if (field.type === 'enum' && (enumValues.length === 0 || new Set(enumValues).size !== enumValues.length)) return false;
-  if (parseVariableDefault(field.type, field.defaultValue, field.enumValues, field.fields) === null) return false;
+  if (
+    field.type === 'enum' &&
+    (enumValues.length === 0 || new Set(enumValues).size !== enumValues.length)
+  )
+    return false;
+  if (parseVariableDefault(field.type, field.defaultValue, field.enumValues, field.fields) === null)
+    return false;
   if (field.type !== 'object') return true;
   if (objectDepth >= 3) return false;
   const names = field.fields.map((item) => item.name.trim()).filter(Boolean);
-  return names.length === new Set(names).size
-    && field.fields.every((item) => fieldDraftIsValid(item, objectDepth + 1));
+  return (
+    names.length === new Set(names).size &&
+    field.fields.every((item) => fieldDraftIsValid(item, objectDepth + 1))
+  );
 }
 
 function fieldsDraftIsValid(fields: readonly VariableFieldDraft[]): boolean {
   const names = fields.map((field) => field.name.trim()).filter(Boolean);
-  return names.length === new Set(names).size
-    && fields.every((field) => fieldDraftIsValid(field, 1));
+  return (
+    names.length === new Set(names).size && fields.every((field) => fieldDraftIsValid(field, 1))
+  );
 }
 
 function fieldDraftToPatch(field: VariableFieldDraft): VariablePatch {
-  const defaultValue = parseVariableDefault(field.type, field.defaultValue, field.enumValues, field.fields);
+  const defaultValue = parseVariableDefault(
+    field.type,
+    field.defaultValue,
+    field.enumValues,
+    field.fields,
+  );
   return {
     name: field.name.trim(),
     type: field.type,
@@ -266,7 +345,11 @@ function VariableDefaultControl({
     return (
       <label className="graph-lab-field">
         <span>{text('inspector.defaultValue')}</span>
-        <select data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)}>
+        <select
+          data-testid={testId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        >
           <option value="false">false</option>
           <option value="true">true</option>
         </select>
@@ -278,10 +361,20 @@ function VariableDefaultControl({
     return (
       <label className="graph-lab-field">
         <span>{text('inspector.defaultValue')}</span>
-        <select data-testid={testId} value={value} onChange={(event) => onChange(event.target.value)}>
-          {values.length === 0
-            ? <option value="">{text('inspector.noEnumValues')}</option>
-            : values.map((item) => <option key={item} value={item}>{item}</option>)}
+        <select
+          data-testid={testId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {values.length === 0 ? (
+            <option value="">{text('inspector.noEnumValues')}</option>
+          ) : (
+            values.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))
+          )}
         </select>
       </label>
     );
@@ -315,9 +408,14 @@ function VariableFieldsEditor({
   onChange,
   text,
 }: VariableFieldsEditorProps): React.ReactElement {
-  const updateField = useCallback((index: number, patch: Partial<VariableFieldDraft>) => {
-    onChange(fields.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...patch } : field));
-  }, [fields, onChange]);
+  const updateField = useCallback(
+    (index: number, patch: Partial<VariableFieldDraft>) => {
+      onChange(
+        fields.map((field, fieldIndex) => (fieldIndex === index ? { ...field, ...patch } : field)),
+      );
+    },
+    [fields, onChange],
+  );
 
   return (
     <div
@@ -328,90 +426,96 @@ function VariableFieldsEditor({
       {fields.map((field, index) => {
         const fieldPath = `${pathPrefix}-${index}`;
         return (
-        <div className="graph-lab-variable-field" key={field.key}>
-          <div className="graph-lab-variable-field__row">
-            <input
-              data-testid={`graph-inspector-variable-field-name-${fieldPath}`}
-              value={field.name}
-              onChange={(event) => updateField(index, { name: event.target.value })}
-              placeholder={text('inspector.variableFieldName')}
-              aria-label={text('inspector.variableFieldName')}
-            />
-            <select
-              data-testid={`graph-inspector-variable-field-type-${fieldPath}`}
-              value={field.type}
-              onChange={(event) => {
-                const type = event.target.value as VariableType;
-                updateField(index, {
-                  type,
-                  defaultValue: defaultDraftForType(type, field.enumValues, field.fields),
-                  ...(type === 'object' ? {} : { fields: [] }),
-                  ...(type === 'enum' ? {} : { enumValues: '' }),
-                });
-              }}
-              aria-label={text('inspector.variableFieldType')}
-            >
-              {VARIABLE_TYPES.filter((type) => type !== 'object' || objectDepth < 3).map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="icon-button icon-button--danger"
-              data-testid={`graph-inspector-variable-field-delete-${fieldPath}`}
-              title={text('inspector.deleteVariableField')}
-              aria-label={text('inspector.deleteVariableField')}
-              onClick={() => onChange(fields.filter((_, fieldIndex) => fieldIndex !== index))}
-            >
-              <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
-            </button>
-          </div>
-          {field.type === 'enum' && (
-            <label className="graph-lab-field">
-              <span>{text('inspector.enumValues')}</span>
-              <textarea
-                data-testid={`graph-inspector-variable-field-enum-${fieldPath}`}
-                rows={3}
-                value={field.enumValues}
+          <div className="graph-lab-variable-field" key={field.key}>
+            <div className="graph-lab-variable-field__row">
+              <input
+                data-testid={`graph-inspector-variable-field-name-${fieldPath}`}
+                value={field.name}
+                onChange={(event) => updateField(index, { name: event.target.value })}
+                placeholder={text('inspector.variableFieldName')}
+                aria-label={text('inspector.variableFieldName')}
+              />
+              <select
+                data-testid={`graph-inspector-variable-field-type-${fieldPath}`}
+                value={field.type}
                 onChange={(event) => {
-                  const enumValues = event.target.value;
-                  const values = enumValuesFromDraft(enumValues);
+                  const type = event.target.value as VariableType;
                   updateField(index, {
-                    enumValues,
-                    defaultValue: values.includes(field.defaultValue) ? field.defaultValue : values[0] ?? '',
+                    type,
+                    defaultValue: defaultDraftForType(type, field.enumValues, field.fields),
+                    ...(type === 'object' ? {} : { fields: [] }),
+                    ...(type === 'enum' ? {} : { enumValues: '' }),
                   });
                 }}
-                placeholder={text('inspector.enumValuesPlaceholder')}
-              />
-            </label>
-          )}
-          <VariableDefaultControl
-            type={field.type}
-            enumValues={field.enumValues}
-            fields={field.fields}
-            value={field.defaultValue}
-            testId={`graph-inspector-variable-field-default-${fieldPath}`}
-            onChange={(defaultValue) => updateField(index, { defaultValue })}
-            text={text}
-          />
-          <label className="graph-lab-field">
-            <span>{text('inspector.variableDescription')}</span>
-            <input
-              data-testid={`graph-inspector-variable-field-description-${fieldPath}`}
-              value={field.description}
-              onChange={(event) => updateField(index, { description: event.target.value })}
-            />
-          </label>
-          {field.type === 'object' && objectDepth < 3 && (
-            <VariableFieldsEditor
+                aria-label={text('inspector.variableFieldType')}
+              >
+                {VARIABLE_TYPES.filter((type) => type !== 'object' || objectDepth < 3).map(
+                  (type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ),
+                )}
+              </select>
+              <button
+                type="button"
+                className="icon-button icon-button--danger"
+                data-testid={`graph-inspector-variable-field-delete-${fieldPath}`}
+                title={text('inspector.deleteVariableField')}
+                aria-label={text('inspector.deleteVariableField')}
+                onClick={() => onChange(fields.filter((_, fieldIndex) => fieldIndex !== index))}
+              >
+                <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+              </button>
+            </div>
+            {field.type === 'enum' && (
+              <label className="graph-lab-field">
+                <span>{text('inspector.enumValues')}</span>
+                <textarea
+                  data-testid={`graph-inspector-variable-field-enum-${fieldPath}`}
+                  rows={3}
+                  value={field.enumValues}
+                  onChange={(event) => {
+                    const enumValues = event.target.value;
+                    const values = enumValuesFromDraft(enumValues);
+                    updateField(index, {
+                      enumValues,
+                      defaultValue: values.includes(field.defaultValue)
+                        ? field.defaultValue
+                        : (values[0] ?? ''),
+                    });
+                  }}
+                  placeholder={text('inspector.enumValuesPlaceholder')}
+                />
+              </label>
+            )}
+            <VariableDefaultControl
+              type={field.type}
+              enumValues={field.enumValues}
               fields={field.fields}
-              objectDepth={objectDepth + 1}
-              pathPrefix={fieldPath}
-              onChange={(nextFields) => updateField(index, { fields: nextFields })}
+              value={field.defaultValue}
+              testId={`graph-inspector-variable-field-default-${fieldPath}`}
+              onChange={(defaultValue) => updateField(index, { defaultValue })}
               text={text}
             />
-          )}
-        </div>
+            <label className="graph-lab-field">
+              <span>{text('inspector.variableDescription')}</span>
+              <input
+                data-testid={`graph-inspector-variable-field-description-${fieldPath}`}
+                value={field.description}
+                onChange={(event) => updateField(index, { description: event.target.value })}
+              />
+            </label>
+            {field.type === 'object' && objectDepth < 3 && (
+              <VariableFieldsEditor
+                fields={field.fields}
+                objectDepth={objectDepth + 1}
+                pathPrefix={fieldPath}
+                onChange={(nextFields) => updateField(index, { fields: nextFields })}
+                text={text}
+              />
+            )}
+          </div>
         );
       })}
       <button
@@ -444,31 +548,64 @@ interface ParsedEffect {
 
 const EFFECT_OPERATIONS: readonly EffectOperation[] = ['set', 'add', 'subtract', 'append'];
 
-function effectOperationLabel(operation: EffectOperation, text: ReturnType<typeof useAppText>): string {
+function effectOperationLabel(
+  operation: EffectOperation,
+  text: ReturnType<typeof useAppText>,
+): string {
   if (operation === 'add') return text('inspector.effectOperationAdd');
   if (operation === 'subtract') return text('inspector.effectOperationSubtract');
   if (operation === 'append') return text('inspector.effectOperationAppend');
   return text('inspector.effectOperationSet');
 }
 
-function parseSimpleEffects(raw: string | null | undefined): ParsedEffect[] | null {
-  const value = raw?.trim() ?? '';
-  if (!value) return [];
-  const parsed = value.split(/[,，]/u).map((part): ParsedEffect | null => {
-    const match = /^([\p{L}\p{N}_.]+)\s*(=|\+|-|←)\s*(.+)$/u.exec(part.trim());
-    if (!match) return null;
-    const symbol = match[2] ?? '=';
-    return {
-      variableName: match[1] ?? '',
-      operation: symbol === '+' ? 'add' : symbol === '-' ? 'subtract' : symbol === '←' ? 'append' : 'set',
-      value: match[3]?.trim() ?? '',
-    };
-  });
-  if (parsed.some((effect) => effect === null)) return null;
-  return parsed as ParsedEffect[];
+export function parseEffectsForEditor(
+  raw: string | null | undefined,
+  variables: readonly VariableDeclaration[],
+): ParsedEffect[] | null {
+  const result = parseEffects(raw ?? null, variables);
+  if (!result.ok) return null;
+  return result.data.map((effect) => ({
+    variableName: effect.variableName,
+    operation: effect.operation,
+    value: (() => {
+      if (typeof effect.value === 'object') return JSON.stringify(effect.value);
+      const serialized = String(effect.value);
+      const variable = variables.find((candidate) => candidate.name === effect.variableName);
+      return variable?.type === 'string' || variable?.type === 'enum'
+        ? serialized.replace(/\\(["\\])/gu, '$1')
+        : serialized;
+    })(),
+  }));
 }
 
-function serializeEffect(effect: Pick<ParsedEffect, 'variableName' | 'operation' | 'value'>, variables: readonly VariableDeclaration[]): string | null {
+function optionDraftSignature(option: Option): string {
+  return JSON.stringify({
+    description: option.description,
+    targetNodeId: option.targetNodeId,
+    targetChapterId: option.targetChapterId,
+    conditionRaw: option.conditionRaw,
+    effectsRaw: option.effectsRaw,
+  });
+}
+
+export function createOptionDraftIdentity(
+  nodeFullId: string,
+  options: readonly Option[],
+  optionIndex: number,
+): string {
+  const option = options[optionIndex];
+  if (!option) return `${nodeFullId}:option:missing:${optionIndex}`;
+  const signature = optionDraftSignature(option);
+  const occurrence = options
+    .slice(0, optionIndex)
+    .filter((candidate) => optionDraftSignature(candidate) === signature).length;
+  return `${nodeFullId}:option:${signature}:${occurrence}`;
+}
+
+function serializeEffect(
+  effect: Pick<ParsedEffect, 'variableName' | 'operation' | 'value'>,
+  variables: readonly VariableDeclaration[],
+): string | null {
   const variableName = effect.variableName.trim().replace(/^\$/, '');
   if (!variableName) return null;
   const variable = variables.find((item) => item.name === variableName);
@@ -479,7 +616,10 @@ function serializeEffect(effect: Pick<ParsedEffect, 'variableName' | 'operation'
   return `${variableName}=${rhs}`;
 }
 
-function serializeEffects(effects: readonly ParsedEffect[], variables: readonly VariableDeclaration[]): string | null {
+function serializeEffects(
+  effects: readonly ParsedEffect[],
+  variables: readonly VariableDeclaration[],
+): string | null {
   const raw = effects
     .map((effect) => serializeEffect(effect, variables))
     .filter((effect): effect is string => Boolean(effect))
@@ -512,16 +652,27 @@ function VariableValueInput({
   readonly onBlur?: () => void;
   readonly onEnter?: () => void;
 }): React.ReactElement {
-  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
-    if (event.key === 'Enter' && onEnter) {
-      event.preventDefault();
-      onEnter();
-    }
-  }, [onEnter]);
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
+      if (event.key === 'Enter' && onEnter) {
+        event.preventDefault();
+        onEnter();
+      }
+    },
+    [onEnter],
+  );
 
   if (variable?.type === 'bool') {
     return (
-      <select data-testid={testId} value={value || 'true'} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel}>
+      <select
+        data-testid={testId}
+        value={value || 'true'}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={handleKeyDown}
+        aria-label={ariaLabel}
+        aria-keyshortcuts={onEnter ? 'Enter' : undefined}
+      >
         <option value="true">true</option>
         <option value="false">false</option>
       </select>
@@ -529,8 +680,20 @@ function VariableValueInput({
   }
   if (variable?.type === 'enum' && variable.enumValues?.length) {
     return (
-      <select data-testid={testId} value={value || variable.enumValues[0]} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onKeyDown={handleKeyDown} aria-label={ariaLabel}>
-        {variable.enumValues.map((item) => <option key={item} value={item}>{item}</option>)}
+      <select
+        data-testid={testId}
+        value={value || variable.enumValues[0]}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        onKeyDown={handleKeyDown}
+        aria-label={ariaLabel}
+        aria-keyshortcuts={onEnter ? 'Enter' : undefined}
+      >
+        {variable.enumValues.map((item) => (
+          <option key={item} value={item}>
+            {item}
+          </option>
+        ))}
       </select>
     );
   }
@@ -545,6 +708,7 @@ function VariableValueInput({
       inputMode={isNumeric ? 'decimal' : undefined}
       placeholder={variable?.type === 'string' ? '' : '0'}
       aria-label={ariaLabel}
+      aria-keyshortcuts={onEnter ? 'Enter' : undefined}
     />
   );
 }
@@ -616,13 +780,15 @@ function EffectsEditor({
   readonly onCommit: (raw: string | null) => boolean;
 }): React.ReactElement {
   const text = useAppText();
-  const parsed = parseSimpleEffects(raw);
-  const fallback = parsed === null;
-  const effects = parsed ?? [];
+  const parsedResult = useMemo(() => parseEffectsForEditor(raw, variables), [raw, variables]);
+  const fallback = parsedResult === null;
+  const parsedEffects = useMemo(() => parsedResult ?? [], [parsedResult]);
+  const [effects, setEffects] = useState<ParsedEffect[]>(parsedEffects);
   const firstVariable = variables[0]?.name ?? '';
   const [draftVariable, setDraftVariable] = useState(firstVariable);
   const [draftOperation, setDraftOperation] = useState<EffectOperation>('set');
   const [draftValue, setDraftValue] = useState('');
+  const [commitRejected, setCommitRejected] = useState(false);
   const draftVariableDef = variables.find((item) => item.name === draftVariable);
 
   React.useEffect(() => {
@@ -635,17 +801,30 @@ function EffectsEditor({
     setDraftValue('');
   }, [draftIdentity, firstVariable, storySessionId]);
 
-  const updateEffect = useCallback((effectIndex: number, patch: Partial<ParsedEffect>) => {
-    const nextEffects = effects.map((effect, itemIndex) =>
-      itemIndex === effectIndex ? { ...effect, ...patch } : effect,
-    );
-    onCommit(serializeEffects(nextEffects, variables));
-  }, [effects, onCommit, variables]);
+  React.useEffect(() => {
+    setEffects(parsedEffects);
+    setCommitRejected(false);
+  }, [draftIdentity, parsedEffects, storySessionId]);
 
-  const removeEffect = useCallback((effectIndex: number) => {
-    const nextEffects = effects.filter((_, itemIndex) => itemIndex !== effectIndex);
-    onCommit(serializeEffects(nextEffects, variables));
-  }, [effects, onCommit, variables]);
+  const updateEffect = useCallback(
+    (effectIndex: number, patch: Partial<ParsedEffect>) => {
+      const nextEffects = effects.map((effect, itemIndex) =>
+        itemIndex === effectIndex ? { ...effect, ...patch } : effect,
+      );
+      setEffects(nextEffects);
+      setCommitRejected(!onCommit(serializeEffects(nextEffects, variables)));
+    },
+    [effects, onCommit, variables],
+  );
+
+  const removeEffect = useCallback(
+    (effectIndex: number) => {
+      const nextEffects = effects.filter((_, itemIndex) => itemIndex !== effectIndex);
+      setEffects(nextEffects);
+      setCommitRejected(!onCommit(serializeEffects(nextEffects, variables)));
+    },
+    [effects, onCommit, variables],
+  );
 
   const addEffect = useCallback(() => {
     if (!draftVariable) return;
@@ -654,7 +833,13 @@ function EffectsEditor({
       operation: draftOperation,
       value: draftValue || variableDefaultValue(draftVariableDef),
     };
-    onCommit(serializeEffects([...effects, nextEffect], variables));
+    const nextEffects = [...effects, nextEffect];
+    setEffects(nextEffects);
+    if (!onCommit(serializeEffects(nextEffects, variables))) {
+      setCommitRejected(true);
+      return;
+    }
+    setCommitRejected(false);
     setDraftValue('');
   }, [draftOperation, draftValue, draftVariable, draftVariableDef, effects, onCommit, variables]);
 
@@ -682,20 +867,34 @@ function EffectsEditor({
               <div className="graph-lab-effect-row" key={`${effect.variableName}-${effectIndex}`}>
                 <select
                   value={effect.variableName}
-                  onChange={(event) => updateEffect(effectIndex, {
-                    variableName: event.target.value,
-                    value: variableDefaultValue(variables.find((item) => item.name === event.target.value)),
-                  })}
+                  onChange={(event) =>
+                    updateEffect(effectIndex, {
+                      variableName: event.target.value,
+                      value: variableDefaultValue(
+                        variables.find((item) => item.name === event.target.value),
+                      ),
+                    })
+                  }
                   aria-label={text('inspector.effectVariable')}
                 >
-                  {variables.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+                  {variables.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
                 </select>
                 <select
                   value={effect.operation}
-                  onChange={(event) => updateEffect(effectIndex, { operation: event.target.value as EffectOperation })}
+                  onChange={(event) =>
+                    updateEffect(effectIndex, { operation: event.target.value as EffectOperation })
+                  }
                   aria-label={text('inspector.effectOperationLabel')}
                 >
-                  {EFFECT_OPERATIONS.map((item) => <option key={item} value={item}>{effectOperationLabel(item, text)}</option>)}
+                  {EFFECT_OPERATIONS.map((item) => (
+                    <option key={item} value={item}>
+                      {effectOperationLabel(item, text)}
+                    </option>
+                  ))}
                 </select>
                 <VariableValueInput
                   variable={variable}
@@ -703,7 +902,13 @@ function EffectsEditor({
                   ariaLabel={text('inspector.effectValue')}
                   onChange={(nextValue) => updateEffect(effectIndex, { value: nextValue })}
                 />
-                <button type="button" className="icon-button icon-button--danger" title={text('inspector.deleteEffect')} aria-label={text('inspector.deleteEffect')} onClick={() => removeEffect(effectIndex)}>
+                <button
+                  type="button"
+                  className="icon-button icon-button--danger"
+                  title={text('inspector.deleteEffect')}
+                  aria-label={text('inspector.deleteEffect')}
+                  onClick={() => removeEffect(effectIndex)}
+                >
                   <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
                 </button>
               </div>
@@ -721,9 +926,13 @@ function EffectsEditor({
         >
           {variables.length === 0 ? (
             <option value="">{text('inspector.noVariables')}</option>
-          ) : variables.map((item) => (
-            <option key={item.name} value={item.name}>{item.name}</option>
-          ))}
+          ) : (
+            variables.map((item) => (
+              <option key={item.name} value={item.name}>
+                {item.name}
+              </option>
+            ))
+          )}
         </select>
         <select
           data-testid={`graph-inspector-option-effect-operation-${index}`}
@@ -732,7 +941,11 @@ function EffectsEditor({
           disabled={variables.length === 0}
           aria-label={text('inspector.effectOperationLabel')}
         >
-          {EFFECT_OPERATIONS.map((item) => <option key={item} value={item}>{effectOperationLabel(item, text)}</option>)}
+          {EFFECT_OPERATIONS.map((item) => (
+            <option key={item} value={item}>
+              {effectOperationLabel(item, text)}
+            </option>
+          ))}
         </select>
         <VariableValueInput
           variable={draftVariableDef}
@@ -748,25 +961,41 @@ function EffectsEditor({
           data-testid={`graph-inspector-option-effect-add-${index}`}
           onClick={addEffect}
           disabled={!draftVariable}
+          aria-keyshortcuts="Enter"
         >
           <Plus aria-hidden="true" size={14} strokeWidth={2} />
           <span>{text('inspector.addEffect')}</span>
         </button>
-        {variables.length === 0 && <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>}
+        {variables.length === 0 && (
+          <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>
+        )}
+        {commitRejected && (
+          <p className="graph-lab-control-hint" role="alert">
+            {text('inspector.updateRejected')}
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
-export function GraphInspector(): React.ReactElement {
+export type GraphInspectorContentMode = 'node' | 'story' | 'variables';
+
+interface GraphInspectorProps {
+  readonly contentMode?: GraphInspectorContentMode;
+  readonly embedded?: boolean;
+}
+
+export function GraphInspector({
+  contentMode = 'node',
+  embedded = false,
+}: GraphInspectorProps): React.ReactElement {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
   const storySessionId = useEditorStore((state) => state.storySessionId);
   const plotFlowData = useStoryStore((state) => state.plotFlowData);
   const allNodes = useStoryStore((state) => state.getAllNodes());
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
-  const inspectorTab = useUIStore((state) => state.inspectorTab);
-  const setInspectorTab = useUIStore((state) => state.setInspectorTab);
   const compactGraphPanel = useUIStore((state) => state.compactGraphPanel);
   const isCompactGraphLayout = useCompactGraphLayout();
   const [editingVariableName, setEditingVariableName] = useState<string | null>(null);
@@ -780,38 +1009,41 @@ export function GraphInspector(): React.ReactElement {
   const [variableFields, setVariableFields] = useState<readonly VariableFieldDraft[]>([]);
   const text = useAppText();
 
-  const node = useMemo(
-    () => {
-      const id = selectedNodeId ?? activeNodeId;
-      return id ? useStoryStore.getState().getNodeByFullId(id) : undefined;
-    },
-    [activeNodeId, selectedNodeId, plotFlowData],
-  );
+  const node = useMemo(() => {
+    const id = selectedNodeId ?? activeNodeId;
+    return id ? allNodes.find((candidate) => candidate.fullId === id) : undefined;
+  }, [activeNodeId, allNodes, selectedNodeId]);
 
   const chapterOptions = useMemo(
     () => plotFlowData?.chapters.map((chapter) => chapter.title).filter(Boolean) ?? [],
     [plotFlowData],
   );
   const variables = plotFlowData?.variables ?? [];
-  const nodeVariables = variables.filter((variable) => (
-    variable.scope !== 'chapter' || variable.chapterId === node?.chapterId
-  ));
+  const nodeVariables = variables.filter(
+    (variable) => variable.scope !== 'chapter' || variable.chapterId === node?.chapterId,
+  );
 
-  const commitNodePatch = useCallback((patch: Parameters<typeof graphEditService.updateNode>[1]): boolean => {
-    const selected = getSelectedStoryNode();
-    if (!selected) return false;
-    if (patch.title !== undefined && patch.title.trim().length === 0) return false;
-    const committed = graphEditService.updateNode(selected, patch);
-    if (committed) setStatusMessage(text('inspector.updatedNode'));
-    return committed;
-  }, [setStatusMessage, text]);
+  const commitNodePatch = useCallback(
+    (patch: Parameters<typeof graphEditService.updateNode>[1]): boolean => {
+      const selected = getSelectedStoryNode();
+      if (!selected) return false;
+      if (patch.title !== undefined && patch.title.trim().length === 0) return false;
+      const committed = graphEditService.updateNode(selected, patch);
+      if (committed) setStatusMessage(text('inspector.updatedNode'));
+      return committed;
+    },
+    [setStatusMessage, text],
+  );
 
-  const commitOptionPatch = useCallback((option: Option, patch: Parameters<typeof graphEditService.updateOption>[1]): boolean => {
-    if (patch.description !== undefined && patch.description.trim().length === 0) return false;
-    const committed = graphEditService.updateOption(option, patch);
-    if (committed) setStatusMessage(text('inspector.updatedOption'));
-    return committed;
-  }, [setStatusMessage, text]);
+  const commitOptionPatch = useCallback(
+    (option: Option, patch: Parameters<typeof graphEditService.updateOption>[1]): boolean => {
+      if (patch.description !== undefined && patch.description.trim().length === 0) return false;
+      const committed = graphEditService.updateOption(option, patch);
+      if (committed) setStatusMessage(text('inspector.updatedOption'));
+      return committed;
+    },
+    [setStatusMessage, text],
+  );
 
   const handleAddOption = useCallback(() => {
     const selected = getSelectedStoryNode();
@@ -852,11 +1084,18 @@ export function GraphInspector(): React.ReactElement {
     variableEnumValues,
     variableFields,
   );
-  const canSaveVariable = variableNameIsValid(variableName)
-    && (variableType !== 'enum' || (rootEnumValues.length > 0 && new Set(rootEnumValues).size === rootEnumValues.length))
-    && (variableType !== 'object' || fieldsDraftIsValid(variableFields))
-    && parsedRootDefault !== null
-    && (variableScope !== 'chapter' || chapterOptions.includes(variableChapterId));
+  const normalizedVariableName = variableName.trim();
+  const variableNameConflict = variables.some(
+    (variable) => variable.name === normalizedVariableName && variable.name !== editingVariableName,
+  );
+  const canSaveVariable =
+    variableNameIsValid(variableName) &&
+    !variableNameConflict &&
+    (variableType !== 'enum' ||
+      (rootEnumValues.length > 0 && new Set(rootEnumValues).size === rootEnumValues.length)) &&
+    (variableType !== 'object' || fieldsDraftIsValid(variableFields)) &&
+    parsedRootDefault !== null &&
+    (variableScope !== 'chapter' || chapterOptions.includes(variableChapterId));
 
   const handleVariableSubmit = useCallback(() => {
     if (!canSaveVariable) return;
@@ -871,10 +1110,27 @@ export function GraphInspector(): React.ReactElement {
       ...(variableType === 'enum' ? { enumValues: enumValuesFromDraft(variableEnumValues) } : {}),
       ...(variableType === 'object' ? { fields: variableFields.map(fieldDraftToPatch) } : {}),
     });
-    if (!committed) return;
+    if (!committed) {
+      setStatusMessage(text('inspector.updateRejected'));
+      return;
+    }
     resetVariableDraft();
     setStatusMessage(text('inspector.updatedVariable'));
-  }, [canSaveVariable, editingVariableName, parsedRootDefault, resetVariableDraft, setStatusMessage, text, variableChapterId, variableDescription, variableEnumValues, variableFields, variableName, variableScope, variableType]);
+  }, [
+    canSaveVariable,
+    editingVariableName,
+    parsedRootDefault,
+    resetVariableDraft,
+    setStatusMessage,
+    text,
+    variableChapterId,
+    variableDescription,
+    variableEnumValues,
+    variableFields,
+    variableName,
+    variableScope,
+    variableType,
+  ]);
 
   const handleVariableEdit = useCallback((variable: VariableDeclaration) => {
     setEditingVariableName(variable.name);
@@ -888,460 +1144,515 @@ export function GraphInspector(): React.ReactElement {
     setVariableFields(variable.fields?.map(declarationToFieldDraft) ?? []);
   }, []);
 
-  const handleVariableNameKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    handleVariableSubmit();
-  }, [handleVariableSubmit]);
+  const handleVariableNameKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      handleVariableSubmit();
+    },
+    [handleVariableSubmit],
+  );
 
-  const handleVariableDelete = useCallback((name: string) => {
-    if (graphEditService.deleteVariable(name)) {
-      if (editingVariableName === name) resetVariableDraft();
-      setStatusMessage(text('inspector.updatedVariable'));
-    }
-  }, [editingVariableName, resetVariableDraft, setStatusMessage, text]);
+  const handleVariableDelete = useCallback(
+    (name: string) => {
+      if (graphEditService.deleteVariable(name)) {
+        if (editingVariableName === name) resetVariableDraft();
+        setStatusMessage(text('inspector.updatedVariable'));
+      }
+    },
+    [editingVariableName, resetVariableDraft, setStatusMessage, text],
+  );
+  const rootClassName = embedded
+    ? 'graph-lab-global-editor__content'
+    : `graph-lab-inspector${compactGraphPanel === 'inspector' ? ' is-compact-open' : ''}`;
 
   return (
     <aside
-      className={`graph-lab-inspector${compactGraphPanel === 'inspector' ? ' is-compact-open' : ''}`}
-      aria-label={text('inspector.aria')}
-      data-testid="graph-lab-inspector"
-      {...(isCompactGraphLayout && compactGraphPanel !== 'inspector'
+      className={rootClassName}
+      aria-label={embedded ? text(`globalEditor.tabs.${contentMode}`) : text('inspector.aria')}
+      data-testid={embedded ? 'graph-lab-global-editor-content' : 'graph-lab-inspector'}
+      {...(!embedded && isCompactGraphLayout && compactGraphPanel !== 'inspector'
         ? { 'aria-hidden': true, inert: true }
         : {})}
     >
-      <div className="graph-lab-panel__header">
-        <span className="graph-lab-panel__eyebrow">{text('inspector.aria')}</span>
-        <h2>{node ? node.title : text('inspector.emptyTitle')}</h2>
-      </div>
-
-      <div className="graph-lab-inspector__tabs" role="tablist" aria-label={text('inspector.tabsAria')}>
-        {(['node', 'routes', 'variables', 'story'] as const).map((tab) => (
-          <button
-            type="button"
-            role="tab"
-            key={tab}
-            data-testid={`graph-inspector-tab-${tab}`}
-            aria-selected={inspectorTab === tab}
-            className={`graph-lab-inspector__tab${inspectorTab === tab ? ' is-active' : ''}`}
-            disabled={(tab === 'node' || tab === 'routes') && !node}
-            onClick={() => setInspectorTab(tab)}
-          >
-            {text(`inspector.tabs.${tab}`)}
-          </button>
-        ))}
-      </div>
-
-      {inspectorTab === 'story' && <section className="graph-lab-section">
-        <h3>{text('inspector.storyInfo')}</h3>
-        <EditableField
-          label={text('inspector.title')}
-          testId="graph-inspector-meta-title"
-          value={plotFlowData?.meta.title ?? ''}
-          onCommit={(value) => {
-            const committed = graphEditService.updateMeta('title', value);
-            if (committed) setStatusMessage(text('inspector.updatedStoryTitle'));
-            return committed;
-          }}
-        />
-        <EditableField
-          label={text('inspector.author')}
-          testId="graph-inspector-meta-author"
-          value={plotFlowData?.meta.author ?? ''}
-          onCommit={(value) => {
-            const committed = graphEditService.updateMeta('author', value);
-            if (committed) setStatusMessage(text('inspector.updatedAuthor'));
-            return committed;
-          }}
-        />
-        <label className="graph-lab-field">
-          <span>{text('inspector.engine')}</span>
-          <select
-            data-testid="graph-inspector-meta-engine"
-            value={plotFlowData?.meta.engine ?? 'generic'}
-            onChange={(event) => {
-              if (graphEditService.updateMeta('engine', event.target.value)) {
-                setStatusMessage(text('inspector.updatedEngine'));
-              }
-            }}
-          >
-            <option value="generic">generic</option>
-            <option value="godot">godot</option>
-            <option value="unity">unity</option>
-            <option value="unreal">unreal</option>
-          </select>
-        </label>
-        <div className="graph-lab-readonly-field">
-          <span>{text('inspector.plotflowVersion')}</span>
-          <output data-testid="graph-inspector-meta-plotflow">{plotFlowData?.meta.plotflow ?? '0.1'}</output>
+      {!embedded && (
+        <div className="graph-lab-panel__header">
+          <span className="graph-lab-panel__eyebrow">{text('inspector.node')}</span>
+          <h2>{node ? node.title : text('inspector.emptyTitle')}</h2>
         </div>
-      </section>}
+      )}
 
-      {(inspectorTab === 'node' || inspectorTab === 'routes') && (node ? (
-        <>
-          <section className="graph-lab-section">
-            <div className="graph-lab-section__title">
-              <h3>{inspectorTab === 'node' ? text('inspector.node') : text('inspector.routes')}</h3>
-              {inspectorTab === 'node' && (
-                <button type="button" className="icon-button" title={text('inspector.deleteNode')} aria-label={text('inspector.deleteNode')} onClick={handleDeleteNode}>
+      {contentMode === 'story' && (
+        <section className="graph-lab-section">
+          <h3>{text('inspector.storyInfo')}</h3>
+          <EditableField
+            label={text('inspector.title')}
+            testId="graph-inspector-meta-title"
+            value={plotFlowData?.meta.title ?? ''}
+            onCommit={(value) => {
+              const committed = graphEditService.updateMeta('title', value);
+              if (committed) setStatusMessage(text('inspector.updatedStoryTitle'));
+              return committed;
+            }}
+          />
+          <EditableField
+            label={text('inspector.author')}
+            testId="graph-inspector-meta-author"
+            value={plotFlowData?.meta.author ?? ''}
+            onCommit={(value) => {
+              const committed = graphEditService.updateMeta('author', value);
+              if (committed) setStatusMessage(text('inspector.updatedAuthor'));
+              return committed;
+            }}
+          />
+          <label className="graph-lab-field">
+            <span>{text('inspector.engine')}</span>
+            <select
+              data-testid="graph-inspector-meta-engine"
+              value={plotFlowData?.meta.engine ?? 'generic'}
+              onChange={(event) => {
+                if (graphEditService.updateMeta('engine', event.target.value)) {
+                  setStatusMessage(text('inspector.updatedEngine'));
+                }
+              }}
+            >
+              <option value="generic">generic</option>
+              <option value="godot">godot</option>
+              <option value="unity">unity</option>
+              <option value="unreal">unreal</option>
+            </select>
+          </label>
+          <div className="graph-lab-readonly-field">
+            <span>{text('inspector.plotflowVersion')}</span>
+            <output data-testid="graph-inspector-meta-plotflow">
+              {plotFlowData?.meta.plotflow ?? '0.1'}
+            </output>
+          </div>
+        </section>
+      )}
+
+      {contentMode === 'node' &&
+        (node ? (
+          <>
+            <section className="graph-lab-section">
+              <div className="graph-lab-section__title">
+                <h3>{text('inspector.node')}</h3>
+                <button
+                  type="button"
+                  className="icon-button"
+                  title={text('inspector.deleteNode')}
+                  aria-label={text('inspector.deleteNode')}
+                  onClick={handleDeleteNode}
+                >
                   <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
                 </button>
-              )}
-            </div>
-            {inspectorTab === 'node' && <>
-            <EditableField
-              label={text('inspector.title')}
-              testId="graph-inspector-node-title"
-              value={node.title}
-              onCommit={(value) => commitNodePatch({ title: value })}
-            />
-            <label className="graph-lab-field">
-              <span>{text('inspector.chapter')}</span>
-              <select
-                data-testid="graph-inspector-node-chapter"
-                value={node.chapterId}
-                onChange={(event) => commitNodePatch({ chapterTitle: event.target.value })}
-              >
-                {chapterOptions.length === 0 && <option value={node.chapterId}>{node.chapterId || text('inspector.defaultChapter')}</option>}
-                {chapterOptions.map((chapter) => (
-                  <option key={chapter} value={chapter}>{chapter}</option>
-                ))}
-              </select>
-            </label>
-            <EditableField
-              label={text('inspector.body')}
-              testId="graph-inspector-node-body"
-              value={node.body}
-              multiline
-              onCommit={(value) => commitNodePatch({ body: value })}
-            />
-            </>}
-            {inspectorTab === 'routes' && (node.options.length === 0 || node.nextTarget) && (
-              <div className="graph-lab-next-target">
-                <h4>{text('inspector.nextTarget')}</h4>
+              </div>
+              <>
+                <EditableField
+                  label={text('inspector.title')}
+                  testId="graph-inspector-node-title"
+                  value={node.title}
+                  onCommit={(value) => commitNodePatch({ title: value })}
+                />
                 <label className="graph-lab-field">
-                  <span>{text('inspector.targetNode')}</span>
+                  <span>{text('inspector.chapter')}</span>
                   <select
-                    data-testid="graph-inspector-next-target"
-                    value={node.nextTarget?.targetFullId ?? ''}
-                    onChange={(event) => {
-                      if (graphEditService.updateNextTarget(node, { targetFullId: event.target.value || null })) {
-                        setStatusMessage(text('inspector.updatedNextTarget'));
-                      }
-                    }}
+                    data-testid="graph-inspector-node-chapter"
+                    value={node.chapterId}
+                    onChange={(event) => commitNodePatch({ chapterTitle: event.target.value })}
                   >
-                    <option value="">{text('inspector.noJump')}</option>
-                    {allNodes
-                      .filter((target) => target.fullId !== node.fullId)
-                      .map((target) => (
-                        <option key={target.fullId} value={target.fullId}>
-                          {target.chapterId} / {target.title}
-                        </option>
-                      ))}
+                    {chapterOptions.length === 0 && (
+                      <option value={node.chapterId}>
+                        {node.chapterId || text('inspector.defaultChapter')}
+                      </option>
+                    )}
+                    {chapterOptions.map((chapter) => (
+                      <option key={chapter} value={chapter}>
+                        {chapter}
+                      </option>
+                    ))}
                   </select>
                 </label>
-                {node.nextTarget?.targetFullId && (
-                  <div className="graph-lab-field-group">
-                    <span>{text('inspector.nextEffects')}</span>
-                    <EffectsEditor
-                      variables={nodeVariables}
-                      raw={node.nextTarget.effectsRaw}
-                      index={-1}
-                      draftIdentity={`${node.fullId}:next`}
-                      storySessionId={storySessionId}
-                      onCommit={(value) => {
-                        const committed = graphEditService.updateNextTarget(node, { effectsRaw: value });
-                        if (committed) setStatusMessage(text('inspector.updatedNextTarget'));
-                        return committed;
+                <EditableField
+                  label={text('inspector.body')}
+                  testId="graph-inspector-node-body"
+                  value={node.body}
+                  multiline
+                  onCommit={(value) => commitNodePatch({ body: value })}
+                />
+              </>
+              {(node.options.length === 0 || node.nextTarget) && (
+                <div className="graph-lab-next-target">
+                  <h4>{text('inspector.nextTarget')}</h4>
+                  <label className="graph-lab-field">
+                    <span>{text('inspector.targetNode')}</span>
+                    <select
+                      data-testid="graph-inspector-next-target"
+                      value={node.nextTarget?.targetFullId ?? ''}
+                      onChange={(event) => {
+                        if (
+                          graphEditService.updateNextTarget(node, {
+                            targetFullId: event.target.value || null,
+                          })
+                        ) {
+                          setStatusMessage(text('inspector.updatedNextTarget'));
+                        }
                       }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
-          {inspectorTab === 'routes' && <section className="graph-lab-section">
-            <div className="graph-lab-section__title">
-              <h3>{text('inspector.options')}</h3>
-              <button type="button" className="graph-lab-inline-button" data-testid="graph-inspector-add-option" onClick={handleAddOption}>
-                <ListPlus aria-hidden="true" size={15} strokeWidth={2} />
-                <span>{text('inspector.add')}</span>
-              </button>
-            </div>
-            {node.options.length === 0 ? (
-              <p className="graph-lab-empty">{text('inspector.noOptions')}</p>
-            ) : (
-              <div className="graph-lab-options">
-                {node.options.map((option, index) => (
-                  <div className="graph-lab-option" key={`${option.lineNumber}-${index}`}>
-                    <EditableField
-                      label={text('inspector.optionLabel', { index: index + 1 })}
-                      testId={`graph-inspector-option-description-${index}`}
-                      value={option.description}
-                      onCommit={(value) => commitOptionPatch(option, { description: value })}
-                    />
-                    <label className="graph-lab-field">
-                      <span>{text('inspector.targetNode')}</span>
-                      <select
-                        data-testid={`graph-inspector-option-target-${index}`}
-                        value={option.targetFullId ?? ''}
-                        onChange={(event) => {
-                          const target = allNodes.find((candidate) => candidate.fullId === event.target.value);
-                          commitOptionPatch(option, {
-                            targetNodeId: target?.id ?? null,
-                            targetChapterId: target?.chapterId ?? null,
-                          });
-                        }}
-                      >
-                        <option value="">{text('inspector.noJump')}</option>
-                        {allNodes
-                          .filter((target) => target.fullId !== node.fullId)
-                          .map((target) => (
-                            <option key={target.fullId} value={target.fullId}>
-                              {target.chapterId} / {target.title}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
+                    >
+                      <option value="">{text('inspector.noJump')}</option>
+                      {allNodes
+                        .filter((target) => target.fullId !== node.fullId)
+                        .map((target) => (
+                          <option key={target.fullId} value={target.fullId}>
+                            {target.chapterId} / {target.title}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  {node.nextTarget?.targetFullId && (
                     <div className="graph-lab-field-group">
-                      <span>{text('inspector.condition')}</span>
-                      <OptionConditionEditor
-                        option={option}
-                        variables={nodeVariables}
-                        index={index}
-                        onCommit={(value) => commitOptionPatch(option, { conditionRaw: value })}
-                      />
-                    </div>
-                    <div className="graph-lab-field-group">
-                      <span>{text('inspector.effects')}</span>
+                      <span>{text('inspector.nextEffects')}</span>
                       <EffectsEditor
                         variables={nodeVariables}
-                        raw={option.effectsRaw ?? null}
-                        index={index}
-                        draftIdentity={`${node.fullId}:option:${option.lineNumber}:${index}`}
+                        raw={node.nextTarget.effectsRaw}
+                        index={-1}
+                        draftIdentity={`${node.fullId}:next`}
                         storySessionId={storySessionId}
-                        onCommit={(value) => commitOptionPatch(option, { effectsRaw: value })}
+                        onCommit={(value) => {
+                          const committed = graphEditService.updateNextTarget(node, {
+                            effectsRaw: value,
+                          });
+                          if (committed) setStatusMessage(text('inspector.updatedNextTarget'));
+                          return committed;
+                        }}
                       />
                     </div>
-                    <div className="graph-lab-option__actions">
-                      <button
-                        type="button"
-                        className="icon-button"
-                        title={text('inspector.moveUp')}
-                        aria-label={text('inspector.moveUp')}
-                        disabled={index === 0}
-                        onClick={() => graphEditService.reorderOption(node, index, index - 1)}
-                      >
-                        <ArrowUp aria-hidden="true" size={14} strokeWidth={2} />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        title={text('inspector.moveDown')}
-                        aria-label={text('inspector.moveDown')}
-                        disabled={index === node.options.length - 1}
-                        onClick={() => graphEditService.reorderOption(node, index, index + 1)}
-                      >
-                        <ArrowDown aria-hidden="true" size={14} strokeWidth={2} />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        title={text('inspector.clearJump')}
-                        aria-label={text('inspector.clearJump')}
-                        onClick={() => graphEditService.connectOption(option, null)}
-                      >
-                        <Link2Off aria-hidden="true" size={14} strokeWidth={2} />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button icon-button--danger"
-                        title={text('inspector.deleteOption')}
-                        aria-label={text('inspector.deleteOption')}
-                        onClick={() => graphEditService.deleteOption(option)}
-                      >
-                        <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>}
-        </>
-      ) : (
-        <p className="graph-lab-empty">{text('inspector.selectHint')}</p>
-      ))}
+                  )}
+                </div>
+              )}
+            </section>
 
-      {inspectorTab === 'variables' && <section className="graph-lab-section">
-        <h3>{text('inspector.variables')}</h3>
-        {variables.length > 0 ? (
-          <div className="graph-lab-variable-list" data-testid="graph-inspector-variable-list">
-            {variables.map((variable) => (
-              <div className="graph-lab-variable-row" key={variable.name}>
-                <div>
-                  <strong>{variable.name}</strong>
-                  <small>
-                    {variable.type} = {formatVariableDefault(variable)} · {variable.scope ?? 'global'}
-                    {variable.scope === 'chapter' && variable.chapterId ? ` / ${variable.chapterId}` : ''}
-                  </small>
-                </div>
-                <div className="graph-lab-variable-row__actions">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title={text('inspector.editVariable')}
-                    aria-label={text('inspector.editVariable')}
-                    onClick={() => handleVariableEdit(variable)}
-                  >
-                    <Pencil aria-hidden="true" size={14} strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button icon-button--danger"
-                    title={text('inspector.deleteVariable')}
-                    aria-label={text('inspector.deleteVariable')}
-                    onClick={() => handleVariableDelete(variable.name)}
-                  >
-                    <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
-                  </button>
-                </div>
+            <section className="graph-lab-section">
+              <div className="graph-lab-section__title">
+                <h3>{text('inspector.options')}</h3>
+                <button
+                  type="button"
+                  className="graph-lab-inline-button"
+                  data-testid="graph-inspector-add-option"
+                  onClick={handleAddOption}
+                >
+                  <ListPlus aria-hidden="true" size={15} strokeWidth={2} />
+                  <span>{text('inspector.add')}</span>
+                </button>
               </div>
-            ))}
-          </div>
+              {node.options.length === 0 ? (
+                <p className="graph-lab-empty">{text('inspector.noOptions')}</p>
+              ) : (
+                <div className="graph-lab-options">
+                  {node.options.map((option, index) => {
+                    const draftIdentity = createOptionDraftIdentity(
+                      node.fullId,
+                      node.options,
+                      index,
+                    );
+                    return (
+                      <div className="graph-lab-option" key={draftIdentity}>
+                        <EditableField
+                          label={text('inspector.optionLabel', { index: index + 1 })}
+                          testId={`graph-inspector-option-description-${index}`}
+                          value={option.description}
+                          onCommit={(value) => commitOptionPatch(option, { description: value })}
+                        />
+                        <label className="graph-lab-field">
+                          <span>{text('inspector.targetNode')}</span>
+                          <select
+                            data-testid={`graph-inspector-option-target-${index}`}
+                            value={option.targetFullId ?? ''}
+                            onChange={(event) => {
+                              const target = allNodes.find(
+                                (candidate) => candidate.fullId === event.target.value,
+                              );
+                              commitOptionPatch(option, {
+                                targetNodeId: target?.id ?? null,
+                                targetChapterId: target?.chapterId ?? null,
+                              });
+                            }}
+                          >
+                            <option value="">{text('inspector.noJump')}</option>
+                            {allNodes
+                              .filter((target) => target.fullId !== node.fullId)
+                              .map((target) => (
+                                <option key={target.fullId} value={target.fullId}>
+                                  {target.chapterId} / {target.title}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <div className="graph-lab-field-group">
+                          <span>{text('inspector.condition')}</span>
+                          <OptionConditionEditor
+                            option={option}
+                            variables={nodeVariables}
+                            index={index}
+                            onCommit={(value) => commitOptionPatch(option, { conditionRaw: value })}
+                          />
+                        </div>
+                        <div className="graph-lab-field-group">
+                          <span>{text('inspector.effects')}</span>
+                          <EffectsEditor
+                            variables={nodeVariables}
+                            raw={option.effectsRaw ?? null}
+                            index={index}
+                            draftIdentity={draftIdentity}
+                            storySessionId={storySessionId}
+                            onCommit={(value) => commitOptionPatch(option, { effectsRaw: value })}
+                          />
+                        </div>
+                        <div className="graph-lab-option__actions">
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title={text('inspector.moveUp')}
+                            aria-label={text('inspector.moveUp')}
+                            disabled={index === 0}
+                            onClick={() => graphEditService.reorderOption(node, index, index - 1)}
+                          >
+                            <ArrowUp aria-hidden="true" size={14} strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title={text('inspector.moveDown')}
+                            aria-label={text('inspector.moveDown')}
+                            disabled={index === node.options.length - 1}
+                            onClick={() => graphEditService.reorderOption(node, index, index + 1)}
+                          >
+                            <ArrowDown aria-hidden="true" size={14} strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title={text('inspector.clearJump')}
+                            aria-label={text('inspector.clearJump')}
+                            onClick={() => graphEditService.connectOption(option, null)}
+                          >
+                            <Link2Off aria-hidden="true" size={14} strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button icon-button--danger"
+                            title={text('inspector.deleteOption')}
+                            aria-label={text('inspector.deleteOption')}
+                            onClick={() => graphEditService.deleteOption(option)}
+                          >
+                            <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
         ) : (
-          <p className="graph-lab-empty">{text('inspector.noVariablesDeclared')}</p>
-        )}
-        <label className="graph-lab-field">
-          <span>{text('inspector.variableName')}</span>
-          <input
-            data-testid="graph-inspector-variable-name"
-            value={variableName}
-            onChange={(event) => setVariableName(event.target.value)}
-            onKeyDown={handleVariableNameKeyDown}
-            placeholder={text('inspector.variablePlaceholder')}
-          />
-        </label>
-        <label className="graph-lab-field">
-          <span>{text('inspector.variableType')}</span>
-          <select
-            data-testid="graph-inspector-variable-type"
-            value={variableType}
-            onChange={(event) => {
-              const type = event.target.value as VariableType;
-              setVariableType(type);
-              setVariableDefaultValue(defaultDraftForType(type, variableEnumValues, variableFields));
-              if (type !== 'enum') setVariableEnumValues('');
-              if (type !== 'object') setVariableFields([]);
-            }}
-          >
-            {VARIABLE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-          </select>
-        </label>
-        {variableType === 'enum' && (
+          <p className="graph-lab-empty">{text('inspector.selectHint')}</p>
+        ))}
+
+      {contentMode === 'variables' && (
+        <section className="graph-lab-section">
+          <h3>{text('inspector.variables')}</h3>
+          {variables.length > 0 ? (
+            <div className="graph-lab-variable-list" data-testid="graph-inspector-variable-list">
+              {variables.map((variable) => (
+                <div className="graph-lab-variable-row" key={variable.name}>
+                  <div>
+                    <strong>{variable.name}</strong>
+                    <small>
+                      {variable.type} = {formatVariableDefault(variable)} ·{' '}
+                      {variable.scope ?? 'global'}
+                      {variable.scope === 'chapter' && variable.chapterId
+                        ? ` / ${variable.chapterId}`
+                        : ''}
+                    </small>
+                  </div>
+                  <div className="graph-lab-variable-row__actions">
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title={text('inspector.editVariable')}
+                      aria-label={text('inspector.editVariable')}
+                      onClick={() => handleVariableEdit(variable)}
+                    >
+                      <Pencil aria-hidden="true" size={14} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button icon-button--danger"
+                      title={text('inspector.deleteVariable')}
+                      aria-label={text('inspector.deleteVariable')}
+                      onClick={() => handleVariableDelete(variable.name)}
+                    >
+                      <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="graph-lab-empty">{text('inspector.noVariablesDeclared')}</p>
+          )}
           <label className="graph-lab-field">
-            <span>{text('inspector.enumValues')}</span>
-            <textarea
-              data-testid="graph-inspector-variable-enum-values"
-              rows={4}
-              value={variableEnumValues}
-              onChange={(event) => {
-                const enumValues = event.target.value;
-                const values = enumValuesFromDraft(enumValues);
-                setVariableEnumValues(enumValues);
-                if (!values.includes(variableDefaultValue)) setVariableDefaultValue(values[0] ?? '');
-              }}
-              placeholder={text('inspector.enumValuesPlaceholder')}
+            <span>{text('inspector.variableName')}</span>
+            <input
+              data-testid="graph-inspector-variable-name"
+              value={variableName}
+              onChange={(event) => setVariableName(event.target.value)}
+              onKeyDown={handleVariableNameKeyDown}
+              placeholder={text('inspector.variablePlaceholder')}
             />
           </label>
-        )}
-        {variableType === 'object' && (
-          <div className="graph-lab-field-group">
-            <span>{text('inspector.objectFields')}</span>
-            <VariableFieldsEditor
-              fields={variableFields}
-              objectDepth={1}
-              onChange={setVariableFields}
-              text={text}
-            />
-          </div>
-        )}
-        <VariableDefaultControl
-          type={variableType}
-          enumValues={variableEnumValues}
-          fields={variableFields}
-          value={variableDefaultValue}
-          testId="graph-inspector-variable-default"
-          onChange={setVariableDefaultValue}
-          text={text}
-        />
-        <label className="graph-lab-field">
-          <span>{text('inspector.variableScope')}</span>
-          <select
-            data-testid="graph-inspector-variable-scope"
-            value={variableScope}
-            onChange={(event) => {
-              const scope = event.target.value as VariableScope | '';
-              setVariableScope(scope);
-              if (scope === 'chapter') {
-                setVariableChapterId((current) => (
-                  chapterOptions.includes(current) ? current : chapterOptions[0] ?? ''
-                ));
-              } else {
-                setVariableChapterId('');
-              }
-            }}
-          >
-            <option value="">{text('inspector.scopeInherited')}</option>
-            <option value="global">global</option>
-            <option value="chapter">chapter</option>
-          </select>
-        </label>
-        {variableScope === 'chapter' && (
           <label className="graph-lab-field">
-            <span>{text('inspector.variableChapter')}</span>
+            <span>{text('inspector.variableType')}</span>
             <select
-              data-testid="graph-inspector-variable-chapter"
-              value={variableChapterId}
-              onChange={(event) => setVariableChapterId(event.target.value)}
+              data-testid="graph-inspector-variable-type"
+              value={variableType}
+              onChange={(event) => {
+                const type = event.target.value as VariableType;
+                setVariableType(type);
+                setVariableDefaultValue(
+                  defaultDraftForType(type, variableEnumValues, variableFields),
+                );
+                if (type !== 'enum') setVariableEnumValues('');
+                if (type !== 'object') setVariableFields([]);
+              }}
             >
-              <option value="" disabled>{text('inspector.selectChapter')}</option>
-              {chapterOptions.map((chapter) => (
-                <option key={chapter} value={chapter}>{chapter}</option>
+              {VARIABLE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
           </label>
-        )}
-        <label className="graph-lab-field">
-          <span>{text('inspector.variableDescription')}</span>
-          <input
-            data-testid="graph-inspector-variable-description"
-            value={variableDescription}
-            onChange={(event) => setVariableDescription(event.target.value)}
-          />
-        </label>
-        {variableName.trim() && !canSaveVariable && (
-          <p className="graph-lab-control-hint">{text('inspector.variableDraftInvalid')}</p>
-        )}
-        <div className="graph-lab-variable-form__actions">
-          <button
-            type="button"
-            className="graph-lab-inline-button"
-            data-testid="graph-inspector-save-variable"
-            onClick={handleVariableSubmit}
-            disabled={!canSaveVariable}
-          >
-            {editingVariableName ? text('inspector.updateVariable') : text('inspector.saveVariable')}
-          </button>
-          {editingVariableName && (
-            <button type="button" className="graph-lab-inline-button" onClick={resetVariableDraft}>
-              <X aria-hidden="true" size={14} strokeWidth={2} />
-              <span>{text('inspector.cancelVariableEdit')}</span>
-            </button>
+          {variableType === 'enum' && (
+            <label className="graph-lab-field">
+              <span>{text('inspector.enumValues')}</span>
+              <textarea
+                data-testid="graph-inspector-variable-enum-values"
+                rows={4}
+                value={variableEnumValues}
+                onChange={(event) => {
+                  const enumValues = event.target.value;
+                  const values = enumValuesFromDraft(enumValues);
+                  setVariableEnumValues(enumValues);
+                  if (!values.includes(variableDefaultValue))
+                    setVariableDefaultValue(values[0] ?? '');
+                }}
+                placeholder={text('inspector.enumValuesPlaceholder')}
+              />
+            </label>
           )}
-        </div>
-      </section>}
+          {variableType === 'object' && (
+            <div className="graph-lab-field-group">
+              <span>{text('inspector.objectFields')}</span>
+              <VariableFieldsEditor
+                fields={variableFields}
+                objectDepth={1}
+                onChange={setVariableFields}
+                text={text}
+              />
+            </div>
+          )}
+          <VariableDefaultControl
+            type={variableType}
+            enumValues={variableEnumValues}
+            fields={variableFields}
+            value={variableDefaultValue}
+            testId="graph-inspector-variable-default"
+            onChange={setVariableDefaultValue}
+            text={text}
+          />
+          <label className="graph-lab-field">
+            <span>{text('inspector.variableScope')}</span>
+            <select
+              data-testid="graph-inspector-variable-scope"
+              value={variableScope}
+              onChange={(event) => {
+                const scope = event.target.value as VariableScope | '';
+                setVariableScope(scope);
+                if (scope === 'chapter') {
+                  setVariableChapterId((current) =>
+                    chapterOptions.includes(current) ? current : (chapterOptions[0] ?? ''),
+                  );
+                } else {
+                  setVariableChapterId('');
+                }
+              }}
+            >
+              <option value="">{text('inspector.scopeInherited')}</option>
+              <option value="global">global</option>
+              <option value="chapter">chapter</option>
+            </select>
+          </label>
+          {variableScope === 'chapter' && (
+            <label className="graph-lab-field">
+              <span>{text('inspector.variableChapter')}</span>
+              <select
+                data-testid="graph-inspector-variable-chapter"
+                value={variableChapterId}
+                onChange={(event) => setVariableChapterId(event.target.value)}
+              >
+                <option value="" disabled>
+                  {text('inspector.selectChapter')}
+                </option>
+                {chapterOptions.map((chapter) => (
+                  <option key={chapter} value={chapter}>
+                    {chapter}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="graph-lab-field">
+            <span>{text('inspector.variableDescription')}</span>
+            <input
+              data-testid="graph-inspector-variable-description"
+              value={variableDescription}
+              onChange={(event) => setVariableDescription(event.target.value)}
+            />
+          </label>
+          {variableName.trim() && !canSaveVariable && (
+            <p className="graph-lab-control-hint" role={variableNameConflict ? 'alert' : undefined}>
+              {variableNameConflict
+                ? text('inspector.variableNameConflict')
+                : text('inspector.variableDraftInvalid')}
+            </p>
+          )}
+          <div className="graph-lab-variable-form__actions">
+            <button
+              type="button"
+              className="graph-lab-inline-button"
+              data-testid="graph-inspector-save-variable"
+              onClick={handleVariableSubmit}
+              disabled={!canSaveVariable}
+            >
+              {editingVariableName
+                ? text('inspector.updateVariable')
+                : text('inspector.saveVariable')}
+            </button>
+            {editingVariableName && (
+              <button
+                type="button"
+                className="graph-lab-inline-button"
+                onClick={resetVariableDraft}
+              >
+                <X aria-hidden="true" size={14} strokeWidth={2} />
+                <span>{text('inspector.cancelVariableEdit')}</span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
     </aside>
   );
 }

@@ -6,10 +6,11 @@ import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
+const launchedTargets = new WeakMap<ElectronApplication, BlackboxLaunchTarget>();
+
 export const APP_ROOT = resolve(__dirname, '..', '..');
 export const PROJECT_ROOT = resolve(APP_ROOT, '..', '..');
 export const MAIN_SCRIPT = join(PROJECT_ROOT, 'out', 'main', 'main.js');
-export const WIN_UNPACKED_EXE = join(PROJECT_ROOT, 'release', 'win-unpacked', 'PlotFlow.exe');
 
 export type BlackboxLaunchTarget = 'devBuild' | 'winUnpacked' | 'installedExe';
 
@@ -30,17 +31,27 @@ export interface LaunchBlackboxOptions {
   readonly userDataDir?: string;
 }
 
-export async function launchBlackboxApp(options: LaunchBlackboxOptions = {}): Promise<LaunchedBlackboxApp> {
+export async function launchBlackboxApp(
+  options: LaunchBlackboxOptions = {},
+): Promise<LaunchedBlackboxApp> {
   const target = options.target ?? getBlackboxTarget();
+  if (target === 'installedExe') {
+    await assertNoInstalledFableviaProcesses('before launch');
+  }
   const executablePath = getBlackboxExecutablePath(target);
   const electronArgs = getBlackboxArgs(target, options.storyPath);
-  const userDataDir = await ensureDir(options.userDataDir ?? join(
-    tmpdir(),
-    `plotflow-blackbox-user-data-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  ));
+  const userDataDir = await ensureDir(
+    options.userDataDir ??
+      join(
+        tmpdir(),
+        `plotflow-blackbox-user-data-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      ),
+  );
 
   const env: Record<string, string> = Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
   );
   env['NODE_ENV'] = 'production';
   env['PLOTFLOW_BLACKBOX_E2E'] = '1';
@@ -59,6 +70,7 @@ export async function launchBlackboxApp(options: LaunchBlackboxOptions = {}): Pr
   };
 
   const app = await electron.launch(launchOptions as Parameters<typeof electron.launch>[0]);
+  launchedTargets.set(app, target);
 
   const page = await app.firstWindow();
   page.setDefaultTimeout(15_000);
@@ -74,21 +86,24 @@ export function getBlackboxTarget(): BlackboxLaunchTarget {
   throw new Error(`Unsupported PLOTFLOW_BLACKBOX_TARGET: ${raw}`);
 }
 
-export function getBlackboxExecutablePath(target: BlackboxLaunchTarget = getBlackboxTarget()): string | null {
+export function getBlackboxExecutablePath(
+  target: BlackboxLaunchTarget = getBlackboxTarget(),
+): string | null {
   if (target === 'devBuild') return null;
-  const executablePath = target === 'winUnpacked'
-    ? WIN_UNPACKED_EXE
-    : resolveInstalledExecutablePath();
+  const executablePath =
+    target === 'winUnpacked'
+      ? resolveWinUnpackedExecutablePath()
+      : resolveInstalledExecutablePath();
   if (!existsSync(executablePath)) {
-    throw new Error(`Blackbox launch target ${target} executable does not exist: ${executablePath}`);
+    throw new Error(
+      `Blackbox launch target ${target} executable does not exist: ${executablePath}`,
+    );
   }
   return executablePath;
 }
 
 export function getBlackboxArgs(target: BlackboxLaunchTarget, storyPath?: string): string[] {
-  const args = target === 'devBuild'
-    ? [existsSync(MAIN_SCRIPT) ? MAIN_SCRIPT : PROJECT_ROOT]
-    : [];
+  const args = target === 'devBuild' ? [existsSync(MAIN_SCRIPT) ? MAIN_SCRIPT : PROJECT_ROOT] : [];
   if (storyPath) {
     args.push(storyPath);
   }
@@ -98,20 +113,35 @@ export function getBlackboxArgs(target: BlackboxLaunchTarget, storyPath?: string
 export function resolveInstalledExecutablePath(): string {
   const configured = process.env['PLOTFLOW_INSTALLED_EXE'];
   if (!configured) {
-    throw new Error('PLOTFLOW_INSTALLED_EXE must point to the installed PlotFlow.exe when PLOTFLOW_BLACKBOX_TARGET=installedExe.');
+    throw new Error(
+      'PLOTFLOW_INSTALLED_EXE must point to the installed Fablevia.exe when PLOTFLOW_BLACKBOX_TARGET=installedExe.',
+    );
   }
   return resolve(configured);
 }
 
-export function getBlackboxArtifactRoot(target: BlackboxLaunchTarget = getBlackboxTarget()): string | null {
+export function getBlackboxArtifactRoot(
+  target: BlackboxLaunchTarget = getBlackboxTarget(),
+): string | null {
   const executablePath = getBlackboxExecutablePath(target);
   return executablePath ? dirname(executablePath) : null;
+}
+
+export function getBlackboxReleaseRoot(
+  target: BlackboxLaunchTarget = getBlackboxTarget(),
+): string | null {
+  if (target !== 'winUnpacked') return null;
+  resolveWinUnpackedExecutablePath();
+  return resolve(process.env['PLOTFLOW_BLACKBOX_RELEASE_ROOT']!);
 }
 
 export async function assertBlackboxNoFatalShell(page: Page): Promise<void> {
   await page.locator('.app-shell').waitFor({ state: 'visible', timeout: 30_000 });
   await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
-  const bodyText = await page.locator('body').innerText({ timeout: 5_000 }).catch(() => '');
+  const bodyText = await page
+    .locator('body')
+    .innerText({ timeout: 5_000 })
+    .catch(() => '');
   if (/white screen|fatal error|uncaught exception/i.test(bodyText)) {
     throw new Error(`Fatal shell text detected: ${bodyText.slice(0, 500)}`);
   }
@@ -122,17 +152,27 @@ export async function waitForAppReady(page: Page): Promise<void> {
 }
 
 export async function closeBlackboxApp(app: ElectronApplication): Promise<void> {
+  const target = launchedTargets.get(app);
   const isCleanupError = (error: unknown): boolean => {
     const message = error instanceof Error ? error.message : String(error);
-    return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(message);
+    return /closed|destroyed|crashed|Target page|browser has been closed|Process exited/i.test(
+      message,
+    );
   };
-  const withTimeout = async (promise: Promise<unknown>, timeoutMs: number, label: string): Promise<void> => {
+  const withTimeout = async (
+    promise: Promise<unknown>,
+    timeoutMs: number,
+    label: string,
+  ): Promise<void> => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     try {
       await Promise.race([
         promise,
         new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+          timer = setTimeout(
+            () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+          );
         }),
       ]);
     } finally {
@@ -154,11 +194,8 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
     if (child.exitCode !== null || child.signalCode !== null) return;
     if (process.platform === 'win32' && child.pid) {
       await new Promise<void>((resolve) => {
-        execFile(
-          'taskkill',
-          ['/pid', String(child.pid), '/T', '/F'],
-          { windowsHide: true },
-          () => resolve(),
+        execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true }, () =>
+          resolve(),
         );
       });
       return;
@@ -170,6 +207,7 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
   void closePromise.catch(() => {});
   try {
     await withTimeout(closePromise, 5_000, 'blackbox app.close');
+    if (target === 'installedExe') await waitForNoInstalledFableviaProcesses();
     return;
   } catch (error) {
     if (!isCleanupError(error) && !(error instanceof Error && /timed out/.test(error.message))) {
@@ -180,7 +218,83 @@ export async function closeBlackboxApp(app: ElectronApplication): Promise<void> 
   const child = app.process();
   await forceKillProcessTree(child);
   await waitForProcessExit(child, 3_000);
-  await withTimeout(closePromise.catch(() => undefined), 5_000, 'blackbox app.close after kill').catch(() => {});
+  await withTimeout(
+    closePromise.catch(() => undefined),
+    5_000,
+    'blackbox app.close after kill',
+  ).catch(() => {});
+  if (target === 'installedExe') await waitForNoInstalledFableviaProcesses();
+}
+
+export function resolveWinUnpackedExecutablePath(): string {
+  const configuredExecutable = process.env['PLOTFLOW_BLACKBOX_UNPACKED_EXE'];
+  const configuredRoot = process.env['PLOTFLOW_BLACKBOX_RELEASE_ROOT'];
+  if (!configuredExecutable || !configuredRoot) {
+    throw new Error(
+      'winUnpacked requires PLOTFLOW_BLACKBOX_UNPACKED_EXE and PLOTFLOW_BLACKBOX_RELEASE_ROOT from the same candidate.',
+    );
+  }
+  const releaseRoot = resolve(configuredRoot);
+  const executablePath = resolve(configuredExecutable);
+  const expectedPath = join(releaseRoot, 'win-unpacked', 'Fablevia.exe');
+  if (executablePath.toLowerCase() !== expectedPath.toLowerCase()) {
+    throw new Error(
+      `PLOTFLOW_BLACKBOX_UNPACKED_EXE must be inside the explicit candidate root: ${expectedPath}`,
+    );
+  }
+  return executablePath;
+}
+
+export interface StoryOpenObservation {
+  readonly status: 'opened' | 'error';
+  readonly fileName: string;
+  readonly detail: string;
+}
+
+async function listInstalledFableviaProcessIds(): Promise<number[]> {
+  if (process.platform !== 'win32') return [];
+  return new Promise((resolvePromise, reject) => {
+    execFile(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-Command',
+        "$items=@(Get-CimInstance Win32_Process -Filter \"Name='Fablevia.exe'\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessId); $items -join ','",
+      ],
+      { windowsHide: true },
+      (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const ids = stdout
+          .trim()
+          .split(',')
+          .filter(Boolean)
+          .map((value) => Number.parseInt(value, 10))
+          .filter(Number.isFinite);
+        resolvePromise(ids);
+      },
+    );
+  });
+}
+
+async function assertNoInstalledFableviaProcesses(stage: string): Promise<void> {
+  const processIds = await listInstalledFableviaProcessIds();
+  if (processIds.length > 0) {
+    throw new Error(
+      `Installed blackbox process isolation failed ${stage}; Fablevia.exe PIDs: ${processIds.join(', ')}`,
+    );
+  }
+}
+
+async function waitForNoInstalledFableviaProcesses(): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if ((await listInstalledFableviaProcessIds()).length === 0) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+  }
+  await assertNoInstalledFableviaProcesses('after close');
 }
 
 export async function ensureDir(path: string): Promise<string> {
@@ -204,7 +318,10 @@ export async function closeThemeCenterIfVisible(page: Page): Promise<void> {
 
 export async function switchToSplit(page: Page): Promise<void> {
   await page.getByTestId('workspace-mode-split').click();
-  await page.locator('[data-theme-surface="split-shell"], .split-workspace').first().waitFor({ state: 'visible' });
+  await page
+    .locator('[data-theme-surface="split-shell"], .split-workspace')
+    .first()
+    .waitFor({ state: 'visible' });
 }
 
 export async function switchToGraphLab(page: Page): Promise<void> {
@@ -227,9 +344,75 @@ export async function focusMonaco(page: Page): Promise<void> {
 }
 
 export async function waitForGraphNode(page: Page, text: string | RegExp): Promise<void> {
-  await page.locator('.react-flow__node, .official-graph-node').filter({ hasText: text }).first().waitFor({ state: 'visible' });
+  await page
+    .locator('.react-flow__node, .official-graph-node')
+    .filter({ hasText: text })
+    .first()
+    .waitFor({ state: 'visible' });
 }
 
 export async function waitForAnyGraphNode(page: Page): Promise<void> {
-  await page.locator('.react-flow__node, .official-graph-node').first().waitFor({ state: 'visible' });
+  await page
+    .locator('.react-flow__node, .official-graph-node')
+    .first()
+    .waitFor({ state: 'visible' });
+}
+
+export async function waitForStoryOpenObservation(
+  page: Page,
+  fileName: string,
+  timeoutMs = 20_000,
+): Promise<StoryOpenObservation> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const visiblePath = await page
+      .locator('.status-bar__path')
+      .textContent()
+      .catch(() => '');
+    const homeVisible = await page
+      .getByTestId('home-surface')
+      .isVisible()
+      .catch(() => false);
+    const graphVisible = await page
+      .getByTestId('graph-lab-workspace')
+      .isVisible()
+      .catch(() => false);
+    const nodeVisible = await page
+      .locator('.react-flow__node, .official-graph-node')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!homeVisible && graphVisible && nodeVisible && visiblePath?.includes(fileName)) {
+      return { status: 'opened', fileName, detail: visiblePath };
+    }
+
+    const statusMessage = await page
+      .locator('.status-bar__message')
+      .textContent()
+      .catch(() => '');
+    if (statusMessage && /could not open|无法打开|ENOENT|EACCES|EPERM/i.test(statusMessage)) {
+      return { status: 'error', fileName, detail: statusMessage };
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 200));
+  }
+
+  const detail = [
+    `homeVisible=${await page
+      .getByTestId('home-surface')
+      .isVisible()
+      .catch(() => false)}`,
+    `graphVisible=${await page
+      .getByTestId('graph-lab-workspace')
+      .isVisible()
+      .catch(() => false)}`,
+    `statusPath=${await page
+      .locator('.status-bar__path')
+      .textContent()
+      .catch(() => '')}`,
+    `statusMessage=${await page
+      .locator('.status-bar__message')
+      .textContent()
+      .catch(() => '')}`,
+  ].join('; ');
+  throw new Error(`Story open observation timed out for ${fileName}: ${detail}`);
 }

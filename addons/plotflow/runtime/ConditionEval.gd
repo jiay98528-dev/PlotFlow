@@ -2,7 +2,7 @@
 class_name PlotFlowConditionEval
 extends RefCounted
 
-## Evaluates PlotFlow conditions against a VariableStore.
+## Evaluates Fablevia conditions against a VariableStore.
 ##
 ## Supported operators:
 ##   eq   — equal
@@ -63,7 +63,7 @@ static func _evaluate_ast_unchecked(ast: Variant, store: PlotFlowVariableStore) 
 		"comparison":
 			return _evaluate_comparison(ast, store)
 		_:
-			push_warning("PlotFlow ConditionEval: unknown AST node type '%s'" % str(ast.get("type", "")))
+			push_warning("Fablevia ConditionEval: unknown AST node type '%s'" % str(ast.get("type", "")))
 			return false
 
 
@@ -112,7 +112,7 @@ static func evaluate(condition: String, store: PlotFlowVariableStore) -> bool:
 	# Parse: variable operator value
 	var parts := _split_condition(condition)
 	if parts.size() < 3:
-		push_warning("PlotFlow ConditionEval: malformed condition '%s'" % condition)
+		push_warning("Fablevia ConditionEval: malformed condition '%s'" % condition)
 		return false
 
 	var var_name := parts[0].strip_edges()
@@ -153,7 +153,7 @@ static func evaluate(condition: String, store: PlotFlowVariableStore) -> bool:
 					return true
 			return false
 		_:
-			push_warning("PlotFlow ConditionEval: unknown operator '%s'" % op)
+			push_warning("Fablevia ConditionEval: unknown operator '%s'" % op)
 			return false
 
 
@@ -260,7 +260,7 @@ static func _compare_values(left: Variant, right: Variant, operator: String) -> 
 		"in":
 			return right is Array and left in right
 		_:
-			push_warning("PlotFlow ConditionEval: unknown comparison operator '%s'" % operator)
+			push_warning("Fablevia ConditionEval: unknown comparison operator '%s'" % operator)
 			return false
 
 

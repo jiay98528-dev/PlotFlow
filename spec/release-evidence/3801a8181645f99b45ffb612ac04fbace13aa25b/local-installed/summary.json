@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "authority": "LOCAL_PREFLIGHT_ONLY",
+  "candidateCommit": "3801a8181645f99b45ffb612ac04fbace13aa25b",
+  "command": "PLOTFLOW_INSTALLED_EXE=D:/Test/PlotFlow/PlotFlow.exe pnpm.cmd --filter @plotflow/app test:e2e:installed",
+  "startedAt": "2026-07-15T01:06:39.347Z",
+  "durationMs": 103989.459,
+  "exitCode": 0,
+  "installation": {
+    "path": "D:/Test/PlotFlow/PlotFlow.exe",
+    "sha256": "4bcc43a7377bab2a5204620c2436ad2c1556046babbed6248b1e5afe226f0baa",
+    "version": "0.1.0",
+    "authenticode": "NotSigned",
+    "installLocationRegistered": true,
+    "quietUninstallRegistered": true,
+    "fileAssociationRegistered": true
+  },
+  "counters": {
+    "expected": 17,
+    "unexpected": 0,
+    "skipped": 0,
+    "flaky": 0
+  },
+  "rawResult": {
+    "path": "playwright-results.json",
+    "bytes": 26952,
+    "sha256": "db5c895e63791ef3c679f82690610bc7f4b453c8ad4795cc767accadd6477c3f"
+  },
+  "status": "LOCAL_PASS",
+  "releaseEffect": "Closes the local installed preflight only; it does not replace independent external-review actors or Authenticode."
+}
