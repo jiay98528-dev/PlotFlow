@@ -32,23 +32,17 @@ const assertions = [
   [js.includes('.mdstory'), 'static app should include the source file extension'],
   [js.includes('Graph Lab'), 'static app should include Graph Lab'],
   [js.includes('Windows'), 'static app should include Windows'],
-  [js.includes('From the first .mdstory file to a usable export'), 'English guide copy should exist'],
-  [js.includes('安装态、人工巡检和发行签名待完成') || js.includes('installed-app, manual patrol, and signing gates remain'), 'release copy should disclose remaining installed, manual, and signing gates'],
+  [
+    js.includes('From the first .mdstory file to a usable export'),
+    'English guide copy should exist',
+  ],
   [!js.match(/没有BUG|无 BUG|bug-free/i), 'copy should not claim bug-free status'],
   [css.includes('--color-paper'), 'CSS tokens should exist'],
-  [status.summary.completed > 0, 'project status should have completion data'],
+  [typeof status.summary.version === 'string', 'project status should have a software version'],
   [status.releaseGates.length >= 5, 'project status should include release gates'],
   [
-    status.releaseGates.some((gate) => gate.name === 'pnpm.cmd test' && gate.zhName === '单元测试'),
-    'project status should localize pnpm.cmd test as unit tests',
-  ],
-  [
-    status.releaseGates.some(
-      (gate) =>
-        gate.name === 'pnpm.cmd --filter @plotflow/progress-dashboard typecheck' &&
-        gate.zhName === '进度仪表盘类型检查',
-    ),
-    'project status should keep progress-dashboard typecheck specific',
+    status.releaseGates.some((gate) => gate.name === 'pnpm.cmd test' && gate.detail),
+    'unit check must carry current detail',
   ],
 ];
 

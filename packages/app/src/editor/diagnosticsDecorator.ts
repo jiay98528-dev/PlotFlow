@@ -20,7 +20,7 @@
  *   applyDiagnostics(editor, diagnostics);
  *   clearDiagnostics(editor);
  *
- * @see spec/milestones.md — M3-13/M3-14/M3-15
+ * @see spec/progress.md — M3-13/M3-14/M3-15
  * @see packages/core/src/types/diagnostic.ts — Diagnostic 类型定义
  * @see src/styles/diagnostics.css — 波浪线/下划线 + 侧边栏标记样式
  */
@@ -134,7 +134,7 @@ function toMonacoRange(range: SourceRange): monaco.IRange {
  * @param diagnostic - 验证器产出的单条诊断信息
  * @returns Monaco IMarkdownString（支持 Markdown 渲染）
  *
- * @see spec/milestones.md M3-15
+ * @see spec/progress.md M3-15
  */
 export function formatHoverMessage(diagnostic: Diagnostic): monaco.IMarkdownString {
   const { code, message, detail, suggestions } = diagnostic;

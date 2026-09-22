@@ -39,12 +39,12 @@ Graph Lab 已成为 PlotFlow 的主要且默认工作区，但 P2 审计仍发�
 ### 4. CI 与发行证据分层
 
 - 仓库与 CI 统一使用 pnpm 11.5.1；moderate 及以上依赖审计为阻断门禁。
-- Ubuntu PR 门禁覆盖 lint、typecheck、unit、build、CSS/token/bundle、UI literal、Schema mirror、engine contracts 与网站静态验证。
+- Ubuntu PR 检查覆盖 lint、typecheck、unit、build、CSS/token/bundle、engine contracts 与网站静态验证。
 - Windows PR 门禁在固定 `windows-2022`/Segoe UI 环境运行完整 app E2E、视觉旅程与 source blackbox，并仅在失败时上传 trace、截图和视频。
 - nightly/manual Windows 任务每次 fresh `package:win`，运行 unpacked blackbox、100/500/1000 节点性能旅程并生成 SHA256 清单。
 - installed blackbox 仅允许 `workflow_dispatch`、受保护 environment 和 self-hosted Windows runner。它必须验证本次安装包 SHA256、实际安装路径以及安装 EXE 与本次 unpacked EXE 哈希一致。
 
-工作流配置落地不等于门禁通过。进度与发布文档只能引用该 revision 上实际产生的运行结果和产物哈希。
+文档形式检查已于 2026-08-29 移至 nightly，不阻断 PR。工作流配置落地不等于测试通过。进度与发布文档只能引用该 revision 上实际产生的运行结果和产物哈希。
 
 ## 后果
 

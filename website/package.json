@@ -9,12 +9,12 @@
     "preview": "vite preview --host 127.0.0.1",
     "sync:data": "node scripts/sync-project-status.mjs",
     "serve:dist": "node scripts/serve-dist.mjs",
-    "build:static": "node scripts/build-static.mjs",
+    "build:static": "node scripts/sync-project-status.mjs && node scripts/build-static.mjs",
     "verify:static": "node scripts/verify-static.mjs",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc --noEmit && vite build"
+    "build": "node scripts/sync-project-status.mjs && tsc --noEmit && vite build"
   },
   "dependencies": {
     "@vitejs/plugin-react": "5.2.0",

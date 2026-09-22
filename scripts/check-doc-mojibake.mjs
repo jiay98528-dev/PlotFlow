@@ -2,20 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const MOJIBAKE = /锛|鈥|鏂|缁|鐨|妫|€|鍙|浠|妗|绔|鏍|瀵|浣|璇/g;
+const MOJIBAKE = /锛|鈥|鏂|缁|鐨|妫|鍙|浠|妗|绔|鏍|瀵|浣|璇/g;
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'out', 'release', 'dist', 'dist-static']);
 
-// Historical documents are repaired incrementally. Counts are ceilings, not exemptions:
-// cleanup is always allowed, while a new or increased mojibake footprint fails the gate.
-const LEGACY_BUDGETS = new Map([
-  ['COMPETITIVE_ANALYSIS.md', 11],
-  ['STATUS_AND_POTENTIAL.md', 5],
-  ['PRD.md', 1],
-  ['doc/TAD.md', 3531],
-  ['spec/decisions.md', 624],
-  ['测试反馈/首次用户旅程反馈-2026-06-14.md', 2],
-  ['测试反馈/installed-gui-e2e-10rounds-2026-07-08.md', 2],
-]);
+// Euro currency symbols are valid prose, not evidence of corrupted encoding.
+const LEGACY_BUDGETS = new Map();
 
 function collectMarkdown(directory, files = []) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {

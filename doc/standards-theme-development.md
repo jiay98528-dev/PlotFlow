@@ -99,7 +99,7 @@ packages/app/src/theme/builtin/<theme-id>/
 - 从用户目录、registry 或网络 materialize `ThemeDescriptor` 的代码；
 - 对主题 `.mjs` 的动态 `import()`。
 
-官网可保留历史主题包文件以便取证，但远程 registry 必须返回空数组，UI 与状态页必须明确远程运行时暂停。
+官网只展示三套内置主题，远程 registry 返回空数组；当前发布目录不再保留旧可执行主题包。
 
 ## 7. 最小验收
 

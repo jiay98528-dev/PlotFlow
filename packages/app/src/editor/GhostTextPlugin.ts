@@ -26,7 +26,7 @@
  * @module editor/GhostTextPlugin
  * @see CLAUDE.md §6.4 补全引擎触发规则
  * @see TAD.md §3.4 补全引擎架构
- * @see spec/milestones.md M5-08~M5-13
+ * @see spec/progress.md M5-08~M5-13
  */
 
 import * as monaco from 'monaco-editor';

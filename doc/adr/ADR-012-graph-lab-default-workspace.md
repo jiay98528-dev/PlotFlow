@@ -49,4 +49,3 @@ PlotFlow 最初以 Split 分栏和 Monaco 源文本编辑为主要入口。M8 �
 - `packages/app/src/stores/uiStore.ts`
 - `packages/app/src/services/storySessionService.ts`
 - `spec/release-blackbox-gate.md`
-- `spec/blackbox-gui-e2e-plan.md`

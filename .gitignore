@@ -28,3 +28,10 @@ Desktop.ini
 
 # Build artifacts
 *.tsbuildinfo
+
+# Generated website and local verification output
+/website/dist-static/
+/scripts/output/
+/scripts/benchmark/perf-report.json
+/i18n-audit-report.json
+playwright-report/

@@ -6,7 +6,7 @@
 **历史读取兼容 Schema**：`https://plotflow.dev/schema/0.1/story.json`
 **JSON Schema 版本**：draft-2020-12
 
-> ADR-013 是当前身份与导出合同。`.mdstory` frontmatter 中系统管理的 `plotflow: "0.1"` 是源语法版本，不随 JSON Schema 升级而改变；当前 JSON exporter 写出 0.2，0.1 只用于读取旧导出物。源文件与内部 AST 的 engine 枚举为 `generic | godot | unity | unreal`，导出器在 JSON 0.2 边界把 `generic` 映射为 `none`。P1 源码与严格 unpacked/Ajv 门禁已通过；installed、人工巡检、真实引擎工具链与签名仍待验收，因此本规范不能作为 release-candidate-passed 声明。
+> ADR-013 是当前身份与导出合同。`.mdstory` frontmatter 中系统管理的 `plotflow: "0.1"` 是源语法版本，不随 JSON Schema 升级而改变；当前 JSON exporter 写出 0.2，0.1 只用于读取旧导出物。源文件与内部 AST 的 engine 枚举为 `generic | godot | unity | unreal`，导出器在 JSON 0.2 边界把 `generic` 映射为 `none`。实际验证与交付状态统一见 spec/progress.md。
 
 ---
 

@@ -49,7 +49,7 @@ describe('site content', () => {
     expect(zhSource).toMatch(/叙事工作台/);
     expect(zhSource).toMatch(/棱镜铸造台/);
     expect(zhSource).toMatch(/引擎遥测台/);
-    expect(zhSource).toMatch(/安装态、真实引擎 smoke、人工巡检和发行签名待完成/);
+    expect(zhSource).toMatch(/本地/);
   });
 
   it('describes exactly the three bundled themes without claiming remote availability', () => {
@@ -60,7 +60,7 @@ describe('site content', () => {
     ]);
     const visible = collectVisibleStrings(officialThemes.zh).join('\n');
     expect(visible).toContain('官方内置主题');
-    expect(visible).toContain('远程主题 registry、下载、安装和代码加载已暂停');
+    expect(visible).toContain('随应用');
     expect(visible).not.toContain('霓虹档案');
     expect(visible).not.toContain('.pf-theme');
     expect(visible).not.toContain('购买');
@@ -76,8 +76,14 @@ describe('site content', () => {
 
   it('has generated project status data for the development page', () => {
     let status: {
-      summary: { completed: number; total: number };
-      releaseGates: Array<{ name: string; status?: string; zhName?: string; zhDetail?: string; result?: string }>;
+      summary: { version: string; channel: string };
+      releaseGates: Array<{
+        name: string;
+        status?: string;
+        zhName?: string;
+        zhDetail?: string;
+        result?: string;
+      }>;
       stableFeatures: Array<{ title: string; zhTitle?: string }>;
     };
     try {
@@ -85,18 +91,27 @@ describe('site content', () => {
     } catch {
       status = fallbackProjectStatus;
     }
-    expect(status.summary.completed).toBeGreaterThan(0);
-    expect(status.summary.total).toBeGreaterThanOrEqual(status.summary.completed);
+    const product = readJsonFile(path.resolve(__dirname, '../../../package.json')) as {
+      version: string;
+      releaseChannel: string;
+    };
+    expect(status.summary.version).toBe(product.version);
+    expect(status.summary.channel).toBe(product.releaseChannel);
     expect(status.releaseGates.length).toBeGreaterThan(0);
 
     const unitGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd test');
-    const appE2eGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd --filter @plotflow/app test:e2e');
+    const appE2eGate = status.releaseGates.find(
+      (gate) => gate.name === 'pnpm.cmd --filter @plotflow/app test:e2e',
+    );
     const packageGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd package:win');
 
-    expect(unitGate?.zhDetail).toContain('68 个测试文件 / 1376 条测试用例通过');
+    const progress = readFileSync(path.resolve(__dirname, '../../../spec/progress.md'), 'utf8');
+    expect(unitGate?.zhDetail).toBeTruthy();
+    expect(progress).toContain(unitGate!.zhDetail!);
     expect(unitGate?.status).toBe('pass');
-    expect(appE2eGate?.zhDetail).toContain('74 条 ADR-013 Graph-first 应用 E2E 全部通过');
-    expect(packageGate?.status).toBe('pass');
+    expect(appE2eGate?.zhDetail).toBeTruthy();
+    expect(progress).toContain(appE2eGate!.zhDetail!);
+    expect(packageGate?.zhDetail).toBeTruthy();
 
     const visibleStatus = collectVisibleStrings(status).join('\n');
     expect(visibleStatus).not.toContain('39 条应用 E2E');

@@ -26,7 +26,7 @@ export function createPlaywrightLaunch({
 
   return {
     command: execPath,
-    args: [resolveCli(cwd), ...args],
+    args: [resolveCli(cwd), 'test', ...args],
     cwd,
     env: { ...environment, PLOTFLOW_BLACKBOX_TARGET: target },
   };

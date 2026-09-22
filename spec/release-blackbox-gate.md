@@ -15,7 +15,7 @@ ADR-012 makes Graph Lab the primary and default workspace. Release evidence must
 | Integration E2E | `pnpm.cmd --filter @plotflow/app test:e2e` | source build / test harness | Yes | proves renderer/main integration behavior |
 | Source blackbox | `pnpm.cmd --filter @plotflow/app test:e2e:blackbox` | `out/main/main.js` | No | proves visible GUI journeys without store or IPC shortcuts |
 | Unpacked blackbox | `pnpm.cmd release:candidate:create`, then run `test:e2e:unpacked` with that command's exact `CANDIDATE_DIR` and `UNPACKED_EXE` outputs | `release/candidates/<version>/<commit>/<utc-run>/win-unpacked/Fablevia.exe` | No | proves the immutable candidate executable and resources behave like a user build |
-| Installed blackbox | `$env:PLOTFLOW_INSTALLED_EXE = 'D:\PF\PlotFlow\PlotFlow.exe'` then `pnpm.cmd --filter @plotflow/app test:e2e:installed` | real installed app | No | proves the installed path, registered resources, and app launch path work |
+| Installed blackbox | `$env:PLOTFLOW_INSTALLED_EXE = 'D:\PF\Fablevia\Fablevia.exe'` then `pnpm.cmd --filter @plotflow/app test:e2e:installed` | real installed app | No | proves the installed path, registered resources, and app launch path work |
 
 If the unpacked or installed blackbox layers have not been run, report only the layers actually executed. Do not turn missing release evidence into a blocker for ordinary implementation, review, commits or source builds.
 
@@ -67,10 +67,6 @@ Implemented in source integration E2E under `packages/app/e2e/` and required bef
 - Graph Lab P0/P1 coverage: recent-file `Continue editing`, single-file `vars:` editing, condition/effect variable dropdowns, node-level `下一步` flow exits, chapter source slices, and W007 closed-cycle diagnostics.
 - Graph Lab visual coverage: chapter tab bar must be verified by Playwright screenshots before and after creating a chapter; DOM-only assertions are not sufficient because a fixed-height command bar can clip a rendered tab row.
 
-## Historical Evidence
-
-Archived to [`spec/release-evidence/blackbox-gate-history.md`](release-evidence/blackbox-gate-history.md): the 0.1.1 preview source snapshot, the superseded 2026-07 gate-snapshot table, and all dated repair/audit notes with per-run SHA256 identities. History is retained for traceability only; it does not gate current work.
-
 ## Required Release Commands
 
 Run these in order:
@@ -87,17 +83,17 @@ pnpm.cmd --filter @plotflow/app test:e2e
 pnpm.cmd --filter @plotflow/app test:e2e:blackbox
 pnpm.cmd package:win
 pnpm.cmd --filter @plotflow/app test:e2e:unpacked
-$env:PLOTFLOW_INSTALLED_EXE = 'D:\PF\PlotFlow\PlotFlow.exe'
+$env:PLOTFLOW_INSTALLED_EXE = 'D:\PF\Fablevia\Fablevia.exe'
 pnpm.cmd --filter @plotflow/app test:e2e:installed
 pnpm.cmd audit --audit-level moderate
 Remove-Item Env:PLOTFLOW_INSTALLED_EXE -ErrorAction SilentlyContinue
 ```
 
-Installed blackbox requires the user or release engineer to install the newly built installer before running it. If `D:\PF\PlotFlow\PlotFlow.exe` still points to an older build, record the result as stale-installed evidence, not release evidence.
+Installed blackbox requires the user or release engineer to install the newly built installer before running it. If `D:\PF\Fablevia\Fablevia.exe` still points to an older build, record the result as stale-installed evidence, not release evidence.
 
 ## Manual High-Risk Patrol
 
-### Automated workflow policy (P2, implemented; remote runs pending)
+### Automated workflow policy (implemented)
 
 - Pull requests use an Ubuntu quality job for source gates and a `windows-2022` job for app E2E, visual journeys and source blackbox. Failure artifacts retain Playwright trace, screenshots and video when present.
 - `.github/workflows/release-validation.yml` is the nightly/manual entry for a fresh Windows package, unpacked blackbox, 100/500/1000-node performance journeys and candidate identity verification. The package job refuses a dirty worktree and writes every run to a new `release/candidates/<version>/<full-commit>/<utc-run>/` directory that must not already exist. It never deletes or overwrites the legacy root `release/` contents.

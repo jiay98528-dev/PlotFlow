@@ -13,7 +13,7 @@
  * 对应规范：
  * - spec/syntax-formal.md 各节的错误规则
  * - doc/TAD.md 6 类型系统 (Validator 层)
- * - spec/milestones.md M3 验证器
+ * - spec/progress.md M3 验证器
  */
 
 import { describe, it, expect } from 'vitest';

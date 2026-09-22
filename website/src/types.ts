@@ -14,16 +14,6 @@ export interface Metric {
   tone: Tone;
 }
 
-export interface MilestoneStatus {
-  id: string;
-  title: string;
-  total: number;
-  complete: number;
-  skipped: number;
-  removed: number;
-  progress: number;
-}
-
 export interface GateStatus {
   name: string;
   zhName?: string;
@@ -55,16 +45,10 @@ export interface RoadmapItem {
 export interface ProjectStatus {
   generatedAt: string;
   summary: {
-    completed: number;
-    total: number;
-    rate: number;
-    remaining: number;
-    deferred: number;
-    removed: number;
+    version: string;
+    channel: string;
     lastUpdated: string;
-    grade: string;
   };
-  milestones: MilestoneStatus[];
   releaseGates: GateStatus[];
   stableFeatures: FeatureStatus[];
   experimentalFeatures: FeatureStatus[];

@@ -1,6 +1,6 @@
-# PlotFlow Website
+# Fablevia Website
 
-独立的 PlotFlow 落地页与使用说明网站。它是发行附加内容，后续直接部署到服务器，不进入桌面软件安装包。
+独立的 Fablevia 落地页与使用说明网站。它是发行附加内容，后续直接部署到服务器，不进入桌面软件安装包。
 
 ## Commands
 
@@ -29,6 +29,6 @@ node website/scripts/verify-static.mjs
 
 - `website/` 不加入根 `pnpm-workspace.yaml`。
 - `website/` 不跟随 Electron `electron-builder` 打包。
-- 开发页数据由 `scripts/sync-project-status.mjs` 从项目进度数据生成，避免手写进度数字腐败。
+- 开发页数据由 `scripts/sync-project-status.mjs` 直接从 spec/progress.md 和根 package.json 生成，避免手写进度数字腐败。
 - 首版中英双语为人工维护内容，不接入复杂 i18n 框架。
 - React/Vite 源码接口保留在 `website/src/`；当前静态降级版本保留同一个 `public/data/project-status.json` 数据接口。

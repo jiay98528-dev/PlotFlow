@@ -14,7 +14,7 @@
  * - editorInstance 为 null 时（M0 textarea 占位），大纲→编辑器仅更新 store 状态
  * - 编辑器→大纲方向在 editorInstance 为 null 时不监听
  *
- * @see spec/milestones.md — M1-15
+ * @see spec/progress.md — M1-15
  * @see doc/TAD.md §2.2.2 EditorState / StoryState
  */
 

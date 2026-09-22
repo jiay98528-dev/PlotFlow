@@ -299,7 +299,8 @@ test.describe('Official Theme Center E2E', () => {
     await page.setViewportSize(originalViewport);
   });
 
-  test('applies Prism Foundry with isolated preview tokens and preserves Graph Lab interactions', async ({ page: _unusedPage }, testInfo) => {
+  test('applies Prism Foundry with isolated preview tokens and preserves Graph Lab interactions', async () => {
+    const testInfo = test.info();
     const originalViewport = await page.evaluate(() => ({
       width: window.innerWidth,
       height: window.innerHeight,
@@ -520,7 +521,8 @@ test.describe('Official Theme Center E2E', () => {
     await page.setViewportSize(originalViewport);
   });
 
-  test('applies engine telemetry theme from Theme Center and verifies Graph Lab shell', async ({ page: _unusedPage }, testInfo) => {
+  test('applies engine telemetry theme from Theme Center and verifies Graph Lab shell', async () => {
+    const testInfo = test.info();
     const originalViewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
     await page.getByTestId('toolbar-theme-center').click();
     await expect(page.getByTestId('theme-center')).toBeVisible();

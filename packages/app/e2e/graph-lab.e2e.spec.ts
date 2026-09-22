@@ -967,14 +967,18 @@ async function openWorkspaceBrowser(page: Page): Promise<void> {
 test.describe('Graph Lab E2E', () => {
   let electronApp: ElectronApplication;
   let page: Page;
+  let userDataDir: string;
 
-  test.beforeAll(async () => {
+  test.beforeEach(async () => {
+    userDataDir = test.info().outputPath('profile');
+    fs.mkdirSync(userDataDir, { recursive: true });
     const electronArgs = fs.existsSync(MAIN_SCRIPT) ? [MAIN_SCRIPT] : [PROJECT_ROOT];
     electronApp = await electron.launch({
       args: electronArgs,
       env: {
         ...process.env,
         NODE_ENV: 'test',
+        PLOTFLOW_TEST_USER_DATA_DIR: userDataDir,
         ...(process.env['ELECTRON_RENDERER_URL']
           ? { ELECTRON_RENDERER_URL: process.env['ELECTRON_RENDERER_URL'] }
           : {}),
@@ -1016,8 +1020,8 @@ test.describe('Graph Lab E2E', () => {
     });
   });
 
-  test.afterAll(async () => {
-    await closeElectronAppSafely(electronApp, page);
+  test.afterEach(async () => {
+    if (electronApp) await closeElectronAppSafely(electronApp, page);
   });
 
   test('keeps Home hero readable across official themes and viewports', async () => {

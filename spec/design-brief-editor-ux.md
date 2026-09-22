@@ -379,9 +379,9 @@ Home 的 `Continue editing` 必须优先重新读取最近保存的 `.mdstory`�
 - Source blackbox passed：代表源码构建黑盒通过。
 - Unpacked blackbox passed：代表 `release/win-unpacked/Fablevia.exe` 通过。
 - Installed blackbox passed：代表新安装路径通过。
-- Release candidate passed：必须 package、unpacked、installed、manual patrol 全部通过。
+- Release candidate passed：按 spec/release-blackbox-gate.md 的最小发行范围验证；人工检查只覆盖自动化未覆盖的高风险路径。
 
-ADR-013 的 FullID、旧布局迁移、Schema 0.2、chapter 变量可见性与严格 packaged/unpacked Graph-first journey 已通过当前自动化验收，包括磁盘 JSON Ajv 校验。installed 黑盒、30 分钟人工巡检、真实引擎工具链 smoke 与 Authenticode 仍待完成；在这些门禁全部通过前不得使用 release-candidate-passed 或公共正式发行口径。
+FullID、布局迁移、Schema 0.2 与章节变量的验证记录统一维护在 spec/progress.md；正式发行范围遵循 spec/release-blackbox-gate.md。
 
 ## 14. 反目标
 

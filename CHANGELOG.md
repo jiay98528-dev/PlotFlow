@@ -5,18 +5,28 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本遵循 [Semantic Versioning](https://semver.org/)。
 
-## [Unreleased]
+## [0.1.1 Preview] — 当前开发版本
+
+### Added
+
+- Graph Lab 默认工作区，完整 Inspector、章节 Source Drawer 和图形撤销重做。
+- JSON Schema 0.2、规范 FullID、章节变量与类型化条件操作数。
+- 三套内置主题、中英界面、原生 Help 反馈入口和独立反馈服务。
+
+### Fixed
+
+- 保存、导出、模式切换与异步打开共用会话和草稿协调，避免旧内容覆盖新编辑。
+- 拖拽与连线提交前释放交互租约，修复图形编辑静默回滚。
+- 条件菜单键盘操作保持在对话框焦点范围内。
 
 ### Changed
 
-- **Graph Lab P2 硬化（本地实现完成）**：新增 ADR-014 与 UX 合同，完成 Source Drawer 模式切换守卫、故事会话草稿隔离、四标签 Inspector、节点搜索/聚焦、canvas-first 响应式、诊断/主进程 i18n、共享 IPC，以及 Ubuntu/Windows/nightly/installed 分层发行门禁配置。本地源码、App E2E、fresh package 与 unpacked 黑盒已通过；远程 CI、installed、人工巡检、真实引擎 smoke 和 Authenticode 仍独立待验收。
-- **Graph Lab 默认主工作流**：Graph Lab 成为首次启动、新建、打开和继续编辑的主要且默认工作区；Split 顶栏并列保留为辅助与高级的完整 `.mdstory` 源码投影。
-- **双投影边界不变**：`.mdstory` 继续是唯一磁盘真相源，Graph Lab GUI 与 Split 源码编辑仍写回同一文件；ADR-012 仅覆盖 ADR-008 中旧的 Split 默认条款。
-- **Graph 编辑事务**：节点拖动仅在松手时提交一条历史与一次保存；Relayout 批量写回；Inspector 拒绝提交时保留草稿并显示字段错误；Graph Undo/Redo 覆盖布局、重命名、删除、连线与 Source Drawer 写回。
-- **FullID 与 JSON Schema 0.2**：统一使用 encoded-slash canonical FullID，旧 hyphen layout 仅在唯一匹配时迁移；当前 JSON 导出升级到 `https://plotflow.dev/schema/0.2/story.json`，0.1 作为冻结的历史读取快照。
-- **条件与变量无损往返**：Comparison 0.2 使用类型化 `left/right` 操作数，支持 literal-left、variable-right、AND/OR/NOT 三层嵌套；变量 GUI 覆盖六种类型、三级 object、enum、chapter scope 与 engine metadata。
-- **运行时兼容合同**：Godot/Unity 同时消费 0.1 `variable/value` 与 0.2 `left/right` 条件，章节变量越权读取为 false、效果跳过并警告；Unreal 数据与 Blueprint 合同增加当前章节上下文。
-- **可访问性与发行门禁**：ConditionEditor 增加 dialog 语义、初始焦点、焦点循环、Escape 与焦点恢复；严格 unpacked Graph-first 旅程通过原生 Open/Export 与磁盘 JSON Ajv Schema 0.2 校验。installed、人工巡检、真实引擎工具链和 Authenticode 仍待验收。
+- 0.1.1 停用远程可执行主题；旧主题偏好回退到内置默认主题。
+- 开发状态统一到 spec/progress.md，源码与 Windows 开发包同轮交付。
+
+## 历史开发阶段记录
+
+以下 0.2.0、0.1.0 标题为早期开发阶段名称，不代表当前安装包版本或公共发行记录。
 
 ## [0.2.0] — 2026-06-17
 

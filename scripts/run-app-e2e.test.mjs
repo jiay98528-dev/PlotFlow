@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { createPlaywrightLaunch, runPlaywrightLaunch } from './run-app-e2e.mjs';
 
 test('creates the same shell-independent Playwright launch contract on every platform', () => {
@@ -17,6 +20,7 @@ test('creates the same shell-independent Playwright launch contract on every pla
     assert.equal(launch.command, '/runtime/node');
     assert.deepEqual(launch.args, [
       '/workspace/playwright-cli.js',
+      'test',
       '--config',
       'e2e-blackbox/playwright.config.ts',
       '--workers=1',
@@ -24,6 +28,22 @@ test('creates the same shell-independent Playwright launch contract on every pla
     assert.equal(launch.env.PLOTFLOW_BLACKBOX_TARGET, 'winUnpacked');
     assert.equal(launch.env.SIMULATED_PLATFORM, platform);
   }
+});
+
+test('packaged entrypoint reaches the real Playwright test command', async () => {
+  const cwd = fileURLToPath(new URL('../packages/app/', import.meta.url));
+  const launch = createPlaywrightLaunch({
+    target: 'winUnpacked',
+    cwd,
+    args: ['--config', 'e2e-blackbox/playwright.config.ts', '--list'],
+  });
+  const { stdout } = await promisify(execFile)(launch.command, launch.args, {
+    cwd,
+    env: launch.env,
+    windowsHide: true,
+    timeout: 30_000,
+  });
+  assert.match(stdout, /Total: [1-9]\d* tests/);
 });
 
 test('rejects an unknown target before starting Playwright', () => {

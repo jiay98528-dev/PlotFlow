@@ -12,7 +12,7 @@
  *   import { initMonacoEditor } from '@/editor/setupEditor';
  *   const editor = initMonacoEditor(editorRef.current);
  *
- * @see spec/milestones.md — M1 里程碑
+ * @see spec/progress.md — M1 里程碑
  * @see spec/design-brief-editor-ux.md — Monaco 编辑器交互设计
  */
 

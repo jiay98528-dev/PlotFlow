@@ -7,7 +7,7 @@
  *   P-04: 选项边界
  *   P-07: 变量边界
  *
- * 测试规范对照：spec/milestones.md M0-M6 边界条件
+ * 测试规范对照：spec/progress.md M0-M6 边界条件
  *
  * @version 0.1.0
  */

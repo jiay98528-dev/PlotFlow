@@ -16,7 +16,14 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { WhiteboardPreview } from './components/WhiteboardPreview';
-import { developmentCopy, guide, landing, locales, navigation, officialThemes } from './data/siteContent';
+import {
+  developmentCopy,
+  guide,
+  landing,
+  locales,
+  navigation,
+  officialThemes,
+} from './data/siteContent';
 import { fallbackProjectStatus } from './data/projectStatusFallback';
 import type { GateStatus, Locale, ProjectStatus, Tone } from './types';
 
@@ -26,7 +33,9 @@ function BrandLockup({ locale }: { locale: Locale }) {
   return (
     <span
       className={`brand-lockup brand-lockup--${locale}`}
-      aria-label={locale === 'zh' ? `${BRAND.chineseName}（${BRAND.englishName}）` : BRAND.englishName}
+      aria-label={
+        locale === 'zh' ? `${BRAND.chineseName}（${BRAND.englishName}）` : BRAND.englishName
+      }
     >
       <strong>{locale === 'zh' ? BRAND.chineseName : BRAND.englishName}</strong>
       {locale === 'zh' ? <small>{BRAND.englishName}</small> : null}
@@ -56,48 +65,26 @@ const toneIcons: Record<Tone, typeof CheckCircle2> = {
   neutral: Activity,
 };
 
-const milestoneNamesZh: Record<string, string> = {
-  M0: '零号',
-  M1: '一号',
-  M2: '二号',
-  M3: '三号',
-  M4: '四号',
-  M5: '五号',
-  M6: '六号',
-  M7: '七号',
-};
-
-const milestoneTitlesZh: Record<string, string> = {
-  M0: '项目脚手架',
-  M1: '核心解析与编辑',
-  M2: '分支可视化',
-  M3: '条件编辑与错误检测',
-  M4: '导出系统',
-  M5: '补全引擎',
-  M6: '模板与主题',
-  M7: '桌面应用打包发布',
-};
-
 function localizedGate(gate: GateStatus, locale: Locale) {
   return {
-    name: locale === 'zh' ? gate.zhName ?? gate.name : gate.name,
-    result: locale === 'zh' ? gate.zhResult ?? gate.result : gate.result,
-    detail: locale === 'zh' ? gate.zhDetail ?? gate.detail : gate.detail,
+    name: locale === 'zh' ? (gate.zhName ?? gate.name) : gate.name,
+    result: locale === 'zh' ? (gate.zhResult ?? gate.result) : gate.result,
+    detail: locale === 'zh' ? (gate.zhDetail ?? gate.detail) : gate.detail,
   };
 }
 
 function localizedFeature(item: ProjectStatus['stableFeatures'][number], locale: Locale) {
   return {
-    title: locale === 'zh' ? item.zhTitle ?? item.title : item.title,
-    detail: locale === 'zh' ? item.zhDetail ?? item.detail : item.detail,
-    evidence: locale === 'zh' ? item.zhEvidence ?? item.evidence : item.evidence,
+    title: locale === 'zh' ? (item.zhTitle ?? item.title) : item.title,
+    detail: locale === 'zh' ? (item.zhDetail ?? item.detail) : item.detail,
+    evidence: locale === 'zh' ? (item.zhEvidence ?? item.evidence) : item.evidence,
   };
 }
 
 function localizedRoadmap(item: ProjectStatus['roadmap'][number], locale: Locale) {
   return {
-    title: locale === 'zh' ? item.zhTitle ?? item.title : item.title,
-    detail: locale === 'zh' ? item.zhDetail ?? item.detail : item.detail,
+    title: locale === 'zh' ? (item.zhTitle ?? item.title) : item.title,
+    detail: locale === 'zh' ? (item.zhDetail ?? item.detail) : item.detail,
   };
 }
 
@@ -218,7 +205,12 @@ function Header({
   return (
     <header className="site-header">
       <button className="brand-mark" type="button" onClick={() => navigate('/')}>
-        <img className="brand-mark__icon" src={`${import.meta.env.BASE_URL}fablevia-icon.svg`} alt="" aria-hidden="true" />
+        <img
+          className="brand-mark__icon"
+          src={`${import.meta.env.BASE_URL}fablevia-icon.svg`}
+          alt=""
+          aria-hidden="true"
+        />
         <BrandLockup locale={locale} />
       </button>
       <nav className="nav-links" aria-label={locale === 'zh' ? '主导航' : 'Main navigation'}>
@@ -234,7 +226,10 @@ function Header({
           </button>
         ))}
       </nav>
-      <div className="language-switch" aria-label={locale === 'zh' ? '语言切换' : 'Language switch'}>
+      <div
+        className="language-switch"
+        aria-label={locale === 'zh' ? '语言切换' : 'Language switch'}
+      >
         <Languages size={18} aria-hidden="true" />
         {locales.map((item) => (
           <button
@@ -255,16 +250,11 @@ function Header({
 function LandingPage({
   locale,
   navigate,
-  status,
 }: PageProps & {
   navigate: (path: string) => void;
   status: ProjectStatus;
 }) {
   const copy = landing[locale];
-  const metricLabel =
-    locale === 'zh'
-      ? `${status.summary.completed}/${status.summary.total} 项完成`
-      : `${status.summary.completed}/${status.summary.total} tasks complete`;
 
   return (
     <main>
@@ -277,7 +267,11 @@ function LandingPage({
           <h1>{copy.title}</h1>
           <p className="hero__subtitle">{copy.subtitle}</p>
           <div className="hero__actions">
-            <button className="button button--primary" type="button" onClick={() => navigate('/guide/')}>
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={() => navigate('/guide/')}
+            >
               <BookOpen size={18} aria-hidden="true" />
               {copy.primaryCta}
             </button>
@@ -292,7 +286,6 @@ function LandingPage({
           </div>
           <div className="hero__status">
             <ShieldCheck size={18} aria-hidden="true" />
-            <span>{metricLabel}</span>
             <span>{copy.status}</span>
           </div>
         </div>
@@ -308,7 +301,11 @@ function LandingPage({
       <section className="section">
         <div className="section__intro">
           <p className="eyebrow">{copy.featureTitle}</p>
-          <h2>{locale === 'zh' ? '默认在画布上完成创作，源码始终透明可控。' : 'Create on the canvas by default, with the source always transparent and controllable.'}</h2>
+          <h2>
+            {locale === 'zh'
+              ? '默认在画布上完成创作，源码始终透明可控。'
+              : 'Create on the canvas by default, with the source always transparent and controllable.'}
+          </h2>
         </div>
         <div className="feature-grid">
           {copy.features.map((feature, index) => (
@@ -332,7 +329,10 @@ function LandingPage({
         </div>
         <div className="theme-showcase">
           {officialThemes[locale].items.map((theme) => (
-            <article className={`theme-showcase-card theme-showcase-card--${theme.id}`} key={theme.id}>
+            <article
+              className={`theme-showcase-card theme-showcase-card--${theme.id}`}
+              key={theme.id}
+            >
               <div className="theme-showcase-card__preview" aria-hidden="true">
                 <Palette size={24} />
                 <span />
@@ -349,7 +349,12 @@ function LandingPage({
           ))}
         </div>
         <div className="theme-store-row">
-          <a className="button button--primary" href="https://plotflow.app/themes" rel="noreferrer" target="_blank">
+          <a
+            className="button button--primary"
+            href="https://plotflow.app/themes"
+            rel="noreferrer"
+            target="_blank"
+          >
             <ExternalLink size={18} aria-hidden="true" />
             {officialThemes[locale].storeCta}
           </a>
@@ -360,7 +365,11 @@ function LandingPage({
       <section className="section section--audience">
         <div className="section__intro">
           <p className="eyebrow">{copy.audiencesTitle}</p>
-          <h2>{locale === 'zh' ? '同一份故事文件，服务写作、设计和程序。' : 'One story file for writing, design, and implementation.'}</h2>
+          <h2>
+            {locale === 'zh'
+              ? '同一份故事文件，服务写作、设计和程序。'
+              : 'One story file for writing, design, and implementation.'}
+          </h2>
         </div>
         <div className="audience-list">
           {copy.audiences.map((item) => (
@@ -380,7 +389,10 @@ function GuidePage({ locale }: PageProps) {
 
   return (
     <main className="page-layout">
-      <aside className="page-index" aria-label={locale === 'zh' ? '章节导航' : 'Section navigation'}>
+      <aside
+        className="page-index"
+        aria-label={locale === 'zh' ? '章节导航' : 'Section navigation'}
+      >
         {copy.sections.map((section) => (
           <a href={`#${section.id}`} key={section.id}>
             {section.title}
@@ -431,19 +443,19 @@ function DevelopmentPage({ locale, status }: PageProps & { status: ProjectStatus
         <p className="lead">{copy.intro}</p>
         <div className="metric-strip">
           <MetricBlock
-            label={locale === 'zh' ? '历史任务' : 'Historical tasks'}
-            note={locale === 'zh' ? '零号至七号，不含八号图优先范围' : 'M0-M7, excluding M8 graph-first scope'}
-            value={`${status.summary.completed}/${status.summary.total}`}
+            label={locale === 'zh' ? '软件版本' : 'Version'}
+            note={status.summary.channel}
+            value={status.summary.version}
           />
           <MetricBlock
-            label={locale === 'zh' ? '完成率' : 'Completion'}
-            note={locale === 'zh' ? `${status.summary.deferred} 项延后` : `${status.summary.deferred} deferred`}
-            value={`${status.summary.rate}%`}
+            label={locale === 'zh' ? '创作入口' : 'Workspace'}
+            note=".mdstory"
+            value="Graph Lab"
           />
           <MetricBlock
-            label={locale === 'zh' ? '剩余项' : 'Remaining'}
-            note={locale === 'zh' ? `${status.summary.removed} 项已移除` : `${status.summary.removed} removed`}
-            value={`${status.summary.remaining}`}
+            label={locale === 'zh' ? '更新日期' : 'Updated'}
+            note="Windows"
+            value={status.summary.lastUpdated}
           />
         </div>
         <p className="source-note">
@@ -455,34 +467,13 @@ function DevelopmentPage({ locale, status }: PageProps & { status: ProjectStatus
       <section className="section">
         <div className="section__intro">
           <p className="eyebrow">{copy.gatesTitle}</p>
-          <h2>{locale === 'zh' ? '当前发行门禁的真实状态。' : 'Current release gate truth.'}</h2>
+          <h2>
+            {locale === 'zh' ? '当前开发基线的验证记录。' : 'Current development baseline checks.'}
+          </h2>
         </div>
         <div className="gate-list">
           {status.releaseGates.map((gate) => (
             <GateRow gate={gate} key={gate.name} locale={locale} />
-          ))}
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="section__intro">
-          <p className="eyebrow">{copy.milestonesTitle}</p>
-          <h2>{locale === 'zh' ? '已完成的主线能力集中在一号至六号里程碑。' : 'The stable product surface is concentrated in M1-M6.'}</h2>
-        </div>
-        <div className="milestone-grid">
-          {status.milestones.map((milestone) => (
-            <article className="milestone" key={milestone.id}>
-              <div>
-                <strong>{locale === 'zh' ? milestoneNamesZh[milestone.id] ?? milestone.id : milestone.id}</strong>
-                <span>{locale === 'zh' ? milestoneTitlesZh[milestone.id] ?? milestone.title : milestone.title}</span>
-              </div>
-              <meter max={100} min={0} value={milestone.progress}>
-                {milestone.progress}%
-              </meter>
-              <p>
-                {milestone.complete}/{milestone.total} · {milestone.progress}%
-              </p>
-            </article>
           ))}
         </div>
       </section>
@@ -502,7 +493,11 @@ function DevelopmentPage({ locale, status }: PageProps & { status: ProjectStatus
       <section className="section">
         <div className="section__intro">
           <p className="eyebrow">{copy.roadmapTitle}</p>
-          <h2>{locale === 'zh' ? '下一步完成安装态门禁、真实引擎 smoke、人工巡检与发行签名。' : 'Next: installed-app gates, real engine smoke, manual patrol, and release signing.'}</h2>
+          <h2>
+            {locale === 'zh'
+              ? '下一步完善产品演示、获取入口与引擎示例。'
+              : 'Next: product demos, preview access and an engine example.'}
+          </h2>
         </div>
         <div className="roadmap-list">
           {status.roadmap.map((item) => {
@@ -557,6 +552,7 @@ function FeatureStatusSection({
   locale: Locale;
   title: string;
 }) {
+  if (items.length === 0) return null;
   return (
     <section className="section">
       <div className="section__intro">

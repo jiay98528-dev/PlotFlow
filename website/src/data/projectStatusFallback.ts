@@ -3,16 +3,10 @@ import type { ProjectStatus } from '../types';
 export const fallbackProjectStatus: ProjectStatus = {
   generatedAt: 'not-generated',
   summary: {
-    completed: 0,
-    total: 0,
-    rate: 0,
-    remaining: 0,
-    deferred: 0,
-    removed: 0,
-    lastUpdated: 'not-generated',
-    grade: 'N/A',
+    version: '—',
+    channel: '—',
+    lastUpdated: '—',
   },
-  milestones: [],
   releaseGates: [
     {
       name: 'project-status-load',
@@ -27,5 +21,5 @@ export const fallbackProjectStatus: ProjectStatus = {
   stableFeatures: [],
   experimentalFeatures: [],
   roadmap: [],
-  sourceRefs: ['spec/progress.md', 'packages/progress-dashboard/public/dashboard-data.json'],
+  sourceRefs: ['spec/progress.md'],
 };
