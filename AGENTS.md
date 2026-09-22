@@ -28,6 +28,7 @@
 - .mdstory 为唯一磁盘真相源。图形编辑必须经命令层回写文本，再同步解析、诊断与图形；禁止数据库保存故事内容。
 - 当前范围为 Windows 预览版、JSON/HTML/TXT 导出、Godot 对接和三套内置主题。
 - 实际开发状态只维护 spec/progress.md；产品需求见 PRD.md；技术结构见 doc/TAD.md。
+- 开始下一阶段或需要回退时，从 spec/progress.md 核对固定开发基线标签；不要把软件版本、开发基线和正式发行混用。
 - 桌面 UX 权威为 spec/design-brief-editor-ux.md，主题权威为 doc/standards-theme-development.md，官网方向见 website/DESIGN_BASELINE.md。
 
 ## 直接交付
