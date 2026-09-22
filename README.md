@@ -23,11 +23,13 @@ pnpm.cmd dev
 pnpm.cmd test
 pnpm.cmd typecheck
 pnpm.cmd build
-pnpm.cmd --filter @plotflow/app test:e2e
+pnpm.cmd --filter @plotflow/app test:e2e:background
 pnpm.cmd package:win
 ~~~
 
 版本来自 package.json；当前为 0.1.1 Preview。开发状态、验证结果和后续范围统一见 [spec/progress.md](spec/progress.md)。本地整理后的安装包和源码快照位于 release/baseline。
+
+Windows 本地 E2E 使用独立隐藏桌面，不切换用户正在使用的桌面。此入口运行应用集成测试；需要全局系统输入的原生对话框黑盒继续在隔离机器或 CI 中运行。日志写入 .tmp/background-e2e。
 
 ## 目录与文档
 

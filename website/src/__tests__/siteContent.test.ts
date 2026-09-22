@@ -101,7 +101,7 @@ describe('site content', () => {
 
     const unitGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd test');
     const appE2eGate = status.releaseGates.find(
-      (gate) => gate.name === 'pnpm.cmd --filter @plotflow/app test:e2e',
+      (gate) => gate.name === 'pnpm.cmd --filter @plotflow/app test:e2e:background',
     );
     const packageGate = status.releaseGates.find((gate) => gate.name === 'pnpm.cmd package:win');
 

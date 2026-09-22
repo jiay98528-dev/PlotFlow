@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T07:03:51.520Z",
+  "generatedAt": "2026-09-22T07:16:49.920Z",
   "summary": {
     "version": "0.1.1",
     "channel": "preview",
@@ -34,13 +34,13 @@
       "status": "pass"
     },
     {
-      "name": "pnpm.cmd --filter @plotflow/app test:e2e",
-      "zhName": "pnpm.cmd --filter @plotflow/app test:e2e",
-      "result": "PARTIAL",
-      "zhResult": "PARTIAL",
-      "detail": "全量 90 项通过，启动/worker 异常的 2 项定向复验通过；额外全量复跑按用户要求中止，不记作完整通过",
-      "zhDetail": "全量 90 项通过，启动/worker 异常的 2 项定向复验通过；额外全量复跑按用户要求中止，不记作完整通过",
-      "status": "neutral"
+      "name": "pnpm.cmd --filter @plotflow/app test:e2e:background",
+      "zhName": "pnpm.cmd --filter @plotflow/app test:e2e:background",
+      "result": "PASS",
+      "zhResult": "PASS",
+      "detail": "Windows 独立隐藏桌面完整运行 92/92 通过（3.5 分钟），测试窗口未进入用户 Default 桌面",
+      "zhDetail": "Windows 独立隐藏桌面完整运行 92/92 通过（3.5 分钟），测试窗口未进入用户 Default 桌面",
+      "status": "pass"
     },
     {
       "name": "pnpm.cmd package:win",

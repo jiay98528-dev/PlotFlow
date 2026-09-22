@@ -22,7 +22,7 @@
 | `pnpm.cmd test` | PASS | 103 个测试文件 / 1548 条单元测试 |
 | `pnpm.cmd build` | PASS | Electron 主进程、preload、renderer 生产构建 |
 | `pnpm.cmd typecheck` | PASS | TypeScript strict 检查 |
-| `pnpm.cmd --filter @plotflow/app test:e2e` | PARTIAL | 全量 90 项通过，启动/worker 异常的 2 项定向复验通过；额外全量复跑按用户要求中止，不记作完整通过 |
+| `pnpm.cmd --filter @plotflow/app test:e2e:background` | PASS | Windows 独立隐藏桌面完整运行 92/92 通过（3.5 分钟），测试窗口未进入用户 Default 桌面 |
 | `pnpm.cmd package:win` | PASS | 使用本地 Electron 42.10.1 分发目录生成 0.1.1 Windows 安装器与解包应用 |
 | `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` | PASS | 当前 EXE 的 17 项黑盒全部通过，包含原生打开/保存/导出、重开、HTML 试玩与 100/500/1000 节点路径 |
 | `pnpm.cmd lint` | PASS | 0 error，9 个既有 no-console warning |
@@ -37,7 +37,7 @@
 - 修复打包黑盒入口漏传 Playwright test 子命令，避免 unpacked/installed 检查尚未启动就退出。
 - Graph Lab 测试每例使用独立应用和 profile；主题测试不再申请未使用的 Chromium 页面。
 - E2E 命令直接执行 Node 预检查，消除嵌套 pnpm 的 PATH 依赖。
-- 后续本地检查采用无界面后台执行；原生 GUI 测试迁至隔离桌面或 CI，避免抢占用户操作。
+- 新增 windows-e2e-background.ps1：应用集成测试运行于独立隐藏桌面，启动前验证桌面身份；原生对话框黑盒仍在隔离机器或 CI 执行，避免全局输入抢占用户操作。
 - 官网状态直接读取本文件与 package.json；移除硬编码历史 PASS、旧完成百分比和历史审计看板，构建时自动同步。
 - 精简并校正产品、架构、主题与开发规则；旧候选、审计报告、交接文档及临时输出退出开发目录。
 

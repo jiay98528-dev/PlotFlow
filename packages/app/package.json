@@ -6,6 +6,7 @@
     "build": "node ../../scripts/clean-app-local-out.mjs && pnpm --dir ../.. build",
     "check:electron-runtime": "node ../../scripts/check-electron-runtime.mjs",
     "test:e2e": "node ../../scripts/check-electron-runtime.mjs && playwright test --config e2e/playwright.config.ts --workers=1",
+    "test:e2e:background": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ../../scripts/windows-e2e-background.ps1",
     "test:e2e:blackbox": "node ../../scripts/check-electron-runtime.mjs && playwright test --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @packaged",
     "test:e2e:unpacked": "node ../../scripts/run-app-e2e.mjs winUnpacked --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @installed",
     "test:e2e:installed": "node ../../scripts/run-app-e2e.mjs installedExe --config e2e-blackbox/playwright.config.ts --workers=1 --grep-invert @unpacked",
