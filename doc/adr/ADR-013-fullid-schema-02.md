@@ -1,13 +1,15 @@
 # ADR-013 — 编码斜杠 FullID、布局迁移与 JSON Schema 0.2
 
+> 文档导航：[故事数据与引擎索引](../indexes/data.md) · [总索引](../INDEX.md)
+
 - **日期：** 2026-07-11
-- **状态：** 已通过
+- **状态：** 已接受
 - **适用范围：** Parser AST、Graph Lab、布局持久化、Validator、JSON exporter、引擎运行时与章节变量
-- **覆盖关系：** 细化 ADR-008/ADR-012 的双投影合同；覆盖历史实现中以连字符拼接 FullID、JSON Schema 0.1 继续作为默认导出格式，以及章节变量只有 `scope` 而没有归属章节的做法
+- **覆盖关系：** 细化 ADR-012 的双投影合同；覆盖历史实现中以连字符拼接 FullID、JSON Schema 0.1 继续作为默认导出格式，以及章节变量只有 `scope` 而没有归属章节的做法
 
 ## 背景
 
-产品规格一直把节点 FullID 表述为 `章节/节点`，但当前实现曾使用 `${chapterId}-${nodeId}`。只要章节或节点名称本身包含连字符，这种字符串就无法无歧义拆分；不同二元组也可能得到同一个结果。FullID 同时被 Parser、选项目标、React Flow、布局、诊断、历史和导出消费，因此不能由各模块自行拼接或猜测。
+产品规格一直把节点 FullID 表述为 `章节/节点`，但旧实现曾使用 `${chapterId}-${nodeId}`。只要章节或节点名称本身包含连字符，这种字符串就无法无歧义拆分；不同二元组也可能得到同一个结果。FullID 同时被 Parser、选项目标、React Flow、布局、诊断、历史和导出消费，因此不能由各模块自行拼接或猜测。
 
 Graph Lab 已成为默认工作区，旧文件中的 `layout.graph.nodes[].id` 必须继续可读。同时，跨章节显式目标和章节作用域变量为导出增加了新的公共语义；继续声明 JSON Schema 0.1 会让运行时无法判断自己拿到的是旧的碰撞 FullID 还是新合同，也无法可靠定位 chapter-scoped variable。
 
@@ -111,22 +113,6 @@ vars:
 - 不得把 Schema 0.2 导出标记成 0.1，也不得只升级 URL 而保留旧 FullID 值。
 - 不得允许 `scope: chapter` 缺少 `chapter` 后继续导出。
 
-## 发行门禁
+## 相关验证
 
-严格 packaged Graph-first journey 必须从全新 profile 经原生 Open 进入 Graph Lab，修复一个 Error 诊断、完成 GUI 编辑与会话内 Undo/Redo、保存、重启并通过 Continue editing 恢复故事，同时确认新 session 历史为空，最后经原生导出对话框写出 JSON，并验证：
-
-- `$schema === "https://plotflow.dev/schema/0.2/story.json"`；
-- `targetFullId` 等于共享 helper 对章节和节点生成的 encoded-slash FullID；
-- 磁盘 JSON 通过 JSON Schema 0.2 的 Ajv draft-2020-12 校验；
-- 全程未进入 Split，且未使用 `__test_store__`、`window.plotflow`、localStorage 注入或 `page.evaluate()` 内部探针。
-
-## 相关文件
-
-- `packages/core/src/parser/`
-- `packages/core/src/exporter/json.ts`
-- `packages/core/src/types/ast.ts`
-- `packages/app/src/services/storySourceEditService.ts`
-- `packages/app/e2e-blackbox/journey.spec.ts`
-- `spec/json-schema.md`
-- `spec/syntax-formal.md`
-- `spec/release-blackbox-gate.md`
+对应身份、变量和 JSON 结构测试随源码维护；实际发行层次见 [发行检查](../../spec/release-blackbox-gate.md)，运行结果见 [开发状态](../../spec/progress.md)。

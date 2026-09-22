@@ -1,6 +1,8 @@
 # Fablevia Website
 
-独立的 Fablevia 落地页与使用说明网站。它是发行附加内容，后续直接部署到服务器，不进入桌面软件安装包。
+> 文档导航：[状态、验证与部署索引](../doc/indexes/delivery.md) · [总索引](../doc/INDEX.md)
+
+独立的 Fablevia 落地页与使用说明网站。它可独立构建和部署，不进入桌面软件安装包。
 
 ## Commands
 
@@ -15,7 +17,7 @@ pnpm --dir website build
 pnpm --dir website serve:dist
 ```
 
-网络依赖不可用时，使用静态降级路线：
+React/Vite 是主要实现，静态降级路线用于不依赖前端构建工具的部署：
 
 ```bash
 node website/scripts/sync-project-status.mjs

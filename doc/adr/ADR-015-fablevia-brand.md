@@ -1,5 +1,7 @@
 # ADR-015: Fablevia（维叙）品牌与 PlotFlow 兼容命名空间
 
+> 文档导航：[产品与品牌索引](../indexes/product.md) · [总索引](../INDEX.md)
+
 > 日期：2026-07-17  
 > 状态：已接受
 
@@ -13,7 +15,7 @@
 - 用户可见的桌面应用、安装器、官网、帮助、主题和引擎插件文案使用新品牌。
 - `plotflow` 保留为兼容技术命名空间：包名、类型名、Schema URL、frontmatter 字段、IPC、环境变量、本地存储键、主题 ID/协议和引擎 API 不变。
 - `com.plotflow.app`、NSIS GUID 和旧 `%APPDATA%/PlotFlow` 用户数据目录保持不变，用于原位升级与数据保留。
-- 历史 ADR、CHANGELOG 历史段、Schema 0.1 快照、审计报告和不可变 evidence 不重写。
+- Schema 0.1 兼容快照保留原有机器合同；旧报告和阶段记录从 Git 历史查询，不在当前目录维护重复副本。
 
 ## 后果
 

@@ -1,5 +1,7 @@
 # Fablevia 技术架构
 
+> 文档导航：[工程规则与架构索引](indexes/engineering.md) · [总索引](INDEX.md)
+
 更新：2026-09-22。本文描述当前源码结构；精确依赖版本见根 package.json 与 pnpm-lock.yaml。
 
 ## 运行结构

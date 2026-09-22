@@ -1,6 +1,24 @@
 # Fablevia（维叙）项目开发规则
 
+> 文档导航：[工程规则与架构索引](doc/indexes/engineering.md) · [总索引](doc/INDEX.md)
+
 工作目录为 D:/VibeCoding/PlotFlow。只访问当前项目所需文件，不跨项目扩张。默认中文沟通；用户是唯一产品决策者。共享 harness 约束由用户根目录规则维护。
+
+## 文档索引与查看时机
+
+文档总索引地址：[doc/INDEX.md](doc/INDEX.md)，本机绝对路径 D:/VibeCoding/PlotFlow/doc/INDEX.md。
+
+三层结构为：总索引 → doc/indexes 下的分类索引 → 具体文档。新任务、接手和上下文恢复时先读总索引，按任务进入分类，只加载必要正文；不要默认全量加载。
+
+| 任务 | 第二级索引 |
+|---|---|
+| 产品目标、功能范围、品牌 | [产品与品牌](doc/indexes/product.md) |
+| 桌面 UI、主题、样式、官网设计 | [交互、主题与视觉](doc/indexes/design.md) |
+| parser、Schema、导出、FullID、引擎 | [故事数据与引擎](doc/indexes/data.md) |
+| 代码、状态同步、IPC、配置、缺陷定位 | [工程规则与架构](doc/indexes/engineering.md) |
+| 进度、后台测试、构建、发行或部署 | [状态、验证与部署](doc/indexes/delivery.md) |
+
+新增、删除、移动或改变文档职责时，同步对应分类索引和受影响链接；完成任务只更新实际变化的正文与状态，不新增过程报告。索引负责定位，不能覆盖具体合同；不同领域的权威来源见下文。
 
 ## 当前目标与入口
 

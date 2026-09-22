@@ -1,6 +1,8 @@
 # Fablevia feedback service
 
-This Node.js 22 service is the server-side boundary for public feedback. It listens only on
+> 文档导航：[状态、验证与部署索引](../../doc/indexes/delivery.md) · [总索引](../../doc/INDEX.md)
+
+This Node.js 22 service is the server-side boundary for public feedback. It binds to loopback, by default
 `127.0.0.1:18081`, sends plain-text email through deployment-owned SMTP credentials, and
 returns a report ID. The desktop application reaches it through the existing
 `www.leankom.com` TLS virtual host at the exact public path
@@ -24,8 +26,8 @@ Nginx proxies the public path to `POST /v1/feedback`. The JSON body contains exa
 ```
 
 No other fields are accepted. The body is limited to 16 KiB and `message` to 8,000 Unicode
-characters. The service never accepts story content, file paths, recent files, logs, contact
-details or an installation identifier. A successful first delivery returns HTTP 202 with
+characters. The client does not automatically attach story content, file paths, recent files, logs,
+contact details or an installation identifier. The message field is user-written text. A successful first delivery returns HTTP 202 with
 `status: "accepted"`. The same `requestId` within 24 hours returns HTTP 200 with
 `status: "duplicate"` and the original `reportId`.
 
@@ -34,7 +36,7 @@ state file contains only request ID, report ID and success time; it never contai
 text. Service logs contain only report ID, status, latency and curated error class names.
 
 Nginx limits each IP to 2 requests per minute with burst 4. The service independently limits
-the entire process to 100 new submissions per hour; duplicates are checked before consuming
+the entire process to 100 new submissions per hour by default; duplicates are checked before consuming
 that budget.
 
 ## Build and test

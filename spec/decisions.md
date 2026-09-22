@@ -1,15 +1,17 @@
 # 当前架构决策
 
+> 文档导航：[工程规则与架构索引](../doc/indexes/engineering.md) · [总索引](../doc/INDEX.md)
+
 更新：2026-09-22。此文件只维护仍生效的决策；早期过程与被替代方案可从 Git 历史查询。
 
 | 决策 | 当前合同 |
 |---|---|
 | 文件即数据源 | .mdstory 是唯一磁盘真相源，GUI 与源码是同一故事的双投影 |
 | 离线优先 | 创作、补全、保存、导出均不要求网络；反馈由用户主动提交 |
-| ADR-012 | Graph Lab 为主要且默认入口，Split 为并列完整源码投影，见 doc/adr/ADR-012-graph-lab-default-workspace.md |
-| ADR-013 | canonical FullID、Schema 0.2 与章节作用域变量，见 doc/adr/ADR-013-fullid-schema-02.md |
-| ADR-014 | 会话草稿守卫、本地化、响应式与键盘工作流，见 doc/adr/ADR-014-graph-lab-p2-hardening.md |
-| ADR-015 | Fablevia（维叙）品牌与 plotflow 技术兼容标识，见 doc/adr/ADR-015-fablevia-brand.md |
+| ADR-012 | Graph Lab 为主要且默认入口，Split 为并列完整源码投影，见 [ADR-012](../doc/adr/ADR-012-graph-lab-default-workspace.md) |
+| ADR-013 | canonical FullID、Schema 0.2 与章节作用域变量，见 [ADR-013](../doc/adr/ADR-013-fullid-schema-02.md) |
+| ADR-014 | 会话草稿守卫、本地化、响应式与键盘工作流，见 [ADR-014](../doc/adr/ADR-014-graph-lab-p2-hardening.md) |
+| ADR-015 | Fablevia（维叙）品牌与 plotflow 技术兼容标识，见 [ADR-015](../doc/adr/ADR-015-fablevia-brand.md) |
 | ADR-016 | 0.1.1 只交付三套编译内置主题，暂停可执行远程主题，见下文 |
 
 ## ADR-016：暂停可执行远程主题
@@ -23,4 +25,4 @@
 - 官网远程 registry 返回空列表。
 - 将来恢复远程主题必须采用声明式、不可执行 JavaScript 的数据格式与独立签名，并重新定义资源权限。
 
-完整主题合同见 ../doc/standards-theme-development.md。当前版本不恢复旧的 ZIP 代码运行时。
+完整主题合同见 [主题标准](../doc/standards-theme-development.md)。当前版本不恢复旧的 ZIP 代码运行时。

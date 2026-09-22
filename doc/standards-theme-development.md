@@ -1,4 +1,6 @@
-# PlotFlow 主题开发标准
+# Fablevia 主题开发标准
+
+> 文档导航：[交互、主题与视觉索引](indexes/design.md) · [总索引](INDEX.md)
 
 > 版本：2026-08-02（0.1.1 安全收敛）
 > 权威级别：主题开发唯一标准
@@ -106,19 +108,19 @@ packages/app/src/theme/builtin/<theme-id>/
 每次主题相关改动只运行直接相关检查：
 
 ```powershell
-pnpm.cmd --filter @plotflow/app exec vitest run src/theme/builtinThemes.test.ts src/stores/qa-store-persistence.test.ts src-electron/remote-theme-disabled.test.ts
+pnpm.cmd exec vitest run --project app packages/app/src/theme/builtinThemes.test.ts packages/app/src/stores/qa-store-persistence.test.ts packages/app/src-electron/remote-theme-disabled.test.ts
 pnpm.cmd typecheck
 pnpm.cmd --dir website test
 ```
 
-并执行零结果扫描（测试与历史文档除外）：
+需要检查远程运行时边界时，结合回归测试复核以下引用，排除测试文件中的预期反例：
 
 ```powershell
 rg -n "IPC_CHANNELS\.theme|window\.plotflow\.theme|registerOfficialThemeProtocol|plotflow-theme:" packages/app/src packages/app/src-electron packages/app/index.html
 rg -n "officialRemoteThemes|official-theme-service" packages/app/src packages/app/src-electron
 ```
 
-若改动 Theme Center 或预览，再定向运行 `theme-pack.e2e.spec.ts`；验收必须证明：恰好三张内置主题卡、无远程/商店/下载控件、未知持久化 ID 回退到 Prism Foundry。
+若改动 Theme Center 或预览，通过 test:e2e:background 定向运行主题用例；验收必须证明：恰好三张内置主题卡、无远程/商店/下载控件、未知持久化 ID 回退到 Prism Foundry。
 
 ## 8. 未来远程主题前置条件
 

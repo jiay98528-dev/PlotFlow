@@ -1,11 +1,13 @@
-# BPI_PlotFlowReader — 蓝图接口占位说明
+# BPI_PlotFlowReader — 蓝图接口设计参考
 
-> **文件**: `plugins/unreal/BPI_PlotFlowReader.uasset`
-> **状态**: 占位说明 (M4-25)
+> 文档导航：[故事数据与引擎索引](../../doc/indexes/data.md) · [总索引](../../doc/INDEX.md)
+
+> **目标资产**: 用户 Unreal 项目中的 Content/PlotFlow/Blueprints/BPI_PlotFlowReader.uasset
+> **范围**: 接口设计参考，仓库不包含 .uasset 或完整 Unreal 运行时
 > **实际 .uasset 需在 Unreal 编辑器中手动创建**
 >
 > **关联**: `plugins/unreal/PlotFlowDataTypes.h` (M4-26)
-> **版本**: 0.2.0 | **日期**: 2026-07-11
+> **数据合同**: JSON Schema 0.2，兼容读取 0.1
 
 ---
 
@@ -146,7 +148,7 @@ Event LoadStory(JsonPath)
     4. 对每个节点构造 FPlotFlowNode
     5. 使用节点导出的 fullId 原样填充 TMap<FString, FPlotFlowNode>
     6. 初始化 global/chapter 变量状态和 CurrentChapterId
-    7. meta.plotflow 为 0.1/0.2 时正常加载；更高版本记录 warning 并忽略未知字段
+    7. $schema 标识为 0.1/0.2 时正常加载；更高版本记录 warning 并忽略未知字段
     8. 返回 FPlotFlowStoryResult
 
 Event GetNode(NodeId)
@@ -197,4 +199,4 @@ Event ApplySideEffects(Effects, Definitions, VariableStore)
 - [ ] 嵌套字段路径如 "角色状态.生命" 正确解析
 - [ ] global 变量跨章节保持，chapter 变量在两个章节中互不污染
 - [ ] 跨章节选项使用 `TargetChapterId`/`TargetFullId` 更新 CurrentChapterId
-- [ ] PlotFlow 0.1/0.2 正常加载，更高版本给出 warning 而不是静默误解析
+- [ ] Schema 0.1/0.2 正常加载，更高版本给出 warning 而不是静默误解析

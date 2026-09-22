@@ -1,13 +1,15 @@
 # ADR-014: Graph Lab P2 可靠性、响应式与发行硬化
 
+> 文档导航：[工程规则与架构索引](../indexes/engineering.md) · [总索引](../INDEX.md)
+
 > 日期：2026-07-11
-> 状态：已采纳；本地实现完成，外部发行门禁待验收
-> 决策者：PlotFlow 产品与工程
-> 关联：ADR-008、ADR-012、ADR-013、`spec/design-brief-editor-ux.md`
+> 状态：已采纳；实际运行与交付状态见 spec/progress.md
+> 决策者：Fablevia 产品与工程
+> 关联：ADR-012、ADR-013、ADR-016、`spec/design-brief-editor-ux.md`
 
 ## 背景
 
-Graph Lab 已成为 PlotFlow 的主要且默认工作区，但 P2 审计仍发现五类系统性风险：Graph → Split 可能绕过 Source Drawer 草稿边界；Inspector 临时状态可能跨故事或路线复用；三栏布局在窄屏退化为不可用的纵向堆叠；诊断与桌面确认框存在分散的可见文案；PR 与发行验证没有清晰区分源码集成、unpacked 和真实 installed 证据。
+制定本决策时，Graph Lab 的默认工作区仍存在五类需要解决的系统性风险：Graph → Split 可能绕过 Source Drawer 草稿边界；Inspector 临时状态可能跨故事或路线复用；三栏布局在窄屏退化为不可用的纵向堆叠；诊断与桌面确认框存在分散的可见文案；PR 与发行验证没有清晰区分源码集成、unpacked 和真实 installed 证据。
 
 这些问题彼此相关。若只修单个按钮或单条文案，仍会留下跨投影数据风险、响应式不可达路径和无法审计的发行结论。因此本 ADR 把状态边界、UI 结构、i18n 合同和 CI 证据定义为一个 P2 硬化单元。
 
@@ -33,7 +35,7 @@ Graph Lab 已成为 PlotFlow 的主要且默认工作区，但 P2 审计仍发�
 - `Diagnostic` 增加稳定的 `messageKey/messageParams`，可选 `detailKey/detailParams`；旧 `message/detail` 保留为日志和兼容回退。
 - ProblemPanel、Source Drawer 与 Monaco marker 统一通过 `localizeDiagnostic()` 显示诊断。
 - 主进程确认框复用当前菜单语言；系统打开失败返回 tagged result，并显示本地化错误及路径。
-- 待打开文件使用 `PendingOpenFileResult = none | opened | error` tagged union；Main 与 preload 共用 `IPC_CHANNELS` 常量与类型，移除未使用的 `FileService.newFile`。Renderer CSP 显式包含 `connect-src 'self'`，官方远程主题仍只通过 Main IPC 下载。
+- 待打开文件使用 `PendingOpenFileResult = none | opened | error` tagged union；Main 与 preload 共用 `IPC_CHANNELS` 常量与类型，移除未使用的 `FileService.newFile`。Renderer CSP 和反馈网络边界由主进程维护；ADR-016 已停用主题下载 IPC 与远程代码加载。
 - UI 字面量门禁采用 TypeScript AST，只覆盖主路径 JSXText、`title`、`aria-label`、`placeholder` 和明确的状态/对话框参数。产品名、格式名、schema 枚举和测试 fixture 使用窄白名单。
 
 ### 4. CI 与发行证据分层
@@ -41,7 +43,7 @@ Graph Lab 已成为 PlotFlow 的主要且默认工作区，但 P2 审计仍发�
 - 仓库与 CI 统一使用 pnpm 11.5.1；moderate 及以上依赖审计为阻断门禁。
 - Ubuntu PR 检查覆盖 lint、typecheck、unit、build、CSS/token/bundle、engine contracts 与网站静态验证。
 - Windows PR 门禁在固定 `windows-2022`/Segoe UI 环境运行完整 app E2E、视觉旅程与 source blackbox，并仅在失败时上传 trace、截图和视频。
-- nightly/manual Windows 任务每次 fresh `package:win`，运行 unpacked blackbox、100/500/1000 节点性能旅程并生成 SHA256 清单。
+- nightly/manual Windows 任务创建同一提交的隔离候选，运行 unpacked blackbox、100/500/1000 节点性能旅程并生成 SHA256 清单。
 - installed blackbox 仅允许 `workflow_dispatch`、受保护 environment 和 self-hosted Windows runner。它必须验证本次安装包 SHA256、实际安装路径以及安装 EXE 与本次 unpacked EXE 哈希一致。
 
 文档形式检查已于 2026-08-29 移至 nightly，不阻断 PR。工作流配置落地不等于测试通过。进度与发布文档只能引用该 revision 上实际产生的运行结果和产物哈希。
@@ -60,6 +62,6 @@ Graph Lab 已成为 PlotFlow 的主要且默认工作区，但 P2 审计仍发�
 - 在 Ubuntu 上模拟全部桌面发行验证：拒绝。无法证明 Windows 原生对话框、安装路径和文件关联。
 - 自动执行静默 installed 测试：拒绝。per-machine 安装涉及 UAC 与外部状态，只能在受保护的 self-hosted 环境中进行。
 
-## 验收
+## 验证与维护
 
-本 ADR 在以下条件全部满足后才能从“实施中”改为“已完成”：相关单元和 App E2E 通过；四个目标视口验收通过；Ubuntu 与 Windows PR 工作流在当前 revision 成功；fresh package/unpacked/performance/SHA256 任务成功；installed blackbox、30 分钟人工巡检与 Authenticode 仍按 `spec/release-blackbox-gate.md` 独立记录，不得由源码门禁替代。
+本 ADR 维护交互和会话约束，不复制逐轮运行结果。后台应用测试、打包和安装态检查按 [发行检查](../../spec/release-blackbox-gate.md) 选择，实际状态见 [开发状态](../../spec/progress.md)。

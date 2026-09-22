@@ -1,5 +1,7 @@
 # Fablevia 维护要点
 
+> 文档导航：[工程规则与架构索引](../doc/indexes/engineering.md) · [总索引](../doc/INDEX.md)
+
 只保留当前代码需要遵循的缺陷教训，历史逐轮报告从 Git 查询。具体回归以相邻测试为准。
 
 - 保存与异步打开回调必须绑定 storySessionId、路径和内容 revision，旧会话结果不能覆盖新故事。

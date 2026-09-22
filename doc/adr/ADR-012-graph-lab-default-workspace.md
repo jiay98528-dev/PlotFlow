@@ -1,19 +1,21 @@
 # ADR-012 — Graph Lab 作为主要且默认工作区
 
+> 文档导航：[工程规则与架构索引](../indexes/engineering.md) · [总索引](../INDEX.md)
+
 - **日期：** 2026-07-10
-- **状态：** 已通过
+- **状态：** 已接受
 - **适用范围：** Home、工作区默认值与迁移、新建/打开/继续编辑、Split、Graph Lab、发行门禁与用户文档
-- **覆盖关系：** 仅覆盖 ADR-008 中“Graph Lab 不替代 Split 默认工作流”的条款；ADR-008 的 `.mdstory` 唯一真相源与双投影原则继续有效
+- **覆盖关系：** 替代早期 Split 默认入口方案，保留 .mdstory 唯一真相源与双投影原则。
 
 ## 背景
 
-PlotFlow 最初以 Split 分栏和 Monaco 源文本编辑为主要入口。M8 已把 Graph Lab 推进为支持画布、Palette、Inspector、章节标签、Source Drawer、诊断与导出的正式图优先工作区。继续把 Split 定义为默认入口，会让产品信息架构、首次使用路径和发行验收落后于当前“完整 GUI 创作闭环”的目标。
+Fablevia 最初以 Split 分栏和 Monaco 源文本编辑为主要入口。M8 已把 Graph Lab 推进为支持画布、Palette、Inspector、章节标签、Source Drawer、诊断与导出的正式图优先工作区。继续把 Split 定义为默认入口，会让产品信息架构、首次使用路径和发行验收落后于当前“完整 GUI 创作闭环”的目标。
 
-“文本是数据格式”与“文本编辑器是默认体验”不是同一件事。PlotFlow 仍需保留可读、可 diff、可由外部工具编辑的 `.mdstory`，但首要用户不应被要求先学习或手写语法才能开始创作。
+“文本是数据格式”与“文本编辑器是默认体验”不是同一件事。Fablevia 仍需保留可读、可 diff、可由外部工具编辑的 `.mdstory`，但首要用户不应被要求先学习或手写语法才能开始创作。
 
 ## 决策
 
-- **Graph Lab 是 PlotFlow 的主要且默认创作工作区。** 首次启动、旧偏好迁移后的首次进入、新建、打开、命令行打开和 Home 的 Continue editing，默认落入 Graph Lab。
+- **Graph Lab 是 Fablevia 的主要且默认创作工作区。** 首次启动、旧偏好迁移后的首次进入、新建、打开、命令行打开和 Home 的 Continue editing，默认落入 Graph Lab。
 - **Split 与 Graph Lab 在顶栏保持并列可达。** Split 定位为完整 `.mdstory` 源码投影，服务透明性、精确源码编辑、恢复和高级用户，不隐藏、不删除，也不作为默认路径。
 - **`.mdstory` 继续是唯一磁盘真相源。** Graph Lab 的 GUI 操作必须写回同一个纯文本文件，再由既有解析、诊断与导出管线消费；不得引入图数据库、专有工程文件或第二份故事状态。
 - **Source Drawer 是 Graph Lab 内的辅助源码投影。** 它显示当前章节切片，不取代 Split 的全文件视图，也不改变 Graph Lab 的画布优先心智。

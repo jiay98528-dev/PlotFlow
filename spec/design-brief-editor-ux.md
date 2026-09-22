@@ -1,9 +1,11 @@
 # Fablevia（维叙）编辑器 UX 设计简报
 
+> 文档导航：[交互、主题与视觉索引](../doc/indexes/design.md) · [总索引](../doc/INDEX.md)
+
 > 品牌展示合同：中文界面以“维叙”为主名、`Fablevia` 为小字辅助，读屏名为“维叙（Fablevia）”；英文界面只显示 `Fablevia`。沿用现有软件图标，移除 `PF` 文字标记。
 
-> 版本：V0.3
-> 更新日期：2026-07-12
+> 适用软件：当前 Windows 预览版（精确版本见 package.json）
+> 更新日期：2026-09-22
 > 状态：当前 UX 设计唯一真相源
 > 范围：Fablevia（维叙）桌面编辑器、Split 工作区、Graph Lab、Source Drawer、主题系统、导出和发行验收口径。
 > 默认工作区决策：Graph Lab 是主要且默认工作区；Split 顶栏并列保留为辅助与高级源码投影。详见 `doc/adr/ADR-012-graph-lab-default-workspace.md`。
@@ -17,7 +19,7 @@ Fablevia（维叙）是面向独立游戏开发者的本地优先叙事分支管
 - 叙事设计师无需先学习 Markdown 方言，即可在 Graph Lab 中完成节点、选项、条件、效果、变量和章节的主路径编辑。
 - 文案策划和高级用户仍能在 Split 中直接编辑完整 Markdown 方言，不被图形工具锁死。
 - 程序能拿到稳定 JSON/HTML/TXT 导出，不依赖专有数据库。
-- 发行版必须离线可用，不强制联网，不上传用户内容。
+- 核心创作、保存、补全和导出离线可用，不自动上传故事内容；反馈由用户主动提交。
 
 ## 2. 目标用户与使用场景
 
@@ -347,9 +349,11 @@ Home 的 `Continue editing` 必须优先重新读取最近保存的 `.mdstory`�
 - 不在界面中解释技术实现或快捷键列表。
 - 不混用中英文，除品牌名、文件格式、Graph Lab、Source Drawer 等产品术语外。
 
-## 12. E2E 与截图门槛
+## 12. E2E 与截图验证
 
-源码态 Graph Lab E2E 必须覆盖：
+本地使用 test:e2e:background 隐藏桌面入口；原生对话框黑盒只在专用机器或隔离 CI 中执行。
+
+源码态 Graph Lab E2E 覆盖：
 
 - 章节 tab 可见性和新增章节截图。
 - Source Drawer 当前章节切片保存。
@@ -377,7 +381,7 @@ Home 的 `Continue editing` 必须优先重新读取最近保存的 `.mdstory`�
 
 - Integration passed：只代表 `test:e2e` 通过。
 - Source blackbox passed：代表源码构建黑盒通过。
-- Unpacked blackbox passed：代表 `release/win-unpacked/Fablevia.exe` 通过。
+- Unpacked blackbox passed：代表本次明确指定的候选目录内 Fablevia.exe 通过，不复用旧目录结果。
 - Installed blackbox passed：代表新安装路径通过。
 - Release candidate passed：按 spec/release-blackbox-gate.md 的最小发行范围验证；人工检查只覆盖自动化未覆盖的高风险路径。
 
