@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-09-22T07:42:55.913Z",
+  "generatedAt": "2026-09-23T08:15:13.498Z",
   "summary": {
     "version": "0.1.1",
     "channel": "preview",
-    "lastUpdated": "2026-09-22"
+    "lastUpdated": "2026-09-23"
   },
   "releaseGates": [
     {
@@ -11,17 +11,8 @@
       "zhName": "pnpm.cmd test",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "103 个测试文件 / 1548 条单元测试",
-      "zhDetail": "103 个测试文件 / 1548 条单元测试",
-      "status": "pass"
-    },
-    {
-      "name": "pnpm.cmd build",
-      "zhName": "pnpm.cmd build",
-      "result": "PASS",
-      "zhResult": "PASS",
-      "detail": "Electron 主进程、preload、renderer 生产构建",
-      "zhDetail": "Electron 主进程、preload、renderer 生产构建",
+      "detail": "105 个文件、1554 项单元测试通过",
+      "zhDetail": "105 个文件、1554 项单元测试通过",
       "status": "pass"
     },
     {
@@ -29,35 +20,8 @@
       "zhName": "pnpm.cmd typecheck",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "TypeScript strict 检查",
-      "zhDetail": "TypeScript strict 检查",
-      "status": "pass"
-    },
-    {
-      "name": "pnpm.cmd --filter @plotflow/app test:e2e:background",
-      "zhName": "pnpm.cmd --filter @plotflow/app test:e2e:background",
-      "result": "PASS",
-      "zhResult": "PASS",
-      "detail": "Windows 独立隐藏桌面完整运行 92/92 通过（3.5 分钟），测试窗口未进入用户 Default 桌面",
-      "zhDetail": "Windows 独立隐藏桌面完整运行 92/92 通过（3.5 分钟），测试窗口未进入用户 Default 桌面",
-      "status": "pass"
-    },
-    {
-      "name": "pnpm.cmd package:win",
-      "zhName": "pnpm.cmd package:win",
-      "result": "PASS",
-      "zhResult": "PASS",
-      "detail": "使用本地 Electron 42.10.1 分发目录生成 0.1.1 Windows 安装器与解包应用",
-      "zhDetail": "使用本地 Electron 42.10.1 分发目录生成 0.1.1 Windows 安装器与解包应用",
-      "status": "pass"
-    },
-    {
-      "name": "pnpm.cmd --filter @plotflow/app test:e2e:unpacked",
-      "zhName": "pnpm.cmd --filter @plotflow/app test:e2e:unpacked",
-      "result": "PASS",
-      "zhResult": "PASS",
-      "detail": "当前 EXE 的 17 项黑盒全部通过，包含原生打开/保存/导出、重开、HTML 试玩与 100/500/1000 节点路径",
-      "zhDetail": "当前 EXE 的 17 项黑盒全部通过，包含原生打开/保存/导出、重开、HTML 试玩与 100/500/1000 节点路径",
+      "detail": "TypeScript strict 通过",
+      "zhDetail": "TypeScript strict 通过",
       "status": "pass"
     },
     {
@@ -65,35 +29,44 @@
       "zhName": "pnpm.cmd lint",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "0 error，9 个既有 no-console warning",
-      "zhDetail": "0 error，9 个既有 no-console warning",
+      "detail": "0 error，9 条既有 no-console warning",
+      "zhDetail": "0 error，9 条既有 no-console warning",
       "status": "pass"
     },
     {
-      "name": "pnpm.cmd --dir packages/feedback-service test",
-      "zhName": "pnpm.cmd --dir packages/feedback-service test",
+      "name": "pnpm.cmd install --frozen-lockfile",
+      "zhName": "pnpm.cmd install --frozen-lockfile",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "5 个文件 / 32 条反馈服务测试",
-      "zhDetail": "5 个文件 / 32 条反馈服务测试",
+      "detail": "可复现安装通过",
+      "zhDetail": "可复现安装通过",
       "status": "pass"
     },
     {
-      "name": "pnpm.cmd test:engine-contract",
-      "zhName": "pnpm.cmd test:engine-contract",
+      "name": "pnpm.cmd audit --audit-level moderate",
+      "zhName": "pnpm.cmd audit --audit-level moderate",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "6 项引擎数据合同测试，不等同于真实引擎运行",
-      "zhDetail": "6 项引擎数据合同测试，不等同于真实引擎运行",
+      "detail": "已知中高风险依赖告警为 0",
+      "zhDetail": "已知中高风险依赖告警为 0",
       "status": "pass"
     },
     {
-      "name": "node.exe --test scripts/run-app-e2e.test.mjs",
-      "zhName": "node.exe --test scripts/run-app-e2e.test.mjs",
+      "name": "pnpm.cmd --filter @plotflow/app test:e2e:background",
+      "zhName": "pnpm.cmd --filter @plotflow/app test:e2e:background",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "4 项测试，含真实 Playwright 命令入口回归",
-      "zhDetail": "4 项测试，含真实 Playwright 命令入口回归",
+      "detail": "最终应用源码在独立隐藏桌面完整 E2E 93/93 通过；9 张视觉基线按新版布局复核更新",
+      "zhDetail": "最终应用源码在独立隐藏桌面完整 E2E 93/93 通过；9 张视觉基线按新版布局复核更新",
+      "status": "pass"
+    },
+    {
+      "name": "pnpm.cmd package:win",
+      "zhName": "pnpm.cmd package:win",
+      "result": "PASS",
+      "zhResult": "PASS",
+      "detail": "本轮安装器与解包应用构建通过，文件校验值见交付清单",
+      "zhDetail": "本轮安装器与解包应用构建通过，文件校验值见交付清单",
       "status": "pass"
     },
     {
@@ -101,17 +74,26 @@
       "zhName": "pnpm.cmd --dir website test",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "7 项网站测试",
-      "zhDetail": "7 项网站测试",
+      "detail": "7 项网站测试通过",
+      "zhDetail": "7 项网站测试通过",
       "status": "pass"
     },
     {
-      "name": "pnpm.cmd --dir website build",
-      "zhName": "pnpm.cmd --dir website build",
+      "name": "pnpm.cmd --dir website build:static",
+      "zhName": "pnpm.cmd --dir website build:static",
       "result": "PASS",
       "zhResult": "PASS",
-      "detail": "网站类型检查与生产构建；静态降级构建也通过",
-      "zhDetail": "网站类型检查与生产构建；静态降级构建也通过",
+      "detail": "静态站点构建通过",
+      "zhDetail": "静态站点构建通过",
+      "status": "pass"
+    },
+    {
+      "name": "pnpm.cmd --dir website verify:static",
+      "zhName": "pnpm.cmd --dir website verify:static",
+      "result": "PASS",
+      "zhResult": "PASS",
+      "detail": "静态站点检查通过",
+      "zhDetail": "静态站点检查通过",
       "status": "pass"
     }
   ],
