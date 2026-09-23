@@ -6,8 +6,8 @@
 
 ## 固定开发基线
 
-- 基线名称：0.1.1-preview-2026-09-23-ux。
-- 固定 Git 标签：`baseline/0.1.1-preview-2026-09-23-ux`。旧标签 `baseline/0.1.1-preview-2026-09-22` 保留为历史回退点，不移动。
+- 基线名称：0.1.1-preview-2026-09-23-ux-r1。
+- 固定 Git 标签：`baseline/0.1.1-preview-2026-09-23-ux-r1`。旧标签 `baseline/0.1.1-preview-2026-09-23-ux` 和 `baseline/0.1.1-preview-2026-09-22` 保留为历史回退点，不移动。
 - 本地交付：`release/baseline` 包含同轮 Windows 安装器、解包应用、源码快照、校验清单与简短说明；以 `baseline.json` 中的精确提交和 SHA-256 区分产物。
 - 软件版本与开发基线分开管理；本轮仍为 0.1.1 Preview 未签名开发包，不是公共正式发行。
 
@@ -31,6 +31,7 @@
 - 已有变化的输入先保留草稿，失焦或 Enter 确认；无效值留在字段。保存、切换工作区与用户发起的剧情选择协调 Inspector 草稿；内部投影更新不重复提交。未提交输入计入未保存风险，明确放弃入口可撤销无效输入。变量表单在标签切换和同会话工作区重开后保留，保存和导出前会返回未保存变量表单。
 - 故事信息与变量管理使用独立编辑弹层；首页显示真实故事信息，新建故事验证标题，导出进行中防止重复提交。修复外部重载覆盖故事标题草稿和迟到解析覆盖系统打开失败提示。
 - 写作素材存于本机 IndexedDB，与 `.mdstory` 故事真相源分离。后台 E2E 启动器在私有 Windows 桌面直接运行 Node，不切换用户桌面或使用全局输入。
+- 推送后 CI 揭示锁文件中的现有依赖告警；本次将 Vitest、Nodemailer 及受影响传递依赖更新到修复版本，保留原应用功能范围。
 
 ## 当前核验
 
@@ -39,6 +40,7 @@
 | `pnpm.cmd test` | 105 个文件、1554 项单元测试通过 |
 | `pnpm.cmd typecheck` | TypeScript strict 通过 |
 | `pnpm.cmd lint` | 0 error，9 条既有 no-console warning |
+| `pnpm.cmd install --frozen-lockfile` 与 `pnpm.cmd audit --audit-level moderate` | 可复现安装通过；已知中高风险依赖告警为 0 |
 | `pnpm.cmd --filter @plotflow/app test:e2e:background` | 最终应用源码在独立隐藏桌面完整 E2E 93/93 通过；9 张视觉基线按新版布局复核更新 |
 | `pnpm.cmd package:win` | 本轮安装器与解包应用构建通过，文件校验值见交付清单 |
 

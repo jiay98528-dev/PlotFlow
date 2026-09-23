@@ -48,8 +48,8 @@ function WireHarness({
   readonly storyNodes: ReadonlyMap<string, StoryNode>;
   readonly flowNodes: Node[];
   readonly lease: GraphInteractionLease;
-  readonly setEdges: ReturnType<typeof vi.fn>;
-  readonly setStatusMessage: ReturnType<typeof vi.fn>;
+  readonly setEdges: ReturnType<typeof vi.fn<(edges: Edge[]) => void>>;
+  readonly setStatusMessage: ReturnType<typeof vi.fn<(message: string) => void>>;
   readonly publish: (controller: GraphWireController) => void;
 }): null {
   publish(
@@ -77,8 +77,8 @@ describe('graph wire controller', () => {
   let lease: GraphInteractionLease;
   let storyNodes: ReadonlyMap<string, StoryNode>;
   let flowNodes: Node[];
-  let setEdges: ReturnType<typeof vi.fn>;
-  let setStatusMessage: ReturnType<typeof vi.fn>;
+  let setEdges: ReturnType<typeof vi.fn<(edges: Edge[]) => void>>;
+  let setStatusMessage: ReturnType<typeof vi.fn<(message: string) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -99,8 +99,8 @@ describe('graph wire controller', () => {
       releaseAll: vi.fn(),
       isActive: vi.fn(() => false),
     };
-    setEdges = vi.fn();
-    setStatusMessage = vi.fn();
+    setEdges = vi.fn<(edges: Edge[]) => void>();
+    setStatusMessage = vi.fn<(message: string) => void>();
     controller = null;
     container = document.createElement('div');
     document.body.append(container);
