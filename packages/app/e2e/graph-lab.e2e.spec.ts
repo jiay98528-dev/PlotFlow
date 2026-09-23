@@ -1046,19 +1046,10 @@ test.describe('Graph Lab E2E', () => {
             (window as TestWindow).__test_store__?.setHomeSurfaceOpen(true);
           }, themeId);
           await expect(page.getByTestId('home-surface')).toBeVisible({ timeout: 10_000 });
-          const preview = page
-            .getByTestId('home-surface')
-            .locator('[data-preview-source="rendered-workspace"]');
-          await expect(preview).toHaveAttribute('data-preview-theme-id', themeId);
-          const previewImage = preview.getByTestId('theme-rendered-preview');
-          await expect(previewImage).toBeVisible();
-          await expect
-            .poll(() =>
-              previewImage.evaluate(
-                (element: HTMLImageElement) => element.complete && element.naturalWidth > 0,
-              ),
-            )
-            .toBe(true);
+          await expect(page.locator('html')).toHaveAttribute('data-theme-id', themeId);
+          await expect(
+            page.getByTestId('home-surface').locator('[data-preview-source="rendered-workspace"]'),
+          ).toHaveCount(0);
           await page.waitForTimeout(150);
           await expectHomeSurfaceHasNoOverlap(page);
         }
@@ -1863,7 +1854,7 @@ author: QA
 
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'false');
-    await expect(page.locator('.status-bar')).toContainText('源码切片已变化', { timeout: 2_000 });
+    await expect(page.locator('.status-bar')).toContainText('章节源码已变化', { timeout: 2_000 });
     expect(await getEditorContent(page)).toContain('外部修改后的正文。');
   });
 
@@ -1885,7 +1876,7 @@ author: QA
     });
     await page.keyboard.press('Delete');
 
-    const deleteDialog = page.getByRole('dialog', { name: '删除节点' });
+    const deleteDialog = page.getByRole('dialog', { name: '删除剧情' });
     await expect(deleteDialog).toContainText('确定要删除节点「起点」吗？');
     await deleteDialog.getByTestId('graph-confirm-primary').click();
     await expect.poll(() => getEditorContent(page)).not.toContain('## 节点：起点');
@@ -2030,21 +2021,36 @@ author: QA
     expect(storyPanelId).toBeTruthy();
     expect(variablesPanelId).toBeTruthy();
     expect(storyPanelId).not.toBe(variablesPanelId);
-    await expect(page.locator(`[id="${storyPanelId}"]`)).toHaveAttribute(
-      'aria-labelledby',
-      (await storyTab.getAttribute('id')) ?? '',
-    );
-    await expect(page.locator(`[id="${variablesPanelId}"]`)).toHaveAttribute(
-      'aria-labelledby',
-      (await variablesTab.getAttribute('id')) ?? '',
-    );
+    await expect(page.locator(`[id="${storyPanelId}"]`)).toBeAttached();
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toBeAttached();
 
     await storyTab.focus();
     await storyTab.press('ArrowRight');
     await expect(variablesTab).toHaveAttribute('aria-selected', 'true');
     await expect(variablesTab).toBeFocused();
+    // 全局设置入口现在打开原生 dialog；dialog 内的 ux-settings-tabs 负责切换挂载中的内容。
+    await variablesTab.click();
+    const settingsDialog = page.getByRole('dialog', { name: '故事设置' });
+    await expect(settingsDialog).toBeVisible();
+    const dialogVariablesTab = settingsDialog.locator('.ux-settings-tabs').getByRole('tab', { name: '变量', exact: true });
+    const dialogStoryTab = settingsDialog.locator('.ux-settings-tabs').getByRole('tab', { name: '故事信息', exact: true });
+    await expect(dialogVariablesTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator(`[id="${storyPanelId}"]`)).toHaveAttribute(
+      'aria-labelledby',
+      (await dialogStoryTab.getAttribute('id')) ?? '',
+    );
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toHaveAttribute(
+      'aria-labelledby',
+      (await dialogVariablesTab.getAttribute('id')) ?? '',
+    );
     await expect(page.locator(`[id="${variablesPanelId}"]`)).toBeVisible();
+    await dialogStoryTab.click();
+    await expect(page.locator(`[id="${storyPanelId}"]`)).toBeVisible();
+    await expect(page.locator(`[id="${variablesPanelId}"]`)).toBeHidden();
+    await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(settingsDialog).toBeHidden();
 
+    await storyTab.focus();
     await variablesTab.press('ArrowLeft');
     await expect(storyTab).toHaveAttribute('aria-selected', 'true');
     await expect(storyTab).toBeFocused();
@@ -2070,10 +2076,16 @@ author: QA
     await switchToGraphLab(page);
 
     await expect(page.getByTestId('toolbar-export')).toContainText('Export');
-    await expect(page.getByText('Graph Lab · Narrative Workbench')).toBeVisible();
+    await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+    await expect(page.getByTestId('workspace-mode-graph-lab')).toContainText('Story graph');
+    await expect(page.getByTestId('workspace-mode-split')).toContainText('Source');
     await expect(page.getByTestId('graph-lab-inspector')).toContainText('No node selected');
     await page.getByTestId('graph-global-editor-tab-story').click();
-    await expect(page.getByTestId('graph-lab-global-editor')).toContainText('Story Info');
+    const settingsDialog = page.getByRole('dialog', { name: 'Story settings' });
+    await expect(settingsDialog).toBeVisible();
+    await expect(settingsDialog).toContainText('Story Info');
+    await settingsDialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(settingsDialog).toBeHidden();
 
     await page.getByTestId('graph-lab-diagnostics-button').click();
     await expect(page.locator('.problem-panel')).toContainText('Problems');
@@ -2116,8 +2128,12 @@ author: QA
     await switchToGraphLab(page);
 
     await page.getByTestId('graph-global-editor-tab-story').click();
-    await page.getByTestId('graph-inspector-meta-engine').selectOption('godot');
+    const settingsDialog = page.getByRole('dialog', { name: '故事设置' });
+    await expect(settingsDialog).toBeVisible();
+    await settingsDialog.getByTestId('graph-inspector-meta-engine').selectOption('godot');
     await waitForContent(page, 'engine: "godot"');
+    await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(settingsDialog).toBeHidden();
 
     await expect(page.locator('.react-flow__node').filter({ hasText: '起点' })).toBeVisible({
       timeout: 10_000,
@@ -2164,6 +2180,9 @@ author: QA
     await waitForContent(page, '-> 第一章/节点：树林');
 
     const conditionTree = page.getByTestId('graph-inspector-condition-tree-0');
+    const conditionSection = conditionTree.locator('xpath=ancestor::details[1]');
+    await conditionSection.locator('summary').click();
+    await expect(conditionTree).toBeVisible();
     const variableTrigger = conditionTree
       .getByTestId('condition-variable-dropdown-trigger')
       .first();
@@ -2193,7 +2212,7 @@ author: QA
     await conditionTree.getByTestId('condition-operator-dropdown-trigger').first().click();
     const operatorMenu = page.getByTestId('condition-operator-dropdown-menu');
     await expect(operatorMenu).toBeVisible();
-    await operatorMenu.getByRole('option', { name: /≥/ }).click();
+    await operatorMenu.getByRole('option', { name: /不少于|≥/ }).click();
     const conditionInput = conditionTree.locator('input[type="number"]');
     await variableTrigger.click();
     await expect(variableMenu).toBeVisible();
@@ -2203,16 +2222,23 @@ author: QA
     await blur(conditionInput);
     await waitForContent(page, '  条件: $金币 >= 1');
 
+    const effectsSection = conditionSection.locator('xpath=..').locator('details.ux-rule-section').nth(1);
+    await effectsSection.locator('summary').click();
+    await expect(page.getByTestId('graph-inspector-option-effect-operation-0')).toBeVisible();
     await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('subtract');
     await page.getByTestId('graph-inspector-option-effect-value-0').fill('1');
     await page.getByTestId('graph-inspector-option-effect-add-0').click();
     await waitForContent(page, '  效果: 金币-1');
 
     await page.getByTestId('graph-global-editor-tab-variables').click();
-    await page.getByTestId('graph-inspector-variable-name').fill('日志');
-    await page.getByTestId('graph-inspector-variable-type').selectOption('string');
-    await page.getByTestId('graph-inspector-save-variable').click();
+    await expect(settingsDialog).toBeVisible();
+    await settingsDialog.locator('.ux-settings-tabs').getByRole('tab', { name: '变量', exact: true }).click();
+    await settingsDialog.getByTestId('graph-inspector-variable-name').fill('日志');
+    await settingsDialog.getByTestId('graph-inspector-variable-type').selectOption('string');
+    await settingsDialog.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  日志:\n    type: string');
+    await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(settingsDialog).toBeHidden();
 
     await page.getByTestId('graph-inspector-option-effect-variable-0').selectOption('日志');
     await page.getByTestId('graph-inspector-option-effect-operation-0').selectOption('append');
@@ -2222,46 +2248,50 @@ author: QA
     await waitForContent(page, '  效果: 金币-1, 日志←"发现脚印"');
 
     await page.getByTestId('graph-global-editor-tab-variables').click();
-    await page.getByTestId('graph-inspector-variable-name').fill('声望');
-    await page.getByTestId('graph-inspector-variable-type').selectOption('float');
-    await page.getByTestId('graph-inspector-save-variable').click();
+    await expect(settingsDialog).toBeVisible();
+    await settingsDialog.locator('.ux-settings-tabs').getByRole('tab', { name: '变量', exact: true }).click();
+    await settingsDialog.getByTestId('graph-inspector-variable-name').fill('声望');
+    await settingsDialog.getByTestId('graph-inspector-variable-type').selectOption('float');
+    await settingsDialog.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  声望:\n    type: float');
 
-    await page.getByTestId('graph-inspector-variable-name').fill('职业');
-    await page.getByTestId('graph-inspector-variable-type').selectOption('enum');
-    await page.getByTestId('graph-inspector-variable-enum-values').fill('战士\n法师');
-    await page.getByTestId('graph-inspector-variable-default').selectOption('法师');
-    await page.getByTestId('graph-inspector-variable-scope').selectOption('chapter');
-    await page.getByTestId('graph-inspector-variable-chapter').selectOption('第一章');
-    await page.getByTestId('graph-inspector-variable-description').fill('当前伪装职业');
-    await page.getByTestId('graph-inspector-save-variable').click();
+    await settingsDialog.getByTestId('graph-inspector-variable-name').fill('职业');
+    await settingsDialog.getByTestId('graph-inspector-variable-type').selectOption('enum');
+    await settingsDialog.getByTestId('graph-inspector-variable-enum-values').fill('战士\n法师');
+    await settingsDialog.getByTestId('graph-inspector-variable-default').selectOption('法师');
+    await settingsDialog.getByTestId('graph-inspector-variable-scope').selectOption('chapter');
+    await settingsDialog.getByTestId('graph-inspector-variable-chapter').selectOption('第一章');
+    await settingsDialog.getByTestId('graph-inspector-variable-description').fill('当前伪装职业');
+    await settingsDialog.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(
       page,
       '  职业:\n    type: enum\n    values: ["战士","法师"]\n    default: "法师"\n    scope: chapter\n    chapter: "第一章"\n    description: "当前伪装职业"',
     );
 
-    await page.getByTestId('graph-inspector-variable-name').fill('已解锁');
-    await page.getByTestId('graph-inspector-variable-type').selectOption('bool');
-    await page.getByTestId('graph-inspector-variable-default').selectOption('true');
-    await page.getByTestId('graph-inspector-save-variable').click();
+    await settingsDialog.getByTestId('graph-inspector-variable-name').fill('已解锁');
+    await settingsDialog.getByTestId('graph-inspector-variable-type').selectOption('bool');
+    await settingsDialog.getByTestId('graph-inspector-variable-default').selectOption('true');
+    await settingsDialog.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  已解锁:\n    type: bool\n    default: true');
 
-    await page.getByTestId('graph-inspector-variable-name').fill('世界状态');
-    await page.getByTestId('graph-inspector-variable-type').selectOption('object');
-    await page.getByTestId('graph-inspector-variable-field-add-root').click();
-    await page.getByTestId('graph-inspector-variable-field-name-root-0').fill('区域');
-    await page.getByTestId('graph-inspector-variable-field-type-root-0').selectOption('object');
-    await page.getByTestId('graph-inspector-variable-field-add-root-0').click();
-    await page.getByTestId('graph-inspector-variable-field-name-root-0-0').fill('天气');
-    await page.getByTestId('graph-inspector-variable-field-type-root-0-0').selectOption('object');
-    await page.getByTestId('graph-inspector-variable-field-add-root-0-0').click();
-    await page.getByTestId('graph-inspector-variable-field-name-root-0-0-0').fill('下雨');
-    await page.getByTestId('graph-inspector-variable-field-type-root-0-0-0').selectOption('bool');
-    await page
+    await settingsDialog.getByTestId('graph-inspector-variable-name').fill('世界状态');
+    await settingsDialog.getByTestId('graph-inspector-variable-type').selectOption('object');
+    await settingsDialog.getByTestId('graph-inspector-variable-field-add-root').click();
+    await settingsDialog.getByTestId('graph-inspector-variable-field-name-root-0').fill('区域');
+    await settingsDialog.getByTestId('graph-inspector-variable-field-type-root-0').selectOption('object');
+    await settingsDialog.getByTestId('graph-inspector-variable-field-add-root-0').click();
+    await settingsDialog.getByTestId('graph-inspector-variable-field-name-root-0-0').fill('天气');
+    await settingsDialog.getByTestId('graph-inspector-variable-field-type-root-0-0').selectOption('object');
+    await settingsDialog.getByTestId('graph-inspector-variable-field-add-root-0-0').click();
+    await settingsDialog.getByTestId('graph-inspector-variable-field-name-root-0-0-0').fill('下雨');
+    await settingsDialog.getByTestId('graph-inspector-variable-field-type-root-0-0-0').selectOption('bool');
+    await settingsDialog
       .getByTestId('graph-inspector-variable-field-default-root-0-0-0')
       .selectOption('true');
-    await page.getByTestId('graph-inspector-save-variable').click();
+    await settingsDialog.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  世界状态:\n    type: object');
+    await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(settingsDialog).toBeHidden();
     await waitForContent(
       page,
       '              下雨:\n                type: bool\n                default: true',
@@ -2446,7 +2476,7 @@ vars:
       'data-theme-id',
       'plotflow-narrative-workbench',
     );
-    await expect(page.getByText('Graph Lab · 叙事工作台')).toBeVisible();
+    await expect(page.getByTestId('workspace-mode-graph-lab')).toContainText('剧情图');
     await expect(page.getByTestId('graph-lab-workspace-browser')).toBeVisible();
     await expect(
       page.getByTestId('graph-lab-outline-node').filter({ hasText: '起点' }),
@@ -2645,7 +2675,7 @@ author: QA
     await workspaceFile.click();
 
     expect(await readWorkspaceStoryCallCount(electronApp)).toBe(1);
-    await expect(page.locator('.status-bar')).toContainText('源码切片已变化', { timeout: 2_000 });
+    await expect(page.locator('.status-bar')).toContainText('章节源码已变化', { timeout: 2_000 });
     expect(await getEditorContent(page)).toContain('外部修改后的正文。');
     expect(await getEditorContent(page)).not.toContain('节点：工作区起点');
   });
@@ -2705,7 +2735,7 @@ author: QA
     await page.keyboard.press('Shift+F10');
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
-    const deleteDialog = page.getByRole('dialog', { name: /删除节点|delete node/i });
+    const deleteDialog = page.getByRole('dialog', { name: /删除剧情|Delete node|Delete story node/i });
     await expect(deleteDialog).toBeVisible();
     const cancelDelete = deleteDialog.getByRole('button', { name: /取消|cancel/i });
     await expect(cancelDelete).toBeFocused();
@@ -3135,20 +3165,24 @@ author: QA
     const globalEditor = page.getByTestId('graph-lab-global-editor');
     await globalEditor.scrollIntoViewIfNeeded();
     await expect(globalEditor).toBeInViewport();
-    const storyTitle = page.getByTestId('graph-inspector-meta-title');
+    const storyTab = page.getByTestId('graph-global-editor-tab-story');
+    await storyTab.click();
+    const settingsDialog = page.getByRole('dialog', { name: '故事设置' });
+    await expect(settingsDialog).toBeVisible();
+    const storyTitle = settingsDialog.getByTestId('graph-inspector-meta-title');
     await storyTitle.fill('窄屏全局编辑');
     await blur(storyTitle);
     await waitForContent(page, 'title: "窄屏全局编辑"');
 
-    const storyTab = page.getByTestId('graph-global-editor-tab-story');
-    await storyTab.focus();
-    await storyTab.press('ArrowRight');
-    const variableName = page.getByTestId('graph-inspector-variable-name');
+    await settingsDialog.locator('.ux-settings-tabs').getByRole('tab', { name: '变量', exact: true }).click();
+    const variableName = settingsDialog.getByTestId('graph-inspector-variable-name');
     await variableName.scrollIntoViewIfNeeded();
     await expect(variableName).toBeInViewport();
     await variableName.fill('窄屏变量');
-    await page.getByTestId('graph-inspector-save-variable').click();
+    await settingsDialog.getByTestId('graph-inspector-save-variable').click();
     await waitForContent(page, '  窄屏变量:');
+    await settingsDialog.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(settingsDialog).toBeHidden();
 
     await page.getByTestId('graph-lab-inspector-toggle').click();
     await expect(page.getByTestId('graph-lab-inspector')).toBeInViewport();
@@ -3196,4 +3230,63 @@ author: QA
       })
       .catch(() => {});
   });
+  test('UX master: continuous editing, typed changes, settings, materials and page geometry', async () => {
+    await setEditorContent(page, START_STORY.replace('  金币: int', '  金币: int\n  拥有药水: bool').replace('[选项] 查看四周', '[选项] 购买药水\n  条件: $金币 >= 10\n  效果: 金币-10, 拥有药水=true'));
+    await switchToGraphLab(page);
+    await page.evaluate(() => (window as TestWindow).__test_store__?.setTheme('plotflow-prism-foundry'));
+    await clickNodeBody(page, '起点');
+    const effects = page.getByTestId('graph-inspector-effect-editor-0');
+    await expect(effects).toBeVisible();
+    const number = effects.locator('.graph-lab-effect-row input').first();
+    await number.fill('');
+    await number.pressSequentially('120', { delay: 65 });
+    await expect(number).toBeFocused();
+    await expect(number).toHaveValue('120');
+    await number.press('Tab');
+    await waitForContent(page, '金币-120');
+    const boolOperation = effects.locator('.graph-lab-effect-row').nth(1).locator('select').nth(1);
+    await expect(boolOperation.locator('option')).toHaveCount(1);
+    await expect(boolOperation.locator('option')).toHaveAttribute('value', 'set');
+    await number.fill('-');
+    await page.getByTestId('workspace-mode-split').click();
+    await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+    await expect(number).toHaveValue('-');
+    await number.fill('10'); await number.press('Tab');
+    await page.locator('.graph-lab-inspector').evaluate((element) => { element.scrollTop = 0; });
+    await page.screenshot({ path: test.info().outputPath('ux-04-graph.png'), fullPage: true });
+
+    await page.getByTestId('graph-global-editor-tab-variables').click();
+    await expect(page.locator('dialog[open]')).toBeVisible();
+    await page.getByTestId('graph-inspector-variable-name').fill('未完成草稿');
+    await page.locator('.ux-settings-tabs').getByRole('tab').first().click();
+    await page.locator('.ux-settings-tabs').getByRole('tab').last().click();
+    await expect(page.getByTestId('graph-inspector-variable-name')).toHaveValue('未完成草稿');
+    await page.screenshot({ path: test.info().outputPath('ux-05-variables.png'), fullPage: true });
+    await page.locator('dialog[open]').getByRole('button', { name: '取消编辑', exact: true }).click();
+    await page.locator('dialog[open]').getByRole('button', { name: '关闭', exact: true }).click();
+
+    await page.getByTestId('toolbar-export').click();
+    await expect(page.getByTestId('export-dialog-submit')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('ux-12-export.png'), fullPage: true });
+    await page.getByRole('button', { name: '关闭导出对话框', exact: true }).click();
+    await page.getByRole('button', { name: '写作素材', exact: true }).click();
+    await page.getByRole('button', { name: '粘贴文本', exact: true }).click();
+    await page.getByTestId('writing-material-text').fill('晚风拂过街道。晚风送来了花香。晚风穿过远处的森林。');
+    await page.getByRole('dialog').last().getByRole('button', { name: '导入素材', exact: true }).click();
+    await expect(page.locator('.ux-library__row')).toHaveCount(1);
+    await page.screenshot({ path: test.info().outputPath('ux-14-materials.png'), fullPage: true });
+    await page.getByRole('dialog').getByRole('button', { name: '关闭', exact: true }).click();
+    for (const theme of ['plotflow-prism-foundry', 'plotflow-narrative-workbench', 'plotflow-engine-telemetry']) {
+      await page.evaluate((id) => (window as TestWindow).__test_store__?.setTheme(id), theme);
+      for (const width of [1440, 900]) {
+        await page.setViewportSize({ width, height: width === 900 ? 720 : 900 });
+        await expect(page.getByTestId('graph-lab-workspace')).toBeVisible();
+        const box = await page.locator('.graph-lab__canvas').boundingBox();
+        expect(box?.width).toBeGreaterThan(350);
+        expect(box?.height).toBeGreaterThan(250);
+        await page.screenshot({ path: test.info().outputPath(`ux-${theme}-${width}.png`), fullPage: true });
+      }
+    }
+  });
+
 });

@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { FilePlus2, FolderOpen, GitBranch, Palette, Play } from 'lucide-react';
 import { useThemePlatform } from '../ThemePlatformProvider';
+import { useStoryStore } from '../../stores/storyStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUIStore } from '../../stores/uiStore';
 import { clearRecentStory, readRecentStory } from '../../services/recentFileService';
@@ -16,10 +17,11 @@ export function HomeSurface(): React.ReactElement | null {
   const openThemeCenter = useUIStore((state) => state.openThemeCenter);
   const setHomeSurfaceOpen = useUIStore((state) => state.setHomeSurfaceOpen);
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
-  const language = useUIStore((state) => state.language);
   const filePath = useEditorStore((state) => state.filePath);
   const isDirty = useEditorStore((state) => state.isDirty);
-  const { activeThemeId, themes, activeTheme } = useThemePlatform();
+  const { activeTheme } = useThemePlatform();
+  const story = useStoryStore((state) => state.plotFlowData);
+  const recent = readRecentStory();
   const Surface = activeTheme.surfaces.HomeSurface;
   const text = useAppText();
 
@@ -97,8 +99,7 @@ export function HomeSurface(): React.ReactElement | null {
 
   if (!isOpen) return null;
 
-  const displayedTheme = themes.find((theme) => theme.id === activeThemeId) ?? activeTheme;
-  const ActivePreview = displayedTheme.slots.HomePreview;
+
 
   return (
     <Surface
@@ -113,12 +114,12 @@ export function HomeSurface(): React.ReactElement | null {
         </>
       )}
       preview={(
-        <div className="home-surface__preview" data-active-official-theme={displayedTheme.id}>
-          <ActivePreview active />
-          <div className="home-surface__current">
-            <span>{text('home.currentTheme')}</span>
-            <strong>{displayedTheme.name[language]}</strong>
-          </div>
+        <div className="home-surface__preview ux-recent-story">
+          <GitBranch size={28} aria-hidden="true"/>
+          <span>{text('ux.recentStory')}</span>
+          <h3>{story?.meta.title || (recent?.filePath.split(/[/\\]/).pop()) || text('ux.emptyRecent')}</h3>
+          <p>{filePath || recent?.filePath || text('home.currentFileUnsaved')}</p>
+          <button type="button" className="button button--primary" onClick={() => { void continueEditing(); }}>{text('home.continue')}</button>
         </div>
       )}
       actions={(

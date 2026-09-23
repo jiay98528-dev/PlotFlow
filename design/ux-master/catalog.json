@@ -1,0 +1,782 @@
+[
+  {
+    "id": "LR0UY",
+    "name": "00 · 设计基础 / Foundations",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/LR0UY.png"
+  },
+  {
+    "id": "k1dnD",
+    "name": "01 · 组件母版 / Reusable components",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1950,
+    "preview": "previews/k1dnD.png"
+  },
+  {
+    "id": "Oqe9X",
+    "name": "02 · 按钮与输入 / State atlas",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1350,
+    "preview": "previews/Oqe9X.png"
+  },
+  {
+    "id": "FwHVl",
+    "name": "03 · 选择、反馈与多行输入 / State atlas",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1900,
+    "preview": "previews/FwHVl.png"
+  },
+  {
+    "id": "qkMkj",
+    "name": "04 · 工作台结构 / Shared shell",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1800,
+    "preview": "previews/qkMkj.png"
+  },
+  {
+    "id": "esj1D",
+    "name": "05 · 剧情图组件与状态",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1600,
+    "preview": "previews/esj1D.png"
+  },
+  {
+    "id": "nJN0m",
+    "name": "04 · 剧情图与选项编辑",
+    "page": "04",
+    "reference": "04",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/nJN0m.png"
+  },
+  {
+    "id": "Z9acTq",
+    "name": "09 · 故事信息",
+    "page": "09",
+    "reference": "09",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/Z9acTq.png"
+  },
+  {
+    "id": "m8y5R",
+    "name": "03 · 空白剧情图",
+    "page": "03",
+    "reference": "03",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/m8y5R.png"
+  },
+  {
+    "id": "u8gAVV",
+    "name": "01 · 开始与继续创作",
+    "page": "01",
+    "reference": "01",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/u8gAVV.png"
+  },
+  {
+    "id": "M5B93t",
+    "name": "02 · 新建故事与模板",
+    "page": "02",
+    "reference": "02",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/M5B93t.png"
+  },
+  {
+    "id": "eQbG8",
+    "name": "05 · 变量管理与类型化编辑",
+    "page": "05",
+    "reference": "05",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/eQbG8.png"
+  },
+  {
+    "id": "H58lO",
+    "name": "06 · 就地创建变量",
+    "page": "06",
+    "reference": "06",
+    "state": "draft",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/H58lO.png"
+  },
+  {
+    "id": "Gz88L",
+    "name": "07 · 高级条件与自然语言逻辑",
+    "page": "07",
+    "reference": "07",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/Gz88L.png"
+  },
+  {
+    "id": "cTpFD",
+    "name": "08 · 组合数据字段选择",
+    "page": "08",
+    "reference": "08",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/cTpFD.png"
+  },
+  {
+    "id": "RAByz",
+    "name": "10 · 完整源码与分支图",
+    "page": "10",
+    "reference": "10",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/RAByz.png"
+  },
+  {
+    "id": "ZLjbi",
+    "name": "11 · 章节源码与草稿恢复",
+    "page": "11",
+    "reference": "11",
+    "state": "conflict",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/ZLjbi.png"
+  },
+  {
+    "id": "l5TWX",
+    "name": "12 · 导出故事",
+    "page": "12",
+    "reference": "12",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/l5TWX.png"
+  },
+  {
+    "id": "NRE05",
+    "name": "13 · 主题外观",
+    "page": "13",
+    "reference": "13",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/NRE05.png"
+  },
+  {
+    "id": "RRUlE",
+    "name": "14 · 写作补全素材管理",
+    "page": "14",
+    "reference": "14",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/RRUlE.png"
+  },
+  {
+    "id": "b2nQeU",
+    "name": "15 · 反馈问题",
+    "page": "15",
+    "reference": "15",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/b2nQeU.png"
+  },
+  {
+    "id": "OAinZ",
+    "name": "16 · 窄窗口剧情编辑",
+    "page": "16",
+    "reference": "16",
+    "state": "compact",
+    "width": 900,
+    "height": 720,
+    "preview": "previews/OAinZ.png"
+  },
+  {
+    "id": "wBTjd",
+    "name": "17 · 拖线创建与连接剧情",
+    "page": "17",
+    "reference": "17",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/wBTjd.png"
+  },
+  {
+    "id": "CSVId",
+    "name": "18 · 搜索与定位剧情",
+    "page": "18",
+    "reference": "18",
+    "state": "normal",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/CSVId.png"
+  },
+  {
+    "id": "ql3FH",
+    "name": "19 · 问题定位与数值错误",
+    "page": "19",
+    "reference": "19",
+    "state": "invalid",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/ql3FH.png"
+  },
+  {
+    "id": "egrZa",
+    "name": "20 · 未保存内容与切换确认",
+    "page": "20",
+    "reference": "20",
+    "state": "dirty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/egrZa.png"
+  },
+  {
+    "id": "waf1W",
+    "name": "21 · 首页 / 尚无故事",
+    "page": "21",
+    "reference": "01",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/waf1W.png"
+  },
+  {
+    "id": "fPLg4",
+    "name": "22 · 新建故事 / empty",
+    "page": "22",
+    "reference": "02",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/fPLg4.png"
+  },
+  {
+    "id": "x7EzJo",
+    "name": "23 · 新建故事 / invalid",
+    "page": "23",
+    "reference": "02",
+    "state": "invalid",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/x7EzJo.png"
+  },
+  {
+    "id": "ROvGR",
+    "name": "24 · 剧情图 / 打开中",
+    "page": "24",
+    "reference": "04",
+    "state": "loading",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/ROvGR.png"
+  },
+  {
+    "id": "LjGhk",
+    "name": "25 · 剧情图 / 未选中剧情",
+    "page": "25",
+    "reference": "04",
+    "state": "unselected",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/LjGhk.png"
+  },
+  {
+    "id": "j0qVhN",
+    "name": "26 · 剧情图 / 长内容与多选项",
+    "page": "26",
+    "reference": "04",
+    "state": "long-content",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/j0qVhN.png"
+  },
+  {
+    "id": "G6B2M",
+    "name": "27 · 变量管理 / 空列表",
+    "page": "27",
+    "reference": "05",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/G6B2M.png"
+  },
+  {
+    "id": "CSabj",
+    "name": "28 · 新建变量 / 名称冲突",
+    "page": "28",
+    "reference": "06",
+    "state": "invalid",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/CSabj.png"
+  },
+  {
+    "id": "TF9kt",
+    "name": "29 · 变量编辑 / 固定选项与章节范围",
+    "page": "29",
+    "reference": "05",
+    "state": "enum-filled",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/TF9kt.png"
+  },
+  {
+    "id": "msCZr",
+    "name": "30 · 变量编辑 / 组合数据",
+    "page": "30",
+    "reference": "05",
+    "state": "object-filled",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/msCZr.png"
+  },
+  {
+    "id": "j021WK",
+    "name": "31 · 变量编辑 / 引擎来源只读",
+    "page": "31",
+    "reference": "05",
+    "state": "readonly",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/j021WK.png"
+  },
+  {
+    "id": "khUsm",
+    "name": "32 · 选择条件 / 尚无变量",
+    "page": "32",
+    "reference": "07",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/khUsm.png"
+  },
+  {
+    "id": "wKwJC",
+    "name": "33 · 高级条件 / 否定与变量比较",
+    "page": "33",
+    "reference": "07",
+    "state": "advanced",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/wKwJC.png"
+  },
+  {
+    "id": "sOjUr",
+    "name": "34 · 章节源码 / 可应用草稿",
+    "page": "34",
+    "reference": "11",
+    "state": "dirty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/sOjUr.png"
+  },
+  {
+    "id": "d11JB",
+    "name": "35 · 源码 / 需修正的语法",
+    "page": "35",
+    "reference": "10",
+    "state": "invalid",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/d11JB.png"
+  },
+  {
+    "id": "NXGux",
+    "name": "36 · 导出 / loading",
+    "page": "36",
+    "reference": "12",
+    "state": "loading",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/NXGux.png"
+  },
+  {
+    "id": "zb69H",
+    "name": "37 · 导出 / success",
+    "page": "37",
+    "reference": "12",
+    "state": "success",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/zb69H.png"
+  },
+  {
+    "id": "y6nEUD",
+    "name": "38 · 导出 / blocked",
+    "page": "38",
+    "reference": "12",
+    "state": "blocked",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/y6nEUD.png"
+  },
+  {
+    "id": "rLMN0",
+    "name": "39 · 导出 / error",
+    "page": "39",
+    "reference": "12",
+    "state": "error",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/rLMN0.png"
+  },
+  {
+    "id": "R6Att7",
+    "name": "40 · 主题外观 / 切换中",
+    "page": "40",
+    "reference": "13",
+    "state": "loading",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/R6Att7.png"
+  },
+  {
+    "id": "oOtx6",
+    "name": "41 · 写作补全 / empty",
+    "page": "41",
+    "reference": "14",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/oOtx6.png"
+  },
+  {
+    "id": "prZY2",
+    "name": "42 · 写作补全 / loading",
+    "page": "42",
+    "reference": "14",
+    "state": "loading",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/prZY2.png"
+  },
+  {
+    "id": "W4NNU",
+    "name": "43 · 写作补全 / error",
+    "page": "43",
+    "reference": "14",
+    "state": "error",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/W4NNU.png"
+  },
+  {
+    "id": "vDuPH",
+    "name": "44 · 写作补全 / 粘贴文本",
+    "page": "44",
+    "reference": "14",
+    "state": "filled",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/vDuPH.png"
+  },
+  {
+    "id": "WeW7w",
+    "name": "45 · 写作补全 / 删除确认",
+    "page": "45",
+    "reference": "14",
+    "state": "confirm",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/WeW7w.png"
+  },
+  {
+    "id": "x6JXj",
+    "name": "46 · 问题反馈 / empty",
+    "page": "46",
+    "reference": "15",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/x6JXj.png"
+  },
+  {
+    "id": "E5yf83",
+    "name": "47 · 问题反馈 / loading",
+    "page": "47",
+    "reference": "15",
+    "state": "loading",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/E5yf83.png"
+  },
+  {
+    "id": "G5y9Ev",
+    "name": "48 · 问题反馈 / success",
+    "page": "48",
+    "reference": "15",
+    "state": "success",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/G5y9Ev.png"
+  },
+  {
+    "id": "M6Azo",
+    "name": "49 · 问题反馈 / error",
+    "page": "49",
+    "reference": "15",
+    "state": "error",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/M6Azo.png"
+  },
+  {
+    "id": "HxBOb",
+    "name": "50 · 搜索剧情 / 无结果",
+    "page": "50",
+    "reference": "18",
+    "state": "empty-results",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/HxBOb.png"
+  },
+  {
+    "id": "b7Ydsy",
+    "name": "51 · 连接剧情 / 无匹配目标",
+    "page": "51",
+    "reference": "17",
+    "state": "empty-results",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/b7Ydsy.png"
+  },
+  {
+    "id": "rZEhS",
+    "name": "52 · 删除剧情 / 确认",
+    "page": "52",
+    "reference": "04",
+    "state": "confirm",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/rZEhS.png"
+  },
+  {
+    "id": "svYUt",
+    "name": "53 · 切换剧情 / 无效草稿保留",
+    "page": "53",
+    "reference": "20",
+    "state": "draft-blocked",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/svYUt.png"
+  },
+  {
+    "id": "NzBoT",
+    "name": "54 · 外部文件变化 / 冲突处理",
+    "page": "54",
+    "reference": "20",
+    "state": "external-conflict",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/NzBoT.png"
+  },
+  {
+    "id": "u7xoE",
+    "name": "55 · 窄窗口 / 目录抽屉",
+    "page": "55",
+    "reference": "16",
+    "state": "navigation-open",
+    "width": 900,
+    "height": 720,
+    "preview": "previews/u7xoE.png"
+  },
+  {
+    "id": "u5PAF",
+    "name": "56 · 规则 / 无法结构化的原文",
+    "page": "56",
+    "reference": "07",
+    "state": "raw-preserved",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/u5PAF.png"
+  },
+  {
+    "id": "tHPDL",
+    "name": "57 · 编辑过程 / 数字与中文输入草稿",
+    "page": "57",
+    "reference": "04",
+    "state": "composing",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/tHPDL.png"
+  },
+  {
+    "id": "OU6Vq",
+    "name": "58 · 完整工作台 / 叙事工作台",
+    "page": "58",
+    "reference": "04",
+    "state": "theme-workbench",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/OU6Vq.png"
+  },
+  {
+    "id": "WGIsg",
+    "name": "59 · 完整工作台 / 引擎遥测台",
+    "page": "59",
+    "reference": "04",
+    "state": "theme-telemetry",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/WGIsg.png"
+  },
+  {
+    "id": "AuN05",
+    "name": "06 · 路线、边线与表单组合状态",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1550,
+    "preview": "previews/AuN05.png"
+  },
+  {
+    "id": "H3NPSB",
+    "name": "07 · 列表、卡片与浮层完整状态",
+    "page": null,
+    "reference": null,
+    "state": null,
+    "width": 1600,
+    "height": 1680,
+    "preview": "previews/H3NPSB.png"
+  },
+  {
+    "id": "TItnH",
+    "name": "60 · 故事信息 / 未填写",
+    "page": "60",
+    "reference": "09",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/TItnH.png"
+  },
+  {
+    "id": "F6eejL",
+    "name": "61 · 变量管理 / 搜索无结果",
+    "page": "61",
+    "reference": "05",
+    "state": "empty-results",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/F6eejL.png"
+  },
+  {
+    "id": "teqcN",
+    "name": "62 · 变量管理 / 删除引用中的变量",
+    "page": "62",
+    "reference": "05",
+    "state": "confirm",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/teqcN.png"
+  },
+  {
+    "id": "qAM2W",
+    "name": "63 · 章节源码 / 已同步",
+    "page": "63",
+    "reference": "11",
+    "state": "clean",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/qAM2W.png"
+  },
+  {
+    "id": "u0SHN",
+    "name": "64 · 导出 / 尚无故事内容",
+    "page": "64",
+    "reference": "12",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/u0SHN.png"
+  },
+  {
+    "id": "oAPZu",
+    "name": "65 · 故事文件夹 / filled",
+    "page": "65",
+    "reference": "04",
+    "state": "filled",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/oAPZu.png"
+  },
+  {
+    "id": "PFAKX",
+    "name": "66 · 故事文件夹 / empty",
+    "page": "66",
+    "reference": "04",
+    "state": "empty",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/PFAKX.png"
+  },
+  {
+    "id": "xu5y5",
+    "name": "67 · 故事文件夹 / loading",
+    "page": "67",
+    "reference": "04",
+    "state": "loading",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/xu5y5.png"
+  },
+  {
+    "id": "fDFpd",
+    "name": "68 · 故事文件夹 / error",
+    "page": "68",
+    "reference": "04",
+    "state": "error",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/fDFpd.png"
+  },
+  {
+    "id": "AKSj3",
+    "name": "69 · 界面语言菜单",
+    "page": "69",
+    "reference": "04",
+    "state": "language-open",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/AKSj3.png"
+  },
+  {
+    "id": "Pil2T",
+    "name": "70 · English / Story graph",
+    "page": "70",
+    "reference": "04",
+    "state": "english",
+    "width": 1440,
+    "height": 900,
+    "preview": "previews/Pil2T.png"
+  }
+]

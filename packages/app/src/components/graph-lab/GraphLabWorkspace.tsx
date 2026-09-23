@@ -1,3 +1,4 @@
+import { flushInspectorDrafts } from '../../services/inspectorDraftCoordinator';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -448,7 +449,6 @@ function ChapterSourceSliceEditor(): React.ReactElement {
 
 export function GraphLabWorkspace(): React.ReactElement {
   const isSourceDrawerOpen = useUIStore((state) => state.isSourceDrawerOpen);
-  const language = useUIStore((state) => state.language);
   const toggleSourceDrawer = useUIStore((state) => state.toggleSourceDrawer);
   const setProblemPanelOpen = useUIStore((state) => state.setProblemPanelOpen);
   const activeChapterId = useUIStore((state) => state.activeChapterId);
@@ -465,8 +465,8 @@ export function GraphLabWorkspace(): React.ReactElement {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const { activeTheme } = useThemePlatform();
   const Surface = activeTheme.surfaces.GraphLabShell;
-  const themeModeLabel = `Graph Lab · ${activeTheme.name[language]}`;
   const text = useAppText();
+  const themeModeLabel = text('ux.graph');
   const paletteToggleRef = useRef<HTMLButtonElement>(null);
   const inspectorToggleRef = useRef<HTMLButtonElement>(null);
   const [pendingDeleteNode, setPendingDeleteNode] = useState<StoryNode | null>(null);
@@ -543,6 +543,7 @@ export function GraphLabWorkspace(): React.ReactElement {
 
   const handleNodeNavigate = useCallback(
     (nodeId: string, lineNumber: number, chapterId: string) => {
+    if (!flushInspectorDrafts()) return;
       if (!switchActiveChapter(chapterId)) return;
       useGraphStore.getState().selectNode(nodeId);
       const editor = useEditorStore.getState();

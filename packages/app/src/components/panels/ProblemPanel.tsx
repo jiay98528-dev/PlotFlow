@@ -1,3 +1,4 @@
+import { flushInspectorDrafts } from '../../services/inspectorDraftCoordinator';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import type { Diagnostic, DiagnosticSeverity } from '@plotflow/core';
@@ -84,6 +85,7 @@ export function ProblemPanel(): React.ReactElement {
 
   const handleJumpToLine = useCallback(
     (diagnostic: Diagnostic) => {
+      if (!flushInspectorDrafts()) return;
       const { startLine, startColumn } = diagnostic.range;
       const editor = useEditorStore.getState();
       const story = useStoryStore.getState();

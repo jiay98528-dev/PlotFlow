@@ -2,72 +2,48 @@
 
 > 文档导航：[状态、验证与部署索引](../doc/indexes/delivery.md) · [总索引](../doc/INDEX.md)
 
-> 更新：2026-09-22。软件版本：0.1.1 Preview。当前阶段：Windows 开发基线。
+> 更新：2026-09-23。软件版本：0.1.1 Preview。当前开发基线：结构化 UX 母版已落地到桌面代码，Graph 编辑、变量操作和素材库可用于下一阶段开发。
 
-## 当前开发基线标识
+## 固定开发基线
 
-- 基线名称：0.1.1-preview-2026-09-22。
-- 固定 Git 标签：baseline/0.1.1-preview-2026-09-22，作为下一阶段开发和回退的明确起点。
-- 范围：已整理的源码、三层文档索引、后台隔离 E2E 入口与现有 Windows 预览包。
-- 产品代码及构建配置未变化，复用已验证的安装器；安装器、解包 EXE、app.asar 与原清单的校验值一致。本次只刷新源码快照和基线标识，不增加软件版本。
-- 本地交付在 release/baseline，baseline.json 记录标签、精确提交与文件校验值；开发状态继续只维护本文件。
-- 下一阶段从此标签继续，具体范围见下方“下一阶段”；不把尚未开始的功能计为完成。
+- 基线名称：0.1.1-preview-2026-09-23-ux。
+- 固定 Git 标签：`baseline/0.1.1-preview-2026-09-23-ux`。旧标签 `baseline/0.1.1-preview-2026-09-22` 保留为历史回退点，不移动。
+- 本地交付：`release/baseline` 包含同轮 Windows 安装器、解包应用、源码快照、校验清单与简短说明；以 `baseline.json` 中的精确提交和 SHA-256 区分产物。
+- 软件版本与开发基线分开管理；本轮仍为 0.1.1 Preview 未签名开发包，不是公共正式发行。
 
 ## 当前范围
 
 | 模块 | 当前状态 |
 |---|---|
-| 图形创作 | Graph Lab 默认入口；章节、节点、连线、条件、效果、变量、Inspector 与 Source Drawer 已实现 |
-| 源码与数据 | Split 完整源码投影；.mdstory 是唯一磁盘真相源，保存与草稿事务共用会话身份 |
+| 图形创作 | Graph Lab 默认入口；章节、节点、连线、条件、变量变化、Inspector 与章节源码已实现 |
+| 源码与数据 | Split 完整源码投影；`.mdstory` 是唯一磁盘真相源，图形编辑通过文本事务回写 |
 | 解析与导出 | 诊断、JSON Schema 0.2、HTML 试玩版、TXT；引擎读取兼容 0.1/0.2 |
-| 引擎接入 | Godot 插件与运行时、Unity 读取参考、Unreal 数据接口；真实引擎运行在下一阶段继续核对 |
-| 补全 | 本地 N-gram、语料导入和学习；中文约 45KB、英文约 30KB，扩容尚未实现 |
+| 引擎接入 | Godot 插件与运行时、Unity 读取参考、Unreal 数据接口；真实引擎运行仍待下一阶段核对 |
+| 补全与素材 | 本地 N-gram；TXT/CSV/MDSTORY 文件和粘贴文本进入设备内素材库，启停和删除会重建独立补全模型 |
 | 主题 | 棱镜铸造台（默认）、叙事工作台、引擎遥测台；远程代码主题已停用 |
-| 反馈 | Help 菜单反馈窗口与独立 HTTPS 服务已实现；本轮不变更线上部署 |
-| 官网 | 现有页面与当前状态同步；新落地页视觉方向已定义，尚未实现新设计与公开获取入口 |
+| 反馈 | Help 菜单反馈窗口与独立 HTTPS 服务已实现；线上部署不随开发基线改变 |
+| 官网 | 现有页面可用；新落地页与公开获取入口尚未实现 |
 
-## 最近源码与产物验证（2026-09-22）
+## 本轮 UX 与可靠性
 
-| 命令 | 结果 | 范围 |
-|---|---|---|
-| `pnpm.cmd test` | PASS | 103 个测试文件 / 1548 条单元测试 |
-| `pnpm.cmd build` | PASS | Electron 主进程、preload、renderer 生产构建 |
-| `pnpm.cmd typecheck` | PASS | TypeScript strict 检查 |
-| `pnpm.cmd --filter @plotflow/app test:e2e:background` | PASS | Windows 独立隐藏桌面完整运行 92/92 通过（3.5 分钟），测试窗口未进入用户 Default 桌面 |
-| `pnpm.cmd package:win` | PASS | 使用本地 Electron 42.10.1 分发目录生成 0.1.1 Windows 安装器与解包应用 |
-| `pnpm.cmd --filter @plotflow/app test:e2e:unpacked` | PASS | 当前 EXE 的 17 项黑盒全部通过，包含原生打开/保存/导出、重开、HTML 试玩与 100/500/1000 节点路径 |
-| `pnpm.cmd lint` | PASS | 0 error，9 个既有 no-console warning |
-| `pnpm.cmd --dir packages/feedback-service test` | PASS | 5 个文件 / 32 条反馈服务测试 |
-| `pnpm.cmd test:engine-contract` | PASS | 6 项引擎数据合同测试，不等同于真实引擎运行 |
-| `node.exe --test scripts/run-app-e2e.test.mjs` | PASS | 4 项测试，含真实 Playwright 命令入口回归 |
-| `pnpm.cmd --dir website test` | PASS | 7 项网站测试 |
-| `pnpm.cmd --dir website build` | PASS | 网站类型检查与生产构建；静态降级构建也通过 |
+- 全应用按 [结构化 UX 母版](../design/ux-master/README.md) 更新布局、创作者文案、按钮和表单状态、窄窗口布局及三套内置主题。原始 [样机图册](assets/graph-editing-ux/gallery.html) 保留为视觉起点；交互合同以 [UX 规范](design-brief-editor-ux.md) 为准。
+- 剧情详情按创作任务分组。选项控件身份在内容变化与排序期间稳定；条件和变量变化按需展开。变量变化按类型约束操作，组合数据选择字段，可在当前规则内新建变量。
+- 已有变化的输入先保留草稿，失焦或 Enter 确认；无效值留在字段。保存、切换工作区与用户发起的剧情选择协调 Inspector 草稿；内部投影更新不重复提交。未提交输入计入未保存风险，明确放弃入口可撤销无效输入。变量表单在标签切换和同会话工作区重开后保留，保存和导出前会返回未保存变量表单。
+- 故事信息与变量管理使用独立编辑弹层；首页显示真实故事信息，新建故事验证标题，导出进行中防止重复提交。修复外部重载覆盖故事标题草稿和迟到解析覆盖系统打开失败提示。
+- 写作素材存于本机 IndexedDB，与 `.mdstory` 故事真相源分离。后台 E2E 启动器在私有 Windows 桌面直接运行 Node，不切换用户桌面或使用全局输入。
 
-## 本轮修复与清理
+## 当前核验
 
-- 修复打包黑盒入口漏传 Playwright test 子命令，避免 unpacked/installed 检查尚未启动就退出。
-- Graph Lab 测试每例使用独立应用和 profile；主题测试不再申请未使用的 Chromium 页面。
-- E2E 命令直接执行 Node 预检查，消除嵌套 pnpm 的 PATH 依赖。
-- 新增 windows-e2e-background.ps1：应用集成测试运行于独立隐藏桌面，启动前验证桌面身份；原生对话框黑盒仍在隔离机器或 CI 执行，避免全局输入抢占用户操作。
-- 官网状态直接读取本文件与 package.json；移除硬编码历史 PASS、旧完成百分比和历史审计看板，构建时自动同步。
-- 精简并校正产品、架构、主题与开发规则；旧候选、审计报告、交接文档及临时输出退出开发目录。
+| 检查 | 结果与范围 |
+|---|---|
+| `pnpm.cmd test` | 105 个文件、1554 项单元测试通过 |
+| `pnpm.cmd typecheck` | TypeScript strict 通过 |
+| `pnpm.cmd lint` | 0 error，9 条既有 no-console warning |
+| `pnpm.cmd --filter @plotflow/app test:e2e:background` | 最终应用源码在独立隐藏桌面完整 E2E 93/93 通过；9 张视觉基线按新版布局复核更新 |
+| `pnpm.cmd package:win` | 本轮安装器与解包应用构建通过，文件校验值见交付清单 |
 
-## 当前开发交付
-
-- 当前交付目录为 release/baseline；源码快照对应提交见其中的 baseline.json。
-- 目录只保留当前安装包、解包应用、同轮源码快照与简短交付说明，历史候选退出开发目录。
-- Git 保留旧审计、阶段交接与实验历史，当前目录不维护重复的过程报告或历史看板。
-- 不用旧的 142 项统计推断当前产品完成比例。
-- 当前为本地开发基线。安装态系统集成、真实引擎运行及公共发行签名按后续目标分别执行。
-
-## 文档维护
-
-[总索引](../doc/INDEX.md) → 五个分类索引 → 28 份正文。当前索引已覆盖全部自有 Markdown 文档，本地链接、分类归属和正文返回导航已校验。历史过程与草稿退出源码树，机器合同和在用测试资产保留。后续增删文档同步对应分类；索引不复制运行数字。
+后台 E2E 覆盖应用编辑、草稿、保存、源码、导出、主题、语言及会话路径。原生系统对话框黑盒需要专用隔离机器或 CI；本轮结果不表述为安装态验收。
 
 ## 下一阶段
 
-1. 完成官网真实产品演示与 Windows 预览版获取入口。
-2. 完善最小 Godot 项目，核对真实故事加载、条件和变量效果。
-3. 制作首次启动引导。
-
-macOS/Linux、自动更新、Unity 示例场景和语料扩充独立排期。可执行远程主题不恢复；若将来需要远程主题，按 ADR-016 重新设计声明式格式。
+以本轮固定标签和 `release/baseline` 为开发起点。优先制作最小 Godot 可玩项目，核对当前 JSON 导出到真实引擎的路径；官网演示与预览版获取入口、首次启动引导随后推进。macOS/Linux、自动更新、Unity 示例场景和语料扩充独立排期；可执行远程主题不恢复。

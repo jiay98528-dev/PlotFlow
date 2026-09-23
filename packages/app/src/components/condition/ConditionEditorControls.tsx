@@ -43,15 +43,6 @@ const VARIABLE_TYPE_ICONS: Readonly<Record<VariableType, string>> = {
 };
 
 /** 比较运算符 → 中文标签 */
-const OPERATOR_LABELS: Readonly<Record<ComparisonOperator, string>> = {
-  '==': '＝',
-  '!=': '≠',
-  '>': '＞',
-  '<': '＜',
-  '>=': '≥',
-  '<=': '≤',
-};
-
 /** 逻辑运算符颜色映射 */
 export const LOGIC_GROUP_COLORS: Readonly<Record<LogicalOperator, string>> = {
   AND: 'var(--color-syntax-heading)',
@@ -639,7 +630,7 @@ export function OperatorDropdown({
           setIsOpen(true);
         }}
       >
-        <span style={{ fontWeight: 600 }}>{OPERATOR_LABELS[selected] || selected}</span>
+        <span style={{ fontWeight: 600 }}>{text(`ux.operators.${selected}`)}</span>
         <span style={chevronStyle}>{isOpen ? '▲' : '▼'}</span>
       </button>
 
@@ -675,7 +666,7 @@ export function OperatorDropdown({
                   chooseOperator(index);
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{OPERATOR_LABELS[op]}</span>
+                <span style={{ fontWeight: 600 }}>{text(`ux.operators.${op}`)}</span>
                 <span style={{ marginLeft: 8, fontSize: '10px', color: 'var(--color-text-muted)' }}>
                   {op}
                 </span>
@@ -718,8 +709,8 @@ export function ValueInput({
         style={selectStyle}
       >
         <option value="">--</option>
-        <option value="true">true</option>
-        <option value="false">false</option>
+        <option value="true">{text('ux.yes')}</option>
+        <option value="false">{text('ux.no')}</option>
       </select>
     );
   }

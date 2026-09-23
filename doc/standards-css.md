@@ -8,6 +8,7 @@
 |---|---|
 | [tokens-light.css](../packages/app/src/styles/tokens-light.css) / [tokens-dark.css](../packages/app/src/styles/tokens-dark.css) | 基础亮暗色 token |
 | [global.css](../packages/app/src/styles/global.css) | 全局基础样式 |
+| [ux-master.css](../packages/app/src/styles/ux-master.css) | 当前母版的公共布局与控件状态，覆盖旧主题装饰布局 |
 | [official-themes.css](../packages/app/src/styles/official-themes.css) | 官方主题共享样式 |
 | [theme-platform](../packages/app/src/theme-platform/types.ts) | ThemeDescriptor、Surface、Slot 和 token 合同 |
 | [stylelint.config.js](../stylelint.config.js) | 实际 CSS 检查配置 |

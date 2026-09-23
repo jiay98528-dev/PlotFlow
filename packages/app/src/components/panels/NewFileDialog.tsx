@@ -1,10 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import { applyTemplate, t } from '@plotflow/core';
-import {
-  BUILTIN_TEMPLATES,
-  type BuiltinTemplate,
-} from '../../templates/builtinTemplates';
+import { BUILTIN_TEMPLATES, type BuiltinTemplate } from '../../templates/builtinTemplates';
 import { useAppText } from '../../i18n/appI18n';
 
 export interface NewFileDialogProps {
@@ -30,15 +27,33 @@ export function NewFileDialog({
   onClose,
   onTemplateSelected,
 }: NewFileDialogProps): React.ReactElement {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    const opener = document.activeElement as HTMLElement | null;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
   const [selectedId, setSelectedId] = useState<BuiltinTemplate['id']>('rpg-dialogue');
-  const [title, setTitle] = useState(DEFAULT_TITLE);
-  const [author, setAuthor] = useState(DEFAULT_AUTHOR);
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
   const text = useAppText();
+  const validTitle =
+    title.trim().length > 0 && !Array.from(title).some((character) => character.charCodeAt(0) < 32);
 
   const selectedTemplate = useMemo(() => {
     const fallback: BuiltinTemplate = {
-      id: 'blank', titleKey: 'dialogs.blankFile', title: 'Blank',
-      description: '', nodeCount: 0, engine: 'generic', accent: 'heading', content: '',
+      id: 'blank',
+      titleKey: 'dialogs.blankFile',
+      title: 'Blank',
+      description: '',
+      nodeCount: 0,
+      engine: 'generic',
+      accent: 'heading',
+      content: '',
     };
     return BUILTIN_TEMPLATES.find((t) => t.id === selectedId) ?? BUILTIN_TEMPLATES[0] ?? fallback;
   }, [selectedId]);
@@ -53,7 +68,7 @@ export function NewFileDialog({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !event.isComposing) {
         onClose();
       }
     };
@@ -64,7 +79,7 @@ export function NewFileDialog({
   }, [onClose]);
 
   const handleOverlayClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLDialogElement>) => {
       if (event.target === event.currentTarget) {
         onClose();
       }
@@ -73,6 +88,7 @@ export function NewFileDialog({
   );
 
   const handleCreate = useCallback(() => {
+    if (!validTitle) return;
     const meta = {
       title: title.trim() || DEFAULT_TITLE,
       author: author.trim() || DEFAULT_AUTHOR,
@@ -86,15 +102,20 @@ export function NewFileDialog({
       meta,
     );
     onClose();
-  }, [author, onClose, onTemplateSelected, selectedTemplate, title]);
+  }, [author, onClose, onTemplateSelected, selectedTemplate, title, validTitle]);
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       className="new-file-dialog"
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-file-title"
       onClick={handleOverlayClick}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
     >
       <section className="new-file-dialog__panel">
         <header className="new-file-dialog__header">
@@ -119,7 +140,8 @@ export function NewFileDialog({
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder={DEFAULT_TITLE}
+                placeholder={text('ux.storyTitlePlaceholder')}
+                aria-invalid={Boolean(title) && !validTitle}
               />
             </label>
             <label className="form-field">
@@ -131,6 +153,11 @@ export function NewFileDialog({
               />
             </label>
 
+            {title && !validTitle && (
+              <p role="alert" className="ux-error">
+                {text('ux.titleInvalid')}
+              </p>
+            )}
             <div className="template-grid" aria-label={text('newFile.template')}>
               {BUILTIN_TEMPLATES.map((template) => {
                 const isSelected = template.id === selectedId;
@@ -153,9 +180,12 @@ export function NewFileDialog({
                         />
                       )}
                     </span>
-                    <span className="template-card__description">{text(TEMPLATE_DESCRIPTION_KEY[template.id])}</span>
+                    <span className="template-card__description">
+                      {text(TEMPLATE_DESCRIPTION_KEY[template.id])}
+                    </span>
                     <span className="template-card__meta">
-                      {text('newFile.nodes', { count: template.nodeCount })} / {template.engine}
+                      {text('newFile.nodes', { count: template.nodeCount })} /{' '}
+                      {template.engine === 'generic' ? text('ux.standalone') : template.engine}
                     </span>
                   </button>
                 );
@@ -183,11 +213,16 @@ export function NewFileDialog({
           <button type="button" className="button button--secondary" onClick={onClose}>
             {text('common.cancel')}
           </button>
-          <button type="button" className="button button--primary" onClick={handleCreate}>
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={handleCreate}
+            disabled={!validTitle}
+          >
             {text('common.create')}
           </button>
         </footer>
       </section>
-    </div>
+    </dialog>
   );
 }

@@ -2,7 +2,7 @@
 
 > 文档导航：[工程规则与架构索引](indexes/engineering.md) · [总索引](INDEX.md)
 
-更新：2026-09-22。本文描述当前源码结构；精确依赖版本见根 package.json 与 pnpm-lock.yaml。
+更新：2026-09-23。本文描述当前源码结构；精确依赖版本见根 package.json 与 pnpm-lock.yaml。
 
 ## 运行结构
 
@@ -22,7 +22,8 @@
 | packages/app/src/services/parsePipeline.ts | 文本解析、诊断与投影同步 |
 | packages/app/src/services/storyTransactionService.ts | 会话身份、revision 与交互租约 |
 | packages/app/src/services/storySessionService.ts | 故事会话切换 |
-| packages/app/src/services/sourceDraftCoordinator.ts | Source Drawer 草稿提交与过期检测 |
+| packages/app/src/services/sourceDraftCoordinator.ts | 章节源码草稿提交与过期检测，并协调 Inspector 草稿 |
+| packages/app/src/services/inspectorDraftCoordinator.ts | 详情字段的切换前提交，拒绝时保留输入，防止递归重复提交 |
 | packages/app/src/services/storyReplaceGuard.ts | 替换故事前处理当前草稿和未保存修改 |
 | packages/app/src/services/autoSaveService.ts | 自动保存与迟到回调隔离 |
 | packages/app/src/services/exportSnapshotService.ts | 导出前取得一致的故事快照 |
@@ -35,7 +36,7 @@
 
 Graph Lab 是默认工作区，Split 为完整源码投影。章节/节点 ID 使用编码组件组成的 canonical FullID；坐标保存在可选 layout.graph.nodes 中，不改变剧情语义。React Flow 的拖动瞬时状态由控制器管理，结束后提交文本与历史。
 
-components/branch-graph 中的节点、连线、连接与拖线控制器各自维护交互，业务编辑统一调用故事服务。Inspector 和 Source Drawer 拒绝提交时保留输入。
+components/branch-graph 中的节点、连线、连接与拖线控制器各自维护交互，业务编辑统一调用故事服务。Inspector 和 Source Drawer 拒绝提交时保留输入。Inspector 协调器只用于用户导航、保存等边界；底层 selectNode 是内部投影操作，不触发草稿提交。未提交输入通过纯状态谓词计入保存风险，用户键入时递增 sourceDraftRevision，防止等待中的读写覆盖新草稿。
 
 ## 主进程与 IPC
 
@@ -48,6 +49,12 @@ packages/app/src/shared/ipcChannels.ts 维护通道名；src-electron/preload.ts
 packages/core/src 中 parser、validator、exporter、completion 分别承担解析、诊断、三种导出和本地 N-gram。JSON 写出使用生成的 Ajv standalone 校验器；Schema 0.1 冻结兼容，0.2 为当前写出合同。
 
 addons/plotflow 为 Godot 插件与运行时，plugins/unity 和 plugins/unreal 为对应接口与示例。tests/engine-contract 验证跨语言消费约定，真实引擎执行须在相应工具链中另行验证。
+
+## 本机写作素材
+
+services/corpusLibraryService.ts 管理本机 IndexedDB 素材库，只保存用户主动导入的写作素材；.mdstory 故事仍只由文件事务维护。TXT/CSV/MDSTORY 文件和粘贴文本共用 CorpusImporter 校验、去重及 PreprocessingPipeline。单文件 10 MB，总量 50 MB；存储失败显示错误，不伪报成功。
+
+启用素材构成独立的 NGramEngine，增删或停用后重建该模型。GhostTextPlugin 在正文预测时读取素材建议，再使用既有内置与学习模型；不清空用户当前的基础学习引擎。setupEditor 启动时加载素材，无网络依赖。
 
 ## 主题与资源
 

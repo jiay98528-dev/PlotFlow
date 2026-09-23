@@ -70,12 +70,14 @@ async function loadRpgTemplate(p: Page): Promise<void> {
   await p.waitForSelector('.monaco-editor', { timeout: 20_000 });
   await p.waitForTimeout(500);
 
-  // 点击顶部工具栏"新建"按钮
-  await p.locator('.app-topbar .button--primary').click();
+  // 点击顶部工具栏"新建"按钮。保存按钮同样是 primary，使用可见文案避免 strict mode 冲突。
+  await p.getByRole('button', { name: '新建', exact: true }).click();
   await p.waitForSelector('.new-file-dialog', { timeout: 5_000 });
   await p.waitForTimeout(300);
 
   // 默认已选中"RPG 对话"模板，直接点击"创建"
+  const titleInput = p.locator('.new-file-dialog__sidebar .form-field').first().locator('input');
+  await titleInput.fill('分支图 E2E');
   await p.locator('.new-file-dialog__footer .button--primary').click();
   await p.waitForSelector('.new-file-dialog', { state: 'detached', timeout: 5_000 });
   // 等待解析管线完成 → 分支图渲染
@@ -519,7 +521,7 @@ test.describe('分支图交互 E2E — 7 项测试用例', () => {
     await expect(contextMenu).toBeVisible({ timeout: 3_000 });
 
     // ── 步骤 3: 点击"删除节点"菜单项 ──
-    const deleteMenuItem = contextMenu.locator('[role="menuitem"]').filter({ hasText: '删除节点' });
+    const deleteMenuItem = contextMenu.locator('[role="menuitem"]').filter({ hasText: '删除剧情' });
     await expect(deleteMenuItem).toBeVisible();
     await deleteMenuItem.click();
     await page.waitForTimeout(500);

@@ -363,7 +363,7 @@ test.describe('Parser & Validator E2E Tests', () => {
     expect(e002Items.length).toBeGreaterThanOrEqual(1);
     expect(e002Items[0]!.severity).toBe('error');
     // 验证消息中包含未声明的变量名
-    expect(e002Items[0]!.message).toContain('未在 Frontmatter 中声明');
+    expect(e002Items[0]!.message).toContain('变量未在 故事变量设置 中声明');
     // 验证位置行号格式正确
     expect(e002Items[0]!.location).toMatch(/行\s*\d+/);
   });

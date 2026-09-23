@@ -122,6 +122,47 @@ export function builderToConditionNode(
   return { type: 'logical', operator: group.operator, operands: nodes };
 }
 
+/** Do not serialize a half-written row as a different valid condition. */
+export function isConditionDraftComplete(
+  group: ConditionGroup,
+  variables: readonly VariableDeclaration[],
+): boolean {
+  return (
+    group.rows.every((row) => {
+      if (!row.variableName || !row.value) return false;
+      const validate = (
+        kind: 'variable' | 'literal',
+        value: string,
+        literal: string,
+        context: VariableType | null,
+      ) => {
+        if (kind === 'variable') return findVariableType(value, variables) !== null;
+        if (context === 'int')
+          return /^[+-]?\d+$/u.test(value) && Number.isSafeInteger(Number(value));
+        if (context === 'float' || (!context && literal === 'number'))
+          return /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/u.test(value) && Number.isFinite(Number(value));
+        if (context === 'bool' || (!context && literal === 'boolean'))
+          return value === 'true' || value === 'false';
+        return true;
+      };
+      return (
+        validate(
+          row.leftOperandType,
+          row.variableName,
+          row.leftLiteralType,
+          row.rightOperandType === 'variable' ? findVariableType(row.value, variables) : null,
+        ) &&
+        validate(
+          row.rightOperandType,
+          row.value,
+          row.rightLiteralType,
+          row.leftOperandType === 'variable' ? findVariableType(row.variableName, variables) : null,
+        )
+      );
+    }) && group.groups.every((child) => isConditionDraftComplete(child, variables))
+  );
+}
+
 function operandToDraft(operand: Operand): {
   readonly value: string;
   readonly literalType: 'string' | 'number' | 'boolean';

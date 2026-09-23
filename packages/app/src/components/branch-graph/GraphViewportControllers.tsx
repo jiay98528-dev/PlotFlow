@@ -6,7 +6,7 @@ import { NODE_DIMENSIONS } from './layout';
 import type { ScreenToFlowPosition } from './graphWireModel';
 
 export const GRAPH_AUTO_FIT_MAX_ZOOM = 1.2;
-const GRAPH_LAB_DEFAULT_ZOOM = 0.78;
+const GRAPH_LAB_DEFAULT_ZOOM = 1;
 
 export function ReactFlowRuntimeBridge({
   projectRef,

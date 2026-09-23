@@ -16,7 +16,12 @@
   "license": "Bundled",
   "defaultMode": "light",
   "description": "维叙（Fablevia）默认亮色官方主题。它用冷白棱镜、受控液态玻璃与高不透明阅读面组织下一代游戏叙事工作台；玻璃只用于静态结构层，文本、表单、节点正文和源码始终保持清晰稳定。",
-  "capabilities": ["tokens", "visual", "layout", "monaco"],
+  "capabilities": [
+    "tokens",
+    "visual",
+    "layout",
+    "monaco"
+  ],
   "tokens": {
     "shared": {
       "--theme-prism-foundry-shell": "oklch(0.978 0.012 274)",
@@ -39,34 +44,63 @@
       "--theme-prism-muted": "var(--theme-node-muted)",
       "--theme-prism-violet": "var(--theme-prism-foundry-violet)",
       "--theme-prism-signal": "var(--theme-prism-foundry-cyan)",
-      "--theme-workbench-paper-grain": "linear-gradient(135deg, var(--theme-prism-foundry-shell), var(--theme-prism-foundry-canvas))",
-      "--theme-graph-lab-paper": "var(--theme-prism-foundry-canvas)",
-      "--theme-graph-lab-surface": "var(--theme-prism-foundry-glass)",
-      "--theme-panel-surface": "var(--theme-prism-foundry-panel)",
-      "--theme-grid-size": "30px",
-      "--theme-card-radius": "20px",
+      "--theme-workbench-paper-grain": "#F7F6FC",
+      "--theme-graph-lab-paper": "#F7F6FC",
+      "--theme-graph-lab-surface": "#FFFFFF",
+      "--theme-panel-surface": "#FFFFFF",
+      "--theme-grid-size": "24px",
+      "--theme-card-radius": "8px",
       "--theme-graph-node-radius": "10px",
       "--theme-graph-canvas-grid-opacity": "0.72",
-      "--theme-graph-cable-default": "var(--theme-prism-foundry-cyan)",
-      "--theme-graph-cable-conditional": "var(--theme-prism-foundry-violet)",
-      "--theme-graph-port": "var(--theme-prism-foundry-cyan)",
-      "--theme-port-fill": "var(--theme-prism-foundry-cyan)",
+      "--theme-graph-cable-default": "#9690A4",
+      "--theme-graph-cable-conditional": "#9690A4",
+      "--theme-graph-port": "#6C48D9",
+      "--theme-port-fill": "#6C48D9",
       "--theme-source-dock-height": "324px",
-      "--theme-workbench-shadow": "var(--theme-prism-foundry-shadow)"
+      "--theme-workbench-shadow": "var(--shadow-sm)",
+      "--color-bg-primary": "#FFFFFF",
+      "--color-bg-secondary": "#F7F6FC",
+      "--color-bg-elevated": "#FFFFFF",
+      "--color-text-primary": "#252238",
+      "--color-text-secondary": "#716B83",
+      "--color-text-muted": "#716B83",
+      "--color-text-on-accent": "#FFFFFF",
+      "--color-border-light": "#DFDCEB",
+      "--color-border-default": "#DFDCEB",
+      "--color-border-subtle": "#DFDCEB",
+      "--color-control-border": "#DFDCEB",
+      "--color-accent": "#6C48D9",
+      "--color-accent-subtle": "#EEE8FC",
+      "--color-accent-surface": "#EEE8FC",
+      "--color-control-bg": "#FFFFFF",
+      "--color-control-bg-hover": "#EEE8FC",
+      "--color-control-bg-active": "#EEE8FC",
+      "--color-control-group-bg": "#F7F6FC",
+      "--color-accent-hover": "color-mix(in srgb, #6C48D9, #252238 15%)",
+      "--theme-workbench-paper": "#F7F6FC",
+      "--theme-workbench-panel": "#FFFFFF",
+      "--theme-workbench-rail": "#FFFFFF",
+      "--theme-blueprint-canvas": "#F7F6FC",
+      "--theme-blueprint-cable": "#9690A4",
+      "--theme-node-surface": "#FFFFFF",
+      "--theme-node-surface-strong": "#FFFFFF",
+      "--theme-node-border": "#DFDCEB",
+      "--theme-node-ink": "#252238",
+      "--theme-node-muted": "#716B83"
     },
     "light": {
-      "--theme-workbench-paper": "oklch(0.978 0.012 274)",
+      "--theme-workbench-paper": "#F7F6FC",
       "--theme-workbench-paper-warm": "oklch(0.96 0.018 282)",
-      "--theme-workbench-rail": "oklch(0.947 0.025 270 / 0.78)",
-      "--theme-workbench-panel": "oklch(0.975 0.016 274 / 0.88)",
-      "--theme-blueprint-canvas": "oklch(0.946 0.028 264)",
+      "--theme-workbench-rail": "#FFFFFF",
+      "--theme-workbench-panel": "#FFFFFF",
+      "--theme-blueprint-canvas": "#F7F6FC",
       "--theme-blueprint-grid": "oklch(0.68 0.07 258)",
-      "--theme-blueprint-cable": "oklch(0.64 0.13 210)",
-      "--theme-node-surface": "oklch(0.99 0.008 278 / 0.96)",
-      "--theme-node-surface-strong": "oklch(0.968 0.025 283 / 0.98)",
-      "--theme-node-border": "oklch(0.77 0.055 278 / 0.72)",
-      "--theme-node-ink": "oklch(0.25 0.045 275)",
-      "--theme-node-muted": "oklch(0.48 0.045 274)",
+      "--theme-blueprint-cable": "#9690A4",
+      "--theme-node-surface": "#FFFFFF",
+      "--theme-node-surface-strong": "#FFFFFF",
+      "--theme-node-border": "#DFDCEB",
+      "--theme-node-ink": "#252238",
+      "--theme-node-muted": "#716B83",
       "--theme-effect-line": "oklch(0.55 0.2 301)",
       "--theme-success-leaf": "oklch(0.57 0.12 160)",
       "--theme-warning-leaf": "oklch(0.72 0.13 83)",
@@ -78,9 +112,19 @@
       "base": "vs",
       "inherit": true,
       "rules": [
-        { "token": "heading", "foreground": "5636A4", "fontStyle": "bold" },
-        { "token": "keyword", "foreground": "276A88" },
-        { "token": "string", "foreground": "9A4F34" }
+        {
+          "token": "heading",
+          "foreground": "5636A4",
+          "fontStyle": "bold"
+        },
+        {
+          "token": "keyword",
+          "foreground": "276A88"
+        },
+        {
+          "token": "string",
+          "foreground": "9A4F34"
+        }
       ],
       "colors": {
         "editor.background": "#F8F8FF",
@@ -95,14 +139,14 @@
   "layoutRecipe": {
     "density": "comfortable",
     "graphLab": {
-      "paletteWidth": 286,
-      "railWidth": 286,
-      "inspectorWidth": 368,
+      "paletteWidth": 208,
+      "railWidth": 208,
+      "inspectorWidth": 384,
       "sourceDock": "bottom",
       "sourceDockHeight": 324,
       "nodeCardStyle": "prism-liquid-card",
       "cableStyle": "cyan-signal-route",
-      "motionIntensity": "expressive"
+      "motionIntensity": "restrained"
     }
   },
   "uxRecipe": {
@@ -120,8 +164,8 @@
     },
     "themeCenter": {
       "layout": "prism-glass-catalog",
-      "width": "min(1180px, 100%)",
-      "height": "min(820px, calc(100vh - var(--space-12)))",
+      "width": "min(960px, calc(100vw - 48px))",
+      "height": "min(720px, calc(100vh - 48px))",
       "padding": "var(--space-6)",
       "gap": "var(--space-4)",
       "opacity": "1",
@@ -129,21 +173,21 @@
     },
     "graphLab": {
       "layout": "prism-canvas-rack",
-      "padding": "var(--space-3)",
-      "gap": "var(--space-3)"
+      "padding": "0",
+      "gap": "0"
     },
     "split": {
       "layout": "prism-balanced-editor-graph",
       "gap": "var(--space-3)"
     },
     "toolbar": {
-      "height": "62px",
-      "padding": "0 var(--space-4)",
-      "gap": "var(--space-3)"
+      "height": "56px",
+      "padding": "0 var(--space-5)",
+      "gap": "var(--space-2)"
     },
     "panel": {
-      "radius": "20px",
-      "shadow": "var(--theme-prism-foundry-shadow)",
+      "radius": "8px",
+      "shadow": "var(--shadow-sm)",
       "opacity": "0.98"
     },
     "dock": {
@@ -151,8 +195,8 @@
       "position": "bottom"
     },
     "node": {
-      "width": "320px",
-      "minHeight": "228px",
+      "width": "248px",
+      "minHeight": "146px",
       "padding": "var(--space-3)",
       "radius": "10px",
       "opacity": "1"
@@ -194,5 +238,7 @@
   "assets": {
     "preview": "assets/preview.png"
   },
-  "screenshots": ["assets/preview.png"]
+  "screenshots": [
+    "assets/preview.png"
+  ]
 }

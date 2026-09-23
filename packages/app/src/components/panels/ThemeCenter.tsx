@@ -1,5 +1,6 @@
-import React from 'react';
-import { CheckCircle2, Palette, RotateCcw, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { flushSourceDraft } from '../../services/sourceDraftCoordinator';
+import { CheckCircle2, RotateCcw, X } from 'lucide-react';
 import { useThemePlatform } from '../../components/ThemePlatformProvider';
 import { useAppText } from '../../i18n/appI18n';
 import { useUIStore } from '../../stores/uiStore';
@@ -13,43 +14,38 @@ export function ThemeCenter(): React.ReactElement | null {
   const { activeThemeId, themes, activeTheme } = useThemePlatform();
   const Surface = activeTheme.surfaces.ThemeCenterSurface;
   const text = useAppText();
+  const [draftBlocked, setDraftBlocked] = useState(false);
+  const applyTheme = (id: string) => {
+    if (!flushSourceDraft('workspace').ok) {
+      setDraftBlocked(true);
+      return;
+    }
+    setDraftBlocked(false);
+    setActiveThemeId(id);
+  };
 
   if (!isOpen) return null;
 
   return (
     <Surface
-      header={(
+      header={
         <header className="theme-center__header">
           <div>
             <p className="theme-center__eyebrow">{text('themeCenter.bundled')}</p>
             <h2 id="theme-center-title">{text('themeCenter.title')}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={closeThemeCenter} aria-label={text('themeCenter.close')}>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={closeThemeCenter}
+            aria-label={text('themeCenter.close')}
+          >
             <X aria-hidden="true" size={18} strokeWidth={2} />
           </button>
         </header>
-      )}
-      sidebar={(
-        <aside className="theme-center__sidebar">
-          <div className="theme-center__note">
-            <Palette aria-hidden="true" size={18} strokeWidth={2} />
-            <div>
-              <strong>{text('themeCenter.installed')}</strong>
-              <p>{text('themeCenter.note')}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="button button--ghost"
-            data-testid="theme-center-reset"
-            onClick={() => setActiveThemeId(DEFAULT_THEME_ID)}
-          >
-            <RotateCcw aria-hidden="true" size={15} strokeWidth={2} />
-            <span>{text('themeCenter.resetDefault')}</span>
-          </button>
-        </aside>
-      )}
-      installedThemes={(
+      }
+      sidebar={null}
+      installedThemes={
         <>
           <h3 className="theme-center__section-title">{text('themeCenter.installed')}</h3>
           {themes.map((theme) => {
@@ -93,7 +89,7 @@ export function ThemeCenter(): React.ReactElement | null {
                     className="button button--primary"
                     data-testid="theme-center-apply"
                     disabled={isActive}
-                    onClick={() => setActiveThemeId(theme.id)}
+                    onClick={() => applyTheme(theme.id)}
                   >
                     {isActive ? text('common.inUse') : text('common.enableNow')}
                   </button>
@@ -102,14 +98,28 @@ export function ThemeCenter(): React.ReactElement | null {
             );
           })}
         </>
-      )}
-      footer={(
+      }
+      footer={
         <footer className="theme-center__footer">
+          {draftBlocked && (
+            <p role="alert" className="ux-error">
+              {text('ux.draftDetail')}
+            </p>
+          )}
+          <button
+            type="button"
+            className="button button--ghost"
+            data-testid="theme-center-reset"
+            onClick={() => applyTheme(DEFAULT_THEME_ID)}
+          >
+            <RotateCcw size={15} />
+            {text('themeCenter.resetDefault')}
+          </button>
           <button type="button" className="button button--secondary" onClick={closeThemeCenter}>
             {text('common.done')}
           </button>
         </footer>
-      )}
+      }
     />
   );
 }

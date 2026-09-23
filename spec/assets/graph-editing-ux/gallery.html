@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>维叙 · UX 页面样机图册</title>
+<style>
+:root{color-scheme:light;--paper:#f6f5fa;--surface:#fff;--ink:#242138;--muted:#706b82;--line:#e2deeb;--accent:#7255df}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 system-ui,"Microsoft YaHei",sans-serif}
+header,main{max-width:1540px;margin:auto;padding:32px}header{padding-bottom:20px}h1{font-size:28px;letter-spacing:-.7px;margin:0 0 8px}p{color:var(--muted);margin:4px 0 18px}
+nav{display:flex;gap:8px;flex-wrap:wrap}button,a{font:inherit}button{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:7px 14px;cursor:pointer;color:var(--ink)}button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:white}a{color:var(--accent)}:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+main{padding-top:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+article{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}article[hidden]{display:none}.preview{display:block;background:white;line-height:0}.preview img{width:100%;aspect-ratio:8/5;object-fit:contain;display:block}.caption{padding:15px 18px}.caption h2{font-size:17px;margin:0 0 6px}.caption small{color:var(--muted)}.links{display:flex;justify-content:space-between;gap:15px}
+dialog{width:96vw;max-width:1800px;max-height:95vh;border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface)}dialog::backdrop{background:rgba(20,16,36,.72)}.dialogbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:12px;position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line)}.dialogbar strong{flex:1}dialog img{width:100%;display:block}#count{margin:12px 0 0;font-size:13px}
+@media(max-width:800px){header,main{padding:20px}main{grid-template-columns:1fr}.dialogbar strong{font-size:13px}}
+</style>
+</head>
+<body>
+<header>
+<nav aria-label="文档导航"><a href="../../../doc/INDEX.md">文档总索引</a><span aria-hidden="true">／</span><a href="../../../doc/indexes/design.md">交互、主题与视觉</a><span aria-hidden="true">／</span><span>页面样机图册</span></nav>
+<h1>维叙 · UX 页面样机</h1>
+<p><a href="../../../design/ux-master/index.html">查看结构化 UX 母版预览</a> · <a href="../../../design/ux-master/README.md">母版说明与控件状态</a>。本页保留原始视觉参考，后续页面与状态以结构化母版为准。</p>
+<p>以已通过的剧情图主工作台为视觉基准，展开桌面创作流程的 20 个页面与状态。点击图片放大；原图与生成提示词均可单独查看。</p>
+<p><a href="../../design-brief-editor-ux.md">编辑器 UX 规范</a> · <a href="../../../design/ux-master/README.md">结构化 UX 母版</a> · <a href="../../progress.md">当前开发状态</a></p>
+<nav aria-label="按功能筛选"><button type="button" data-group="全部" aria-pressed="true">全部</button><button type="button" data-group="创作起步" aria-pressed="false">创作起步</button><button type="button" data-group="Graph 编辑" aria-pressed="false">Graph 编辑</button><button type="button" data-group="变量与条件" aria-pressed="false">变量与条件</button><button type="button" data-group="源码与问题处理" aria-pressed="false">源码与问题处理</button><button type="button" data-group="导出与辅助功能" aria-pressed="false">导出与辅助功能</button></nav><p id="count" role="status">20 个页面与状态</p></header>
+<main><article data-group="创作起步">
+<a class="preview" href="pages/01-home-v1.png" data-title="01 · 开始与继续创作"><img src="pages/01-home-v1.png" alt="开始与继续创作高保真样机" loading="lazy"></a>
+<div class="caption"><h2>01 · 开始与继续创作</h2><div class="links"><small>创作起步</small><span><a href="pages/01-home-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/01-home-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="创作起步">
+<a class="preview" href="pages/02-new-story-v1.png" data-title="02 · 新建故事与模板"><img src="pages/02-new-story-v1.png" alt="新建故事与模板高保真样机" loading="lazy"></a>
+<div class="caption"><h2>02 · 新建故事与模板</h2><div class="links"><small>创作起步</small><span><a href="pages/02-new-story-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/02-new-story-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="创作起步">
+<a class="preview" href="pages/03-empty-graph-v1.png" data-title="03 · 空白剧情图"><img src="pages/03-empty-graph-v1.png" alt="空白剧情图高保真样机" loading="lazy"></a>
+<div class="caption"><h2>03 · 空白剧情图</h2><div class="links"><small>创作起步</small><span><a href="pages/03-empty-graph-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/03-empty-graph-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="Graph 编辑">
+<a class="preview" href="graph-editor-v1.png" data-title="04 · 剧情图与选项编辑（已通过）"><img src="graph-editor-v1.png" alt="剧情图与选项编辑（已通过）高保真样机" loading="lazy"></a>
+<div class="caption"><h2>04 · 剧情图与选项编辑（已通过）</h2><div class="links"><small>Graph 编辑</small><span><a href="graph-editor-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="graph-editor-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="变量与条件">
+<a class="preview" href="pages/05-variables-v2.png" data-title="05 · 变量管理与类型化编辑"><img src="pages/05-variables-v2.png" alt="变量管理与类型化编辑高保真样机" loading="lazy"></a>
+<div class="caption"><h2>05 · 变量管理与类型化编辑</h2><div class="links"><small>变量与条件</small><span><a href="pages/05-variables-v2.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/05-variables-v2.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="变量与条件">
+<a class="preview" href="pages/06-create-variable-v2.png" data-title="06 · 编辑选项时就地创建变量"><img src="pages/06-create-variable-v2.png" alt="编辑选项时就地创建变量高保真样机" loading="lazy"></a>
+<div class="caption"><h2>06 · 编辑选项时就地创建变量</h2><div class="links"><small>变量与条件</small><span><a href="pages/06-create-variable-v2.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/06-create-variable-v2.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="变量与条件">
+<a class="preview" href="pages/07-advanced-conditions-v2.png" data-title="07 · 高级条件与自然语言逻辑"><img src="pages/07-advanced-conditions-v2.png" alt="高级条件与自然语言逻辑高保真样机" loading="lazy"></a>
+<div class="caption"><h2>07 · 高级条件与自然语言逻辑</h2><div class="links"><small>变量与条件</small><span><a href="pages/07-advanced-conditions-v2.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/07-advanced-conditions-v2.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="变量与条件">
+<a class="preview" href="pages/08-field-picker-v2.png" data-title="08 · 组合数据字段选择与合法操作"><img src="pages/08-field-picker-v2.png" alt="组合数据字段选择与合法操作高保真样机" loading="lazy"></a>
+<div class="caption"><h2>08 · 组合数据字段选择与合法操作</h2><div class="links"><small>变量与条件</small><span><a href="pages/08-field-picker-v2.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/08-field-picker-v2.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="Graph 编辑">
+<a class="preview" href="pages/09-story-info-v1.png" data-title="09 · 故事信息"><img src="pages/09-story-info-v1.png" alt="故事信息高保真样机" loading="lazy"></a>
+<div class="caption"><h2>09 · 故事信息</h2><div class="links"><small>Graph 编辑</small><span><a href="pages/09-story-info-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/09-story-info-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="源码与问题处理">
+<a class="preview" href="pages/10-source-workspace-v1.png" data-title="10 · 完整源码与分支图"><img src="pages/10-source-workspace-v1.png" alt="完整源码与分支图高保真样机" loading="lazy"></a>
+<div class="caption"><h2>10 · 完整源码与分支图</h2><div class="links"><small>源码与问题处理</small><span><a href="pages/10-source-workspace-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/10-source-workspace-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="源码与问题处理">
+<a class="preview" href="pages/11-chapter-source-v1.png" data-title="11 · 章节源码与草稿冲突恢复"><img src="pages/11-chapter-source-v1.png" alt="章节源码与草稿冲突恢复高保真样机" loading="lazy"></a>
+<div class="caption"><h2>11 · 章节源码与草稿冲突恢复</h2><div class="links"><small>源码与问题处理</small><span><a href="pages/11-chapter-source-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/11-chapter-source-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="导出与辅助功能">
+<a class="preview" href="pages/12-export-v1.png" data-title="12 · 导出故事"><img src="pages/12-export-v1.png" alt="导出故事高保真样机" loading="lazy"></a>
+<div class="caption"><h2>12 · 导出故事</h2><div class="links"><small>导出与辅助功能</small><span><a href="pages/12-export-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/12-export-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="导出与辅助功能">
+<a class="preview" href="pages/13-theme-center-v1.png" data-title="13 · 主题外观"><img src="pages/13-theme-center-v1.png" alt="主题外观高保真样机" loading="lazy"></a>
+<div class="caption"><h2>13 · 主题外观</h2><div class="links"><small>导出与辅助功能</small><span><a href="pages/13-theme-center-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/13-theme-center-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="导出与辅助功能">
+<a class="preview" href="pages/14-writing-library-v1.png" data-title="14 · 写作补全素材管理"><img src="pages/14-writing-library-v1.png" alt="写作补全素材管理高保真样机" loading="lazy"></a>
+<div class="caption"><h2>14 · 写作补全素材管理</h2><div class="links"><small>导出与辅助功能</small><span><a href="pages/14-writing-library-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/14-writing-library-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="导出与辅助功能">
+<a class="preview" href="pages/15-feedback-v1.png" data-title="15 · 问题反馈"><img src="pages/15-feedback-v1.png" alt="问题反馈高保真样机" loading="lazy"></a>
+<div class="caption"><h2>15 · 问题反馈</h2><div class="links"><small>导出与辅助功能</small><span><a href="pages/15-feedback-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/15-feedback-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="Graph 编辑">
+<a class="preview" href="pages/16-compact-editor-v1.png" data-title="16 · 窄窗口剧情编辑"><img src="pages/16-compact-editor-v1.png" alt="窄窗口剧情编辑高保真样机" loading="lazy"></a>
+<div class="caption"><h2>16 · 窄窗口剧情编辑</h2><div class="links"><small>Graph 编辑</small><span><a href="pages/16-compact-editor-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/16-compact-editor-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="Graph 编辑">
+<a class="preview" href="pages/17-connect-route-v1.png" data-title="17 · 拖线创建与连接剧情"><img src="pages/17-connect-route-v1.png" alt="拖线创建与连接剧情高保真样机" loading="lazy"></a>
+<div class="caption"><h2>17 · 拖线创建与连接剧情</h2><div class="links"><small>Graph 编辑</small><span><a href="pages/17-connect-route-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/17-connect-route-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="Graph 编辑">
+<a class="preview" href="pages/18-search-v1.png" data-title="18 · 搜索与定位剧情"><img src="pages/18-search-v1.png" alt="搜索与定位剧情高保真样机" loading="lazy"></a>
+<div class="caption"><h2>18 · 搜索与定位剧情</h2><div class="links"><small>Graph 编辑</small><span><a href="pages/18-search-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/18-search-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="源码与问题处理">
+<a class="preview" href="pages/19-problems-v2.png" data-title="19 · 问题定位与数值错误"><img src="pages/19-problems-v2.png" alt="问题定位与数值错误高保真样机" loading="lazy"></a>
+<div class="caption"><h2>19 · 问题定位与数值错误</h2><div class="links"><small>源码与问题处理</small><span><a href="pages/19-problems-v2.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/19-problems-v2.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article>
+<article data-group="源码与问题处理">
+<a class="preview" href="pages/20-unsaved-dialog-v1.png" data-title="20 · 未保存内容与切换确认"><img src="pages/20-unsaved-dialog-v1.png" alt="未保存内容与切换确认高保真样机" loading="lazy"></a>
+<div class="caption"><h2>20 · 未保存内容与切换确认</h2><div class="links"><small>源码与问题处理</small><span><a href="pages/20-unsaved-dialog-v1.png" target="_blank" rel="noopener">查看原图</a> · <a href="pages/20-unsaved-dialog-v1.prompt.txt" target="_blank" rel="noopener">生成提示词</a></span></div></div>
+</article></main>
+<dialog aria-label="样机大图"><div class="dialogbar"><strong id="image-title"></strong><a id="original" target="_blank" rel="noopener">打开原图</a><button type="button" id="close">关闭 · Esc</button></div><img id="large" alt=""></dialog>
+<script>
+const cards=[...document.querySelectorAll('article')];
+document.querySelectorAll('nav button').forEach(button=>button.addEventListener('click',()=>{
+ document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+ cards.forEach(card=>card.hidden=button.dataset.group!=='全部'&&card.dataset.group!==button.dataset.group);
+ document.querySelector('#count').textContent=cards.filter(card=>!card.hidden).length+' 个页面与状态';
+}));
+const dialog=document.querySelector('dialog'),large=document.querySelector('#large');
+document.querySelectorAll('.preview').forEach(link=>link.addEventListener('click',event=>{
+ event.preventDefault();large.src=link.href;large.alt=link.dataset.title;
+ document.querySelector('#image-title').textContent=link.dataset.title;document.querySelector('#original').href=link.href;dialog.showModal();
+}));
+document.querySelector('#close').addEventListener('click',()=>dialog.close());
+dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});
+</script></body></html>

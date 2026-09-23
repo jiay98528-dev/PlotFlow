@@ -427,6 +427,9 @@ test.describe('条件编辑器 E2E 测试', () => {
     // ---- Step 2: 等待已有条件行渲染 ----
     await page.waitForTimeout(500);
 
+    const advancedConditions = page.getByRole('button', { name: '高级条件…', exact: true });
+    if (await advancedConditions.isVisible()) await advancedConditions.click();
+
     // ---- Step 3: 点击 "+ 添加条件" 增加第二行 ----
     const addConditionBtn = page
       .locator('button')
@@ -459,19 +462,21 @@ test.describe('条件编辑器 E2E 测试', () => {
     }
 
     // ---- Step 6: 设置第二行的值 ----
-    // "神器" 是 bool 类型，值输入为 <select> 含 true/false 选项。
-    const boolSelect = page.locator('select').filter({ hasText: /true|false/ }).first();
-    if (await boolSelect.isVisible()) {
-      await boolSelect.selectOption('true');
-      await page.waitForTimeout(100);
-    }
+    // “神器”是 bool 类型；新 UX 使用“是/否”文案，按 option value 精确定位并强制操作。
+    const boolSelect = page.locator('select:has(option[value="true"])').first();
+    await expect(boolSelect).toBeVisible({ timeout: 2_000 });
+    await boolSelect.selectOption('true');
+    await page.waitForTimeout(100);
 
     // ---- Step 7: 验证预览表达式包含 ($金币>=5) AND ($神器==true) ----
     await expect(
       page.locator('code').filter({ hasText: '$金币 >= 5' }).first(),
     ).toBeVisible({ timeout: 2_000 });
 
-    // 验证预览包含 AND
+    // 条件组控件使用用户可读的“全部满足”文案；源码预览仍保留 AND 序列化。
+    await expect(
+      page.getByText('全部满足', { exact: true }).first(),
+    ).toBeVisible({ timeout: 2_000 });
     await expect(
       page.locator('code').filter({ hasText: /AND/ }).first(),
     ).toBeVisible({ timeout: 2_000 });
@@ -711,8 +716,8 @@ test.describe('条件编辑器 E2E 测试', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
     await expect(dialog).toHaveAttribute('aria-labelledby', 'condition-editor-title');
-    await expect(dialog.getByRole('button', { name: 'AND' }).first()).toHaveAttribute('aria-pressed', 'true');
-    await expect(dialog.getByRole('button', { name: 'OR' }).first()).toHaveAttribute('aria-pressed', 'false');
+    await expect(dialog.getByRole('button', { name: '全部满足' }).first()).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByRole('button', { name: '任意满足' }).first()).toHaveAttribute('aria-pressed', 'false');
     await expect(dialog.getByLabel('左操作数变量').first()).toBeVisible();
     await expect(dialog.getByLabel('比较运算符').first()).toBeVisible();
 

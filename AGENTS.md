@@ -20,6 +20,10 @@
 
 新增、删除、移动或改变文档职责时，同步对应分类索引和受影响链接；完成任务只更新实际变化的正文与状态，不新增过程报告。索引负责定位，不能覆盖具体合同；不同领域的权威来源见下文。
 
+页面样机图册地址：[spec/assets/graph-editing-ux/gallery.html](spec/assets/graph-editing-ux/gallery.html)，本机绝对路径 D:/VibeCoding/PlotFlow/spec/assets/graph-editing-ux/gallery.html。评审页面、处理按图册编号提出的反馈或实现对应页面前，从交互分类进入图册，并按需对照 UX 规范。图片用于视觉对齐，实际交互和开发状态以相应文档为准；更新样机时同步图册链接、页面清单和配套提示词，不把正式设计资产当临时输出清理。
+
+结构化 UX 母版说明：[design/ux-master/README.md](design/ux-master/README.md)；主文件为 D:/VibeCoding/PlotFlow/design/ux-master/fablevia-ux-master.pen，预览为 [design/ux-master/index.html](design/ux-master/index.html)。后续页面设计、控件状态修改和 UI 实现前，先从设计分类进入母版说明并查看对应画板。母版负责目标布局、组件与状态，UX 规范负责行为合同，原图册保留为视觉起点；实际完成状态以 progress.md 为准。`.pen` 只能通过 PenCLI／Pencil 工具读取和修改，不按文本或 JSON 搜索、改写。
+
 ## 当前目标与入口
 
 - 当前软件版本与渠道以 package.json 为准：0.1.1 Preview。V0.3 是历史规划阶段名，不是安装包版本。

@@ -2,7 +2,7 @@
 
 > 文档导航：[交互、主题与视觉索引](indexes/design.md) · [总索引](INDEX.md)
 
-> 版本：2026-08-02（0.1.1 安全收敛）
+> 版本：2026-09-23（0.1.1 UX 母版对齐）
 > 权威级别：主题开发唯一标准
 > 适用范围：内置官方主题、Theme Platform API、Theme Center、主题文档与主题测试
 
@@ -48,6 +48,8 @@ packages/app/src/theme/builtin/<theme-id>/
 3. `slots.tsx` 只实现受控插槽；不得触碰故事语义或跨越 Zustand → AST → 源文本的数据流。
 4. `surfaces.tsx` 只重排平台传入的 React 内容，不复制业务状态或命令。
 5. `packages/app/src/theme/builtin/index.ts` 是当前发行主题白名单；0.1.1 必须恰好导出三套主题。
+
+当前三套主题共用 design/ux-master 定义的页面几何与控件状态，公共规则位于 packages/app/src/styles/ux-master.css；theme.json 提供各自语义色板。宽屏目录 208px、详情 384px，900px 及以下使用互斥抽屉。主题不得以旧 Surface 装饰覆盖这套布局和草稿行为。
 
 ## 3. Theme Platform 合同
 

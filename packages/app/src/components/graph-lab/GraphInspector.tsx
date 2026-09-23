@@ -17,6 +17,16 @@ import { graphEditService, type VariablePatch } from '../../services/graphEditSe
 import { saveOrSaveAs } from '../../services/autoSaveService';
 import { useAppText } from '../../i18n/appI18n';
 import { useCompactGraphLayout } from '../../hooks/useCompactGraphLayout';
+import { UXDialog } from './UXDialog';
+import { useVariableDraftState } from '../../hooks/useVariableDraftState';
+import { useInspectorDraft } from '../../hooks/useInspectorDraft';
+import {
+  effectOperations,
+  validEffectValue,
+  variableLeaves,
+  type EffectOperation,
+} from './variableEditorModel';
+import { findVariableDeclaration } from '../condition/ConditionEditorControls';
 import {
   ConditionTreeEditor,
   serializeConditionExpression,
@@ -38,12 +48,14 @@ function EditableField({
   onCommit,
 }: FieldProps): React.ReactElement {
   const [draft, setDraft] = useState(value);
+  const draftRef = React.useRef(value);
   const [commitRejected, setCommitRejected] = useState(false);
   const lastCommittedRef = React.useRef(value);
   const text = useAppText();
 
   React.useEffect(() => {
     lastCommittedRef.current = value;
+    draftRef.current = value;
     setDraft(value);
     setCommitRejected(false);
   }, [value]);
@@ -54,6 +66,7 @@ function EditableField({
       const committed = onCommit(nextValue);
       if (committed) {
         lastCommittedRef.current = nextValue;
+        draftRef.current = nextValue;
         setCommitRejected(false);
         return true;
       }
@@ -64,12 +77,15 @@ function EditableField({
   );
 
   const updateDraft = useCallback((nextDraft: string) => {
+    useEditorStore.getState().bumpSourceDraftRevision();
+    draftRef.current = nextDraft;
     setDraft(nextDraft);
     setCommitRejected(false);
   }, []);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (event.nativeEvent.isComposing) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         // The app-level save handler runs after React's delegated handler. Commit
         // the visible Inspector draft first; a rejected draft must not allow the
@@ -94,6 +110,11 @@ function EditableField({
     [commit, multiline],
   );
 
+  useInspectorDraft(
+    () => commit(draftRef.current),
+    () => draftRef.current !== lastCommittedRef.current,
+  );
+
   return (
     <label className="graph-lab-field">
       <span>{label}</span>
@@ -105,7 +126,7 @@ function EditableField({
           onBlur={(event) => commit(event.currentTarget.value)}
           onKeyDown={handleKeyDown}
           aria-invalid={commitRejected || undefined}
-          rows={5}
+          rows={3}
         />
       ) : (
         <input
@@ -118,7 +139,22 @@ function EditableField({
           aria-invalid={commitRejected || undefined}
         />
       )}
-      {commitRejected && <small role="alert">{text('inspector.updateRejected')}</small>}
+      {commitRejected && (
+        <small role="alert">
+          {text('inspector.updateRejected')}{' '}
+          <button
+            type="button"
+            className="ux-text-button"
+            onClick={() => {
+              draftRef.current = lastCommittedRef.current;
+              setDraft(lastCommittedRef.current);
+              setCommitRejected(false);
+            }}
+          >
+            {text('ux.discardDraft')}
+          </button>
+        </small>
+      )}
     </label>
   );
 }
@@ -350,8 +386,8 @@ function VariableDefaultControl({
           value={value}
           onChange={(event) => onChange(event.target.value)}
         >
-          <option value="false">false</option>
-          <option value="true">true</option>
+          <option value="false">{text('ux.no')}</option>
+          <option value="true">{text('ux.yes')}</option>
         </select>
       </label>
     );
@@ -452,7 +488,7 @@ function VariableFieldsEditor({
                 {VARIABLE_TYPES.filter((type) => type !== 'object' || objectDepth < 3).map(
                   (type) => (
                     <option key={type} value={type}>
-                      {type}
+                      {text(`ux.types.${type}`)}
                     </option>
                   ),
                 )}
@@ -538,15 +574,11 @@ function quoteEffectValue(variable: VariableDeclaration | undefined, value: stri
   return value.trim() || '0';
 }
 
-type EffectOperation = 'set' | 'add' | 'subtract' | 'append';
-
 interface ParsedEffect {
   readonly variableName: string;
   readonly operation: EffectOperation;
   readonly value: string;
 }
-
-const EFFECT_OPERATIONS: readonly EffectOperation[] = ['set', 'add', 'subtract', 'append'];
 
 function effectOperationLabel(
   operation: EffectOperation,
@@ -570,7 +602,7 @@ export function parseEffectsForEditor(
     value: (() => {
       if (typeof effect.value === 'object') return JSON.stringify(effect.value);
       const serialized = String(effect.value);
-      const variable = variables.find((candidate) => candidate.name === effect.variableName);
+      const variable = findVariableDeclaration(effect.variableName, variables);
       return variable?.type === 'string' || variable?.type === 'enum'
         ? serialized.replace(/\\(["\\])/gu, '$1')
         : serialized;
@@ -602,13 +634,47 @@ export function createOptionDraftIdentity(
   return `${nodeFullId}:option:${signature}:${occurrence}`;
 }
 
+// Reconcile parsed snapshots to mounted controls. Exact matches retain identity
+// across insert/reorder; a changed option at the same slot retains its input focus.
+function useOptionIdentities(node: StoryNode | undefined, session: number): string[] {
+  const previous = React.useRef<{ owner: string; entries: { signature: string; id: string }[] }>({
+    owner: '',
+    entries: [],
+  });
+  const counter = React.useRef(0);
+  const owner = `${session}:${node?.fullId ?? ''}`;
+  const old = previous.current.owner === owner ? previous.current.entries : [];
+  const signatures = (node?.options ?? []).map(optionDraftSignature);
+  const used = new Set<number>();
+  const matches = signatures.map((signature) => {
+    const index = old.findIndex((entry, at) => !used.has(at) && entry.signature === signature);
+    if (index >= 0) used.add(index);
+    return index;
+  });
+  const entries = signatures.map((signature, at) => {
+    let match = matches[at] ?? -1;
+    if (match < 0 && old.length === signatures.length && !used.has(at)) {
+      match = at;
+      used.add(at);
+    }
+    return { signature, id: old[match]?.id ?? `${owner}:choice:${++counter.current}` };
+  });
+  previous.current = { owner, entries };
+  return entries.map((entry) => entry.id);
+}
+
 function serializeEffect(
   effect: Pick<ParsedEffect, 'variableName' | 'operation' | 'value'>,
   variables: readonly VariableDeclaration[],
 ): string | null {
   const variableName = effect.variableName.trim().replace(/^\$/, '');
   if (!variableName) return null;
-  const variable = variables.find((item) => item.name === variableName);
+  const variable = findVariableDeclaration(variableName, variables) ?? undefined;
+  if (
+    !validEffectValue(variable, effect.value) ||
+    !effectOperations(variable).includes(effect.operation)
+  )
+    return null;
   const rhs = quoteEffectValue(variable, effect.value);
   if (effect.operation === 'add') return `${variableName}+${rhs}`;
   if (effect.operation === 'subtract') return `${variableName}-${rhs}`;
@@ -654,6 +720,7 @@ function VariableValueInput({
 }): React.ReactElement {
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>) => {
+      if (event.nativeEvent.isComposing) return;
       if (event.key === 'Enter' && onEnter) {
         event.preventDefault();
         onEnter();
@@ -661,6 +728,7 @@ function VariableValueInput({
     },
     [onEnter],
   );
+  const text = useAppText();
 
   if (variable?.type === 'bool') {
     return (
@@ -673,8 +741,8 @@ function VariableValueInput({
         aria-label={ariaLabel}
         aria-keyshortcuts={onEnter ? 'Enter' : undefined}
       >
-        <option value="true">true</option>
-        <option value="false">false</option>
+        <option value="true">{text('ux.yes')}</option>
+        <option value="false">{text('ux.no')}</option>
       </select>
     );
   }
@@ -728,6 +796,7 @@ function OptionConditionEditor({
   const setSourceDrawerOpen = useUIStore((state) => state.setSourceDrawerOpen);
   const raw = option.conditionRaw?.trim() ?? '';
   const fallback = raw.length > 0 && option.condition === null;
+  const [creating, setCreating] = useState(false);
 
   if (fallback) {
     return (
@@ -754,13 +823,27 @@ function OptionConditionEditor({
   }
 
   return (
-    <ConditionTreeEditor
-      value={option.condition}
-      variables={variables}
-      compact
-      testId={`graph-inspector-condition-tree-${index}`}
-      onChange={(next) => onCommit(serializeConditionExpression(next) || null)}
-    />
+    <>
+      <ConditionTreeEditor
+        value={option.condition}
+        variables={variables}
+        compact
+        testId={`graph-inspector-condition-tree-${index}`}
+        onChange={(next) => onCommit(serializeConditionExpression(next) || null)}
+      />
+      <button type="button" className="ux-text-button" onClick={() => setCreating(true)}>
+        {text('ux.createVariable')}
+      </button>
+      {creating && (
+        <UXDialog title={text('ux.createVariable')} onClose={() => setCreating(false)}>
+          <GraphInspector
+            contentMode="variables"
+            embedded
+            onVariableCreated={() => setCreating(false)}
+          />
+        </UXDialog>
+      )}
+    </>
   );
 }
 
@@ -780,119 +863,133 @@ function EffectsEditor({
   readonly onCommit: (raw: string | null) => boolean;
 }): React.ReactElement {
   const text = useAppText();
-  const parsedResult = useMemo(() => parseEffectsForEditor(raw, variables), [raw, variables]);
-  const fallback = parsedResult === null;
-  const parsedEffects = useMemo(() => parsedResult ?? [], [parsedResult]);
-  const [effects, setEffects] = useState<ParsedEffect[]>(parsedEffects);
-  const firstVariable = variables[0]?.name ?? '';
-  const [draftVariable, setDraftVariable] = useState(firstVariable);
+  const leaves = variableLeaves(variables);
+  const parsed = parseEffectsForEditor(raw, variables);
+  const [effects, setEffects] = useState<ParsedEffect[]>(parsed ?? []);
+  const [dirty, setDirty] = useState(false);
+  const [draftVariable, setDraftVariable] = useState(leaves[0]?.name ?? '');
   const [draftOperation, setDraftOperation] = useState<EffectOperation>('set');
   const [draftValue, setDraftValue] = useState('');
+  const [draftTouched, setDraftTouched] = useState(false);
   const [commitRejected, setCommitRejected] = useState(false);
-  const draftVariableDef = variables.find((item) => item.name === draftVariable);
-
+  const [creating, setCreating] = useState(false);
+  const lastRaw = React.useRef(raw);
   React.useEffect(() => {
-    if (!draftVariable && firstVariable) setDraftVariable(firstVariable);
-  }, [draftVariable, firstVariable]);
-
-  React.useEffect(() => {
-    setDraftVariable(firstVariable);
-    setDraftOperation('set');
-    setDraftValue('');
-  }, [draftIdentity, firstVariable, storySessionId]);
-
-  React.useEffect(() => {
-    setEffects(parsedEffects);
+    setEffects(parseEffectsForEditor(raw, variables) ?? []);
+    setDirty(false);
     setCommitRejected(false);
-  }, [draftIdentity, parsedEffects, storySessionId]);
-
-  const updateEffect = useCallback(
-    (effectIndex: number, patch: Partial<ParsedEffect>) => {
-      const nextEffects = effects.map((effect, itemIndex) =>
-        itemIndex === effectIndex ? { ...effect, ...patch } : effect,
-      );
-      setEffects(nextEffects);
-      setCommitRejected(!onCommit(serializeEffects(nextEffects, variables)));
+    lastRaw.current = raw;
+    // Content is synchronized only when the serialized source changes, never on a parser object refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw, draftIdentity, storySessionId]);
+  const firstName = leaves[0]?.name ?? '';
+  React.useEffect(() => {
+    if (!draftVariable && firstName) setDraftVariable(firstName);
+  }, [draftVariable, firstName]);
+  const definition = (name: string) => findVariableDeclaration(name, variables) ?? undefined;
+  const draftDef = definition(draftVariable);
+  const commit = (next = effects): boolean => {
+    if (next.some((effect) => !validEffectValue(definition(effect.variableName), effect.value))) {
+      setCommitRejected(true);
+      return false;
+    }
+    const value = serializeEffects(next, variables);
+    if (value === lastRaw.current || onCommit(value)) {
+      lastRaw.current = value;
+      setDirty(false);
+      setCommitRejected(false);
+      return true;
+    }
+    setCommitRejected(true);
+    return false;
+  };
+  useInspectorDraft(
+    () => {
+      if (dirty && !commit()) return false;
+      if (draftTouched) {
+        setCommitRejected(true);
+        return false;
+      }
+      return true;
     },
-    [effects, onCommit, variables],
+    () => dirty || draftTouched,
   );
-
-  const removeEffect = useCallback(
-    (effectIndex: number) => {
-      const nextEffects = effects.filter((_, itemIndex) => itemIndex !== effectIndex);
-      setEffects(nextEffects);
-      setCommitRejected(!onCommit(serializeEffects(nextEffects, variables)));
-    },
-    [effects, onCommit, variables],
-  );
-
-  const addEffect = useCallback(() => {
-    if (!draftVariable) return;
-    const nextEffect: ParsedEffect = {
-      variableName: draftVariable,
-      operation: draftOperation,
-      value: draftValue || variableDefaultValue(draftVariableDef),
-    };
-    const nextEffects = [...effects, nextEffect];
-    setEffects(nextEffects);
-    if (!onCommit(serializeEffects(nextEffects, variables))) {
+  const update = (at: number, patch: Partial<ParsedEffect>, immediate = false) => {
+    useEditorStore.getState().bumpSourceDraftRevision();
+    const next = effects.map((effect, i) => (i === at ? { ...effect, ...patch } : effect));
+    setEffects(next);
+    setDirty(true);
+    setCommitRejected(false);
+    if (immediate) commit(next);
+  };
+  const add = () => {
+    if (!draftDef) return;
+    const value =
+      draftValue === '' && draftDef.type !== 'string' ? variableDefaultValue(draftDef) : draftValue;
+    if (!validEffectValue(draftDef, value)) {
       setCommitRejected(true);
       return;
     }
-    setCommitRejected(false);
-    setDraftValue('');
-  }, [draftOperation, draftValue, draftVariable, draftVariableDef, effects, onCommit, variables]);
-
-  if (fallback) {
+    const next = [...effects, { variableName: draftVariable, operation: draftOperation, value }];
+    if (commit(next)) {
+      setEffects(next);
+      setDraftValue('');
+      setDraftTouched(false);
+    }
+  };
+  if (parsed === null && !dirty)
     return (
       <div className="graph-lab-expression-fallback">
         <EditableField
           label={text('inspector.rawEffects')}
           testId={`graph-inspector-option-effects-${index}`}
           value={raw ?? ''}
-          onCommit={(nextRaw) => onCommit(nextRaw.trim() ? nextRaw : null)}
+          onCommit={(value) => onCommit(value || null)}
         />
         <p>{text('inspector.rawEffectsHint')}</p>
       </div>
     );
-  }
-
   return (
     <div className="graph-lab-effect-editor" data-testid={`graph-inspector-effect-editor-${index}`}>
-      {effects.length > 0 && (
-        <div className="graph-lab-effect-list">
-          {effects.map((effect, effectIndex) => {
-            const variable = variables.find((item) => item.name === effect.variableName);
-            return (
-              <div className="graph-lab-effect-row" key={`${effect.variableName}-${effectIndex}`}>
+      {effects.length === 0 && <p className="graph-lab-control-hint">{text('ux.noChanges')}</p>}
+      <div className="graph-lab-effect-list">
+        {effects.map((effect, at) => {
+          const variable = definition(effect.variableName);
+          const invalid = !validEffectValue(variable, effect.value);
+          return (
+            <div className="ux-effect" key={at}>
+              <div className="graph-lab-effect-row">
                 <select
                   value={effect.variableName}
-                  onChange={(event) =>
-                    updateEffect(effectIndex, {
-                      variableName: event.target.value,
-                      value: variableDefaultValue(
-                        variables.find((item) => item.name === event.target.value),
-                      ),
-                    })
-                  }
                   aria-label={text('inspector.effectVariable')}
+                  onChange={(event) =>
+                    update(
+                      at,
+                      {
+                        variableName: event.target.value,
+                        operation: 'set',
+                        value: variableDefaultValue(definition(event.target.value)),
+                      },
+                      true,
+                    )
+                  }
                 >
-                  {variables.map((item) => (
-                    <option key={item.name} value={item.name}>
-                      {item.name}
+                  {leaves.map((leaf) => (
+                    <option key={leaf.name} value={leaf.name}>
+                      {leaf.name.replaceAll('.', ' / ')}
                     </option>
                   ))}
                 </select>
                 <select
                   value={effect.operation}
-                  onChange={(event) =>
-                    updateEffect(effectIndex, { operation: event.target.value as EffectOperation })
-                  }
                   aria-label={text('inspector.effectOperationLabel')}
+                  onChange={(event) =>
+                    update(at, { operation: event.target.value as EffectOperation }, true)
+                  }
                 >
-                  {EFFECT_OPERATIONS.map((item) => (
-                    <option key={item} value={item}>
-                      {effectOperationLabel(item, text)}
+                  {effectOperations(variable).map((operation) => (
+                    <option key={operation} value={operation}>
+                      {effectOperationLabel(operation, text)}
                     </option>
                   ))}
                 </select>
@@ -900,81 +997,127 @@ function EffectsEditor({
                   variable={variable}
                   value={effect.value}
                   ariaLabel={text('inspector.effectValue')}
-                  onChange={(nextValue) => updateEffect(effectIndex, { value: nextValue })}
+                  onChange={(value) => update(at, { value })}
+                  onBlur={() => {
+                    commit();
+                  }}
+                  onEnter={() => {
+                    commit();
+                  }}
                 />
                 <button
                   type="button"
                   className="icon-button icon-button--danger"
-                  title={text('inspector.deleteEffect')}
                   aria-label={text('inspector.deleteEffect')}
-                  onClick={() => removeEffect(effectIndex)}
+                  onClick={() => {
+                    const next = effects.filter((_, i) => i !== at);
+                    if (commit(next)) setEffects(next);
+                  }}
                 >
-                  <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                  <Trash2 size={14} />
                 </button>
               </div>
-            );
-          })}
-        </div>
-      )}
+              {invalid && <small role="alert">{text('ux.invalidValue')}</small>}
+            </div>
+          );
+        })}
+      </div>
       <div className="graph-lab-effect-builder" data-testid="graph-inspector-effect-builder">
         <select
           data-testid={`graph-inspector-option-effect-variable-${index}`}
           value={draftVariable}
-          onChange={(event) => setDraftVariable(event.target.value)}
-          disabled={variables.length === 0}
+          disabled={!leaves.length}
           aria-label={text('inspector.effectVariable')}
+          onChange={(event) => {
+            useEditorStore.getState().bumpSourceDraftRevision();
+            setDraftTouched(true);
+            setDraftVariable(event.target.value);
+            setDraftOperation('set');
+            setDraftValue(variableDefaultValue(definition(event.target.value)));
+          }}
         >
-          {variables.length === 0 ? (
-            <option value="">{text('inspector.noVariables')}</option>
-          ) : (
-            variables.map((item) => (
-              <option key={item.name} value={item.name}>
-                {item.name}
-              </option>
-            ))
-          )}
+          {!leaves.length && <option value="">{text('inspector.noVariables')}</option>}
+          {leaves.map((leaf) => (
+            <option key={leaf.name} value={leaf.name}>
+              {leaf.name.replaceAll('.', ' / ')}
+            </option>
+          ))}
         </select>
         <select
           data-testid={`graph-inspector-option-effect-operation-${index}`}
           value={draftOperation}
-          onChange={(event) => setDraftOperation(event.target.value as EffectOperation)}
-          disabled={variables.length === 0}
+          disabled={!draftDef}
           aria-label={text('inspector.effectOperationLabel')}
+          onChange={(event) => {
+            setDraftTouched(true);
+            setDraftOperation(event.target.value as EffectOperation);
+          }}
         >
-          {EFFECT_OPERATIONS.map((item) => (
-            <option key={item} value={item}>
-              {effectOperationLabel(item, text)}
+          {effectOperations(draftDef).map((operation) => (
+            <option key={operation} value={operation}>
+              {effectOperationLabel(operation, text)}
             </option>
           ))}
         </select>
         <VariableValueInput
-          variable={draftVariableDef}
+          variable={draftDef}
           value={draftValue}
           testId={`graph-inspector-option-effect-value-${index}`}
           ariaLabel={text('inspector.effectValue')}
-          onChange={setDraftValue}
-          onEnter={addEffect}
+          onChange={(value) => {
+            useEditorStore.getState().bumpSourceDraftRevision();
+            setDraftTouched(true);
+            setDraftValue(value);
+          }}
+          onEnter={add}
         />
         <button
           type="button"
           className="graph-lab-inline-button"
           data-testid={`graph-inspector-option-effect-add-${index}`}
-          onClick={addEffect}
-          disabled={!draftVariable}
           aria-keyshortcuts="Enter"
+          disabled={!draftDef}
+          onClick={add}
         >
-          <Plus aria-hidden="true" size={14} strokeWidth={2} />
-          <span>{text('inspector.addEffect')}</span>
+          <Plus size={14} />
+          {text('inspector.addEffect')}
         </button>
-        {variables.length === 0 && (
-          <p className="graph-lab-control-hint">{text('inspector.noVariablesDeclared')}</p>
-        )}
-        {commitRejected && (
-          <p className="graph-lab-control-hint" role="alert">
-            {text('inspector.updateRejected')}
-          </p>
-        )}
       </div>
+      <button type="button" className="ux-text-button" onClick={() => setCreating(true)}>
+        {text('ux.createVariable')}
+      </button>
+      {commitRejected && (
+        <p className="graph-lab-control-hint" role="alert">
+          {text(draftTouched ? 'ux.finishNewChange' : 'ux.invalidValue')}{' '}
+          <button
+            type="button"
+            className="ux-text-button"
+            onClick={() => {
+              setEffects(parseEffectsForEditor(raw, variables) ?? []);
+              setDirty(false);
+              setDraftTouched(false);
+              setDraftValue('');
+              setCommitRejected(false);
+            }}
+          >
+            {text('ux.discardDraft')}
+          </button>
+        </p>
+      )}
+      {creating && (
+        <UXDialog title={text('ux.createVariable')} onClose={() => setCreating(false)}>
+          <GraphInspector
+            contentMode="variables"
+            embedded
+            onVariableCreated={(name) => {
+              setDraftVariable(name);
+              setDraftOperation('set');
+              setDraftValue('');
+              setCreating(false);
+            }}
+          />
+        </UXDialog>
+      )}
     </div>
   );
 }
@@ -984,11 +1127,15 @@ export type GraphInspectorContentMode = 'node' | 'story' | 'variables';
 interface GraphInspectorProps {
   readonly contentMode?: GraphInspectorContentMode;
   readonly embedded?: boolean;
+  readonly onVariableCreated?: (name: string) => void;
+  readonly onRevealDraft?: () => void;
 }
 
 export function GraphInspector({
   contentMode = 'node',
   embedded = false,
+  onVariableCreated,
+  onRevealDraft,
 }: GraphInspectorProps): React.ReactElement {
   const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
   const activeNodeId = useEditorStore((state) => state.activeNodeId);
@@ -998,21 +1145,85 @@ export function GraphInspector({
   const setStatusMessage = useUIStore((state) => state.setStatusMessage);
   const compactGraphPanel = useUIStore((state) => state.compactGraphPanel);
   const isCompactGraphLayout = useCompactGraphLayout();
-  const [editingVariableName, setEditingVariableName] = useState<string | null>(null);
-  const [variableName, setVariableName] = useState('');
-  const [variableType, setVariableType] = useState<VariableType>('int');
-  const [variableDefaultValue, setVariableDefaultValue] = useState('0');
-  const [variableScope, setVariableScope] = useState<VariableScope | ''>('');
-  const [variableChapterId, setVariableChapterId] = useState('');
-  const [variableDescription, setVariableDescription] = useState('');
-  const [variableEnumValues, setVariableEnumValues] = useState('');
-  const [variableFields, setVariableFields] = useState<readonly VariableFieldDraft[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{
+    kind: 'node' | 'variable';
+    name: string;
+  } | null>(null);
+  const [editingVariableName, setEditingVariableName] = useVariableDraftState<string | null>(
+    storySessionId,
+    'editingVariableName',
+    null,
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableName, setVariableName] = useVariableDraftState(
+    storySessionId,
+    'variableName',
+    '',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableType, setVariableType] = useVariableDraftState<VariableType>(
+    storySessionId,
+    'variableType',
+    'int',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableDefaultValue, setVariableDefaultValue] = useVariableDraftState(
+    storySessionId,
+    'variableDefaultValue',
+    '0',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableScope, setVariableScope] = useVariableDraftState<VariableScope | ''>(
+    storySessionId,
+    'variableScope',
+    '',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableChapterId, setVariableChapterId] = useVariableDraftState(
+    storySessionId,
+    'variableChapterId',
+    '',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableDescription, setVariableDescription] = useVariableDraftState(
+    storySessionId,
+    'variableDescription',
+    '',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableEnumValues, setVariableEnumValues] = useVariableDraftState(
+    storySessionId,
+    'variableEnumValues',
+    '',
+    contentMode === 'variables' && !onVariableCreated,
+  );
+  const [variableFields, setVariableFields] = useVariableDraftState<readonly VariableFieldDraft[]>(
+    storySessionId,
+    'variableFields',
+    [],
+    contentMode === 'variables' && !onVariableCreated,
+  );
   const text = useAppText();
+
+  const variableDraftPending =
+    contentMode === 'variables' && !onVariableCreated && variableName.trim().length > 0;
+  useInspectorDraft(
+    (reason) => {
+      if (!variableDraftPending || !['save', 'export', 'replace'].includes(reason)) return true;
+      setStatusMessage(text('ux.saveVariableDraft'));
+      onRevealDraft?.();
+      return false;
+    },
+    () => variableDraftPending,
+  );
 
   const node = useMemo(() => {
     const id = selectedNodeId ?? activeNodeId;
     return id ? allNodes.find((candidate) => candidate.fullId === id) : undefined;
   }, [activeNodeId, allNodes, selectedNodeId]);
+
+  const optionIdentities = useOptionIdentities(node, storySessionId);
+  const [variableSearch, setVariableSearch] = useState('');
 
   const chapterOptions = useMemo(
     () => plotFlowData?.chapters.map((chapter) => chapter.title).filter(Boolean) ?? [],
@@ -1071,11 +1282,17 @@ export function GraphInspector({
     setVariableDescription('');
     setVariableEnumValues('');
     setVariableFields([]);
-  }, []);
-
-  React.useEffect(() => {
-    resetVariableDraft();
-  }, [resetVariableDraft, storySessionId]);
+  }, [
+    setEditingVariableName,
+    setVariableName,
+    setVariableType,
+    setVariableDefaultValue,
+    setVariableScope,
+    setVariableChapterId,
+    setVariableDescription,
+    setVariableEnumValues,
+    setVariableFields,
+  ]);
 
   const rootEnumValues = enumValuesFromDraft(variableEnumValues);
   const parsedRootDefault = parseVariableDefault(
@@ -1114,10 +1331,12 @@ export function GraphInspector({
       setStatusMessage(text('inspector.updateRejected'));
       return;
     }
+    onVariableCreated?.(variableName.trim());
     resetVariableDraft();
     setStatusMessage(text('inspector.updatedVariable'));
   }, [
     canSaveVariable,
+    onVariableCreated,
     editingVariableName,
     parsedRootDefault,
     resetVariableDraft,
@@ -1132,21 +1351,34 @@ export function GraphInspector({
     variableType,
   ]);
 
-  const handleVariableEdit = useCallback((variable: VariableDeclaration) => {
-    setEditingVariableName(variable.name);
-    setVariableName(variable.name);
-    setVariableType(variable.type);
-    setVariableDefaultValue(variableValueToDraft(variable.defaultValue, variable.type));
-    setVariableScope(variable.scope ?? '');
-    setVariableChapterId(variable.chapterId ?? '');
-    setVariableDescription(variable.description ?? '');
-    setVariableEnumValues(variable.enumValues?.join('\n') ?? '');
-    setVariableFields(variable.fields?.map(declarationToFieldDraft) ?? []);
-  }, []);
+  const handleVariableEdit = useCallback(
+    (variable: VariableDeclaration) => {
+      setEditingVariableName(variable.name);
+      setVariableName(variable.name);
+      setVariableType(variable.type);
+      setVariableDefaultValue(variableValueToDraft(variable.defaultValue, variable.type));
+      setVariableScope(variable.scope ?? '');
+      setVariableChapterId(variable.chapterId ?? '');
+      setVariableDescription(variable.description ?? '');
+      setVariableEnumValues(variable.enumValues?.join('\n') ?? '');
+      setVariableFields(variable.fields?.map(declarationToFieldDraft) ?? []);
+    },
+    [
+      setEditingVariableName,
+      setVariableName,
+      setVariableType,
+      setVariableDefaultValue,
+      setVariableScope,
+      setVariableChapterId,
+      setVariableDescription,
+      setVariableEnumValues,
+      setVariableFields,
+    ],
+  );
 
   const handleVariableNameKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Enter') return;
+      if (event.nativeEvent.isComposing || event.key !== 'Enter') return;
       event.preventDefault();
       handleVariableSubmit();
     },
@@ -1178,7 +1410,7 @@ export function GraphInspector({
       {!embedded && (
         <div className="graph-lab-panel__header">
           <span className="graph-lab-panel__eyebrow">{text('inspector.node')}</span>
-          <h2>{node ? node.title : text('inspector.emptyTitle')}</h2>
+          <h2>{text(node ? 'inspector.aria' : 'inspector.emptyTitle')}</h2>
         </div>
       )}
 
@@ -1216,10 +1448,10 @@ export function GraphInspector({
                 }
               }}
             >
-              <option value="generic">generic</option>
-              <option value="godot">godot</option>
-              <option value="unity">unity</option>
-              <option value="unreal">unreal</option>
+              <option value="generic">{text('ux.standalone')}</option>
+              <option value="godot">Godot</option>
+              <option value="unity">Unity</option>
+              <option value="unreal">Unreal</option>
             </select>
           </label>
           <div className="graph-lab-readonly-field">
@@ -1242,7 +1474,7 @@ export function GraphInspector({
                   className="icon-button"
                   title={text('inspector.deleteNode')}
                   aria-label={text('inspector.deleteNode')}
-                  onClick={handleDeleteNode}
+                  onClick={() => setPendingDelete({ kind: 'node', name: node.title })}
                 >
                   <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
                 </button>
@@ -1254,25 +1486,30 @@ export function GraphInspector({
                   value={node.title}
                   onCommit={(value) => commitNodePatch({ title: value })}
                 />
-                <label className="graph-lab-field">
-                  <span>{text('inspector.chapter')}</span>
-                  <select
-                    data-testid="graph-inspector-node-chapter"
-                    value={node.chapterId}
-                    onChange={(event) => commitNodePatch({ chapterTitle: event.target.value })}
-                  >
-                    {chapterOptions.length === 0 && (
-                      <option value={node.chapterId}>
-                        {node.chapterId || text('inspector.defaultChapter')}
-                      </option>
-                    )}
-                    {chapterOptions.map((chapter) => (
-                      <option key={chapter} value={chapter}>
-                        {chapter}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <details className="ux-node-location">
+                  <summary>
+                    {text('inspector.chapter')}: {node.chapterId}
+                  </summary>
+                  <label className="graph-lab-field">
+                    <span>{text('inspector.chapter')}</span>
+                    <select
+                      data-testid="graph-inspector-node-chapter"
+                      value={node.chapterId}
+                      onChange={(event) => commitNodePatch({ chapterTitle: event.target.value })}
+                    >
+                      {chapterOptions.length === 0 && (
+                        <option value={node.chapterId}>
+                          {node.chapterId || text('inspector.defaultChapter')}
+                        </option>
+                      )}
+                      {chapterOptions.map((chapter) => (
+                        <option key={chapter} value={chapter}>
+                          {chapter}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </details>
                 <EditableField
                   label={text('inspector.body')}
                   testId="graph-inspector-node-body"
@@ -1350,13 +1587,17 @@ export function GraphInspector({
               ) : (
                 <div className="graph-lab-options">
                   {node.options.map((option, index) => {
-                    const draftIdentity = createOptionDraftIdentity(
-                      node.fullId,
-                      node.options,
-                      index,
-                    );
+                    const draftIdentity = optionIdentities[index] ?? `${node.fullId}:${index}`;
                     return (
-                      <div className="graph-lab-option" key={draftIdentity}>
+                      <details
+                        className="graph-lab-option"
+                        key={draftIdentity}
+                        open={index === 0 ? true : undefined}
+                      >
+                        <summary className="ux-option-heading">
+                          {option.description ||
+                            text('inspector.optionLabel', { index: index + 1 })}
+                        </summary>
                         <EditableField
                           label={text('inspector.optionLabel', { index: index + 1 })}
                           testId={`graph-inspector-option-description-${index}`}
@@ -1388,17 +1629,30 @@ export function GraphInspector({
                               ))}
                           </select>
                         </label>
-                        <div className="graph-lab-field-group">
-                          <span>{text('inspector.condition')}</span>
+                        <details
+                          className="graph-lab-field-group ux-rule-section"
+                          open={option.conditionRaw ? true : undefined}
+                        >
+                          <summary>
+                            {text('inspector.condition')}
+                            <small>
+                              {option.conditionRaw
+                                ? text('ux.hasConditions')
+                                : text('ux.noConditions')}
+                            </small>
+                          </summary>
                           <OptionConditionEditor
                             option={option}
                             variables={nodeVariables}
                             index={index}
                             onCommit={(value) => commitOptionPatch(option, { conditionRaw: value })}
                           />
-                        </div>
-                        <div className="graph-lab-field-group">
-                          <span>{text('inspector.effects')}</span>
+                        </details>
+                        <details
+                          className="graph-lab-field-group ux-rule-section"
+                          open={option.effectsRaw ? true : undefined}
+                        >
+                          <summary>{text('inspector.effects')}</summary>
                           <EffectsEditor
                             variables={nodeVariables}
                             raw={option.effectsRaw ?? null}
@@ -1407,7 +1661,7 @@ export function GraphInspector({
                             storySessionId={storySessionId}
                             onCommit={(value) => commitOptionPatch(option, { effectsRaw: value })}
                           />
-                        </div>
+                        </details>
                         <div className="graph-lab-option__actions">
                           <button
                             type="button"
@@ -1448,7 +1702,7 @@ export function GraphInspector({
                             <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
                           </button>
                         </div>
-                      </div>
+                      </details>
                     );
                   })}
                 </div>
@@ -1461,43 +1715,68 @@ export function GraphInspector({
 
       {contentMode === 'variables' && (
         <section className="graph-lab-section">
-          <h3>{text('inspector.variables')}</h3>
+          <h3>
+            {text('inspector.variables')} · {variables.length}
+          </h3>
+          {!onVariableCreated && (
+            <input
+              className="ux-search"
+              aria-label={text('conditionEditor.searchVariable')}
+              placeholder={text('conditionEditor.searchVariable')}
+              value={variableSearch}
+              onChange={(event) => setVariableSearch(event.target.value)}
+            />
+          )}
+          {variableSearch &&
+            !variables.some((variable) => variable.name.includes(variableSearch)) && (
+              <p className="graph-lab-empty">{text('ux.noResults')}</p>
+            )}
           {variables.length > 0 ? (
             <div className="graph-lab-variable-list" data-testid="graph-inspector-variable-list">
-              {variables.map((variable) => (
-                <div className="graph-lab-variable-row" key={variable.name}>
-                  <div>
-                    <strong>{variable.name}</strong>
-                    <small>
-                      {variable.type} = {formatVariableDefault(variable)} ·{' '}
-                      {variable.scope ?? 'global'}
-                      {variable.scope === 'chapter' && variable.chapterId
-                        ? ` / ${variable.chapterId}`
-                        : ''}
-                    </small>
+              {variables
+                .filter((variable) =>
+                  `${variable.name} ${variable.description ?? ''}`
+                    .toLocaleLowerCase()
+                    .includes(variableSearch.toLocaleLowerCase()),
+                )
+                .map((variable) => (
+                  <div className="graph-lab-variable-row" key={variable.name}>
+                    <div>
+                      <strong>{variable.name}</strong>
+                      <small>
+                        {text(`ux.types.${variable.type}`)} ·{' '}
+                        {variable.type === 'bool'
+                          ? text(variable.defaultValue ? 'ux.yes' : 'ux.no')
+                          : formatVariableDefault(variable)}{' '}
+                        ·{' '}
+                        {text(variable.scope === 'chapter' ? 'ux.chapterScope' : 'ux.globalScope')}
+                        {variable.scope === 'chapter' && variable.chapterId
+                          ? ` / ${variable.chapterId}`
+                          : ''}
+                      </small>
+                    </div>
+                    <div className="graph-lab-variable-row__actions">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title={text('inspector.editVariable')}
+                        aria-label={text('inspector.editVariable')}
+                        onClick={() => handleVariableEdit(variable)}
+                      >
+                        <Pencil aria-hidden="true" size={14} strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button icon-button--danger"
+                        title={text('inspector.deleteVariable')}
+                        aria-label={text('inspector.deleteVariable')}
+                        onClick={() => setPendingDelete({ kind: 'variable', name: variable.name })}
+                      >
+                        <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="graph-lab-variable-row__actions">
-                    <button
-                      type="button"
-                      className="icon-button"
-                      title={text('inspector.editVariable')}
-                      aria-label={text('inspector.editVariable')}
-                      onClick={() => handleVariableEdit(variable)}
-                    >
-                      <Pencil aria-hidden="true" size={14} strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button icon-button--danger"
-                      title={text('inspector.deleteVariable')}
-                      aria-label={text('inspector.deleteVariable')}
-                      onClick={() => handleVariableDelete(variable.name)}
-                    >
-                      <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           ) : (
             <p className="graph-lab-empty">{text('inspector.noVariablesDeclared')}</p>
@@ -1529,7 +1808,7 @@ export function GraphInspector({
             >
               {VARIABLE_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {type}
+                  {text(`ux.types.${type}`)}
                 </option>
               ))}
             </select>
@@ -1590,8 +1869,8 @@ export function GraphInspector({
               }}
             >
               <option value="">{text('inspector.scopeInherited')}</option>
-              <option value="global">global</option>
-              <option value="chapter">chapter</option>
+              <option value="global">{text('ux.globalScope')}</option>
+              <option value="chapter">{text('ux.chapterScope')}</option>
             </select>
           </label>
           {variableScope === 'chapter' && (
@@ -1640,7 +1919,7 @@ export function GraphInspector({
                 ? text('inspector.updateVariable')
                 : text('inspector.saveVariable')}
             </button>
-            {editingVariableName && (
+            {(editingVariableName || variableName) && (
               <button
                 type="button"
                 className="graph-lab-inline-button"
@@ -1652,6 +1931,38 @@ export function GraphInspector({
             )}
           </div>
         </section>
+      )}
+      {pendingDelete && (
+        <UXDialog
+          title={
+            pendingDelete.kind === 'node'
+              ? text('inspector.confirmDeleteNode', { title: pendingDelete.name })
+              : text('ux.deleteVariableTitle', { name: pendingDelete.name })
+          }
+          onClose={() => setPendingDelete(null)}
+        >
+          {pendingDelete.kind === 'variable' && <p>{text('ux.deleteVariableDetail')}</p>}
+          <div className="ux-dialog__actions">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={() => setPendingDelete(null)}
+            >
+              {text('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="button ux-danger"
+              onClick={() => {
+                if (pendingDelete.kind === 'node') handleDeleteNode();
+                else handleVariableDelete(pendingDelete.name);
+                setPendingDelete(null);
+              }}
+            >
+              {text('ux.delete')}
+            </button>
+          </div>
+        </UXDialog>
       )}
     </aside>
   );

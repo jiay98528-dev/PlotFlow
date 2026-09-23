@@ -12,6 +12,7 @@ import '../styles/graph-lab.css';
 import '../styles/problem-panel.css';
 import '../styles/official-themes.css';
 import '../styles/feedback-dialog.css';
+import '../styles/ux-master.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element not found');

@@ -1,3 +1,4 @@
+import { writingMaterialSuggestions } from '../services/corpusLibraryService';
 /**
  * GhostTextPlugin — Monaco 幽灵文本补全插件 (M5-08~13)
  *
@@ -174,7 +175,7 @@ function generateMultiTokenSuggestion(text: string, maxTokens: number): string {
   let current = text;
 
   for (let i = 0; i < maxTokens; i++) {
-    const predictions = ngramEngine.predict(current, 1);
+    const predictions = [...writingMaterialSuggestions(current), ...ngramEngine.predict(current, 1)];
     if (predictions.length === 0) break;
     const next = predictions[0]!;
     result += next;

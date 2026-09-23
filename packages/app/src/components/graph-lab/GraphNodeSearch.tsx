@@ -1,3 +1,4 @@
+import { flushInspectorDrafts } from '../../services/inspectorDraftCoordinator';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { DiagnosticSeverity, StoryNode } from '@plotflow/core';
@@ -109,6 +110,7 @@ export function GraphNodeSearch(): React.ReactElement {
   }, []);
 
   const choose = useCallback((result: SearchResult) => {
+    if (!flushInspectorDrafts()) return;
     const { node } = result;
     if (!requestActiveChapter(node.chapterId)) return;
     selectNode(node.fullId);

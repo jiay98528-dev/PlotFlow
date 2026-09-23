@@ -1,5 +1,6 @@
 import { useEditorStore } from '../stores/editorStore';
 import type { StoryIdentity } from './storySnapshot';
+import { flushInspectorDrafts, hasInspectorDrafts } from './inspectorDraftCoordinator';
 
 export type SourceDraftFlushReason =
   | 'save'
@@ -57,6 +58,7 @@ export function registerSourceDraftController(controller: SourceDraftController)
 }
 
 export function flushSourceDraft(reason: SourceDraftFlushReason): DraftFlushResult {
+  if (reason !== 'graph' && !flushInspectorDrafts(reason)) return { ok: false, reason: 'commit-failed' };
   if (!activeController) {
     return { ok: true, disposition: 'clean', identity: getCurrentStoryIdentity() };
   }
@@ -79,5 +81,5 @@ export function getSourceDraftState(): SourceDraftState {
 
 export function hasSourceDraftRisk(): boolean {
   const state = getSourceDraftState();
-  return state.isDirty || state.isStale;
+  return state.isDirty || state.isStale || hasInspectorDrafts();
 }

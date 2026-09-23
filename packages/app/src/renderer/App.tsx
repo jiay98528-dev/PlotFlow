@@ -8,6 +8,7 @@ import {
   Home,
   Languages,
   Palette,
+  Save,
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react';
@@ -181,7 +182,7 @@ function AppContent(): React.ReactElement {
     const consume = async (result: PendingOpenFileResult): Promise<void> => {
       if (cancelled || result.status === 'none') return;
       if (result.status === 'error') {
-        setStatusMessage(text('file.pendingOpenFailed', { path: result.path, code: result.code }));
+        setStatusMessage(`file:${text('file.pendingOpenFailed', { path: result.path, code: result.code })}`);
         return;
       }
       const normalizedPath = normalizeStoryPath(result.story.filePath);
@@ -403,7 +404,6 @@ function AppContent(): React.ReactElement {
             onClick={() => setHomeSurfaceOpen(true)}
           >
             <BrandLockup variant="compact" />
-            <span className="app-subtitle">{text('toolbar.phase')}</span>
             <span className="app-version">{text('appShell.version')}</span>
             <Home aria-hidden="true" size={15} strokeWidth={2} />
           </button>
@@ -414,6 +414,7 @@ function AppContent(): React.ReactElement {
               <FilePlus2 aria-hidden="true" size={16} strokeWidth={2} />
               <span>{text('toolbar.newFile')}</span>
             </button>
+            <button type="button" className="button button--primary" data-testid="toolbar-save" onClick={() => { void saveOrSaveAs(); }}><Save size={16}/><span>{text('ux.save')}</span></button>
             <button
               type="button"
               className="toolbar-button"
@@ -438,7 +439,7 @@ function AppContent(): React.ReactElement {
               aria-pressed={workspaceMode === 'split'}
             >
               <FileText aria-hidden="true" size={15} strokeWidth={2} />
-              <span>Split</span>
+              <span>{text('ux.source')}</span>
             </button>
             <button
               type="button"
@@ -451,8 +452,7 @@ function AppContent(): React.ReactElement {
               aria-pressed={workspaceMode === 'graphLab'}
             >
               <GitBranch aria-hidden="true" size={15} strokeWidth={2} />
-              <span>Graph Lab</span>
-              <span className="toolbar-button__meta">{text('toolbar.officialTheme')}</span>
+              <span>{text('ux.graph')}</span>
             </button>
             <button type="button" className="toolbar-button" onClick={openCorpusManager}>
               <Database aria-hidden="true" size={15} strokeWidth={2} />

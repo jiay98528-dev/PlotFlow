@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getTheme } from '../../theme-platform/registry';
 
 interface ThemeAssetPreviewProps {
   readonly themeId: string;
@@ -20,6 +21,8 @@ export function ThemeAssetPreview({
   active = false,
 }: ThemeAssetPreviewProps): React.ReactElement {
   const [failed, setFailed] = useState(false);
+  const theme = getTheme(themeId);
+  const previewTokens = theme ? { ...theme.tokens.shared, ...theme.tokens[theme.defaultMode] } : {};
 
   useEffect(() => {
     setFailed(false);
@@ -27,6 +30,7 @@ export function ThemeAssetPreview({
 
   return (
     <figure
+      style={previewTokens as React.CSSProperties}
       className={`official-theme-preview official-theme-preview--rendered${compact ? ' is-compact' : ''}${active ? ' is-active' : ''}`}
       data-preview-theme-id={themeId}
       data-official-preview-theme={themeId}

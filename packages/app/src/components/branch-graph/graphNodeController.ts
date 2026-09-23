@@ -1,3 +1,4 @@
+import { flushInspectorDrafts } from '../../services/inspectorDraftCoordinator';
 import { useCallback, useEffect, useRef } from 'react';
 import { applyNodeChanges, type Node, type NodeChange } from '@xyflow/react';
 import type { StoryNode } from '@plotflow/core';
@@ -146,6 +147,7 @@ export function useGraphNodeController({
         return;
       const nodeData = node.data as StoryFlowNodeData | undefined;
       if (!nodeData) return;
+      if (!flushInspectorDrafts()) return;
       selectNode(nodeData.fullId);
       if (!editorInstance) return;
       editorInstance.revealLine(nodeData.lineNumber);
@@ -157,6 +159,7 @@ export function useGraphNodeController({
 
   const handlePaneClick = useCallback((): void => {
     if (renamingNodeId !== null || consumeSuppressedPaneClick()) return;
+    if (!flushInspectorDrafts()) return;
     closeWireDrop(false);
     selectNode(null);
   }, [closeWireDrop, consumeSuppressedPaneClick, renamingNodeId, selectNode]);

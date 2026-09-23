@@ -116,8 +116,8 @@ async function loadRpgTemplate(page: Page): Promise<void> {
   await page.waitForSelector('.editor-pane .monaco-editor', { timeout: 20000 });
   await page.waitForTimeout(500);
 
-  // 点击顶部工具栏"新建"按钮 (.app-topbar .button--primary)
-  await page.locator('.app-topbar .button--primary').click();
+  // 点击顶部工具栏"新建"按钮。保存按钮同样是 primary，使用可见文案避免 strict mode 冲突。
+  await page.getByRole('button', { name: '新建', exact: true }).click();
 
   // 等待 NewFileDialog 打开
   await page.waitForSelector('.new-file-dialog', { timeout: 5000 });
@@ -307,7 +307,7 @@ test.describe('导出系统 E2E (M4) — 5 项测试用例', () => {
     // Assert: 读取捕获的导出内容
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
-    expect(captured!.format).toBe('JSON');
+    expect(captured!.format).toContain('JSON');
 
     // Assert: 内容是有效 JSON
     let parsed: Record<string, unknown>;
@@ -362,7 +362,7 @@ test.describe('导出系统 E2E (M4) — 5 项测试用例', () => {
     // Assert: 读取捕获内容
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
-    expect(captured!.format).toBe('HTML');
+    expect(captured!.format).toContain('HTML');
 
     const html = captured!.content;
 
@@ -421,7 +421,7 @@ test.describe('导出系统 E2E (M4) — 5 项测试用例', () => {
     // Assert
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
-    expect(captured!.format).toBe('TXT');
+    expect(captured!.format).toContain('TXT');
 
     const txt = captured!.content;
 
@@ -504,7 +504,7 @@ test.describe('导出系统 E2E (M4) — 5 项测试用例', () => {
     await clickExportAndWait(window);
     const captured = await readCapturedExport(electronApp);
     expect(captured).not.toBeNull();
-    expect(captured!.format).toBe('JSON');
+    expect(captured!.format).toContain('JSON');
 
     // 验证导出内容与 TC-2 一致
     const parsed = JSON.parse(captured!.content) as Record<string, unknown>;

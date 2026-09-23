@@ -1,3 +1,4 @@
+import { useEditorStore } from '../../stores/editorStore';
 /**
  * Shared condition-tree editor used by Graph Lab and the modal condition panel.
  */
@@ -9,6 +10,8 @@ import type {
   VariableType,
 } from '@plotflow/core';
 import { useAppText } from '../../i18n/appI18n';
+import { parseCondition } from '@plotflow/core';
+import { useInspectorDraft } from '../../hooks/useInspectorDraft';
 import {
   LOGIC_GROUP_COLORS,
   OperatorDropdown,
@@ -24,7 +27,6 @@ import {
   conditionRowStyle,
   conditionTreeCompactStyle,
   conditionTreeStyle,
-  dragHandleStyle,
   emptyVarsHintStyle,
   emptyVarsStyle,
   groupActionsStyle,
@@ -42,6 +44,7 @@ import {
 } from './conditionEditorStyles';
 import {
   MAX_NESTING_DEPTH,
+  isConditionDraftComplete,
   builderToConditionNode,
   conditionNodeToBuilder,
   createConditionId,
@@ -66,6 +69,7 @@ interface ConditionRowViewProps {
   readonly onUpdate: (row: ConditionRow) => void;
   readonly onRemove: () => void;
   readonly canRemove: boolean;
+  readonly advanced?: boolean;
 }
 
 function ConditionRowView({
@@ -74,6 +78,7 @@ function ConditionRowView({
   onUpdate,
   onRemove,
   canRemove,
+  advanced = true,
 }: ConditionRowViewProps): React.ReactElement {
   const text = useAppText();
   const leftVariable =
@@ -117,12 +122,14 @@ function ConditionRowView({
 
   return (
     <div style={conditionRowStyle}>
-      {/* 拖拽把手（装饰） */}
-      <span style={dragHandleStyle}>&#x2630;</span>
-
       {/* 左操作数：变量或类型化字面值 */}
-      <div style={rightOperandStyle}>
+      <div
+        style={
+          advanced ? rightOperandStyle : { ...rightOperandStyle, flex: '1 1 70px', minWidth: 64 }
+        }
+      >
         <select
+          hidden={!advanced}
           aria-label={text('conditionEditor.leftOperandType')}
           value={row.leftOperandType}
           onChange={(event) =>
@@ -186,8 +193,13 @@ function ConditionRowView({
       />
 
       {/* 右操作数：类型化字面值或另一个变量 */}
-      <div style={rightOperandStyle}>
+      <div
+        style={
+          advanced ? rightOperandStyle : { ...rightOperandStyle, flex: '1 1 70px', minWidth: 64 }
+        }
+      >
         <select
+          hidden={!advanced}
           aria-label={text('conditionEditor.rightOperandType')}
           value={row.rightOperandType}
           onChange={(event) =>
@@ -267,6 +279,7 @@ interface ConditionGroupViewProps {
   readonly depth: number;
   readonly onUpdate: (group: ConditionGroup) => void;
   readonly onRemove?: () => void;
+  readonly advanced?: boolean;
 }
 
 function ConditionGroupView({
@@ -275,6 +288,7 @@ function ConditionGroupView({
   depth,
   onUpdate,
   onRemove,
+  advanced = true,
 }: ConditionGroupViewProps): React.ReactElement {
   const text = useAppText();
   const borderColor = LOGIC_GROUP_COLORS[group.operator];
@@ -347,10 +361,16 @@ function ConditionGroupView({
       style={{
         ...groupContainerStyle,
         borderColor,
+        ...(!advanced ? { border: 0, marginBottom: 0 } : {}),
       }}
     >
       {/* 组头 */}
-      <div style={groupHeaderStyle}>
+      <div
+        style={{
+          ...groupHeaderStyle,
+          display: !advanced && group.rows.length < 2 ? 'none' : 'flex',
+        }}
+      >
         {/* AND/OR 切换 */}
         <div
           style={operatorToggleStyle}
@@ -372,7 +392,7 @@ function ConditionGroupView({
             onClick={() => onUpdate({ ...group, operator: 'AND' })}
             aria-pressed={group.operator === 'AND'}
           >
-            AND
+            {text('ux.all')}
           </button>
           <button
             type="button"
@@ -389,7 +409,7 @@ function ConditionGroupView({
             onClick={() => onUpdate({ ...group, operator: 'OR' })}
             aria-pressed={group.operator === 'OR'}
           >
-            OR
+            {text('ux.any')}
           </button>
           <button
             type="button"
@@ -407,7 +427,7 @@ function ConditionGroupView({
             aria-pressed={group.operator === 'NOT'}
             title={text('conditionEditor.negateGroup')}
           >
-            NOT
+            {text('ux.not')}
           </button>
         </div>
 
@@ -429,6 +449,7 @@ function ConditionGroupView({
         {group.rows.map((row, idx) => (
           <ConditionRowView
             key={row.id}
+            advanced={advanced}
             row={row}
             variables={variables}
             onUpdate={(updated) => handleRowUpdate(idx, updated)}
@@ -455,7 +476,7 @@ function ConditionGroupView({
         <button type="button" style={addRowButtonStyle} onClick={handleAddRow}>
           {text('conditionEditor.addCondition')}
         </button>
-        {canNest && (
+        {canNest && advanced && (
           <>
             <button
               type="button"
@@ -516,7 +537,17 @@ export function ConditionTreeEditor({
     value ? conditionNodeToBuilder(value) : createEmptyConditionGroup(),
   );
   const [commitRejected, setCommitRejected] = useState(false);
+  const [advanced, setAdvanced] = useState(!compact);
+  const requiresAdvanced =
+    rootGroup.operator === 'NOT' ||
+    rootGroup.groups.length > 0 ||
+    rootGroup.rows.some(
+      (row) => row.leftOperandType === 'literal' || row.rightOperandType === 'variable',
+    );
   const lastEmittedSignatureRef = useRef<string | null>(null);
+  const hasUncommittedDraft = useRef(false);
+  const composing = useRef(false);
+  const currentGroup = useRef(rootGroup);
   const externalSignature = useMemo(() => serializeConditionExpression(value), [value]);
 
   useEffect(() => {
@@ -525,28 +556,52 @@ export function ConditionTreeEditor({
       return;
     }
     setCommitRejected(false);
+    hasUncommittedDraft.current = false;
     setRootGroup(value ? conditionNodeToBuilder(value) : createEmptyConditionGroup());
-  }, [externalSignature, value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalSignature]);
 
   const handleUpdate = useCallback(
     (nextGroup: ConditionGroup) => {
+      useEditorStore.getState().bumpSourceDraftRevision();
+      currentGroup.current = nextGroup;
+      if (composing.current) {
+        setRootGroup(nextGroup);
+        hasUncommittedDraft.current = true;
+        return;
+      }
       const nextValue = builderToConditionNode(nextGroup, variables);
       // 半成品不是“清除条件”。只有明确点击清除时才向上层发送 null，
       // 避免 Inspector 在用户切换变量、尚未输入值的瞬间删除现有条件。
-      if (!nextValue) {
+      hasUncommittedDraft.current = true;
+      if (!nextValue || !isConditionDraftComplete(nextGroup, variables)) {
         setCommitRejected(false);
         setRootGroup(nextGroup);
         return;
       }
       setRootGroup(nextGroup);
+      if (!parseCondition(serializeConditionExpression(nextValue), variables).ok) {
+        setCommitRejected(true);
+        return;
+      }
       if (!onChange(nextValue)) {
         setCommitRejected(true);
         return;
       }
       setCommitRejected(false);
+      hasUncommittedDraft.current = false;
       lastEmittedSignatureRef.current = serializeConditionExpression(nextValue);
     },
     [onChange, variables],
+  );
+
+  useInspectorDraft(
+    () => {
+      if (!hasUncommittedDraft.current) return true;
+      setCommitRejected(true);
+      return false;
+    },
+    () => hasUncommittedDraft.current,
   );
 
   const handleClear = useCallback(() => {
@@ -555,6 +610,7 @@ export function ConditionTreeEditor({
       return;
     }
     setCommitRejected(false);
+    hasUncommittedDraft.current = false;
     lastEmittedSignatureRef.current = '';
     setRootGroup(createEmptyConditionGroup());
   }, [onChange]);
@@ -562,6 +618,13 @@ export function ConditionTreeEditor({
   return (
     <div
       data-testid={testId}
+      onCompositionStartCapture={() => {
+        composing.current = true;
+      }}
+      onCompositionEndCapture={() => {
+        composing.current = false;
+        queueMicrotask(() => handleUpdate(currentGroup.current));
+      }}
       style={{
         ...conditionTreeStyle,
         ...(compact ? conditionTreeCompactStyle : {}),
@@ -579,10 +642,22 @@ export function ConditionTreeEditor({
         <>
           <ConditionGroupView
             group={rootGroup}
+            advanced={advanced || requiresAdvanced}
             variables={variables}
             depth={0}
             onUpdate={handleUpdate}
           />
+          {compact && (
+            <button
+              type="button"
+              className="ux-text-button"
+              aria-expanded={advanced || requiresAdvanced}
+              disabled={requiresAdvanced}
+              onClick={() => setAdvanced(!advanced)}
+            >
+              {text(advanced || requiresAdvanced ? 'ux.simpleConditions' : 'ux.advancedConditions')}
+            </button>
+          )}
           {allowClear && (
             <button
               type="button"
@@ -594,9 +669,20 @@ export function ConditionTreeEditor({
             </button>
           )}
           {commitRejected && (
-            <span role="alert" style={maxDepthHintStyle}>
-              {text('conditionEditor.draftBlocked')}
-            </span>
+            <div role="alert" className="ux-error">
+              {text('ux.invalidValue')}
+              <button
+                type="button"
+                className="ux-text-button"
+                onClick={() => {
+                  setRootGroup(value ? conditionNodeToBuilder(value) : createEmptyConditionGroup());
+                  hasUncommittedDraft.current = false;
+                  setCommitRejected(false);
+                }}
+              >
+                {text('ux.discardDraft')}
+              </button>
+            </div>
           )}
         </>
       )}

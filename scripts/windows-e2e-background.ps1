@@ -1,5 +1,6 @@
 param(
   [string]$Grep = '.',
+  [switch]$UpdateSnapshots,
   [switch]$Child,
   [string]$DesktopName = '',
   [string]$OutputDirectory = ''
@@ -106,17 +107,19 @@ try {
   $startup.desktop = 'WinSta0\' + $DesktopName
   $startup.flags = 1
   $startup.show = 0
-  $shellPath = (Get-Process -Id $PID).Path
-  # Pass arguments through an encoded script to avoid Windows command-line quoting ambiguity.
-  $quotedScript = $PSCommandPath.Replace("'", "''")
-  $quotedGrep = $Grep.Replace("'", "''")
-  $quotedOutput = $OutputDirectory.Replace("'", "''")
-  $childCommand = "try { & '$quotedScript' -Child -DesktopName '$DesktopName' -OutputDirectory '$quotedOutput' -Grep '$quotedGrep'; exit `$LASTEXITCODE } catch { `$_ | Out-File -LiteralPath '$quotedOutput/startup-error.txt' -Encoding utf8; exit 1 }"
-  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
-  $command = New-Object Text.StringBuilder ('"' + $shellPath + '" -NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand ' + $encoded)
+  $shellPath = (Get-Command node.exe).Source
+  $childPath = Join-Path $projectRoot 'scripts/windows-e2e-child.mjs'
+  $previousDesktopEnvironment = $env:PLOTFLOW_BACKGROUND_DESKTOP
+  $env:PLOTFLOW_BACKGROUND_DESKTOP = $DesktopName
+  # Launch Node directly: a second PowerShell host can fail before executing any
+  # script on a private desktop. No fallback to the interactive desktop exists.
+  $escapedGrep = $Grep.Replace('"', '\"')
+  $snapshotMode = if ($UpdateSnapshots) { 'update' } else { 'compare' }
+  $command = New-Object Text.StringBuilder ('"' + $shellPath + '" "' + $childPath + '" "' + $DesktopName + '" "' + $OutputDirectory + '" "' + $escapedGrep + '" ' + $snapshotMode)
   if (-not [FableviaTestDesktop]::CreateProcess($shellPath, $command, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0x08000000, [IntPtr]::Zero, $projectRoot, [ref]$startup, [ref]$process)) {
     throw "CreateProcess failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
   }
+  $env:PLOTFLOW_BACKGROUND_DESKTOP = $previousDesktopEnvironment
   Write-Output "ISOLATED_DESKTOP=$DesktopName"
   Write-Output "OUTPUT_DIRECTORY=$OutputDirectory"
   $deadline = [DateTime]::UtcNow.AddMinutes(20)

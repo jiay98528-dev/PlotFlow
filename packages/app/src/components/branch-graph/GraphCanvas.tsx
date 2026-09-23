@@ -429,10 +429,10 @@ export function GraphCanvas({ viewMode = 'split' }: GraphCanvasProps): React.Rea
             {/* 缩放/适应/锁定控件 — 仅 split 模式 */}
             {canEditGraph && (
               <Controls
-                position="bottom-right"
+                position="bottom-left"
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
+                  flexDirection: 'row',
                   gap: 'var(--space-1, 4px)',
                 }}
               />

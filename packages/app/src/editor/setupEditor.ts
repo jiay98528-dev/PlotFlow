@@ -1,3 +1,4 @@
+import { loadWritingMaterials } from '../services/corpusLibraryService';
 /**
  * Monaco Editor 统一初始化入口 (M1)
  *
@@ -134,6 +135,7 @@ export async function setupPlotFlowEditor(): Promise<void> {
         loader.loadToEngine(engine, 'en'),
       ]);
 
+      await loadWritingMaterials().catch(() => {});
       registerGhostTextProvider(engine, index);
     } catch (err) {
       // 语料加载或补全注册失败是非致命的 — 编辑器仍可正常使用

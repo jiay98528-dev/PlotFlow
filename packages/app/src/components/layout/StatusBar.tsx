@@ -9,6 +9,7 @@ import { useAppText } from '../../i18n/appI18n';
 function formatStatusMessage(message: string): string {
   if (message.startsWith('save:')) return message.slice('save:'.length);
   if (message.startsWith('parse:')) return message.slice('parse:'.length);
+  if (message.startsWith('file:')) return message.slice('file:'.length);
   return message;
 }
 

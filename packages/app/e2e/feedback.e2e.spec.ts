@@ -32,7 +32,7 @@ test('反馈仅从 Help 菜单打开，并遵循 modal 焦点合同', async () =
     const opener = home.locator('button').first();
     await opener.focus();
     await openFeedbackFromNativeHelpMenu(app);
-    const dialog = page.getByRole('dialog', { name: /BUG 反馈|Submit bug feedback/u });
+    const dialog = page.getByRole('dialog', { name: /问题反馈|BUG 反馈|Submit bug feedback/u });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('textarea')).toBeFocused();
 

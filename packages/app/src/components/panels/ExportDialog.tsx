@@ -375,18 +375,18 @@ export function ExportDialog(): React.ReactElement | null {
 
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) {
+      if (e.target === e.currentTarget && exportStatus !== 'exporting') {
         closeExportDialog();
       }
     },
-    [closeExportDialog],
+    [closeExportDialog, exportStatus],
   );
 
   useEffect(() => {
     if (!isOpen) return undefined;
 
     const handleWindowKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && exportStatus !== 'exporting') {
         event.preventDefault();
         closeExportDialog();
       }
@@ -396,7 +396,7 @@ export function ExportDialog(): React.ReactElement | null {
     return () => {
       window.removeEventListener('keydown', handleWindowKeyDown);
     };
-  }, [closeExportDialog, isOpen]);
+  }, [closeExportDialog, exportStatus, isOpen]);
 
   // ========================================================================
   // 键盘事件：Enter 触发导出，Escape 关闭
@@ -404,11 +404,11 @@ export function ExportDialog(): React.ReactElement | null {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && exportStatus !== 'exporting') {
         closeExportDialog();
       }
     },
-    [closeExportDialog],
+    [closeExportDialog, exportStatus],
   );
 
   // ========================================================================
@@ -441,6 +441,7 @@ export function ExportDialog(): React.ReactElement | null {
             title={text('exportDialog.close')}
             aria-label={text('exportDialog.close')}
             style={closeButtonStyle}
+            disabled={exportStatus === 'exporting'}
           >
             ✕
           </button>
@@ -466,6 +467,7 @@ export function ExportDialog(): React.ReactElement | null {
                 >
                   <input
                     type="radio"
+                    disabled={exportStatus === 'exporting'}
                     name="export-format"
                     value={opt.key}
                     checked={isChecked}
@@ -619,12 +621,13 @@ const overlayStyle: React.CSSProperties = {
 // -------- 面板 --------
 
 const panelStyle: React.CSSProperties = {
-  width: 480,
-  maxWidth: '90vw',
+  width: 620,
+  maxWidth: 'calc(100vw - 48px)',
+  maxHeight: 'calc(100vh - 48px)',
   background: 'var(--color-bg-primary)',
   borderRadius: 'var(--radius-lg, 12px)',
   boxShadow: 'var(--shadow-lg)',
-  overflow: 'hidden',
+  overflow: 'auto',
   display: 'flex',
   flexDirection: 'column',
   animation: 'fadeIn 0.15s ease',
@@ -636,7 +639,7 @@ const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  padding: '12px 16px',
+  padding: '24px',
   fontSize: '14px',
   fontWeight: 600,
   color: 'var(--color-text-primary)',
@@ -646,8 +649,9 @@ const headerStyle: React.CSSProperties = {
 };
 
 const headerTitleStyle: React.CSSProperties = {
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  fontSize: '20px',
+  textTransform: 'none',
+  letterSpacing: 0,
 };
 
 const shortcutHintStyle: React.CSSProperties = {
@@ -673,18 +677,18 @@ const closeButtonStyle: React.CSSProperties = {
 // -------- 主体内容 --------
 
 const bodyStyle: React.CSSProperties = {
-  padding: '16px 16px 8px',
+  padding: '24px',
   display: 'flex',
   flexDirection: 'column',
   gap: 12,
 };
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   fontWeight: 600,
   color: 'var(--color-text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  textTransform: 'none',
+  letterSpacing: 0,
   userSelect: 'none',
 };
 
@@ -700,7 +704,9 @@ const formatOptionStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 10,
-  padding: '10px 12px',
+  padding: '18px 16px',
+  minHeight: 76,
+  flexWrap: 'wrap',
   border: '1px solid var(--color-border-default)',
   borderRadius: 8,
   cursor: 'pointer',
@@ -791,7 +797,7 @@ const footerStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
   gap: 8,
-  padding: '12px 16px',
+  padding: '24px',
   borderTop: '1px solid var(--color-border-default)',
   background: 'var(--color-bg-secondary)',
 };

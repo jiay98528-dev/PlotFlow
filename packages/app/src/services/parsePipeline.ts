@@ -28,6 +28,11 @@ const DEBOUNCE_MS = 500;
 const PARSE_STATUS_PREFIX = 'parse:';
 const SAVE_STATUS_PREFIX = 'save:';
 
+function hasFileOperationStatus(): boolean {
+  const status = useUIStore.getState().statusMessage;
+  return status.startsWith(SAVE_STATUS_PREFIX) || status.startsWith('file:');
+}
+
 function pipelineText(key: string, params?: Readonly<Record<string, string | number>>): string {
   return appT(key, params, useUIStore.getState().language);
 }
@@ -80,7 +85,7 @@ function currentIdentity(): StoryIdentity {
 export function publishStorySnapshot(snapshot: PreparedStorySnapshot): boolean {
   useStoryStore.getState().setPlotFlowData(snapshot.data, snapshot.identity);
   const projection = useGraphStore.getState().syncFromAST(snapshot.data);
-  if (!projection.ok) {
+  if (!projection.ok && !hasFileOperationStatus()) {
     useUIStore
       .getState()
       .setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.graphRenderFailed')}`);
@@ -107,7 +112,7 @@ function executePipeline(raw: string): PreparedStorySnapshot | null {
       useGraphStore.getState().syncFromAST(null);
     }
     const ui = useUIStore.getState();
-    if (!ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
+    if (!hasFileOperationStatus()) {
       ui.setStatusMessage(`${PARSE_STATUS_PREFIX}${pipelineText('parse.exception')}`);
     }
     return null;
@@ -118,7 +123,7 @@ function executePipeline(raw: string): PreparedStorySnapshot | null {
   // 6. 状态栏消息：有错误时提示用户分支图可能不完整 (V02-033)
   const errorCount = result.snapshot.diagnostics.filter((d) => d.severity === 'error').length;
   const ui = useUIStore.getState();
-  if (ui.statusMessage.startsWith(SAVE_STATUS_PREFIX)) {
+  if (hasFileOperationStatus()) {
     return result.snapshot;
   }
   if (!graphProjectionSucceeded) return result.snapshot;

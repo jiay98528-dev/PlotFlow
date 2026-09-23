@@ -1,3 +1,4 @@
+import { flushInspectorDrafts } from '../../services/inspectorDraftCoordinator';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -137,6 +138,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   }, [diagnostics, plotFlowData]);
 
   const handleCreateChapter = useCallback(() => {
+    if (!flushInspectorDrafts()) return;
     const existing = new Set((plotFlowData?.chapters ?? []).map((chapter) => chapter.title));
     const title = nextChapterTitle(existing, language);
     if (graphEditService.createChapter(title)) {
@@ -146,6 +148,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   }, [language, plotFlowData?.chapters, setActiveChapterId, setStatusMessage, text]);
 
   const handleCreateNode = useCallback(() => {
+    if (!flushInspectorDrafts()) return;
     if (
       graphEditService.createNode({
         chapterTitle: resolveTargetChapterTitle(
@@ -161,6 +164,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
   }, [activeChapterId, plotFlowData, setStatusMessage, text]);
 
   const handleCreateEnding = useCallback(() => {
+    if (!flushInspectorDrafts()) return;
     if (
       graphEditService.createNode({
         chapterTitle: resolveTargetChapterTitle(
@@ -313,6 +317,11 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             <Square aria-hidden="true" size={15} strokeWidth={2} />
             <span>{text('palette.ending')}</span>
           </button>
+
+        </div>
+      </section>
+
+      <div className="ux-canvas-tools" role="group" aria-label={text('ux.viewTools')}>
           <button
             type="button"
             className="graph-lab-tool"
@@ -322,9 +331,7 @@ export function GraphLabPalette({ onNodeNavigate }: GraphLabPaletteProps): React
             <LayoutGrid aria-hidden="true" size={16} strokeWidth={2} />
             <span>{text('palette.relayout')}</span>
           </button>
-        </div>
-      </section>
-
+      </div>
       <section className="graph-lab-rail__block">
         <div className="graph-lab-section__title">
           <h3>{text('palette.outline')}</h3>
